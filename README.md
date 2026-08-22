@@ -7,7 +7,7 @@ Bedrock 协议层统一悬浮显示库（LeviLamina 26.10.14 / 协议 944）。
 ## 特性
 
 - **统一接口**：`IHologramLib::getInstance()` 单例暴露 `IShapeDrawer` / `IHologramText` / `IItemDetail` 三个能力域，全库唯一公开头 `include/hologramlib/HologramLib.h`
-- **API 冻结**：C++ 侧纯虚接口 + DLL 内实现（ABI 稳定）；LSE 侧三命名空间 72 个函数签名永不变更，只增不改不删（详见 [API.md](API.md) 稳定性契约）
+- **API 冻结**：C++ 侧纯虚接口 + DLL 内实现（ABI 稳定）；LSE 侧单命名空间 `HologramLib` 74 个函数（`shape*` / `holo*` / `gradient*` / `itemDetail*` 四域前缀）签名永不变更，只增不改不删（详见 [API.md](API.md) 稳定性契约）
 - **零前置依赖**：LegacyRemoteCall / MeowPAPI 均为运行时可选（`GetModuleHandle` + `GetProcAddress` 动态挂载，缺席时 LSE 层安全降级，原生 C++ 接口不受影响）
 - **整块文本渲染**：悬浮字为单一多行文本形状（`\n` 合并 + 同 networkId 原地覆盖，无闪烁）；不含逐字符分框与极薄 Box 填充面等旧方案
 - **物品名自动翻译**：ItemRegistry → ItemStack → I18n 链，兜底原样显示不阻断
@@ -108,10 +108,12 @@ add_links("HologramLib")
 ### LSE 脚本
 
 ```js
-// 与原 DebugShape-Protocol 插件完全兼容, 现有脚本零改动
-const createLine = ll.import("DebugShape", "createLine");
-const ftCreate   = ll.import("FloatingText", "create");
-const glCreate   = ll.import("GradientLine", "create");
+// 统一命名空间 "HologramLib", 四域前缀:
+//   shape* 形状 / holo* 悬浮字 / gradient* 渐变线 / itemDetail* 物品详情
+const shapeCreateLine = ll.import("HologramLib", "shapeCreateLine");
+const holoCreate      = ll.import("HologramLib", "holoCreate");
+const gradientCreate  = ll.import("HologramLib", "gradientCreate");
+const itemDetailShow  = ll.import("HologramLib", "itemDetailShow");
 ```
 
 完整函数清单见 [API.md](API.md)。

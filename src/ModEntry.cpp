@@ -5,6 +5,7 @@
 #include "GradientLineExporter.h"
 #include "FloatingTextManager.h"
 #include "GradientLineManager.h"
+#include "itemdetail/ItemDetailExporter.h"
 #include "lse/LseBridge.h"
 
 #include <ll/api/event/EventBus.h>
@@ -20,7 +21,7 @@ ModEntry& ModEntry::getInstance() {
     return instance;
 }
 
-// LSE 导出状态（attach 成功且已完成三命名空间导出）
+// LSE 导出状态（attach 成功且已完成统一命名空间 HologramLib 导出）
 static std::atomic<bool> gLseExported{false};
 
 static void exportLseFunctions() {
@@ -28,6 +29,7 @@ static void exportLseFunctions() {
     RemoteCallExporter::exportAll();
     FloatingTextExporter::exportAll();
     GradientLineExporter::exportAll();
+    ItemDetailExporter::exportAll();
 }
 
 bool ModEntry::load() {

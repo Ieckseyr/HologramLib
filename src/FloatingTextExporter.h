@@ -4,8 +4,8 @@ namespace debugshape_export {
 
 /**
  * FloatingTextExporter - 导出高级悬浮字 API 给 LSE
- * 
- * 命名空间: "FloatingText"
+ *
+ * 统一命名空间 "HologramLib"（holo* 前缀域）
  * 
  * 功能:
  * - 多行文本，每行独立配置

@@ -5,7 +5,7 @@
 //   2. #include "hologramlib/HologramLib.h"
 //   3. auto& shapes = hologramlib::IHologramLib::getInstance().shapes();
 //
-// LSE 脚本仍经 ll.import("DebugShape"|"FloatingText"|"GradientLine", ...) 调用，
+// LSE 脚本经 ll.import("HologramLib", "shape*/holo*/gradient*/itemDetail*") 统一命名空间调用，
 // 由库内 LseBridge 在运行时检测 LegacyRemoteCall 是否存在（可选，无前置依赖）。
 //
 // - 接口对象全部在 HologramLib.dll 内创建/销毁, 消费者只持有引用, 不跨边界 new/delete

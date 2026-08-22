@@ -9,7 +9,7 @@
 |------|----------|----------|
 | C++ 接口 | 全部纯虚方法签名与语义（ABI 稳定：实现对象在 DLL 内创建，消费者只持引用） | 只在接口**尾部追加**方法、只新增函数；永不修改/删除 |
 | C++ 宏 | `HOLOGLIB_API_VERSION`、`HOLOGLIB_API`、`hologramlib` 命名空间、枚举值 | 只追加枚举值 |
-| LSE 命名空间 | 三命名空间全部函数名、参数顺序、返回值类型 | 只增不改不删 |
+| LSE 命名空间 | 单一命名空间 `HologramLib` 全部函数名（四域前缀）、参数顺序、返回值类型 | 只增不改不删 |
 | 版本协商 | `IHologramLib::version()`（BCD：0x010500 = 1.5.0） | 随发布递增 |
 
 破坏兼容仅允许发生在大版本（2.0.0），届时提供全新接口名并长期保留旧接口最终冻结实现。
@@ -127,115 +127,133 @@ bool hide(int64_t id);
 
 ---
 
-## 2. LSE 兼容层（ll.import）
+## 2. LSE 接口（ll.import 统一命名空间）
 
-LegacyRemoteCall（lrca）在场时自动导出，三命名空间与原 DebugShape-Protocol 插件**同名同签名**，现有脚本零改动。缺席时安全降级（`ll.import` 得 null）。
+LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib`**，四域前缀区分能力域：
+
+| 前缀域 | 能力 | 对应 C++ 接口 | 函数数 |
+|--------|------|---------------|--------|
+| `shape*` | 形状渲染 | IShapeDrawer | 36 |
+| `holo*` | 悬浮字全息 | IHologramText | 25 |
+| `gradient*` | 渐变线 | GradientLineManager | 11 |
+| `itemDetail*` | 物品详情 | IItemDetail | 2 |
+
+缺席时安全降级（`ll.import` 得 null）。
 
 类型记法：`f`=浮点 `i`=整数 `s`=字符串 `b`=布尔 `[i]`=int64 数组。除注明外 id 均为 int64。
 
-### 2.1 DebugShape（形状，41 函数）
+### 2.1 shape*（形状，36 函数）
 
 **创建**
 
 | 函数 | 签名 |
 |------|------|
-| createText | `(x: f, y: f, z: f, text: s) -> i` |
-| createLine | `(x1,y1,z1: f, x2,y2,z2: f) -> i` |
-| createBox | `(x1,y1,z1: f, x2,y2,z2: f) -> i` |
-| createCircle | `(x: f, y: f, z: f, scale: f) -> i` |
-| createSphere | `(x: f, y: f, z: f, scale: f) -> i` |
-| createArrow | `(x1,y1,z1: f, x2,y2,z2: f) -> i` |
+| shapeCreateText | `(x: f, y: f, z: f, text: s) -> i` |
+| shapeCreateLine | `(x1,y1,z1: f, x2,y2,z2: f) -> i` |
+| shapeCreateBox | `(x1,y1,z1: f, x2,y2,z2: f) -> i` |
+| shapeCreateCircle | `(x: f, y: f, z: f, scale: f) -> i` |
+| shapeCreateSphere | `(x: f, y: f, z: f, scale: f) -> i` |
+| shapeCreateArrow | `(x1,y1,z1: f, x2,y2,z2: f) -> i` |
 
 **属性**
 
 | 函数 | 签名 |
 |------|------|
-| setText | `(id, text: s) -> b` |
-| getText | `(id) -> s` |
-| setLocation | `(id, x: f, y: f, z: f) -> b` |
-| getLocation | `(id) -> [f,f,f]` |
-| setColor | `(id, r: f, g: f, b: f, a: f) -> b` |
-| getColor | `(id) -> [f,f,f,f]` |
-| setScale | `(id, scale: f) -> b` |
-| setDuration | `(id, seconds: f) -> b` |
-| setDimension | `(id, dimId: i) -> b` |
-| setRotation | `(id, pitch: f, yaw: f, roll: f) -> b` |
-| clearRotation | `(id) -> b` |
-| getRotation | `(id) -> [f,f,f]` |
-| getShapeType | `(id) -> i`（0..5，见 ShapeType） |
+| shapeSetText | `(id, text: s) -> b` |
+| shapeGetText | `(id) -> s` |
+| shapeSetLocation | `(id, x: f, y: f, z: f) -> b` |
+| shapeGetLocation | `(id) -> [f,f,f]` |
+| shapeSetColor | `(id, r: f, g: f, b: f, a: f) -> b` |
+| shapeGetColor | `(id) -> [f,f,f,f]` |
+| shapeSetScale | `(id, scale: f) -> b` |
+| shapeSetDuration | `(id, seconds: f) -> b` |
+| shapeSetDimension | `(id, dimId: i) -> b` |
+| shapeSetRotation | `(id, pitch: f, yaw: f, roll: f) -> b` |
+| shapeClearRotation | `(id) -> b` |
+| shapeGetRotation | `(id) -> [f,f,f]` |
+| shapeGetShapeType | `(id) -> i`（0..5，见 ShapeType） |
 
 **显示**
 
 | 函数 | 签名 |
 |------|------|
-| draw | `(id) -> b` |
-| drawToPlayer | `(id, playerName: s) -> b` |
-| drawToDimension | `(id, dimId: i) -> b` |
-| drawBatch | `(ids: [i]) -> b` |
-| remove | `(id) -> b` |
-| removeToPlayer | `(id, playerName: s) -> b` |
-| removeToDimension | `(id, dimId: i) -> b` |
-| update | `(id) -> b` |
-| updateToPlayer | `(id, playerName: s) -> b` |
-| updateToDimension | `(id, dimId: i) -> b` |
+| shapeDraw | `(id) -> b` |
+| shapeDrawToPlayer | `(id, playerName: s) -> b` |
+| shapeDrawToDimension | `(id, dimId: i) -> b` |
+| shapeDrawBatch | `(ids: [i]) -> b` |
+| shapeRemove | `(id) -> b` |
+| shapeRemoveToPlayer | `(id, playerName: s) -> b` |
+| shapeRemoveToDimension | `(id, dimId: i) -> b` |
+| shapeUpdate | `(id) -> b` |
+| shapeUpdateToPlayer | `(id, playerName: s) -> b` |
+| shapeUpdateToDimension | `(id, dimId: i) -> b` |
 
 **生命周期与查询**
 
 | 函数 | 签名 |
 |------|------|
-| destroy | `(id) -> b` |
-| destroyAll | `() -> nil` |
-| destroyBatch | `(ids: [i]) -> b` |
-| findTextByLocation | `(x: f, y: f, z: f, radius: f) -> [i]` |
-| findTextByLocationAndContent | `(x: f, y: f, z: f, radius: f, text: s) -> i` |
-| getAllShapeIds | `() -> [i]` |
-| exists | `(id) -> b` |
+| shapeDestroy | `(id) -> b` |
+| shapeDestroyAll | `() -> nil` |
+| shapeDestroyBatch | `(ids: [i]) -> b` |
+| shapeFindTextByLocation | `(x: f, y: f, z: f, radius: f) -> [i]` |
+| shapeFindTextByLocationAndContent | `(x: f, y: f, z: f, radius: f, text: s) -> i` |
+| shapeGetAllShapeIds | `() -> [i]` |
+| shapeExists | `(id) -> b` |
 
-### 2.2 FloatingText（悬浮字，23 函数）
-
-| 函数 | 签名 |
-|------|------|
-| create | `(x: f, y: f, z: f) -> i` |
-| destroy | `(id) -> b` |
-| destroyAll | `() -> nil` |
-| addLine | `(id, text: s) -> b` |
-| setLineText | `(id, lineIndex: i, text: s) -> b` |
-| setLineScale | `(id, lineIndex: i, scale: f) -> b` |
-| removeLine | `(id, lineIndex: i) -> b` |
-| clearLines | `(id) -> b` |
-| getLineCount | `(id) -> i` |
-| setColor | `(id, r,g,b,a: f) -> b` |
-| setLineColor | `(id, lineIndex: i, r,g,b,a: f) -> b` |
-| setLineGradient | `(id, lineIndex: i, r1,g1,b1,r2,g2,b2: f) -> b` |
-| setLineRainbow | `(id, lineIndex: i, speed: f) -> b` |
-| setLineScroll | `(id, lineIndex: i, direction: i, speed: f) -> b` |
-| setVerticalAnimation | `(id, type: i, speed: f, range: f) -> b` |
-| setLineSpacing | `(id, spacing: f) -> b` |
-| setLocation | `(id, x: f, y: f, z: f) -> b` |
-| setFollowPlayer | `(id, playerName: s, offsetY: f) -> b` |
-| clearFollowPlayer | `(id) -> b` |
-| tick | `(deltaTime: f) -> nil`（动画驱动） |
-| draw | `(id) -> b` |
-| drawToDimension | `(id, dimId: i) -> b` |
-| drawToPlayer | `(id, playerName: s) -> b` |
-| remove | `(id) -> b` |
-| refresh | `(id) -> b` |
-
-### 2.3 GradientLine（渐变线，11 函数）
+### 2.2 holo*（悬浮字，25 函数）
 
 | 函数 | 签名 |
 |------|------|
-| create | `(x1,y1,z1: f, x2,y2,z2: f, segments: i) -> i` |
-| setGradient | `(id, r1,g1,b1,r2,g2,b2: f) -> b` |
-| setRainbow | `(id, speed: f) -> b` |
-| setColor | `(id, r,g,b,a: f) -> b` |
-| setEndpoints | `(id, x1,y1,z1: f, x2,y2,z2: f) -> b` |
-| draw | `(id) -> b` |
-| drawToDimension | `(id, dimId: i) -> b` |
-| remove | `(id) -> b` |
-| destroy | `(id) -> b` |
-| destroyAll | `() -> nil` |
-| tick | `(deltaTime: f) -> nil`（彩虹动画驱动） |
+| holoCreate | `(x: f, y: f, z: f) -> i` |
+| holoDestroy | `(id) -> b` |
+| holoDestroyAll | `() -> nil` |
+| holoAddLine | `(id, text: s) -> b` |
+| holoSetLineText | `(id, lineIndex: i, text: s) -> b` |
+| holoSetLineScale | `(id, lineIndex: i, scale: f) -> b` |
+| holoRemoveLine | `(id, lineIndex: i) -> b` |
+| holoClearLines | `(id) -> b` |
+| holoGetLineCount | `(id) -> i` |
+| holoSetColor | `(id, r,g,b,a: f) -> b` |
+| holoSetLineColor | `(id, lineIndex: i, r,g,b,a: f) -> b` |
+| holoSetLineGradient | `(id, lineIndex: i, r1,g1,b1,r2,g2,b2: f) -> b` |
+| holoSetLineRainbow | `(id, lineIndex: i, speed: f) -> b` |
+| holoSetLineScroll | `(id, lineIndex: i, direction: i, speed: f) -> b`（方向 0=无 1=左 2=右） |
+| holoSetVerticalAnimation | `(id, type: i, speed: f, range: f) -> b`（0=无 1=弹跳 2=滚动） |
+| holoSetLineSpacing | `(id, spacing: f) -> b` |
+| holoSetLocation | `(id, x: f, y: f, z: f) -> b` |
+| holoSetFollowPlayer | `(id, playerName: s, offsetY: f) -> b` |
+| holoClearFollowPlayer | `(id) -> b` |
+| holoTick | `(deltaTime: f) -> nil`（动画驱动） |
+| holoDraw | `(id) -> b` |
+| holoDrawToDimension | `(id, dimId: i) -> b` |
+| holoDrawToPlayer | `(id, playerName: s) -> b` |
+| holoRemove | `(id) -> b` |
+| holoRefresh | `(id) -> b`（重解析变量并原地重发） |
+
+### 2.3 gradient*（渐变线，11 函数）
+
+| 函数 | 签名 |
+|------|------|
+| gradientCreate | `(x1,y1,z1: f, x2,y2,z2: f, segments: i) -> i` |
+| gradientSetGradient | `(id, r1,g1,b1,r2,g2,b2: f) -> b` |
+| gradientSetRainbow | `(id, speed: f) -> b` |
+| gradientSetColor | `(id, r,g,b,a: f) -> b` |
+| gradientSetEndpoints | `(id, x1,y1,z1: f, x2,y2,z2: f) -> b` |
+| gradientDraw | `(id) -> b` |
+| gradientDrawToDimension | `(id, dimId: i) -> b` |
+| gradientRemove | `(id) -> b` |
+| gradientDestroy | `(id) -> b` |
+| gradientDestroyAll | `() -> nil` |
+| gradientTick | `(deltaTime: f) -> nil`（彩虹动画驱动） |
+
+### 2.4 itemDetail*（物品详情，2 函数）
+
+| 函数 | 签名 |
+|------|------|
+| itemDetailShow | `(dimId: i, x,y,z: f, itemId: s, aux: i, count: i, customText: s) -> i` |
+| itemDetailHide | `(id) -> b` |
+
+`itemDetailShow`：在 (x,y,z) 显示"本地化物品名 xN"（count<=1 无数量后缀）；`customText` 传 `""` 用自动文本，非空则完全替代（支持 § 颜色码与 `{变量}`）。返回悬浮字 ID，可继续用 `holo*` 精修。
 
 ---
 
@@ -245,6 +263,7 @@ LegacyRemoteCall（lrca）在场时自动导出，三命名空间与原 DebugSha
 
 | 删除项 | 原因 |
 |--------|------|
+| 旧三命名空间 `DebugShape` / `FloatingText` / `GradientLine` | 统一并入单命名空间 `HologramLib`（域前缀重命名） |
 | `DebugShape::createFilledQuad` | 极薄 Box 模拟填充面方案废弃 |
 | `DebugShape::createFilledQuadBatch` | 每像素一个极薄 Box 的批量填充面方案废弃 |
 | `LSEShapeType::FilledQuad (=6)` | 枚举移除，6 保留空洞 |
