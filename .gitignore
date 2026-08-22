@@ -1,0 +1,12 @@
+# 严格白名单: 仅跟踪 src/ include/ xmake.lua README.md API.md .gitignore
+/*
+
+!/.gitignore
+!/README.md
+!/API.md
+!/src/
+!/include/
+!/xmake.lua
+
+# 白名单内仍需排除的内容
+src/**/*.log
