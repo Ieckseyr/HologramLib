@@ -1,6 +1,6 @@
 # HologramLib API 参考
 
-- 库版本：1.5.0（`HOLOGLIB_API_VERSION 0x010500`）
+- 库版本：1.6.0（`HOLOGLIB_API_VERSION 0x010600`）
 - 唯一公开头：`include/hologramlib/HologramLib.h`
 
 ## API 稳定性契约
@@ -124,6 +124,45 @@ bool hide(int64_t id);
 ```
 
 物品名解析链：`ItemRegistry（HashedString）→ ItemStack → I18n(getDescriptionId)` → `getName/getDescriptionName` → 兜底原样显示 ID（不阻断）。
+
+### 1.5 IItemDisplay（FMBE 物品悬浮显示，1.6.0 追加）
+
+配置驱动的物品/方块悬浮展示（FMBE 狐狸+发包）。全部变换字段为**常量数字或 Molang 表达式字符串**；持久化由消费者负责（库只管渲染）。
+
+```cpp
+struct ItemDisplayConfig {
+    std::string item{"minecraft:diamond"}; // 物品标识符
+    int         itemAux{0};                // 附加值
+    float       x{0}, y{64}, z{0};         // 世界坐标
+    int         dimension{0};
+    std::string offsetX{"0"}, offsetY{"-4"}, offsetZ{"0"};           // v.xpos/ypos/zpos 模型单位平移
+    std::string baseOffsetX/Y/Z{"0"};                                 // v.xbasepos... 渲染像素偏移
+    std::string rotX{"180"}, rotY{"0"}, rotZ{"180"};                 // 三轴旋转（度）
+    std::string scale{"0.375"};                                       // 缩放（方块模式建议 0.5）
+    std::string extendScale{"1"}, extendRotX{"-90"}, extendRotY{"0"}; // 方块模式二段变换
+    int    mode{0};                        // 0=auto 1=item 2=block
+    double viewDistance{64.0};             // <=0 无限制
+    bool   enabled{true};
+};
+```
+
+| 方法 | 签名 | 说明 |
+|------|------|------|
+| create | `(ItemDisplayConfig const&) -> int64_t` | 创建（<0 失败） |
+| destroy / destroyAll | `(int64_t) -> bool` / `() -> void` | 销毁 |
+| exists | `(int64_t) -> bool` | 存在性 |
+| get | `(int64_t, ItemDisplayConfig&) -> bool` | 拷贝输出当前配置 |
+| setItem | `(int64_t, std::string const&, int) -> bool` | 换物品 |
+| setPosition | `(int64_t, float, float, float, int) -> bool` | dim<0 仅改坐标 |
+| setOffset / setBaseOffset | `(int64_t, ox, oy, oz: string) -> bool` | 平移（Molang） |
+| setRotation | `(int64_t, rx, ry, rz: string) -> bool` | 三轴旋转（Molang） |
+| setScale | `(int64_t, scale: string) -> bool` | 缩放（Molang） |
+| setExtend | `(int64_t, scale, rx, ry: string) -> bool` | 方块二段变换 |
+| setMode / setEnabled / setViewDistance | — | 行为 |
+| rotateY | `(int64_t, float) -> bool` | 偏航叠加增量（常量/表达式自适应） |
+| getAllIds | `() -> std::vector<int64_t>` | 全部 ID |
+
+可见性由库内 Level tick hook 自动同步（每 20 tick：同维度 + 可见距离内玩家自动生成/移除；玩家断线自动清理）；属性变更即时生效（对已见玩家原子 despawn→respawn）。
 
 ---
 
@@ -254,6 +293,32 @@ LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib
 | itemDetailHide | `(id) -> b` |
 
 `itemDetailShow`：在 (x,y,z) 显示"本地化物品名 xN"（count<=1 无数量后缀）；`customText` 传 `""` 用自动文本，非空则完全替代（支持 § 颜色码与 `{变量}`）。返回悬浮字 ID，可继续用 `holo*` 精修。
+
+### 2.5 itemDisplay*（FMBE 物品悬浮显示，1.6.0 追加，18 函数）
+
+FMBE（狐狸+发包）技术：隐形狐狸手持物品渲染任意物品/方块的悬浮展示。三轴旋转/函数平移/缩放全部支持 **Molang 表达式**（如 `"math.sin(query.life_time*90)*360"`）。
+
+| 函数 | 签名 |
+|------|------|
+| itemDisplayCreate | `(x: f, y: f, z: f, dim: i, itemId: s, aux: i) -> i` |
+| itemDisplayCreateAdvanced | `(x,y,z: f, dim: i, itemId: s, aux: i, offX,offY,offZ: s, rotX,rotY,rotZ: s, scale: s) -> i` |
+| itemDisplayDestroy | `(id) -> b` |
+| itemDisplayDestroyAll | `() -> nil` |
+| itemDisplayExists | `(id) -> b` |
+| itemDisplayGetAllIds | `() -> [i]` |
+| itemDisplaySetItem | `(id, itemId: s, aux: i) -> b` |
+| itemDisplaySetPosition | `(id, x,y,z: f, dim: i) -> b`（dim<0 仅改坐标） |
+| itemDisplaySetOffset | `(id, ox,oy,oz: s) -> b`（模型单位平移; Molang） |
+| itemDisplaySetBaseOffset | `(id, ox,oy,oz: s) -> b`（渲染像素基础偏移; Molang） |
+| itemDisplaySetRotation | `(id, rx,ry,rz: s) -> b`（三轴旋转/度; Molang） |
+| itemDisplaySetScale | `(id, scale: s) -> b`（Molang） |
+| itemDisplaySetExtend | `(id, scale,rx,ry: s) -> b`（方块模式二段变换） |
+| itemDisplaySetMode | `(id, mode: i) -> b`（0=auto 1=item 2=block） |
+| itemDisplaySetEnabled | `(id, enabled: b) -> b` |
+| itemDisplaySetViewDistance | `(id, dist: f) -> b`（<=0 无限制） |
+| itemDisplayRotateY | `(id, delta: f) -> b`（偏航叠加增量） |
+
+渲染模式：`auto`（默认）按物品 3D/2D 自动选择；`item` 平面物品渲染（wiki.scale/wiki.posrot 路径，rotY 内部自动 +205 补偿狐狸头朝向）；`block` 3D 方块渲染（完整旋转矩阵路径 + 二段扩展变换）。可见性由库内 Level tick hook 自动同步（同维度 + 可见距离内玩家自动生成/移除，玩家加入/断线自动清理）。
 
 ---
 

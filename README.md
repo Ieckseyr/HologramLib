@@ -2,12 +2,12 @@
 
 Bedrock 协议层统一悬浮显示库（LeviLamina 26.10.14 / 协议 944）。
 
-将形状渲染、悬浮字全息、物品详情三大能力域合并为**单一插件**，同时提供**冻结的 C++ 虚接口**与 **LSE（ll.import）兼容层**。渲染全部通过 `PrimitiveShapes` 协议包完成——不产生真实实体、不写存档、零服务器开销。
+将形状渲染、悬浮字全息、物品详情、FMBE 物品悬浮显示四大能力域合并为**单一插件**，同时提供**冻结的 C++ 虚接口**与 **LSE（ll.import）兼容层**。形状/悬浮字渲染通过 `PrimitiveShapes` 协议包完成，物品悬浮显示通过 FMBE（狐狸+发包）技术实现——均不产生真实实体、不写存档、零服务器开销。
 
 ## 特性
 
-- **统一接口**：`IHologramLib::getInstance()` 单例暴露 `IShapeDrawer` / `IHologramText` / `IItemDetail` 三个能力域，全库唯一公开头 `include/hologramlib/HologramLib.h`
-- **API 冻结**：C++ 侧纯虚接口 + DLL 内实现（ABI 稳定）；LSE 侧单命名空间 `HologramLib` 74 个函数（`shape*` / `holo*` / `gradient*` / `itemDetail*` 四域前缀）签名永不变更，只增不改不删（详见 [API.md](API.md) 稳定性契约）
+- **统一接口**：`IHologramLib::getInstance()` 单例暴露 `IShapeDrawer` / `IHologramText` / `IItemDetail` / `IItemDisplay` 四个能力域，全库唯一公开头 `include/hologramlib/HologramLib.h`
+- **API 冻结**：C++ 侧纯虚接口 + DLL 内实现（ABI 稳定，新能力域只在尾部追加）；LSE 侧单命名空间 `HologramLib` 90 个函数（`shape*` / `holo*` / `gradient*` / `itemDetail*` / `itemDisplay*` 五域前缀）签名永不变更，只增不改不删（详见 [API.md](API.md) 稳定性契约）
 - **零前置依赖**：LegacyRemoteCall / MeowPAPI 均为运行时可选（`GetModuleHandle` + `GetProcAddress` 动态挂载，缺席时 LSE 层安全降级，原生 C++ 接口不受影响）
 - **整块文本渲染**：悬浮字为单一多行文本形状（`\n` 合并 + 同 networkId 原地覆盖，无闪烁）；不含逐字符分框与极薄 Box 填充面等旧方案
 - **物品名自动翻译**：ItemRegistry → ItemStack → I18n 链，兜底原样显示不阻断
@@ -92,6 +92,11 @@ lib.holograms().addLine(holo, "§e欢迎来到主城");
 lib.holograms().addLine(holo, "在线: {online}");
 lib.holograms().setLineRainbow(holo, 1, 1.5f);
 lib.holograms().draw(holo);
+
+// 物品悬浮显示（FMBE 狐狸+发包; 三轴旋转/函数平移/缩放支持 Molang 表达式）
+auto disp = lib.itemDisplays().create({});
+lib.itemDisplays().setRotation(disp, "180", "math.sin(query.life_time*90)*360", "180");
+lib.itemDisplays().setOffset(disp, "math.sin(query.life_time)*2", "0", "0");
 
 // 物品详情（自动翻译为 "钻石 x64"）
 auto detail = lib.itemDetails().show(0, 100.5f, 65.0f, -200.5f, "minecraft:diamond", 0, 64);

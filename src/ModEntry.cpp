@@ -6,6 +6,8 @@
 #include "FloatingTextManager.h"
 #include "GradientLineManager.h"
 #include "itemdetail/ItemDetailExporter.h"
+#include "itemdisplay/ItemDisplayExporter.h"
+#include "itemdisplay/ItemDisplayManager.h"
 #include "lse/LseBridge.h"
 
 #include <ll/api/event/EventBus.h>
@@ -30,6 +32,7 @@ static void exportLseFunctions() {
     FloatingTextExporter::exportAll();
     GradientLineExporter::exportAll();
     ItemDetailExporter::exportAll();
+    ItemDisplayExporter::exportAll();
 }
 
 bool ModEntry::load() {
@@ -41,6 +44,8 @@ bool ModEntry::load() {
 bool ModEntry::enable() {
     auto& logger = getSelf().getLogger();
     logger.info("HologramLib enabling...");
+
+    ItemDisplayManager::getInstance().init();
 
     // 运行时可选挂载 LegacyRemoteCall（无前置依赖）:
     // - lrca 已加载（顺序在前）→ 立即导出, LSE 可用
@@ -76,6 +81,7 @@ bool ModEntry::disable() {
     PacketDebugRenderer::getInstance().destroyAll();
     FloatingTextManager::getInstance().destroyAll();
     GradientLineManager::getInstance().destroyAll();
+    ItemDisplayManager::getInstance().shutdown();
 
     logger.info("HologramLib disabled.");
     return true;

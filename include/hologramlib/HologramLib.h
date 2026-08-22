@@ -17,9 +17,9 @@
 #include <string>
 #include <vector>
 
-// 库 API 版本（与 IHologramLib::version() 同值, BCD: 0x010500 = 1.5.0）
+// 库 API 版本（与 IHologramLib::version() 同值, BCD: 0x010600 = 1.6.0）
 // 消费方可用于编译期静态断言最低版本要求
-#define HOLOGLIB_API_VERSION 0x010500
+#define HOLOGLIB_API_VERSION 0x010600
 
 #ifdef HOLOGLIB_EXPORTS
 #define HOLOGLIB_API __declspec(dllexport)
@@ -160,6 +160,66 @@ public:
 };
 
 // ─────────────────────────────────────────────
+// 物品悬浮显示（FMBE 狐狸+发包技术; 1.6.0 追加）
+// 用隐形狐狸手持物品渲染任意物品/方块的悬浮展示,
+// 三轴旋转/函数平移/缩放全部支持 Molang 表达式
+// ─────────────────────────────────────────────
+struct ItemDisplayConfig {
+    std::string item{"minecraft:diamond"}; // 显示的物品标识符
+    int         itemAux{0};                // 物品附加值（data 值）
+    float       x{0}, y{64}, z{0};         // 世界坐标
+    int         dimension{0};              // 维度 ID
+    // 平移（函数平移：常量数字或 Molang 表达式）
+    std::string offsetX{"0"};              // v.xpos   模型单位平移 X
+    std::string offsetY{"-4"};             // v.ypos   模型单位平移 Y（物品模式默认 -4）
+    std::string offsetZ{"0"};              // v.zpos   模型单位平移 Z
+    std::string baseOffsetX{"0"};          // v.xbasepos 渲染像素基础偏移 X
+    std::string baseOffsetY{"0"};          // v.ybasepos 渲染像素基础偏移 Y
+    std::string baseOffsetZ{"0"};          // v.zbasepos 渲染像素基础偏移 Z
+    // 三轴旋转（度, 支持 Molang 表达式）
+    std::string rotX{"180"};               // v.xrot 俯仰（物品模式默认 180 = 水平放置）
+    std::string rotY{"0"};                 // v.yrot 偏航（物品模式内部自动 +205 补偿狐狸头朝向）
+    std::string rotZ{"180"};               // v.zrot 翻滚（物品模式默认 180 = 正面朝上）
+    // 缩放
+    std::string scale{"0.375"};            // v.scale（物品模式默认 0.375; 方块模式建议 0.5）
+    // 方块模式附加变换（仅 blockMode 生效）
+    std::string extendScale{"1"};          // v.extend_scale 二段缩放
+    std::string extendRotX{"-90"};         // v.extend_xrot   二段旋转 X
+    std::string extendRotY{"0"};           // v.extend_yrot   二段旋转 Y
+    // 行为
+    int    mode{0};                        // 0=auto（按物品 3D/2D 自动） 1=item 2=block
+    double viewDistance{64.0};             // 可见距离（方块; <=0 无限制）
+    bool   enabled{true};
+};
+
+class IItemDisplay {
+public:
+    virtual ~IItemDisplay() = default;
+
+    // 生命周期（id 驱动; 创建失败返回 < 0; 持久化由消费者负责）
+    virtual int64_t create(ItemDisplayConfig const& config) = 0;
+    virtual bool    destroy(int64_t id)                     = 0;
+    virtual void    destroyAll()                            = 0;
+    virtual bool    exists(int64_t id) const                = 0;
+    virtual bool    get(int64_t id, ItemDisplayConfig& out) const = 0; // 拷贝输出当前配置
+
+    // 属性（变换字段为常量数字或 Molang 表达式字符串）
+    virtual bool setItem(int64_t id, std::string const& item, int aux) = 0;
+    virtual bool setPosition(int64_t id, float x, float y, float z, int dim) = 0; // dim<0 仅改坐标
+    virtual bool setOffset(int64_t id, std::string const& ox, std::string const& oy, std::string const& oz) = 0;
+    virtual bool setBaseOffset(int64_t id, std::string const& ox, std::string const& oy, std::string const& oz) = 0;
+    virtual bool setRotation(int64_t id, std::string const& rx, std::string const& ry, std::string const& rz) = 0;
+    virtual bool setScale(int64_t id, std::string const& scale) = 0;
+    virtual bool setExtend(int64_t id, std::string const& scale, std::string const& rx, std::string const& ry) = 0;
+    virtual bool setMode(int64_t id, int mode)          = 0;
+    virtual bool setEnabled(int64_t id, bool enabled)   = 0;
+    virtual bool setViewDistance(int64_t id, double dist) = 0;
+    virtual bool rotateY(int64_t id, float delta)       = 0; // 在现有 rotY 上叠加增量
+
+    virtual std::vector<int64_t> getAllIds() const      = 0;
+};
+
+// ─────────────────────────────────────────────
 // 库入口单例
 // ─────────────────────────────────────────────
 class IHologramLib {
@@ -175,8 +235,11 @@ public:
     // LSE 兼容层是否可用（LegacyRemoteCall 运行时检测成功）
     virtual bool isLseAvailable() = 0;
 
-    // 库版本（BCD: 0x010500 = 1.5.0）
+    // 库版本（BCD: 0x010600 = 1.6.0）
     virtual uint32_t version() = 0;
+
+    // ── 1.6.0 追加（冻结契约: 只在尾部追加）──
+    virtual IItemDisplay& itemDisplays() = 0;
 };
 
 } // namespace hologramlib

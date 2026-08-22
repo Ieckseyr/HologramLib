@@ -8,6 +8,7 @@
 #include "FloatingTextManager.h"
 #include "PacketDebugRenderer.h"
 #include "itemdetail/ItemDetailManager.h"
+#include "itemdisplay/ItemDisplayManager.h"
 #include "lse/LseBridge.h"
 
 #include <utility>
@@ -194,6 +195,59 @@ public:
     bool hide(int64_t id) override { return debugshape_export::ItemDetailManager::getInstance().hide(id); }
 };
 
+class ItemDisplayImpl final : public IItemDisplay {
+public:
+    int64_t create(ItemDisplayConfig const& config) override {
+        return debugshape_export::ItemDisplayManager::getInstance().create(config);
+    }
+    bool destroy(int64_t id) override {
+        return debugshape_export::ItemDisplayManager::getInstance().destroy(id);
+    }
+    void destroyAll() override { debugshape_export::ItemDisplayManager::getInstance().destroyAll(); }
+    bool exists(int64_t id) const override {
+        return debugshape_export::ItemDisplayManager::getInstance().exists(id);
+    }
+    bool get(int64_t id, ItemDisplayConfig& out) const override {
+        return debugshape_export::ItemDisplayManager::getInstance().get(id, out);
+    }
+    bool setItem(int64_t id, std::string const& item, int aux) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setItem(id, item, aux);
+    }
+    bool setPosition(int64_t id, float x, float y, float z, int dim) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setPosition(id, x, y, z, dim);
+    }
+    bool setOffset(int64_t id, std::string const& ox, std::string const& oy, std::string const& oz) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setOffset(id, ox, oy, oz);
+    }
+    bool setBaseOffset(int64_t id, std::string const& ox, std::string const& oy, std::string const& oz) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setBaseOffset(id, ox, oy, oz);
+    }
+    bool setRotation(int64_t id, std::string const& rx, std::string const& ry, std::string const& rz) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setRotation(id, rx, ry, rz);
+    }
+    bool setScale(int64_t id, std::string const& scale) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setScale(id, scale);
+    }
+    bool setExtend(int64_t id, std::string const& scale, std::string const& rx, std::string const& ry) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setExtend(id, scale, rx, ry);
+    }
+    bool setMode(int64_t id, int mode) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setMode(id, mode);
+    }
+    bool setEnabled(int64_t id, bool enabled) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setEnabled(id, enabled);
+    }
+    bool setViewDistance(int64_t id, double dist) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setViewDistance(id, dist);
+    }
+    bool rotateY(int64_t id, float delta) override {
+        return debugshape_export::ItemDisplayManager::getInstance().rotateY(id, delta);
+    }
+    std::vector<int64_t> getAllIds() const override {
+        return debugshape_export::ItemDisplayManager::getInstance().getAllIds();
+    }
+};
+
 class HologramLibImpl final : public IHologramLib {
 public:
     IShapeDrawer&  shapes() override { return mShapes; }
@@ -202,12 +256,15 @@ public:
 
     bool isLseAvailable() override { return lse::isAttached(); }
 
-    uint32_t version() override { return 0x010500; } // 1.5.0
+    uint32_t version() override { return 0x010600; } // 1.6.0
+
+    IItemDisplay& itemDisplays() override { return mItemDisplays; }
 
 private:
     ShapeDrawerImpl  mShapes;
     HologramTextImpl mHolograms;
     ItemDetailImpl   mItemDetails;
+    ItemDisplayImpl  mItemDisplays;
 };
 
 } // namespace
