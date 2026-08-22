@@ -134,13 +134,39 @@ bool is2DBlockItemName(std::string const& rawName) {
 
 // ── ItemStack 构造（按名称从注册表解析）──
 
-std::optional<::ItemStack> buildItemStack(std::string const& itemName, int aux) {
+// 旧名 → 新名（1.16~1.20.3x 官方改名, 用户习惯兼容; 与 DropEnhancer 校验逻辑同步）
+std::unordered_map<std::string, std::string> const& legacyItemNames() {
+    static std::unordered_map<std::string, std::string> const map = {
+        {"grass",      "short_grass"}, // 1.20.30 起草丛改名
+        {"grass_path", "dirt_path"},   // 1.19.x
+        {"sign",       "oak_sign"},    // 1.16 拆分
+        {"skull",      "player_head"}, // 1.16 拆分
+    };
+    return map;
+}
+
+// 名称规范化: 短名补 minecraft: 前缀; 旧名映射到现行名
+std::string normalizeItemName(std::string const& raw) {
+    std::string_view shortName = raw;
+    if (shortName.starts_with("minecraft:")) shortName.remove_prefix(10);
+    if (auto it = legacyItemNames().find(std::string(shortName)); it != legacyItemNames().end()) {
+        return "minecraft:" + it->second;
+    }
+    if (raw.find(':') == std::string::npos) return "minecraft:" + raw;
+    return raw;
+}
+
+std::optional<::ItemStack> buildItemStack(std::string const& rawName, int aux) {
     auto level = ll::service::getLevel();
     if (!level) return std::nullopt;
-    auto weak = level->getItemRegistry().getItem(::HashedString(itemName));
-    if (!weak) return std::nullopt;
-    ::ItemStack stack(*weak, 1, aux, nullptr);
-    return stack;
+
+    auto tryGet = [&](std::string const& name) -> std::optional<::ItemStack> {
+        auto weak = level->getItemRegistry().getItem(::HashedString(name));
+        if (!weak) return std::nullopt;
+        return ::ItemStack(*weak, 1, aux, nullptr);
+    };
+    if (auto stack = tryGet(rawName)) return stack; // 原名（含自定义命名空间）
+    return tryGet(normalizeItemName(rawName));     // 短名补全 / 旧名映射
 }
 
 // 解析实际渲染模式：auto 时按物品是否为 3D 方块决定
