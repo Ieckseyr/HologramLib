@@ -119,5 +119,4 @@ const itemDetailShow  = ll.import("HologramLib", "itemDetailShow");
 完整函数清单见 [API.md](API.md)。
 
 ## 许可
-
-作者：伊希娅（QQ: 3529832433）
+MIT许可
