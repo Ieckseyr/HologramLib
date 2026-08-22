@@ -105,6 +105,12 @@ void ItemDisplayExporter::exportAll() {
         [&mgr](int64_t id, float dist) -> bool { return mgr.setViewDistance(id, dist); });
     hologramlib::lse::exportAs(NAMESPACE, "itemDisplayRotateY",
         [&mgr](int64_t id, float delta) -> bool { return mgr.rotateY(id, delta); });
+
+    // itemDisplayFindNearest(x, y, z, dim, maxDist) -> int64（最近查找; 无匹配 -1）
+    hologramlib::lse::exportAs(NAMESPACE, "itemDisplayFindNearest",
+        [&mgr](float x, float y, float z, int dim, float maxDist) -> int64_t {
+            return mgr.findNearest(x, y, z, dim, maxDist);
+        });
 }
 
 } // namespace debugshape_export

@@ -609,6 +609,24 @@ std::vector<int64_t> ItemDisplayManager::getAllIds() const {
     return ids;
 }
 
+int64_t ItemDisplayManager::findNearest(float x, float y, float z, int dim, double maxDist) const {
+    std::lock_guard lock(mMutex);
+    int64_t best      = -1;
+    double  bestDist2 = (maxDist > 0) ? maxDist * maxDist : 1e300;
+    for (auto const& [id, cfg] : mConfigs) {
+        if (cfg.dimension != dim) continue;
+        double const dx   = cfg.x - x;
+        double const dy   = cfg.y - y;
+        double const dz   = cfg.z - z;
+        double const dist2 = dx * dx + dy * dy + dz * dz;
+        if (dist2 < bestDist2) {
+            bestDist2 = dist2;
+            best      = id;
+        }
+    }
+    return best;
+}
+
 void ItemDisplayManager::refreshLocked(int64_t id) {
     // 参数变化后刷新所有已见玩家（despawn → respawn 原子替换）
     auto it  = mConfigs.find(id);

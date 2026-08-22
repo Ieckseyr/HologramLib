@@ -260,6 +260,10 @@ public:
 
     IItemDisplay& itemDisplays() override { return mItemDisplays; }
 
+    int64_t findNearestItemDisplay(float x, float y, float z, int dim, double maxDist) override {
+        return debugshape_export::ItemDisplayManager::getInstance().findNearest(x, y, z, dim, maxDist);
+    }
+
 private:
     ShapeDrawerImpl  mShapes;
     HologramTextImpl mHolograms;

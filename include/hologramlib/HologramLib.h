@@ -240,6 +240,10 @@ public:
 
     // ── 1.6.0 追加（冻结契约: 只在尾部追加）──
     virtual IItemDisplay& itemDisplays() = 0;
+
+    // 查找距 (x,y,z) 最近的可悬浮显示（dim 匹配; maxDist<=0 视为无限制）
+    // 返回 id, 无匹配返回 -1
+    virtual int64_t findNearestItemDisplay(float x, float y, float z, int dim, double maxDist) = 0;
 };
 
 } // namespace hologramlib

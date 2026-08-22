@@ -59,6 +59,9 @@ public:
 
     std::vector<int64_t> getAllIds() const;
 
+    // 查找距 (x,y,z) 最近的显示（dim 匹配; maxDist<=0 无限制; 无匹配返回 -1）
+    int64_t findNearest(float x, float y, float z, int dim, double maxDist) const;
+
 private:
     ItemDisplayManager()  = default;
     ~ItemDisplayManager() = default;

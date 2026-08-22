@@ -161,6 +161,7 @@ struct ItemDisplayConfig {
 | setMode / setEnabled / setViewDistance | — | 行为 |
 | rotateY | `(int64_t, float) -> bool` | 偏航叠加增量（常量/表达式自适应） |
 | getAllIds | `() -> std::vector<int64_t>` | 全部 ID |
+| findNearestItemDisplay（IHologramLib 单例） | `(float x, float y, float z, int dim, double maxDist) -> int64_t` | 最近查找（dim 匹配; maxDist<=0 无限制; 无匹配 -1） |
 
 可见性由库内 Level tick hook 自动同步（每 20 tick：同维度 + 可见距离内玩家自动生成/移除；玩家断线自动清理）；属性变更即时生效（对已见玩家原子 despawn→respawn）。
 
@@ -317,6 +318,7 @@ FMBE（狐狸+发包）技术：隐形狐狸手持物品渲染任意物品/方�
 | itemDisplaySetEnabled | `(id, enabled: b) -> b` |
 | itemDisplaySetViewDistance | `(id, dist: f) -> b`（<=0 无限制） |
 | itemDisplayRotateY | `(id, delta: f) -> b`（偏航叠加增量） |
+| itemDisplayFindNearest | `(x,y,z: f, dim: i, maxDist: f) -> i`（最近查找; 无匹配 -1） |
 
 渲染模式：`auto`（默认）按物品 3D/2D 自动选择；`item` 平面物品渲染（wiki.scale/wiki.posrot 路径，rotY 内部自动 +205 补偿狐狸头朝向）；`block` 3D 方块渲染（完整旋转矩阵路径 + 二段扩展变换）。可见性由库内 Level tick hook 自动同步（同维度 + 可见距离内玩家自动生成/移除，玩家加入/断线自动清理）。
 
