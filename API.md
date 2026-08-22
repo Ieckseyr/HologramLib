@@ -257,22 +257,7 @@ LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib
 
 ---
 
-## 3. 已删除 API（相对旧 DebugShape-Protocol）
-
-以下旧 API 在本库中**永久移除**，数值/名称保留空洞永不复用：
-
-| 删除项 | 原因 |
-|--------|------|
-| 旧三命名空间 `DebugShape` / `FloatingText` / `GradientLine` | 统一并入单命名空间 `HologramLib`（域前缀重命名） |
-| `DebugShape::createFilledQuad` | 极薄 Box 模拟填充面方案废弃 |
-| `DebugShape::createFilledQuadBatch` | 每像素一个极薄 Box 的批量填充面方案废弃 |
-| `LSEShapeType::FilledQuad (=6)` | 枚举移除，6 保留空洞 |
-
-旧脚本经 `safeImport` 容错调用上述 API 将得到 null，不会报错。
-
----
-
-## 4. 消费者版本协商示例
+## 3. 消费者版本协商示例
 
 ```cpp
 #include "hologramlib/HologramLib.h"
