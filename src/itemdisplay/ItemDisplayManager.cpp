@@ -190,21 +190,13 @@ void sendFoxActor(Player& player, ItemDisplayConfig const& data, Runtime const& 
     pkt.mRotation       = {0, 0};
     pkt.mYHeadRotation  = 0;
     pkt.mYBodyRotation  = 0;
-    pkt.mAttributes     = {
-        {"minecraft:health",              0,     20.f,  20.f         },
-        {"minecraft:movement",            0,     0.3f,  3.4028235e38f},
-        {"minecraft:underwater_movement", 0,     0.02f, 3.4028235e38f},
-        {"minecraft:lava_movement",       0,     0.02f, 3.4028235e38f},
-        {"minecraft:absorption",          0,     0,     16.f         },
-        {"minecraft:luck",                -1024, 0,     1024         },
-    };
     pkt.mSynchedProperties = {};
     pkt.mActorLinks        = {};
-    std::int64_t flags     = (std::int64_t(1) << 5) | (std::int64_t(1) << 30) | (std::int64_t(1) << 31);
+    // 对齐 wiki FMBE：不设任何 flag（invisible 会连叼的物品一起隐藏; bit30/31 语义不明会引发剔除）
+    // 不发 attributes —— summon 不带属性, 客户端用 fox 默认值（health=20 存活）
+    pkt.mAttributes         = {};
     pkt.mMetaData.mDataItems = {
-        {sculk::protocol::ActorDataIDs::Reserved0, flags},
-        {sculk::protocol::ActorDataIDs::Reserved53, 0.0f},
-        {sculk::protocol::ActorDataIDs::Reserved54, 0.0f},
+        {sculk::protocol::ActorDataIDs::Reserved0, std::int64_t(0)},
     };
     sendSculkToPlayer(player, pkt);
 }
@@ -262,6 +254,11 @@ std::string buildItemScaleExpr(ItemDisplayConfig const& d) {
 
 constexpr std::string_view kItemPosRotExpr =
     // 物品渲染：wiki.posrot 路径（按 xrot→zrot→yrot 顺序旋转并平移）
+    // 头部 ?? 兜底: 首帧 swelling 表达式可能尚未求值, 避免 /0=∞ 划弧线
+    "v.adscale=v.adscale??1;v.adscaled=v.adscaled??2.1385;"
+    "v.xrot=v.xrot??0;v.yrot=v.yrot??0;v.zrot=v.zrot??0;"
+    "v.xpos=v.xpos??0;v.ypos=v.ypos??0;v.zpos=v.zpos??0;"
+    "v.xbasepos=v.xbasepos??0;v.ybasepos=v.ybasepos??0;v.zbasepos=v.zbasepos??0;"
     "v.adjust_xz=8*v.adscaled+v.zbasepos/v.adscaled;"
     "v.adjust_y=(-5-v.ybasepos/v.adscaled/v.adscaled)*v.adscaled;"
     "v.x=v.xbasepos/v.adscaled;v.y=v.adjust_y;v.z=v.adjust_xz;"
@@ -352,25 +349,27 @@ constexpr std::string_view kBlockAttackRotExpr =
     "v.attack_body_rot_y=math.asin(-v.F.p4);";
 
 // 调度完整 FMBE 动画序列（物品 3 包 / 方块 5 包）
+// wiki FMBE 为同 tick 连锁命令块 —— 全部同帧发送, 避免 posrot 首帧先于变量定义
+// 求值导致 7.48/v.adscale=∞ → 物品从天边划弧线飞入
 void scheduleAnims(ItemDisplayConfig const& data, Runtime const& rt, Player& player, int mode) {
     auto const uuid  = player.getUuid();
-    auto const base  = currentTick();
+    auto const base  = currentTick() + 1; // 下一 tick 一次性全部发出（实体先落地一帧）
     auto const block = (mode == 2);
 
     auto push = [&](std::uint64_t at, std::string anim, std::string ctrl, std::string stop) {
         animQueue().emplace(at, AnimEntry{uuid, rt.runtimeId, std::move(anim), std::move(ctrl), std::move(stop)});
     };
 
-    push(base + 2, "animation.player.sleeping", "controller.animation.fox.move", "");
+    push(base, "animation.player.sleeping", "controller.animation.fox.move", "");
 
     if (block) {
-        push(base + 3, "animation.creeper.swelling", "wiki.fmbe.3d_blocks.anim1", buildBlockMatrixExpr(data));
-        push(base + 4, "animation.ender_dragon.neck_head_movement", "wiki.fmbe.3d_blocks.anim2", std::string{kBlockHeadPosExpr});
-        push(base + 5, "animation.warden.move", "wiki.fmbe.3d_blocks.anim3", std::string{kBlockBodyRotExpr});
-        push(base + 6, "animation.player.attack.rotations", "wiki.fmbe.3d_blocks.anim4", std::string{kBlockAttackRotExpr});
+        push(base, "animation.creeper.swelling", "wiki.fmbe.3d_blocks.anim1", buildBlockMatrixExpr(data));
+        push(base, "animation.ender_dragon.neck_head_movement", "wiki.fmbe.3d_blocks.anim2", std::string{kBlockHeadPosExpr});
+        push(base, "animation.warden.move", "wiki.fmbe.3d_blocks.anim3", std::string{kBlockBodyRotExpr});
+        push(base, "animation.player.attack.rotations", "wiki.fmbe.3d_blocks.anim4", std::string{kBlockAttackRotExpr});
     } else {
-        push(base + 3, "animation.creeper.swelling", "wiki.scale", buildItemScaleExpr(data));
-        push(base + 4, "animation.ender_dragon.neck_head_movement", "wiki.posrot", std::string{kItemPosRotExpr});
+        push(base, "animation.creeper.swelling", "wiki.scale", buildItemScaleExpr(data));
+        push(base, "animation.ender_dragon.neck_head_movement", "wiki.posrot", std::string{kItemPosRotExpr});
     }
     (void)kBlockSwellingExpr;
 }
