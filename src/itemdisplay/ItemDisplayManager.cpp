@@ -381,15 +381,32 @@ void scheduleAnims(ItemDisplayConfig const& data, Runtime const& rt, Player& pla
 // ── 生成/销毁完整序列 ──
 
 bool spawnForPlayer(int64_t id, ItemDisplayConfig const& data, Runtime& rt, Player& player) {
-    auto stackOpt = buildItemStack(data.item, data.itemAux);
-    if (!stackOpt) {
-        logger().warn("[ItemDisplay] unknown item '{}' for display #{}", data.item, id);
-        return false;
+    // Level 未就绪: 不缓存不告警, 下个 tick 重试
+    if (!ll::service::getLevel()) return false;
+
+    // 物品解析缓存（名称/附加值变更时失效重解析; 失败只告警一次）
+    bool const changed     = rt.cachedItemName != data.item || rt.cachedItemAux != data.itemAux;
+    bool const unresolved  = !rt.cachedStack.has_value() && !rt.itemWarned;
+    if (changed || unresolved) {
+        if (changed) rt.itemWarned = false; // 换物品后重置告警
+        rt.cachedStack    = buildItemStack(data.item, data.itemAux);
+        rt.cachedItemName = data.item;
+        rt.cachedItemAux  = data.itemAux;
+        if (!rt.cachedStack) {
+            rt.itemWarned = true;
+            logger().warn(
+                "[ItemDisplay] unknown item '{}' for display #{} (tried raw/short-name/alias)",
+                data.item,
+                id
+            );
+        }
     }
-    int const mode = effectiveMode(data, *stackOpt);
+    if (!rt.cachedStack) return false;
+    auto const& stack = *rt.cachedStack;
+    int const    mode  = effectiveMode(data, stack);
 
     sendFoxActor(player, data, rt);
-    sendEquipment(player, rt.runtimeId, *stackOpt);
+    sendEquipment(player, rt.runtimeId, stack);
     sendDataPacket(player, rt.runtimeId);
     scheduleAnims(data, rt, player, mode);
     return true;

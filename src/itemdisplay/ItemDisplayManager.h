@@ -23,6 +23,7 @@
 #include "hologramlib/HologramLib.h" // hologramlib::ItemDisplayConfig（公开头单一定义）
 
 #include "mc/platform/UUID.h"
+#include "mc/world/item/ItemStack.h"
 
 class Player; // ::Player
 
@@ -72,6 +73,12 @@ public:
         std::uint64_t                 uniqueId{};   // ActorUniqueID
         std::uint64_t                 runtimeId{};  // ActorRuntimeID
         std::unordered_set<mce::UUID> shownPlayers; // 已向其发送实体的玩家
+
+        // 物品解析缓存（避免每次可见性 tick 重建 ItemStack; setItem 后自动失效）
+        std::optional<::ItemStack>    cachedStack;
+        std::string                   cachedItemName{};
+        int                           cachedItemAux{0};
+        bool                          itemWarned{false}; // 解析失败只告警一次（换物品后重置）
     };
 
 private:
