@@ -17,9 +17,9 @@
 #include <string>
 #include <vector>
 
-// 库 API 版本（与 IHologramLib::version() 同值, BCD: 0x010600 = 1.6.0）
+// 库 API 版本（与 IHologramLib::version() 同值, BCD: 0x010700 = 1.7.0）
 // 消费方可用于编译期静态断言最低版本要求
-#define HOLOGLIB_API_VERSION 0x010600
+#define HOLOGLIB_API_VERSION 0x010700
 
 #ifdef HOLOGLIB_EXPORTS
 #define HOLOGLIB_API __declspec(dllexport)
@@ -217,6 +217,15 @@ public:
     virtual bool rotateY(int64_t id, float delta)       = 0; // 在现有 rotY 上叠加增量
 
     virtual std::vector<int64_t> getAllIds() const      = 0;
+
+    // ── 1.7.0 追加（冻结契约: 只在尾部追加）──
+    // 随机 ID 创建: ID 由库在随机段 [0x10000000, 0x7FFFFFFF) 自动生成（查重保证不与现有冲突,
+    // 且与自增段长期隔离）; 成功返回生成的 ID, 失败返回 < 0
+    virtual int64_t createRandom(ItemDisplayConfig const& config) = 0;
+    // 指定 ID 创建: 用于持久化恢复（如随机 ID 重启后原位还原）; desiredId <= 0 或已被占用返回 -2
+    virtual int64_t createWithId(ItemDisplayConfig const& config, int64_t desiredId) = 0;
+    // 查询 ID 是否在用
+    virtual bool isIdUsed(int64_t id) const = 0;
 };
 
 // ─────────────────────────────────────────────

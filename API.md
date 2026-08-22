@@ -161,6 +161,9 @@ struct ItemDisplayConfig {
 | setMode / setEnabled / setViewDistance | — | 行为 |
 | rotateY | `(int64_t, float) -> bool` | 偏航叠加增量（常量/表达式自适应） |
 | getAllIds | `() -> std::vector<int64_t>` | 全部 ID |
+| createRandom | `(ItemDisplayConfig const&) -> int64_t` | **1.7.0** 随机 ID 创建：库在随机段 `[0x10000000, 0x7FFFFFFF)` 自动生成不重复 ID（查重 + 与自增段隔离）; 成功返回生成的 ID, <0 失败 |
+| createWithId | `(ItemDisplayConfig const&, int64_t desiredId) -> int64_t` | **1.7.0** 指定 ID 创建：持久化恢复场景（如随机 ID 重启后原位还原）; desiredId<=0 或已被占用返回 -2 |
+| isIdUsed | `(int64_t) -> bool` | **1.7.0** 查询 ID 是否在用 |
 | findNearestItemDisplay（IHologramLib 单例） | `(float x, float y, float z, int dim, double maxDist) -> int64_t` | 最近查找（dim 匹配; maxDist<=0 无限制; 无匹配 -1） |
 
 可见性由库内 Level tick hook 自动同步（每 20 tick：同维度 + 可见距离内玩家自动生成/移除；玩家断线自动清理）；属性变更即时生效（对已见玩家原子 despawn→respawn）。

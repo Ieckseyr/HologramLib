@@ -4,6 +4,8 @@
 // 主键改为 int64 id，去除持久化与命令层（由消费者负责）。
 #include "ItemDisplayManager.h"
 
+#include <random>
+
 #include <ll/api/event/EventBus.h>
 #include <ll/api/event/player/PlayerDisconnectEvent.h>
 #include <ll/api/event/player/PlayerJoinEvent.h>
@@ -289,6 +291,10 @@ constexpr std::string_view kItemPosRotExpr =
 
 std::string buildBlockMatrixExpr(ItemDisplayConfig const& d) {
     // 3D 方块渲染：完整旋转矩阵路径（主三轴 + 二段扩展旋转）
+    // 方块模式默认值归一化: 配置出厂默认是物品模式值(offsetY=-4/scale=0.375),
+    // 方块下换用 ItemPhys 原版方块默认(ypos=0.125/scale=0.5); 用户设置过其他值则尊重用户值
+    char const* ypos  = (d.offsetY == "-4")    ? "0.125" : d.offsetY.c_str();
+    char const* scale = (d.scale == "0.375") ? "0.5"    : d.scale.c_str();
     return std::format(
         "v.xpos={0};v.ypos={1};v.zpos={2};"
         "v.xrot={3};v.yrot={4};v.zrot={5};"
@@ -316,12 +322,12 @@ std::string buildBlockMatrixExpr(ItemDisplayConfig const& d) {
         "v.F.p7=v.F.r6*v.F.e1+v.F.r7*v.F.e4+v.F.r8*v.F.e7;"
         "v.F.p8=v.F.r6*v.F.e2+v.F.r7*v.F.e5+v.F.r8*v.F.e8;",
         d.offsetX,
-        d.offsetY,
+        ypos,
         d.offsetZ,
         d.rotX,
         d.rotY,
         d.rotZ,
-        d.scale,
+        scale,
         d.extendScale,
         d.extendRotX,
         d.extendRotY,
@@ -359,6 +365,8 @@ constexpr std::string_view kBlockAttackRotExpr =
 
 // 调度完整 FMBE 动画序列（物品 3 包 / 方块 5 包）
 // ItemPhys 原版节奏: 依次 +2/+3/+4(物品) 或 +2..+6(方块), 一包一 tick —— 逐字保持, 勿改为同帧
+// 方块模式: sleeping(+2)携带完整旋转矩阵, swelling(+3)携带缩放表达式(v.F.s 基准) —— 两者不可错位,
+// 否则 v.F.s 未初始化会导致方块缩放异常/不可见
 void scheduleAnims(ItemDisplayConfig const& data, Runtime const& rt, Player& player, int mode) {
     auto const uuid  = player.getUuid();
     auto const base  = currentTick();
@@ -368,18 +376,17 @@ void scheduleAnims(ItemDisplayConfig const& data, Runtime const& rt, Player& pla
         animQueue().emplace(at, AnimEntry{uuid, rt.runtimeId, std::move(anim), std::move(ctrl), std::move(stop)});
     };
 
-    push(base + 2, "animation.player.sleeping", "controller.animation.fox.move", "");
-
     if (block) {
-        push(base + 3, "animation.creeper.swelling", "wiki.fmbe.3d_blocks.anim1", buildBlockMatrixExpr(data));
+        push(base + 2, "animation.player.sleeping", "controller.animation.fox.move", buildBlockMatrixExpr(data));
+        push(base + 3, "animation.creeper.swelling", "wiki.fmbe.3d_blocks.anim1", std::string{kBlockSwellingExpr});
         push(base + 4, "animation.ender_dragon.neck_head_movement", "wiki.fmbe.3d_blocks.anim2", std::string{kBlockHeadPosExpr});
         push(base + 5, "animation.warden.move", "wiki.fmbe.3d_blocks.anim3", std::string{kBlockBodyRotExpr});
         push(base + 6, "animation.player.attack.rotations", "wiki.fmbe.3d_blocks.anim4", std::string{kBlockAttackRotExpr});
     } else {
+        push(base + 2, "animation.player.sleeping", "controller.animation.fox.move", "");
         push(base + 3, "animation.creeper.swelling", "wiki.scale", buildItemScaleExpr(data));
         push(base + 4, "animation.ender_dragon.neck_head_movement", "wiki.posrot", std::string{kItemPosRotExpr});
     }
-    (void)kBlockSwellingExpr;
 }
 
 // ── 生成/销毁完整序列 ──
@@ -477,9 +484,37 @@ void ItemDisplayManager::shutdown() {
 
 int64_t ItemDisplayManager::create(ItemDisplayConfig const& config) {
     std::lock_guard lock(mMutex);
+    return createLocked(config, mNextId++);
+}
 
-    auto const id = mNextId++;
+int64_t ItemDisplayManager::createRandom(ItemDisplayConfig const& config) {
+    // 随机 ID 段 [0x10000000,0x7FFFFFFF): 与自增段(从 1 起)长期隔离, 不会撞车
+    static std::mt19937_64 rng{std::random_device{}()};
+    std::lock_guard       lock(mMutex);
+    constexpr std::int64_t kBase = 0x10000000, kSpan = 0x70000000;
+    for (int tries = 0; tries < 128; ++tries) {
+        auto const id = kBase + static_cast<std::int64_t>(rng() % static_cast<std::uint64_t>(kSpan));
+        if (mConfigs.contains(id)) continue;
+        return createLocked(config, id);
+    }
+    return -1;
+}
 
+int64_t ItemDisplayManager::createWithId(ItemDisplayConfig const& config, int64_t desiredId) {
+    if (desiredId <= 0) return -2;
+    std::lock_guard lock(mMutex);
+    if (mConfigs.contains(desiredId)) return -2;
+    // 防自增游标未来撞上该 ID
+    if (desiredId >= mNextId && desiredId < 0x10000000) mNextId = desiredId + 1;
+    return createLocked(config, desiredId);
+}
+
+bool ItemDisplayManager::isIdUsed(int64_t id) const {
+    std::lock_guard lock(mMutex);
+    return mConfigs.contains(id);
+}
+
+int64_t ItemDisplayManager::createLocked(ItemDisplayConfig const& config, int64_t id) {
     // 生成本次运行的唯一 Actor ID（避免与真实实体冲突: 高位标记 + 自增）
     static std::uint64_t actorSeed = 0x6D00000000000000ULL; // 'm' 标记位
     Runtime rt{};

@@ -41,6 +41,12 @@ public:
 
     // 管理接口（id 驱动; 创建失败返回 < 0）
     int64_t create(ItemDisplayConfig const& config);
+    // 随机 ID 段 [0x10000000,0x7FFFFFFF) 自动生成不重复 ID; 失败返回 < 0
+    int64_t createRandom(ItemDisplayConfig const& config);
+    // 指定 ID 创建（持久化恢复用）; desiredId<=0 或占用返回 -2
+    int64_t createWithId(ItemDisplayConfig const& config, int64_t desiredId);
+    // 查询 ID 是否在用
+    bool isIdUsed(int64_t id) const;
     bool    destroy(int64_t id);
     void    destroyAll();
     bool    exists(int64_t id) const;
@@ -85,6 +91,8 @@ private:
     // 内部: 持锁状态下刷新可见性 / 变更后刷新
     void refreshLocked(int64_t id);
     void syncVisibilityLocked();
+    // 持锁状态下的创建主体（id 已查重）; 失败返回 < 0
+    int64_t createLocked(ItemDisplayConfig const& config, int64_t id);
 
     friend struct ItemDisplayTickHookAccess;
 

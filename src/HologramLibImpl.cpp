@@ -246,6 +246,15 @@ public:
     std::vector<int64_t> getAllIds() const override {
         return debugshape_export::ItemDisplayManager::getInstance().getAllIds();
     }
+    int64_t createRandom(ItemDisplayConfig const& config) override {
+        return debugshape_export::ItemDisplayManager::getInstance().createRandom(config);
+    }
+    int64_t createWithId(ItemDisplayConfig const& config, int64_t desiredId) override {
+        return debugshape_export::ItemDisplayManager::getInstance().createWithId(config, desiredId);
+    }
+    bool isIdUsed(int64_t id) const override {
+        return debugshape_export::ItemDisplayManager::getInstance().isIdUsed(id);
+    }
 };
 
 class HologramLibImpl final : public IHologramLib {
@@ -256,7 +265,7 @@ public:
 
     bool isLseAvailable() override { return lse::isAttached(); }
 
-    uint32_t version() override { return 0x010600; } // 1.6.0
+    uint32_t version() override { return 0x010700; } // 1.7.0
 
     IItemDisplay& itemDisplays() override { return mItemDisplays; }
 
