@@ -225,11 +225,8 @@ void sendDataPacket(Player& player, std::uint64_t runtimeId) {
     pkt.mActorRuntimeId    = runtimeId;
     pkt.mSynchedProperties = {};
     pkt.mTick              = 0;
-    std::int64_t flags     = (std::int64_t(1) << 5) | (std::int64_t(1) << 30) | (std::int64_t(1) << 31);
     pkt.mMetaData.mDataItems = {
-        {sculk::protocol::ActorDataIDs::Reserved0, flags},
-        {sculk::protocol::ActorDataIDs::Reserved53, 0.0f},
-        {sculk::protocol::ActorDataIDs::Reserved54, 0.0f},
+        {sculk::protocol::ActorDataIDs::Reserved0, std::int64_t(0)},
     };
     sendSculkToPlayer(player, pkt);
 }
@@ -409,6 +406,16 @@ bool spawnForPlayer(int64_t id, ItemDisplayConfig const& data, Runtime& rt, Play
     sendEquipment(player, rt.runtimeId, stack);
     sendDataPacket(player, rt.runtimeId);
     scheduleAnims(data, rt, player, mode);
+    logger().debug(
+        "[ItemDisplay] spawned #{} '{}' at ({:.1f},{:.1f},{:.1f}) dim={} mode={}",
+        id,
+        data.item,
+        data.x,
+        data.y,
+        data.z,
+        data.dimension,
+        mode
+    );
     return true;
 }
 
