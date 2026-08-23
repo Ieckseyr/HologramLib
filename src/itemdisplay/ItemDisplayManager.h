@@ -65,6 +65,7 @@ public:
     bool setViewDistance(int64_t id, double dist);
     bool rotateY(int64_t id, float delta); // 在现有 rotY（常量时）上叠加增量
     bool scaleBy(int64_t id, double factor); // 在现有 scale 上乘系数（放大/缩小）
+    bool setGlint(int64_t id, bool on);      // 附魔光效开关（BDS 原生路径, 幂等）
 
     std::vector<int64_t> getAllIds() const;
 
@@ -82,11 +83,12 @@ public:
         std::uint64_t                 runtimeId{};  // ActorRuntimeID
         std::unordered_set<mce::UUID> shownPlayers; // 已向其发送实体的玩家
 
-        // 物品解析缓存（避免每次可见性 tick 重建 ItemStack; setItem 后自动失效）
+        // 物品解析缓存（避免每次可见性 tick 重建 ItemStack; setItem/setGlint 后自动失效）
         std::optional<::ItemStack>    cachedStack;
         std::string                   cachedItemName{};
         int                           cachedItemAux{0};
         std::string                   cachedItemNbt{};  // 缓存键含 NBT（换附魔时重解析）
+        bool                          cachedGlint{false}; // 缓存键含光效开关
         bool                          itemWarned{false}; // 解析失败只告警一次（换物品后重置）
     };
 

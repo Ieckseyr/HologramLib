@@ -24,6 +24,9 @@
 #include <mc/network/packet/MobEquipmentPacket.h>
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/item/ItemStack.h>
+#include <mc/world/item/enchanting/Enchant.h>
+#include <mc/world/item/enchanting/EnchantmentInstance.h>
+#include <mc/world/item/enchanting/ItemEnchants.h>
 #include <mc/world/item/registry/ItemRegistryRef.h>
 #include <mc/world/level/Level.h>
 #include <mc/world/level/Tick.h>
@@ -159,11 +162,11 @@ std::string normalizeItemName(std::string const& raw) {
     return raw;
 }
 
-std::optional<::ItemStack> buildItemStack(std::string const& rawName, int aux, std::string const& nbt) {
+std::optional<::ItemStack> buildItemStack(std::string const& rawName, int aux, std::string const& nbt, bool glint) {
     auto level = ll::service::getLevel();
     if (!level) return std::nullopt;
 
-    // 先解析用户数据（附魔/自定义名称等; 客户端按 NBT 渲染附魔光效）。
+    // 先解析用户数据（自定义名称等）。
     // 用 4 参构造器在构造时传入 —— BDS 原生路径, 构造内部完整处理 userData
     // （比构造后 setUserData 更可靠, 组件状态/比较值同步初始化）。
     std::unique_ptr<::CompoundTag> tag;
@@ -192,12 +195,28 @@ std::optional<::ItemStack> buildItemStack(std::string const& rawName, int aux, s
     }
     if (!stack) return std::nullopt;
 
-    // 诊断: NBT 应用结果（附魔光效排障用; runtime 重建时触发, 频率低）
-    if (!nbt.empty()) {
+    // 附魔光效: BDS 原生 saveEnchantsToUserData 路径。
+    // 实证（2026-08-23）: 手写 components.minecraft:enchantments NBT 经 4 参构造器
+    // 后 isEnchanted()=false——组件系统不认手工 userData, 网络序列化也不产生光效;
+    // saveEnchantsToUserData 是 BDS 自己写自己读的格式, 客户端必然渲染光效。
+    if (glint) {
+        // ItemEnchants 默认构造符号未收录于 SymbolProvider——借 BDS 原生
+        // constructItemEnchantsFromUserData() 获得空附魔集（值返回, 无需构造符号）
+        auto                  ench = stack->constructItemEnchantsFromUserData();
+        ::EnchantmentInstance inst{};
+        inst.mEnchantType = ::Enchant::Type::Sharpness;
+        inst.mLevel       = 1; // 1 级锋利: 仅取光效
+        ench.addEnchant(inst, true);
+        stack->saveEnchantsToUserData(ench);
+    }
+
+    // 诊断: NBT/光效应用结果（runtime 重建时触发, 频率低）
+    if (!nbt.empty() || glint) {
         logger().info(
-            "[ItemDisplay] NBT 应用 '{}': SNBT {} 字节, isEnchanted={}",
+            "[ItemDisplay] 物品构建 '{}': NBT {} 字节, glint={}, isEnchanted={}",
             rawName,
             nbt.size(),
+            glint,
             stack->isEnchanted()
         );
     }
@@ -428,16 +447,17 @@ bool spawnForPlayer(int64_t id, ItemDisplayConfig const& data, Runtime& rt, Play
     // Level 未就绪: 不缓存不告警, 下个 tick 重试
     if (!ll::service::getLevel()) return false;
 
-    // 物品解析缓存（名称/附加值/NBT 变更时失效重解析; 失败只告警一次）
-    bool const changed =
-        rt.cachedItemName != data.item || rt.cachedItemAux != data.itemAux || rt.cachedItemNbt != data.itemNbt;
+    // 物品解析缓存（名称/附加值/NBT/光效变更时失效重解析; 失败只告警一次）
+    bool const changed = rt.cachedItemName != data.item || rt.cachedItemAux != data.itemAux
+                      || rt.cachedItemNbt != data.itemNbt || rt.cachedGlint != data.itemGlint;
     bool const unresolved = !rt.cachedStack.has_value() && !rt.itemWarned;
     if (changed || unresolved) {
         if (changed) rt.itemWarned = false; // 换物品后重置告警
-        rt.cachedStack    = buildItemStack(data.item, data.itemAux, data.itemNbt);
+        rt.cachedStack    = buildItemStack(data.item, data.itemAux, data.itemNbt, data.itemGlint);
         rt.cachedItemName = data.item;
         rt.cachedItemAux  = data.itemAux;
         rt.cachedItemNbt  = data.itemNbt;
+        rt.cachedGlint    = data.itemGlint;
         if (!rt.cachedStack) {
             rt.itemWarned = true;
             logger().warn(
@@ -636,6 +656,16 @@ bool ItemDisplayManager::setItemWithNbt(
     it->second.itemAux = aux;
     it->second.itemNbt = nbt;
     refreshLocked(id);
+    return true;
+}
+
+bool ItemDisplayManager::setGlint(int64_t id, bool on) {
+    std::lock_guard lock(mMutex);
+    auto it = mConfigs.find(id);
+    if (it == mConfigs.end()) return false;
+    if (it->second.itemGlint == on) return true; // 幂等: apply 高频调用不触发 respawn
+    it->second.itemGlint = on;
+    refreshLocked(id); // despawn→respawn 原子替换（ItemStack 已变）
     return true;
 }
 

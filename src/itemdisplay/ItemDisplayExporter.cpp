@@ -120,6 +120,10 @@ void ItemDisplayExporter::exportAll() {
             return mgr.setItemWithNbt(id, item, aux, nbt);
         });
 
+    // itemDisplaySetGlint(id, on) -> bool  附魔光效开关（BDS 原生路径）
+    hologramlib::lse::exportAs(NAMESPACE, "itemDisplaySetGlint",
+        [&mgr](int64_t id, bool on) -> bool { return mgr.setGlint(id, on); });
+
     // 属性
     hologramlib::lse::exportAs(NAMESPACE, "itemDisplaySetItem",
         [&mgr](int64_t id, std::string const& item, int aux) -> bool {

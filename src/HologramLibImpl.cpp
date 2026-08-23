@@ -261,6 +261,10 @@ public:
     bool setItemWithNbt(int64_t id, std::string const& item, int aux, std::string const& nbt) override {
         return debugshape_export::ItemDisplayManager::getInstance().setItemWithNbt(id, item, aux, nbt);
     }
+
+    bool setGlint(int64_t id, bool on) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setGlint(id, on);
+    }
 };
 
 class HologramLibImpl final : public IHologramLib {
