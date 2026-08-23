@@ -466,6 +466,18 @@ bool spawnForPlayer(int64_t id, ItemDisplayConfig const& data, Runtime& rt, Play
 
 void despawnForPlayer(Runtime const& rt, Player& player) {
     sendRemove(player, rt);
+    // 关键: 清理该实体全部待发动画条目（幽灵动画防护）。
+    // animQueue 按 tick 延迟调度(+2~+6), despawn 后残留的 AnimateEntityPacket
+    // 会在几 tick 后发向客户端已删除的 runtimeId —— 客户端实体 ID 回收重映射后
+    // 幽灵动画(携带旧 Molang 参数)会作用于错误实体, 表现为"修改一个展示另一个跟着变"。
+    auto& q = animQueue();
+    for (auto it = q.begin(); it != q.end();) {
+        if (it->second.runtimeId == rt.runtimeId) {
+            it = q.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
 
 } // namespace
@@ -845,6 +857,14 @@ struct ItemDisplayTickHookAccess {
         std::lock_guard lock(mgr.mMutex);
         mgr.syncVisibilityLocked();
     }
+    // 幽灵动画防护: 该 runtimeId 的实体是否仍存活且对该玩家可见
+    static bool alive(ItemDisplayManager& mgr, std::uint64_t runtimeId, mce::UUID const& uuid) {
+        std::lock_guard lock(mgr.mMutex);
+        for (auto& [id, rt] : mgr.mRuntimes) {
+            if (rt.runtimeId == runtimeId) return rt.shownPlayers.contains(uuid);
+        }
+        return false;
+    }
 };
 
 LL_TYPE_INSTANCE_HOOK(ItemDisplayTickHook, HookPriority::Normal, Level, &Level::$tick, void) {
@@ -856,15 +876,23 @@ LL_TYPE_INSTANCE_HOOK(ItemDisplayTickHook, HookPriority::Normal, Level, &Level::
     while (it != q.end() && it->first <= now) {
         auto& entry = it->second;
         if (auto* player = findPlayerByUuid(entry.playerUuid)) {
-            sculk::protocol::AnimateEntityPacket pkt;
-            pkt.mAnimation                   = entry.animation;
-            pkt.mNextState                   = "none";
-            pkt.mStopExpression              = entry.stopExpression;
-            pkt.mStopExpressionMolangVersion = sculk::protocol::MolangVersion::Initial;
-            pkt.mController                  = entry.controller;
-            pkt.mBlendOutTime                = 0;
-            pkt.mRuntimeIds                  = {entry.runtimeId};
-            sendSculkToPlayer(*player, pkt);
+            // 发送前活性验证: 实体已被 despawn 的动画条目直接丢弃
+            // （双保险——despawnForPlayer 已清理队列, 此处拦截一切残余时序窗口）
+            if (ItemDisplayTickHookAccess::alive(
+                    ItemDisplayManager::getInstance(),
+                    entry.runtimeId,
+                    entry.playerUuid
+                )) {
+                sculk::protocol::AnimateEntityPacket pkt;
+                pkt.mAnimation                   = entry.animation;
+                pkt.mNextState                   = "none";
+                pkt.mStopExpression              = entry.stopExpression;
+                pkt.mStopExpressionMolangVersion = sculk::protocol::MolangVersion::Initial;
+                pkt.mController                  = entry.controller;
+                pkt.mBlendOutTime                = 0;
+                pkt.mRuntimeIds                  = {entry.runtimeId};
+                sendSculkToPlayer(*player, pkt);
+            }
         }
         it = q.erase(it);
     }
