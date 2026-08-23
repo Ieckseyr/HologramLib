@@ -113,6 +113,13 @@ void ItemDisplayExporter::exportAll() {
     hologramlib::lse::exportAs(NAMESPACE, "itemDisplayScaleBy",
         [&mgr](int64_t id, float factor) -> bool { return mgr.scaleBy(id, factor); });
 
+    // 1.8.0: 换物品（带附加数据; nbt 为 SNBT 字符串, 空串清除附魔等用户数据）
+    // itemDisplaySetItemWithNbt(id, item, aux, nbt) -> bool
+    hologramlib::lse::exportAs(NAMESPACE, "itemDisplaySetItemWithNbt",
+        [&mgr](int64_t id, std::string const& item, int aux, std::string const& nbt) -> bool {
+            return mgr.setItemWithNbt(id, item, aux, nbt);
+        });
+
     // 属性
     hologramlib::lse::exportAs(NAMESPACE, "itemDisplaySetItem",
         [&mgr](int64_t id, std::string const& item, int aux) -> bool {

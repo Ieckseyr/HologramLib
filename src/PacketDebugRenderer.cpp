@@ -3,13 +3,27 @@
 // 直接持有 v944 DebugShape，通过 DebugDrawerPacket + NetworkPeer::sendPacket 发送。
 #include "PacketDebugRenderer.h"
 
+#include <ll/api/event/EventBus.h>
+#include <ll/api/event/player/PlayerJoinEvent.h>
+#include <ll/api/event/world/ServerLevelTickEvent.h>
+#include <ll/api/io/Logger.h>
+#include <ll/api/io/LoggerRegistry.h>
 #include <ll/api/service/Bedrock.h>
+#include <ll/api/thread/ServerThreadExecutor.h>
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/level/Level.h>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 
 namespace debugshape_export {
+
+namespace {
+auto& pdLogger() {
+    static auto log = ll::io::LoggerRegistry::getInstance().getOrCreate("HologramLib");
+    return *log;
+}
+} // namespace
 
 PacketDebugRenderer& PacketDebugRenderer::getInstance() {
     static PacketDebugRenderer instance;
@@ -211,6 +225,8 @@ bool PacketDebugRenderer::draw(int64_t id) {
     auto* shape = getShape(id);
     if (!shape) return false;
     shape->visible = true;
+    shape->target = ShapeData::Target::All;
+    shape->targetPlayer.clear();
     return ProtocolPacketWriter::sendToAll({shape->proto});
 }
 
@@ -219,6 +235,8 @@ bool PacketDebugRenderer::drawToPlayer(int64_t id, const std::string& playerName
     auto* shape = getShape(id);
     if (!shape) return false;
     shape->visible = true;
+    shape->target = ShapeData::Target::Player;
+    shape->targetPlayer = playerName;
     auto level = ll::service::getLevel();
     if (!level.has_value()) return false;
     auto* player = level->getPlayer(playerName);
@@ -232,6 +250,8 @@ bool PacketDebugRenderer::drawToDimension(int64_t id, int dimId) {
     if (!shape) return false;
     shape->visible = true;
     shape->proto.mDimensionId = dimId;
+    shape->target = ShapeData::Target::Dimension;
+    shape->targetPlayer.clear();
     return ProtocolPacketWriter::sendToDimension(dimId, {shape->proto});
 }
 
@@ -242,6 +262,8 @@ bool PacketDebugRenderer::drawBatch(const std::vector<int64_t>& ids) {
         auto* shape = getShape(id);
         if (shape) {
             shape->visible = true;
+            shape->target = ShapeData::Target::All;
+            shape->targetPlayer.clear();
             shapesList.push_back(shape->proto);
         }
     }
@@ -394,6 +416,111 @@ uint64_t PacketDebugRenderer::getNetworkId(int64_t id) {
     std::lock_guard<std::mutex> lock(mMutex);
     auto* shape = getShape(id);
     return shape ? shape->proto.mNetworkId : 0;
+}
+
+// 进服重发：玩家加入后将所有可见形状按绘制目标过滤后补发。
+// DebugDrawer 形状只存在于客户端内存, 玩家进服时客户端一片空白——
+// 服务端必须在玩家就绪后重发全部可见形状, 否则悬浮字/形状全部不可见。
+//
+// 三重保障:
+//   1. PlayerJoinEvent 后 1s + 5s 延迟重发（客户端加载世界期间立即发包会丢失）
+//   2. 周期兜底: 每 15s 对全部在线玩家重发（覆盖加载超 5s / 事件异常等一切情况）
+//   3. 同 networkId 重复发送 = 客户端原地覆盖, 幂等无副作用
+
+void PacketDebugRenderer::init() {
+    std::lock_guard<std::mutex> lock(mMutex);
+    if (mJoinListener) return; // 已初始化
+
+    mJoinListener = ll::event::EventBus::getInstance().emplaceListener<ll::event::PlayerJoinEvent>(
+        [this](ll::event::PlayerJoinEvent& ev) {
+            // PlayerJoinEvent 时客户端仍在加载世界, 立即发送的包会丢失;
+            // 1s + 5s 双重发兜底（大世界/慢机器加载超 1s 时 5s 补救）
+            auto playerKey = ev.self().getNetworkIdentifier().getIPAndPort();
+            auto resend = [this, playerKey]() {
+                auto level = ll::service::getLevel();
+                if (!level.has_value()) return;
+
+                ::Player* target = nullptr;
+                level->forEachPlayer([&](::Player& p) -> bool {
+                    if (p.getNetworkIdentifier().getIPAndPort() == playerKey) {
+                        target = &p;
+                        return true;
+                    }
+                    return false;
+                });
+                if (target) resendVisibleToPlayer(*target);
+            };
+            auto& executor = ll::thread::ServerThreadExecutor::getDefault();
+            executor.executeAfter(resend, std::chrono::milliseconds(1000));
+            executor.executeAfter(resend, std::chrono::milliseconds(5000));
+        }
+    );
+
+    // 周期兜底重发: 无论客户端加载多慢/事件是否异常, 最迟 15s 必定补齐
+    mTickListener = ll::event::EventBus::getInstance().emplaceListener<ll::event::ServerLevelTickEvent>(
+        [this](ll::event::ServerLevelTickEvent const&) {
+            tickResend(0.05f); // 20 tps 固定步长
+        }
+    );
+}
+
+void PacketDebugRenderer::shutdown() {
+    std::lock_guard<std::mutex> lock(mMutex);
+    if (mJoinListener) {
+        ll::event::EventBus::getInstance().removeListener(mJoinListener);
+        mJoinListener = nullptr;
+    }
+    if (mTickListener) {
+        ll::event::EventBus::getInstance().removeListener(mTickListener);
+        mTickListener = nullptr;
+    }
+}
+
+// 周期兜底重发（tick 驱动, 每 15s 一次全量静默补发）
+void PacketDebugRenderer::tickResend(float deltaTime) {
+    mResendTimer += deltaTime;
+    if (mResendTimer < 15.0f) return;
+    mResendTimer = 0.0f;
+
+    // 无可见形状时跳过（不持锁快查）
+    {
+        std::lock_guard<std::mutex> lock(mMutex);
+        if (mShapes.empty()) return;
+    }
+
+    auto level = ll::service::getLevel();
+    if (!level.has_value()) return;
+    level->forEachPlayer([this](::Player& p) -> bool {
+        resendVisibleToPlayer(p, false); // 静默: 周期重发不打日志
+        return true;
+    });
+}
+
+void PacketDebugRenderer::resendVisibleToPlayer(::Player& player, bool log) {
+    std::vector<ProtoShape> toSend;
+    auto const playerName = player.mName.get();
+    {
+        std::lock_guard<std::mutex> lock(mMutex);
+        auto const playerDim = player.getDimensionId().id;
+        toSend.reserve(mShapes.size());
+        for (auto const& [id, shape] : mShapes) {
+            if (!shape->visible) continue;
+            if (shape->target == ShapeData::Target::Player) {
+                // 私有形状只发给目标玩家
+                if (shape->targetPlayer != playerName) continue;
+            } else if (shape->proto.mDimensionId.has_value()) {
+                // 维度限定形状: 服务端按玩家当前维度过滤(与 drawToDimension 语义一致)
+                if (*shape->proto.mDimensionId != playerDim) continue;
+            }
+            toSend.push_back(shape->proto);
+        }
+    }
+    if (!toSend.empty()) {
+        ProtocolPacketWriter::sendToPlayer(player, toSend);
+        if (log) {
+            pdLogger().info("[DebugDrawer] 进服重发: 玩家 {} 补发 {} 个形状", playerName, toSend.size());
+        }
+    }
 }
 
 // 内部方法

@@ -19,7 +19,7 @@
 
 // 库 API 版本（与 IHologramLib::version() 同值, BCD: 0x010701 = 1.7.1）
 // 消费方可用于编译期静态断言最低版本要求
-#define HOLOGLIB_API_VERSION 0x010701
+#define HOLOGLIB_API_VERSION 0x010800
 
 #ifdef HOLOGLIB_EXPORTS
 #define HOLOGLIB_API __declspec(dllexport)
@@ -190,6 +190,10 @@ struct ItemDisplayConfig {
     int    mode{0};                        // 0=auto（按物品 3D/2D 自动） 1=item 2=block
     double viewDistance{64.0};             // 可见距离（方块; <=0 无限制）
     bool   enabled{true};
+    // 物品附加数据（SNBT 字符串; 空 = 无; 1.8.0 追加）
+    // 携带附魔/自定义名称等用户数据, 客户端按 NBT 渲染附魔光效;
+    // 由消费者从手持物品快照（ItemStack user data → toString）或手写 SNBT
+    std::string itemNbt{};
 };
 
 class IItemDisplay {
@@ -229,9 +233,14 @@ public:
 
     // ── 1.7.1 追加（冻结契约: 只在尾部追加）──
     // 相对缩放（放大/缩小）: 在现有 scale 上乘以 factor
-    // factor>1 放大, 0<factor<1 缩小; 常量缩放直接相乘, 表达式缩放包裹 (expr)*factor
+    // 常量缩放直接相乘, 表达式缩放包裹 (expr)*factor
     // factor<=0 或 id 不存在返回 false
     virtual bool scaleBy(int64_t id, double factor) = 0;
+
+    // ── 1.8.0 追加（冻结契约: 只在尾部追加）──
+    // 换物品（带附加数据）: nbt 为 SNBT 字符串（附魔/自定义名称等用户数据）,
+    // 空串 = 清除附加数据; SNBT 解析失败按无 NBT 处理并告警; id 不存在返回 false
+    virtual bool setItemWithNbt(int64_t id, std::string const& item, int aux, std::string const& nbt) = 0;
 };
 
 // ─────────────────────────────────────────────

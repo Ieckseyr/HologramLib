@@ -45,9 +45,13 @@ bool ModEntry::load() {
 
 bool ModEntry::enable() {
     auto& logger = getSelf().getLogger();
-    logger.info("HologramLib enabling... (API 0x{:06X})", HOLOGLIB_API_VERSION);
+    // 构建时间戳: 与磁盘 DLL 的 LastWriteTime 对比即可确认部署的是否为当前构建
+    logger.info("HologramLib enabling... (API 0x{:06X}, build {} {})", HOLOGLIB_API_VERSION, __DATE__, __TIME__);
 
     ItemDisplayManager::getInstance().init();
+    // 玩家进服后重发全部可见形状(悬浮字/形状客户端不落盘, 重连必须补发)
+    // 含周期兜底: 每 15s 全量重发, 与 PlayerJoinEvent 1s/5s 双保险
+    PacketDebugRenderer::getInstance().init();
 
     // 运行时可选挂载 LegacyRemoteCall（无前置依赖）:
     // - lrca 已加载（顺序在前）→ 立即导出, LSE 可用
@@ -80,6 +84,7 @@ bool ModEntry::disable() {
     logger.info("HologramLib disabling...");
 
     // Destroy all shapes, release resources
+    PacketDebugRenderer::getInstance().shutdown();
     PacketDebugRenderer::getInstance().destroyAll();
     FloatingTextManager::getInstance().destroyAll();
     GradientLineManager::getInstance().destroyAll();

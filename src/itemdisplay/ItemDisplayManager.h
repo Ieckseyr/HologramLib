@@ -53,6 +53,7 @@ public:
     bool    get(int64_t id, ItemDisplayConfig& out) const; // 拷贝输出当前配置
 
     bool setItem(int64_t id, std::string const& item, int aux);
+    bool setItemWithNbt(int64_t id, std::string const& item, int aux, std::string const& nbt);
     bool setPosition(int64_t id, float x, float y, float z, int dim);
     bool setOffset(int64_t id, std::string const& ox, std::string const& oy, std::string const& oz);
     bool setBaseOffset(int64_t id, std::string const& ox, std::string const& oy, std::string const& oz);
@@ -85,6 +86,7 @@ public:
         std::optional<::ItemStack>    cachedStack;
         std::string                   cachedItemName{};
         int                           cachedItemAux{0};
+        std::string                   cachedItemNbt{};  // 缓存键含 NBT（换附魔时重解析）
         bool                          itemWarned{false}; // 解析失败只告警一次（换物品后重置）
     };
 

@@ -251,10 +251,10 @@ void GradientLineManager::rebuildSegments(GradientLine& line) {
         // 创建线段
         int64_t segId = shapeMgr.createLine(sx, sy, sz, ex, ey, ez);
         if (segId < 0) continue;
-        
-        // 设置持续时间为1小时，避免闪烁
-        shapeMgr.setDuration(segId, 3600.0f);
-        
+
+        // 注: 不设置 duration —— 客户端会按 mTotalTimeLeft 倒计时自动删除,
+        // 永久渐变线保持 nullopt(由 destroy 显式控制生命周期)
+
         // 计算颜色
         float tMid = (t1 + t2) / 2.0f;  // 使用中点颜色
         LineColor color;

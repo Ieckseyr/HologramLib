@@ -17,6 +17,7 @@
 #include <mc/deps/core/string/HashedString.h>
 #include <mc/deps/core/utility/BinaryStream.h>
 #include <mc/deps/core/utility/ReadOnlyBinaryStream.h>
+#include <mc/deps/nbt/CompoundTag.h>
 #include <mc/legacy/ActorRuntimeID.h>
 #include <mc/network/MinecraftPackets.h>
 #include <mc/network/NetworkSystem.h>
@@ -158,7 +159,7 @@ std::string normalizeItemName(std::string const& raw) {
     return raw;
 }
 
-std::optional<::ItemStack> buildItemStack(std::string const& rawName, int aux) {
+std::optional<::ItemStack> buildItemStack(std::string const& rawName, int aux, std::string const& nbt) {
     auto level = ll::service::getLevel();
     if (!level) return std::nullopt;
 
@@ -167,8 +168,23 @@ std::optional<::ItemStack> buildItemStack(std::string const& rawName, int aux) {
         if (!weak) return std::nullopt;
         return ::ItemStack(*weak, 1, aux, nullptr);
     };
-    if (auto stack = tryGet(rawName)) return stack; // 原名（含自定义命名空间）
-    return tryGet(normalizeItemName(rawName));     // 短名补全 / 旧名映射
+    std::optional<::ItemStack> stack;
+    if (stack = tryGet(rawName)) { // 原名（含自定义命名空间）
+    } else {
+        stack = tryGet(normalizeItemName(rawName)); // 短名补全 / 旧名映射
+    }
+    if (!stack) return std::nullopt;
+
+    // 附加用户数据（附魔/自定义名称等; 客户端按 NBT 渲染附魔光效）
+    if (!nbt.empty()) {
+        auto parsed = ::CompoundTag::fromSnbt(nbt);
+        if (parsed) {
+            stack->setUserData(std::make_unique<::CompoundTag>(std::move(*parsed)));
+        } else {
+            logger().warn("[ItemDisplay] itemNbt SNBT parse failed for '{}', ignored", rawName);
+        }
+    }
+    return stack;
 }
 
 // 解析实际渲染模式：auto 时按物品是否为 3D 方块决定
@@ -395,14 +411,16 @@ bool spawnForPlayer(int64_t id, ItemDisplayConfig const& data, Runtime& rt, Play
     // Level 未就绪: 不缓存不告警, 下个 tick 重试
     if (!ll::service::getLevel()) return false;
 
-    // 物品解析缓存（名称/附加值变更时失效重解析; 失败只告警一次）
-    bool const changed     = rt.cachedItemName != data.item || rt.cachedItemAux != data.itemAux;
-    bool const unresolved  = !rt.cachedStack.has_value() && !rt.itemWarned;
+    // 物品解析缓存（名称/附加值/NBT 变更时失效重解析; 失败只告警一次）
+    bool const changed =
+        rt.cachedItemName != data.item || rt.cachedItemAux != data.itemAux || rt.cachedItemNbt != data.itemNbt;
+    bool const unresolved = !rt.cachedStack.has_value() && !rt.itemWarned;
     if (changed || unresolved) {
         if (changed) rt.itemWarned = false; // 换物品后重置告警
-        rt.cachedStack    = buildItemStack(data.item, data.itemAux);
+        rt.cachedStack    = buildItemStack(data.item, data.itemAux, data.itemNbt);
         rt.cachedItemName = data.item;
         rt.cachedItemAux  = data.itemAux;
+        rt.cachedItemNbt  = data.itemNbt;
         if (!rt.cachedStack) {
             rt.itemWarned = true;
             logger().warn(
@@ -573,11 +591,21 @@ bool ItemDisplayManager::get(int64_t id, ItemDisplayConfig& out) const {
 }
 
 bool ItemDisplayManager::setItem(int64_t id, std::string const& item, int aux) {
+    return setItemWithNbt(id, item, aux, ""); // 换物品 = 清除附加数据
+}
+
+bool ItemDisplayManager::setItemWithNbt(
+    int64_t              id,
+    std::string const&   item,
+    int                  aux,
+    std::string const&   nbt
+) {
     std::lock_guard lock(mMutex);
     auto it = mConfigs.find(id);
     if (it == mConfigs.end()) return false;
     it->second.item    = item;
     it->second.itemAux = aux;
+    it->second.itemNbt = nbt;
     refreshLocked(id);
     return true;
 }

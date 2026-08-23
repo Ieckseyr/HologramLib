@@ -13,6 +13,8 @@
 #include "ProtocolShape.h"
 #include "ProtocolPackets.h"
 
+#include <ll/api/event/Listener.h>
+
 namespace debugshape_export {
 
 // 形状数据 - 直接持有 v944 DebugShape
@@ -21,6 +23,11 @@ struct ShapeData {
     LSEShapeType type;       // 形状类型（LSE 兼容）
     ProtoShape  proto;       // v944 协议层数据
     bool        visible{false};
+
+    // 绘制目标（进服重发时按此过滤接收者）
+    enum class Target : uint8_t { None, All, Dimension, Player };
+    Target      target{Target::None};
+    std::string targetPlayer; // Target::Player 时的目标玩家名
 };
 
 class PacketDebugRenderer {
@@ -85,6 +92,14 @@ public:
     // 获取形状的 networkId（供高级管理器使用）
     uint64_t getNetworkId(int64_t id);
 
+    // 生命周期：注册/注销玩家进服重发监听（幂等）
+    void init();
+    void shutdown();
+
+private:
+    // 周期兜底重发（tick 驱动, 每 15s 全量静默补发）
+    void tickResend(float deltaTime);
+
 private:
     PacketDebugRenderer() = default;
     ~PacketDebugRenderer() = default;
@@ -94,10 +109,17 @@ private:
 
     uint64_t generateNetworkId();
 
+    // 将所有可见形状按绘制目标过滤后重发给指定玩家（进服/重连恢复）
+    void resendVisibleToPlayer(::Player& player, bool log = true);
+
     std::unordered_map<int64_t, std::unique_ptr<ShapeData>> mShapes;
     int64_t  mNextId{1};
     uint64_t mNextNetworkId{UINT64_MAX};
     std::mutex mMutex;
+
+    ll::event::ListenerPtr mJoinListener{nullptr};
+    ll::event::ListenerPtr mTickListener{nullptr}; // 周期兜底重发
+    float   mResendTimer{0};  // 距下次全量兜底重发的秒数
 };
 
 } // namespace debugshape_export

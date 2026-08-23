@@ -536,15 +536,15 @@ void FloatingTextManager::rebuildTextShape(FloatingText& ft) {
         shapeMgr.setText(ft.textShapeId, combined);
         shapeMgr.setScale(ft.textShapeId, first.scale);
         shapeMgr.setColor(ft.textShapeId, color.r, color.g, color.b, color.a);
-        shapeMgr.setDuration(ft.textShapeId, 3600.0f);
     } else {
         // 首次创建
         ft.textShapeId = shapeMgr.createText(ft.x, ft.y, ft.z, combined);
         if (ft.textShapeId < 0) return;
         shapeMgr.setScale(ft.textShapeId, first.scale);
         shapeMgr.setColor(ft.textShapeId, color.r, color.g, color.b, color.a);
-        shapeMgr.setDuration(ft.textShapeId, 3600.0f);
     }
+    // 注: 不再设置有限 duration —— mTotalTimeLeft 会让客户端倒计时后自动删除形状,
+    // 永久悬浮字必须保持 nullopt(由 destroy/remove 显式控制生命周期)
 }
 
 // 按绘制目标重发形状

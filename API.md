@@ -144,6 +144,7 @@ struct ItemDisplayConfig {
     int    mode{0};                        // 0=auto 1=item 2=block
     double viewDistance{64.0};             // <=0 无限制
     bool   enabled{true};
+    std::string itemNbt{};                 // 物品附加数据（SNBT; 1.8.0; 附魔光效/自定义名称）
 };
 ```
 
@@ -166,6 +167,7 @@ struct ItemDisplayConfig {
 | createWithId | `(ItemDisplayConfig const&, int64_t desiredId) -> int64_t` | **1.7.0** 指定 ID 创建：持久化恢复场景（如随机 ID 重启后原位还原）; desiredId<=0 或已被占用返回 -2 |
 | isIdUsed | `(int64_t) -> bool` | **1.7.0** 查询 ID 是否在用 |
 | scaleBy | `(int64_t, double factor) -> bool` | **1.7.1** 相对缩放（放大/缩小）：在现有 scale 上乘 factor; factor>1 放大, 0<factor<1 缩小; 常量直接相乘, 表达式包裹 `(expr)*factor`; factor<=0 返回 false |
+| setItemWithNbt | `(int64_t, std::string const& item, int aux, std::string const& nbt) -> bool` | **1.8.0** 换物品（带附加数据）：nbt 为 SNBT 字符串（附魔/自定义名称等用户数据，客户端按 NBT 渲染附魔光效）; 空串 = 清除附加数据; SNBT 解析失败按无 NBT 处理并告警 |
 | findNearestItemDisplay（IHologramLib 单例） | `(float x, float y, float z, int dim, double maxDist) -> int64_t` | 最近查找（dim 匹配; maxDist<=0 无限制; 无匹配 -1） |
 
 可见性由库内 Level tick hook 自动同步（每 20 tick：同维度 + 可见距离内玩家自动生成/移除；玩家断线自动清理）；属性变更即时生效（对已见玩家原子 despawn→respawn）。
@@ -315,8 +317,9 @@ FMBE（狐狸+发包）技术：隐形狐狸手持物品渲染任意物品/方�
 | itemDisplayExists | `(id) -> b` |
 | itemDisplayIsIdUsed | `(id) -> b`（**1.7.0** 查询 ID 是否在用） |
 | itemDisplayScaleBy | `(id, factor: f) -> b`（**1.7.1** 相对缩放: factor>1 放大, 0<factor<1 缩小; 常量直接乘, 表达式包裹乘法） |
+| itemDisplaySetItemWithNbt | `(id, itemId: s, aux: i, nbt: s) -> b`（**1.8.0** 换物品带附加数据: nbt 为 SNBT 字符串, 携带附魔光效/自定义名称; 空串清除） |
 | itemDisplayGetAllIds | `() -> [i]` |
-| itemDisplaySetItem | `(id, itemId: s, aux: i) -> b` |
+| itemDisplaySetItem | `(id, itemId: s, aux: i) -> b`（换物品; 清除附加数据） |
 | itemDisplaySetPosition | `(id, x,y,z: f, dim: i) -> b`（dim<0 仅改坐标） |
 | itemDisplaySetOffset | `(id, ox,oy,oz: s) -> b`（模型单位平移; Molang） |
 | itemDisplaySetBaseOffset | `(id, ox,oy,oz: s) -> b`（渲染像素基础偏移; Molang） |

@@ -258,6 +258,9 @@ public:
     bool scaleBy(int64_t id, double factor) override {
         return debugshape_export::ItemDisplayManager::getInstance().scaleBy(id, factor);
     }
+    bool setItemWithNbt(int64_t id, std::string const& item, int aux, std::string const& nbt) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setItemWithNbt(id, item, aux, nbt);
+    }
 };
 
 class HologramLibImpl final : public IHologramLib {
