@@ -43,7 +43,7 @@ HologramLib/
 >     "type": "native",
 >     "platform": "server",
 >     "description": "统一悬浮显示库: 形状渲染 + 悬浮字全息 + 物品详情",
->     "author": "你的名字"
+>     "author": "作者名"
 > }
 > ```
 
