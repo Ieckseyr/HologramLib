@@ -10,6 +10,8 @@
 #include "itemdisplay/ItemDisplayManager.h"
 #include "lse/LseBridge.h"
 
+#include "hologramlib/HologramLib.h"
+
 #include <ll/api/event/EventBus.h>
 #include <ll/api/event/server/ServerStartedEvent.h>
 #include <ll/api/mod/RegisterHelper.h>
@@ -43,7 +45,7 @@ bool ModEntry::load() {
 
 bool ModEntry::enable() {
     auto& logger = getSelf().getLogger();
-    logger.info("HologramLib enabling...");
+    logger.info("HologramLib enabling... (API 0x{:06X})", HOLOGLIB_API_VERSION);
 
     ItemDisplayManager::getInstance().init();
 

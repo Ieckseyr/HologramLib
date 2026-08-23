@@ -164,6 +164,7 @@ struct ItemDisplayConfig {
 | createRandom | `(ItemDisplayConfig const&) -> int64_t` | **1.7.0** 随机 ID 创建：库在随机段 `[0x10000000, 0x7FFFFFFF)` 自动生成不重复 ID（查重 + 与自增段隔离）; 成功返回生成的 ID, <0 失败 |
 | createWithId | `(ItemDisplayConfig const&, int64_t desiredId) -> int64_t` | **1.7.0** 指定 ID 创建：持久化恢复场景（如随机 ID 重启后原位还原）; desiredId<=0 或已被占用返回 -2 |
 | isIdUsed | `(int64_t) -> bool` | **1.7.0** 查询 ID 是否在用 |
+| scaleBy | `(int64_t, double factor) -> bool` | **1.7.1** 相对缩放（放大/缩小）：在现有 scale 上乘 factor; factor>1 放大, 0<factor<1 缩小; 常量直接相乘, 表达式包裹 `(expr)*factor`; factor<=0 返回 false |
 | findNearestItemDisplay（IHologramLib 单例） | `(float x, float y, float z, int dim, double maxDist) -> int64_t` | 最近查找（dim 匹配; maxDist<=0 无限制; 无匹配 -1） |
 
 可见性由库内 Level tick hook 自动同步（每 20 tick：同维度 + 可见距离内玩家自动生成/移除；玩家断线自动清理）；属性变更即时生效（对已见玩家原子 despawn→respawn）。
@@ -298,7 +299,7 @@ LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib
 
 `itemDetailShow`：在 (x,y,z) 显示"本地化物品名 xN"（count<=1 无数量后缀）；`customText` 传 `""` 用自动文本，非空则完全替代（支持 § 颜色码与 `{变量}`）。返回悬浮字 ID，可继续用 `holo*` 精修。
 
-### 2.5 itemDisplay*（FMBE 物品悬浮显示，1.6.0 追加，18 函数）
+### 2.5 itemDisplay*（FMBE 物品悬浮显示，1.6.0 追加，22 函数）
 
 FMBE（狐狸+发包）技术：隐形狐狸手持物品渲染任意物品/方块的悬浮展示。三轴旋转/函数平移/缩放全部支持 **Molang 表达式**（如 `"math.sin(query.life_time*90)*360"`）。
 
@@ -306,9 +307,13 @@ FMBE（狐狸+发包）技术：隐形狐狸手持物品渲染任意物品/方�
 |------|------|
 | itemDisplayCreate | `(x: f, y: f, z: f, dim: i, itemId: s, aux: i) -> i` |
 | itemDisplayCreateAdvanced | `(x,y,z: f, dim: i, itemId: s, aux: i, offX,offY,offZ: s, rotX,rotY,rotZ: s, scale: s) -> i` |
+| itemDisplayCreateRandom | `(x: f, y: f, z: f, dim: i, itemId: s, aux: i) -> i`（**1.7.0** 库自动生成随机段 `[0x10000000,0x7FFFFFFF)` 不重复 ID, 成功返还 ID 值; <0 失败） |
+| itemDisplayCreateWithId | `(x: f, y: f, z: f, dim: i, itemId: s, aux: i, desiredId: i) -> i`（**1.7.0** 指定 ID 创建, 持久化恢复用; desiredId<=0 或已占用返回 -2） |
 | itemDisplayDestroy | `(id) -> b` |
 | itemDisplayDestroyAll | `() -> nil` |
 | itemDisplayExists | `(id) -> b` |
+| itemDisplayIsIdUsed | `(id) -> b`（**1.7.0** 查询 ID 是否在用） |
+| itemDisplayScaleBy | `(id, factor: f) -> b`（**1.7.1** 相对缩放: factor>1 放大, 0<factor<1 缩小; 常量直接乘, 表达式包裹乘法） |
 | itemDisplayGetAllIds | `() -> [i]` |
 | itemDisplaySetItem | `(id, itemId: s, aux: i) -> b` |
 | itemDisplaySetPosition | `(id, x,y,z: f, dim: i) -> b`（dim<0 仅改坐标） |

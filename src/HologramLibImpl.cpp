@@ -255,6 +255,9 @@ public:
     bool isIdUsed(int64_t id) const override {
         return debugshape_export::ItemDisplayManager::getInstance().isIdUsed(id);
     }
+    bool scaleBy(int64_t id, double factor) override {
+        return debugshape_export::ItemDisplayManager::getInstance().scaleBy(id, factor);
+    }
 };
 
 class HologramLibImpl final : public IHologramLib {
@@ -265,7 +268,7 @@ public:
 
     bool isLseAvailable() override { return lse::isAttached(); }
 
-    uint32_t version() override { return 0x010700; } // 1.7.0
+    uint32_t version() override { return 0x010701; } // 1.7.1
 
     IItemDisplay& itemDisplays() override { return mItemDisplays; }
 

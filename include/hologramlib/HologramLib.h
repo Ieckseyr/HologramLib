@@ -17,9 +17,9 @@
 #include <string>
 #include <vector>
 
-// 库 API 版本（与 IHologramLib::version() 同值, BCD: 0x010700 = 1.7.0）
+// 库 API 版本（与 IHologramLib::version() 同值, BCD: 0x010701 = 1.7.1）
 // 消费方可用于编译期静态断言最低版本要求
-#define HOLOGLIB_API_VERSION 0x010700
+#define HOLOGLIB_API_VERSION 0x010701
 
 #ifdef HOLOGLIB_EXPORTS
 #define HOLOGLIB_API __declspec(dllexport)
@@ -226,6 +226,12 @@ public:
     virtual int64_t createWithId(ItemDisplayConfig const& config, int64_t desiredId) = 0;
     // 查询 ID 是否在用
     virtual bool isIdUsed(int64_t id) const = 0;
+
+    // ── 1.7.1 追加（冻结契约: 只在尾部追加）──
+    // 相对缩放（放大/缩小）: 在现有 scale 上乘以 factor
+    // factor>1 放大, 0<factor<1 缩小; 常量缩放直接相乘, 表达式缩放包裹 (expr)*factor
+    // factor<=0 或 id 不存在返回 false
+    virtual bool scaleBy(int64_t id, double factor) = 0;
 };
 
 // ─────────────────────────────────────────────
@@ -244,7 +250,7 @@ public:
     // LSE 兼容层是否可用（LegacyRemoteCall 运行时检测成功）
     virtual bool isLseAvailable() = 0;
 
-    // 库版本（BCD: 0x010600 = 1.6.0）
+    // 库版本（BCD: 0x010701 = 1.7.1）
     virtual uint32_t version() = 0;
 
     // ── 1.6.0 追加（冻结契约: 只在尾部追加）──

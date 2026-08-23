@@ -70,6 +70,49 @@ void ItemDisplayExporter::exportAll() {
     hologramlib::lse::exportAs(NAMESPACE, "itemDisplayGetAllIds",
         [&mgr]() -> std::vector<int64_t> { return mgr.getAllIds(); });
 
+    // 1.7.0: 随机 ID 创建（库自动生成不重复 ID, 成功返还 ID 值）
+    // itemDisplayCreateRandom(x, y, z, dim, item, aux) -> int64（随机段 ID; <0 失败）
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "itemDisplayCreateRandom",
+        [&mgr](float x, float y, float z, int dim, std::string const& item, int aux) -> int64_t {
+            ItemDisplayConfig cfg;
+            cfg.x         = x;
+            cfg.y         = y;
+            cfg.z         = z;
+            cfg.dimension = dim;
+            cfg.item      = item;
+            cfg.itemAux   = aux;
+            return mgr.createRandom(cfg);
+        });
+
+    // 1.7.0: 指定 ID 创建（持久化恢复用; desiredId<=0 或已占用返回 -2）
+    // itemDisplayCreateWithId(x, y, z, dim, item, aux, desiredId) -> int64
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "itemDisplayCreateWithId",
+        [&mgr](float x, float y, float z, int dim, std::string const& item, int aux, int64_t desiredId)
+            -> int64_t {
+            ItemDisplayConfig cfg;
+            cfg.x         = x;
+            cfg.y         = y;
+            cfg.z         = z;
+            cfg.dimension = dim;
+            cfg.item      = item;
+            cfg.itemAux   = aux;
+            return mgr.createWithId(cfg, desiredId);
+        });
+
+    // 1.7.0: 查询 ID 是否在用
+    // itemDisplayIsIdUsed(id) -> bool
+    hologramlib::lse::exportAs(NAMESPACE, "itemDisplayIsIdUsed",
+        [&mgr](int64_t id) -> bool { return mgr.isIdUsed(id); });
+
+    // 1.7.1: 相对缩放（factor>1 放大, 0<factor<1 缩小; 常量直接乘, 表达式包裹乘法）
+    // itemDisplayScaleBy(id, factor) -> bool
+    hologramlib::lse::exportAs(NAMESPACE, "itemDisplayScaleBy",
+        [&mgr](int64_t id, float factor) -> bool { return mgr.scaleBy(id, factor); });
+
     // 属性
     hologramlib::lse::exportAs(NAMESPACE, "itemDisplaySetItem",
         [&mgr](int64_t id, std::string const& item, int aux) -> bool {

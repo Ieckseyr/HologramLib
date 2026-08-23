@@ -63,6 +63,7 @@ public:
     bool setEnabled(int64_t id, bool enabled);
     bool setViewDistance(int64_t id, double dist);
     bool rotateY(int64_t id, float delta); // 在现有 rotY（常量时）上叠加增量
+    bool scaleBy(int64_t id, double factor); // 在现有 scale 上乘系数（放大/缩小）
 
     std::vector<int64_t> getAllIds() const;
 

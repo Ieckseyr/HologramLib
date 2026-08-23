@@ -693,6 +693,26 @@ bool ItemDisplayManager::rotateY(int64_t id, float delta) {
     return true;
 }
 
+bool ItemDisplayManager::scaleBy(int64_t id, double factor) {
+    if (factor <= 0) return false;
+    std::lock_guard lock(mMutex);
+    auto it = mConfigs.find(id);
+    if (it == mConfigs.end()) return false;
+
+    // 尝试将现有 scale（常量）直接相乘; 表达式时包一层乘法
+    auto& s      = it->second.scale;
+    float current{};
+    auto  parsed = std::from_chars(s.data(), s.data() + s.size(), current);
+    if (parsed.ec == std::errc{} && parsed.ptr == s.data() + s.size()) {
+        if (current * factor <= 0) return false; // 防归零（缩放 0 不可见）
+        s = std::format("{}", current * factor);
+    } else {
+        s = std::format("({})*{}", s, factor);
+    }
+    refreshLocked(id);
+    return true;
+}
+
 std::vector<int64_t> ItemDisplayManager::getAllIds() const {
     std::lock_guard lock(mMutex);
     std::vector<int64_t> ids;
