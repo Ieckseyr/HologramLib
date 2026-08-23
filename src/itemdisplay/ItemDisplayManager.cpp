@@ -23,6 +23,7 @@
 #include <mc/network/NetworkSystem.h>
 #include <mc/network/packet/MobEquipmentPacket.h>
 #include <mc/world/actor/player/Player.h>
+#include <mc/deps/nbt/ShortTag.h>
 #include <mc/world/item/ItemStack.h>
 #include <mc/world/item/enchanting/Enchant.h>
 #include <mc/world/item/enchanting/EnchantmentInstance.h>
@@ -183,6 +184,30 @@ std::optional<::ItemStack> buildItemStack(std::string const& rawName, int aux, s
         }
     }
 
+    // 附魔光效: 手写 NBT 注入（构造前写入 tag, 4 参构造器统一摄入, 零 BDS 附魔 API 跳转）。
+    // 1.8.0 手写失败根因已定位: CompoundTagVariant{1} 推导为 IntTag(SNBT "1"),
+    // 而原版附魔等级是 ShortTag(SNBT "1s")——组件 schema 严格类型校验,
+    // IntTag 被静默拒绝(isEnchanted=false → 无光效)。显式 ::ShortTag{1} 精确定类型。
+    if (glint) {
+        if (!tag) tag = std::make_unique<::CompoundTag>();
+        // 定位/新建 components 复合（已有则合并, 保留自定义名称等其余组件）
+        ::CompoundTag* comps = nullptr;
+        if (auto found = tag->mTags.find("components"); found != tag->mTags.end()) {
+            comps = std::get_if<::CompoundTag>(&found->second.mTagStorage);
+        }
+        if (!comps) { // 不存在（或非复合的损坏数据）→ 新建
+            (*tag)["components"] = ::CompoundTagVariant{::CompoundTag{}};
+            comps                = std::get_if<::CompoundTag>(&(*tag)["components"].mTagStorage);
+        }
+        if (comps) {
+            ::CompoundTag levels;
+            levels["minecraft:sharpness"]     = ::CompoundTagVariant{::ShortTag{1}};
+            ::CompoundTag ench;
+            ench["levels"]                    = std::move(levels);
+            (*comps)["minecraft:enchantments"] = std::move(ench);
+        }
+    }
+
     auto tryGet = [&](std::string const& name) -> std::optional<::ItemStack> {
         auto weak = level->getItemRegistry().getItem(::HashedString(name));
         if (!weak) return std::nullopt;
@@ -195,19 +220,20 @@ std::optional<::ItemStack> buildItemStack(std::string const& rawName, int aux, s
     }
     if (!stack) return std::nullopt;
 
-    // 附魔光效: BDS 原生 saveEnchantsToUserData 路径。
-    // 实证（2026-08-23）: 手写 components.minecraft:enchantments NBT 经 4 参构造器
-    // 后 isEnchanted()=false——组件系统不认手工 userData, 网络序列化也不产生光效;
-    // saveEnchantsToUserData 是 BDS 自己写自己读的格式, 客户端必然渲染光效。
-    if (glint) {
-        // ItemEnchants 默认构造符号未收录于 SymbolProvider——借 BDS 原生
-        // constructItemEnchantsFromUserData() 获得空附魔集（值返回, 无需构造符号）
+    // 自写光效验证: isEnchanted=false 说明结构/类型仍有偏差 →
+    // 原生路径兜底保证光效必现, 并 dump 原生格式作为 ground truth 供下轮修正
+    if (glint && !stack->isEnchanted()) {
         auto                  ench = stack->constructItemEnchantsFromUserData();
         ::EnchantmentInstance inst{};
         inst.mEnchantType = ::Enchant::Type::Sharpness;
-        inst.mLevel       = 1; // 1 级锋利: 仅取光效
+        inst.mLevel       = 1;
         ench.addEnchant(inst, true);
         stack->saveEnchantsToUserData(ench);
+        logger().warn(
+            "[ItemDisplay] 光效自写未生效(isEnchanted=false), 已走原生兜底。自写: [{}] 原生格式: [{}]",
+            tag ? tag->toSnbt(::SnbtFormat::Minimize) : std::string("(null)"),
+            stack->mUserData ? stack->mUserData->toSnbt(::SnbtFormat::Minimize) : std::string("(null)")
+        );
     }
 
     // 诊断: NBT/光效应用结果（runtime 重建时触发, 频率低）
