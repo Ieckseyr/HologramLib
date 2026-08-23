@@ -172,7 +172,11 @@ std::optional<::ItemStack> buildItemStack(std::string const& rawName, int aux, s
         if (parsed) {
             tag = std::make_unique<::CompoundTag>(std::move(*parsed));
         } else {
-            logger().warn("[ItemDisplay] itemNbt SNBT parse failed for '{}', ignored", rawName);
+            logger().warn(
+                "[ItemDisplay] itemNbt SNBT parse failed for '{}', ignored. 原文前 80 字节: [{}]",
+                rawName,
+                nbt.substr(0, 80)
+            );
         }
     }
 
