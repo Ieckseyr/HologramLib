@@ -271,7 +271,7 @@ public:
 
     bool isLseAvailable() override { return lse::isAttached(); }
 
-    uint32_t version() override { return 0x010701; } // 1.7.1
+    uint32_t version() override { return HOLOGLIB_API_VERSION; } // 跟随宏, 永不再手写数值
 
     IItemDisplay& itemDisplays() override { return mItemDisplays; }
 
