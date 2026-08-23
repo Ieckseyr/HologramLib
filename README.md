@@ -115,5 +115,9 @@ const itemDetailShow  = ll.import("HologramLib", "itemDetailShow");
 
 完整函数清单见 [API.md](API.md)。
 
+## 依赖
+- Levilamina
+- [SculkCatalystMC/Protocol](https://github.com/SculkCatalystMC/Protocol)
+
 ## 许可
 MIT许可
