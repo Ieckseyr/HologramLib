@@ -33,20 +33,6 @@ HologramLib/
 - LeviLamina 26.10.14（xmake 自动拉取）
 - `BedrockProtocol-944` 本地静态库（`../BedrockProtocol-944/install/{include,lib}`，含协议 944 的 `sculk::protocol` 封包实现）
 
-> 本仓库按白名单仅含源码与文档。构建前需在工作目录放置 `manifest.json`（modpacker 需要），模板：
->
-> ```json
-> {
->     "name": "HologramLib",
->     "entry": "HologramLib.dll",
->     "version": "1.5.0",
->     "type": "native",
->     "platform": "server",
->     "description": "统一悬浮显示库: 形状渲染 + 悬浮字全息 + 物品详情",
->     "author": "作者名"
-> }
-> ```
-
 ```bash
 xmake f -c -y
 xmake -y
