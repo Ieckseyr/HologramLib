@@ -1,6 +1,7 @@
 # HologramLib API 参考
 
-- 库版本：1.6.0（`HOLOGLIB_API_VERSION 0x010600`）
+- API 版本：1.7.1（`HOLOGLIB_API_VERSION 0x010701`）
+- 插件发布版本：`26.10.1`（规则：跟随 LeviLamina 版本前两段 + 尾号自增，如 `26.10.1 → 26.10.2 → 26.10.3`；LeviLamina 升级到 `26.11.x` 时从 `26.11.1` 重新起号）
 - 唯一公开头：`include/hologramlib/HologramLib.h`
 
 ## API 稳定性契约
