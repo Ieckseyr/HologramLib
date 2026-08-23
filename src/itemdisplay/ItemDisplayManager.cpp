@@ -163,10 +163,23 @@ std::optional<::ItemStack> buildItemStack(std::string const& rawName, int aux, s
     auto level = ll::service::getLevel();
     if (!level) return std::nullopt;
 
+    // 先解析用户数据（附魔/自定义名称等; 客户端按 NBT 渲染附魔光效）。
+    // 用 4 参构造器在构造时传入 —— BDS 原生路径, 构造内部完整处理 userData
+    // （比构造后 setUserData 更可靠, 组件状态/比较值同步初始化）。
+    std::unique_ptr<::CompoundTag> tag;
+    if (!nbt.empty()) {
+        auto parsed = ::CompoundTag::fromSnbt(nbt);
+        if (parsed) {
+            tag = std::make_unique<::CompoundTag>(std::move(*parsed));
+        } else {
+            logger().warn("[ItemDisplay] itemNbt SNBT parse failed for '{}', ignored", rawName);
+        }
+    }
+
     auto tryGet = [&](std::string const& name) -> std::optional<::ItemStack> {
         auto weak = level->getItemRegistry().getItem(::HashedString(name));
         if (!weak) return std::nullopt;
-        return ::ItemStack(*weak, 1, aux, nullptr);
+        return ::ItemStack(*weak, 1, aux, tag.get());
     };
     std::optional<::ItemStack> stack;
     if (stack = tryGet(rawName)) { // 原名（含自定义命名空间）
@@ -175,14 +188,14 @@ std::optional<::ItemStack> buildItemStack(std::string const& rawName, int aux, s
     }
     if (!stack) return std::nullopt;
 
-    // 附加用户数据（附魔/自定义名称等; 客户端按 NBT 渲染附魔光效）
+    // 诊断: NBT 应用结果（附魔光效排障用; runtime 重建时触发, 频率低）
     if (!nbt.empty()) {
-        auto parsed = ::CompoundTag::fromSnbt(nbt);
-        if (parsed) {
-            stack->setUserData(std::make_unique<::CompoundTag>(std::move(*parsed)));
-        } else {
-            logger().warn("[ItemDisplay] itemNbt SNBT parse failed for '{}', ignored", rawName);
-        }
+        logger().info(
+            "[ItemDisplay] NBT 应用 '{}': SNBT {} 字节, isEnchanted={}",
+            rawName,
+            nbt.size(),
+            stack->isEnchanted()
+        );
     }
     return stack;
 }
