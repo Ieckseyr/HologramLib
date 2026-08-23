@@ -445,25 +445,32 @@ constexpr std::string_view kBlockAttackRotExpr =
 // ItemPhys 原版节奏: 依次 +2/+3/+4(物品) 或 +2..+6(方块), 一包一 tick —— 逐字保持, 勿改为同帧
 // 方块模式: sleeping(+2)携带完整旋转矩阵, swelling(+3)携带缩放表达式(v.F.s 基准) —— 两者不可错位,
 // 否则 v.F.s 未初始化会导致方块缩放异常/不可见
+//
+// 动画 controller 名唯一化（2026-08-23 串台修复）:
+// wiki.* / fox.move 等名字在狐狸定义里不存在或被客户端按名字动态注册——多个展示共用同名
+// controller 时, 后创建实体的动画注册会污染先前端的状态（表现为"新展示显示旧展示的动效、
+// 旧展示回退修改前参数"）。每个展示的 controller 追加 ".<runtimeId>" 后缀完全隔离;
+// 同一展示多次 respawn（参数修改）名字不变, 状态原地覆盖, 不累积注册表条目。
 void scheduleAnims(ItemDisplayConfig const& data, Runtime const& rt, Player& player, int mode) {
     auto const uuid  = player.getUuid();
     auto const base  = currentTick();
     auto const block = (mode == 2);
+    auto const tag   = "." + std::to_string(rt.runtimeId);
 
     auto push = [&](std::uint64_t at, std::string anim, std::string ctrl, std::string stop) {
         animQueue().emplace(at, AnimEntry{uuid, rt.runtimeId, std::move(anim), std::move(ctrl), std::move(stop)});
     };
 
     if (block) {
-        push(base + 2, "animation.player.sleeping", "controller.animation.fox.move", buildBlockMatrixExpr(data));
-        push(base + 3, "animation.creeper.swelling", "wiki.fmbe.3d_blocks.anim1", std::string{kBlockSwellingExpr});
-        push(base + 4, "animation.ender_dragon.neck_head_movement", "wiki.fmbe.3d_blocks.anim2", std::string{kBlockHeadPosExpr});
-        push(base + 5, "animation.warden.move", "wiki.fmbe.3d_blocks.anim3", std::string{kBlockBodyRotExpr});
-        push(base + 6, "animation.player.attack.rotations", "wiki.fmbe.3d_blocks.anim4", std::string{kBlockAttackRotExpr});
+        push(base + 2, "animation.player.sleeping", "controller.animation.fox.move" + tag, buildBlockMatrixExpr(data));
+        push(base + 3, "animation.creeper.swelling", "wiki.fmbe.3d_blocks.anim1" + tag, std::string{kBlockSwellingExpr});
+        push(base + 4, "animation.ender_dragon.neck_head_movement", "wiki.fmbe.3d_blocks.anim2" + tag, std::string{kBlockHeadPosExpr});
+        push(base + 5, "animation.warden.move", "wiki.fmbe.3d_blocks.anim3" + tag, std::string{kBlockBodyRotExpr});
+        push(base + 6, "animation.player.attack.rotations", "wiki.fmbe.3d_blocks.anim4" + tag, std::string{kBlockAttackRotExpr});
     } else {
-        push(base + 2, "animation.player.sleeping", "controller.animation.fox.move", "");
-        push(base + 3, "animation.creeper.swelling", "wiki.scale", buildItemScaleExpr(data));
-        push(base + 4, "animation.ender_dragon.neck_head_movement", "wiki.posrot", std::string{kItemPosRotExpr});
+        push(base + 2, "animation.player.sleeping", "controller.animation.fox.move" + tag, "");
+        push(base + 3, "animation.creeper.swelling", "wiki.scale" + tag, buildItemScaleExpr(data));
+        push(base + 4, "animation.ender_dragon.neck_head_movement", "wiki.posrot" + tag, std::string{kItemPosRotExpr});
     }
 }
 
