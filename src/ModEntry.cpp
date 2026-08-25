@@ -8,6 +8,8 @@
 #include "itemdetail/ItemDetailExporter.h"
 #include "itemdisplay/ItemDisplayExporter.h"
 #include "itemdisplay/ItemDisplayManager.h"
+#include "customentity/CustomEntityExporter.h"
+#include "customentity/CustomEntityManager.h"
 #include "lse/LseBridge.h"
 
 #include "hologramlib/HologramLib.h"
@@ -35,6 +37,7 @@ static void exportLseFunctions() {
     GradientLineExporter::exportAll();
     ItemDetailExporter::exportAll();
     ItemDisplayExporter::exportAll();
+    CustomEntityExporter::exportAll();
 }
 
 bool ModEntry::load() {
@@ -49,6 +52,7 @@ bool ModEntry::enable() {
     logger.info("HologramLib enabling... (API 0x{:06X}, build {} {})", HOLOGLIB_API_VERSION, __DATE__, __TIME__);
 
     ItemDisplayManager::getInstance().init();
+    CustomEntityManager::getInstance().init();
     // 玩家进服后重发全部可见形状(悬浮字/形状客户端不落盘, 重连必须补发)
     // 含周期兜底: 每 15s 全量重发, 与 PlayerJoinEvent 1s/5s 双保险
     PacketDebugRenderer::getInstance().init();
@@ -89,6 +93,7 @@ bool ModEntry::disable() {
     FloatingTextManager::getInstance().destroyAll();
     GradientLineManager::getInstance().destroyAll();
     ItemDisplayManager::getInstance().shutdown();
+    CustomEntityManager::getInstance().shutdown();
 
     logger.info("HologramLib disabled.");
     return true;

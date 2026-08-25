@@ -19,7 +19,7 @@
 
 // 库 API 版本（与 IHologramLib::version() 同值, BCD: 0x010701 = 1.7.1）
 // 消费方可用于编译期静态断言最低版本要求
-#define HOLOGLIB_API_VERSION 0x010900
+#define HOLOGLIB_API_VERSION 0x011000
 
 #ifdef HOLOGLIB_EXPORTS
 #define HOLOGLIB_API __declspec(dllexport)
@@ -251,6 +251,59 @@ public:
 };
 
 // ─────────────────────────────────────────────
+// 自定义实体协议层生成（任意类型实体; 1.10.0 追加）
+// AddActorPacket 直发客户端生成纯视觉实体, 不占服务端实体系统;
+// 适合 NPC 壳 / 装饰生物 / 盔甲架布景等（不可交互, 无碰撞）
+// ─────────────────────────────────────────────
+struct CustomEntityConfig {
+    std::string identifier{"minecraft:armor_stand"}; // 实体类型标识符（短名自动补 minecraft:）
+    float       x{0}, y{64}, z{0};                   // 世界坐标
+    int         dimension{0};                        // 维度 ID
+    float       yaw{0}, pitch{0};                    // 朝向（度; 头/身旋转同值）
+    std::string nametag{};                           // 头顶名字（支持 § 颜色码; 空 = 无）
+    bool        nametagAlwaysShow{false};            // 名字常显（默认仅准星对准时显示）
+    float       scale{1.0f};                         // 实体缩放（客户端有效域 0.0625~10, 自动钳制）
+    int         variant{0};                          // 变种（皮肤/亚种, 依实体定义）
+    int         markVariant{0};                      // 二级变种
+    int         colorIndex{0};                       // 颜色索引（羊/项圈等染色实体）
+    std::int64_t flags{0};                           // 原始 flags 位掩码（0x01=着火 0x20=隐身 等）
+    bool        invisible{false};                    // 隐身便捷开关（与 flags 独立, 发包时合成 0x20）
+    double      viewDistance{64.0};                  // 可见距离（方块; <=0 无限制）
+    bool        enabled{true};
+};
+
+class ICustomEntity {
+public:
+    virtual ~ICustomEntity() = default;
+
+    // 生命周期（id 驱动; 创建失败返回 < 0; 持久化由消费者负责）
+    virtual int64_t create(CustomEntityConfig const& config) = 0;
+    virtual int64_t createRandom(CustomEntityConfig const& config) = 0;  // 随机段 ID
+    virtual int64_t createWithId(CustomEntityConfig const& config, int64_t desiredId) = 0; // <=0/占用返回 -2
+    virtual bool    destroy(int64_t id)                     = 0;
+    virtual void    destroyAll()                            = 0;
+    virtual bool    exists(int64_t id) const                = 0;
+    virtual bool    get(int64_t id, CustomEntityConfig& out) const = 0;  // 拷贝输出当前配置
+    virtual bool    isIdUsed(int64_t id) const              = 0;
+    virtual std::vector<int64_t> getAllIds() const          = 0;
+
+    // 属性（变更经 tick 脏刷新合并为单次 respawn, 无闪烁串台）
+    virtual bool setIdentifier(int64_t id, std::string const& identifier) = 0;
+    virtual bool setPosition(int64_t id, float x, float y, float z, int dim) = 0; // dim<0 仅改坐标
+    virtual bool setRotation(int64_t id, float yaw, float pitch) = 0;
+    virtual bool setNametag(int64_t id, std::string const& text) = 0;  // 空串清除
+    virtual bool setScale(int64_t id, float scale)          = 0;       // <=0 拒绝
+    virtual bool setVariant(int64_t id, int variant)        = 0;
+    virtual bool setMarkVariant(int64_t id, int markVariant) = 0;
+    virtual bool setColorIndex(int64_t id, int colorIndex)  = 0;
+    virtual bool setFlags(int64_t id, std::int64_t flags)   = 0;       // 原始位掩码
+    virtual bool setInvisible(int64_t id, bool on)          = 0;       // 便捷开关（幂等）
+    virtual bool setEnabled(int64_t id, bool enabled)       = 0;
+    virtual bool setViewDistance(int64_t id, double dist)   = 0;
+
+    virtual int64_t findNearest(float x, float y, float z, int dim, double maxDist) const = 0; // 无匹配 -1
+};
+// ─────────────────────────────────────────────
 // 库入口单例
 // ─────────────────────────────────────────────
 class IHologramLib {
@@ -275,6 +328,9 @@ public:
     // 查找距 (x,y,z) 最近的可悬浮显示（dim 匹配; maxDist<=0 视为无限制）
     // 返回 id, 无匹配返回 -1
     virtual int64_t findNearestItemDisplay(float x, float y, float z, int dim, double maxDist) = 0;
+
+    // ── 1.10.0 追加（冻结契约: 只在尾部追加）──
+    virtual ICustomEntity& customEntities() = 0;
 };
 
 } // namespace hologramlib

@@ -9,6 +9,7 @@
 #include "PacketDebugRenderer.h"
 #include "itemdetail/ItemDetailManager.h"
 #include "itemdisplay/ItemDisplayManager.h"
+#include "customentity/CustomEntityManager.h"
 #include "lse/LseBridge.h"
 
 #include <utility>
@@ -267,6 +268,73 @@ public:
     }
 };
 
+class CustomEntityImpl final : public ICustomEntity {
+public:
+    int64_t create(CustomEntityConfig const& config) override {
+        return debugshape_export::CustomEntityManager::getInstance().create(config);
+    }
+    int64_t createRandom(CustomEntityConfig const& config) override {
+        return debugshape_export::CustomEntityManager::getInstance().createRandom(config);
+    }
+    int64_t createWithId(CustomEntityConfig const& config, int64_t desiredId) override {
+        return debugshape_export::CustomEntityManager::getInstance().createWithId(config, desiredId);
+    }
+    bool destroy(int64_t id) override {
+        return debugshape_export::CustomEntityManager::getInstance().destroy(id);
+    }
+    void destroyAll() override { debugshape_export::CustomEntityManager::getInstance().destroyAll(); }
+    bool exists(int64_t id) const override {
+        return debugshape_export::CustomEntityManager::getInstance().exists(id);
+    }
+    bool get(int64_t id, CustomEntityConfig& out) const override {
+        return debugshape_export::CustomEntityManager::getInstance().get(id, out);
+    }
+    bool isIdUsed(int64_t id) const override {
+        return debugshape_export::CustomEntityManager::getInstance().isIdUsed(id);
+    }
+    std::vector<int64_t> getAllIds() const override {
+        return debugshape_export::CustomEntityManager::getInstance().getAllIds();
+    }
+    bool setIdentifier(int64_t id, std::string const& identifier) override {
+        return debugshape_export::CustomEntityManager::getInstance().setIdentifier(id, identifier);
+    }
+    bool setPosition(int64_t id, float x, float y, float z, int dim) override {
+        return debugshape_export::CustomEntityManager::getInstance().setPosition(id, x, y, z, dim);
+    }
+    bool setRotation(int64_t id, float yaw, float pitch) override {
+        return debugshape_export::CustomEntityManager::getInstance().setRotation(id, yaw, pitch);
+    }
+    bool setNametag(int64_t id, std::string const& text) override {
+        return debugshape_export::CustomEntityManager::getInstance().setNametag(id, text);
+    }
+    bool setScale(int64_t id, float scale) override {
+        return debugshape_export::CustomEntityManager::getInstance().setScale(id, scale);
+    }
+    bool setVariant(int64_t id, int variant) override {
+        return debugshape_export::CustomEntityManager::getInstance().setVariant(id, variant);
+    }
+    bool setMarkVariant(int64_t id, int markVariant) override {
+        return debugshape_export::CustomEntityManager::getInstance().setMarkVariant(id, markVariant);
+    }
+    bool setColorIndex(int64_t id, int colorIndex) override {
+        return debugshape_export::CustomEntityManager::getInstance().setColorIndex(id, colorIndex);
+    }
+    bool setFlags(int64_t id, std::int64_t flags) override {
+        return debugshape_export::CustomEntityManager::getInstance().setFlags(id, flags);
+    }
+    bool setInvisible(int64_t id, bool on) override {
+        return debugshape_export::CustomEntityManager::getInstance().setInvisible(id, on);
+    }
+    bool setEnabled(int64_t id, bool enabled) override {
+        return debugshape_export::CustomEntityManager::getInstance().setEnabled(id, enabled);
+    }
+    bool setViewDistance(int64_t id, double dist) override {
+        return debugshape_export::CustomEntityManager::getInstance().setViewDistance(id, dist);
+    }
+    int64_t findNearest(float x, float y, float z, int dim, double maxDist) const override {
+        return debugshape_export::CustomEntityManager::getInstance().findNearest(x, y, z, dim, maxDist);
+    }
+};
 class HologramLibImpl final : public IHologramLib {
 public:
     IShapeDrawer&  shapes() override { return mShapes; }
@@ -283,11 +351,14 @@ public:
         return debugshape_export::ItemDisplayManager::getInstance().findNearest(x, y, z, dim, maxDist);
     }
 
+    ICustomEntity& customEntities() override { return mCustomEntities; }
+
 private:
     ShapeDrawerImpl  mShapes;
     HologramTextImpl mHolograms;
     ItemDetailImpl   mItemDetails;
     ItemDisplayImpl  mItemDisplays;
+    CustomEntityImpl mCustomEntities;
 };
 
 } // namespace
