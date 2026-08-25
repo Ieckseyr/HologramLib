@@ -375,6 +375,12 @@ bool FloatingTextManager::refresh(int64_t id) {
     auto* ft = getFloatingText(id);
     if (!ft || !ft->isDrawn) return false;
 
+    // 跟随模式: tick() 已把最新位置写入 ft->x/y/z,
+    // 重发前先同步到底层形状, 否则形状永远停在创建时的位置
+    if (!ft->followPlayer.empty() && ft->textShapeId >= 0) {
+        PacketDebugRenderer::getInstance().setLocation(ft->textShapeId, ft->x, ft->y, ft->z);
+    }
+
     // 复用 shape (networkId 不变), 客户端原地覆盖, 无闪烁
     rebuildTextShape(*ft);
     return redrawTextShape(*ft);

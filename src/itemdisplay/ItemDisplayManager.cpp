@@ -446,16 +446,18 @@ constexpr std::string_view kBlockAttackRotExpr =
 // 方块模式: sleeping(+2)携带完整旋转矩阵, swelling(+3)携带缩放表达式(v.F.s 基准) —— 两者不可错位,
 // 否则 v.F.s 未初始化会导致方块缩放异常/不可见
 //
-// 动画 controller 名唯一化（2026-08-23 串台修复）:
+// 动画 controller 名唯一化（2026-08-23 串台修复, 2026-08-24 调整）:
 // wiki.* / fox.move 等名字在狐狸定义里不存在或被客户端按名字动态注册——多个展示共用同名
 // controller 时, 后创建实体的动画注册会污染先前端的状态（表现为"新展示显示旧展示的动效、
-// 旧展示回退修改前参数"）。每个展示的 controller 追加 ".<runtimeId>" 后缀完全隔离;
-// 同一展示多次 respawn（参数修改）名字不变, 状态原地覆盖, 不累积注册表条目。
-void scheduleAnims(ItemDisplayConfig const& data, Runtime const& rt, Player& player, int mode) {
+// 旧展示回退修改前参数"）。每个展示的 controller 追加 ".<展示id>" 后缀完全隔离。
+// 2026-08-24: 后缀从 runtimeId 改为展示 id —— respawn 现在会更换新实体 ID（防客户端
+// runtimeId 重映射串台）, 若继续用 runtimeId 每次操作都会注册新名字导致客户端注册表泄漏;
+// 展示 id 稳定不变 → 同一展示多次 respawn 同名原地覆盖（旧实体已被 Remove）, 零累积。
+void scheduleAnims(int64_t id, ItemDisplayConfig const& data, Runtime const& rt, Player& player, int mode) {
     auto const uuid  = player.getUuid();
     auto const base  = currentTick();
     auto const block = (mode == 2);
-    auto const tag   = "." + std::to_string(rt.runtimeId);
+    auto const tag   = "." + std::to_string(id);
 
     auto push = [&](std::uint64_t at, std::string anim, std::string ctrl, std::string stop) {
         animQueue().emplace(at, AnimEntry{uuid, rt.runtimeId, std::move(anim), std::move(ctrl), std::move(stop)});
@@ -507,7 +509,7 @@ bool spawnForPlayer(int64_t id, ItemDisplayConfig const& data, Runtime& rt, Play
     sendFoxActor(player, data, rt);
     sendEquipment(player, rt.runtimeId, stack);
     sendDataPacket(player, rt.runtimeId);
-    scheduleAnims(data, rt, player, mode);
+    scheduleAnims(id, data, rt, player, mode);
     logger().debug(
         "[ItemDisplay] spawned #{} '{}' at ({:.1f},{:.1f},{:.1f}) dim={} mode={}",
         id,
@@ -578,6 +580,7 @@ void ItemDisplayManager::shutdown() {
     }
     mConfigs.clear();
     mRuntimes.clear();
+    mDirtyIds.clear();
     mInitializedPlayers.clear();
     animQueue().clear();
 }
@@ -615,11 +618,10 @@ bool ItemDisplayManager::isIdUsed(int64_t id) const {
 }
 
 int64_t ItemDisplayManager::createLocked(ItemDisplayConfig const& config, int64_t id) {
-    // 生成本次运行的唯一 Actor ID（避免与真实实体冲突: 高位标记 + 自增）
-    static std::uint64_t actorSeed = 0x6D00000000000000ULL; // 'm' 标记位
+    // 生成本次运行的唯一 Actor ID（高位标记段, 与真实实体 ID 空间隔离）
     Runtime rt{};
-    rt.uniqueId  = actorSeed | static_cast<std::uint64_t>(id);
-    rt.runtimeId = 0x6D000000ULL + static_cast<std::uint64_t>(id);
+    rt.uniqueId  = allocUniqueIdLocked();
+    rt.runtimeId = allocRuntimeIdLocked();
 
     mConfigs.emplace(id, config);
     mRuntimes.emplace(id, std::move(rt));
@@ -628,9 +630,14 @@ int64_t ItemDisplayManager::createLocked(ItemDisplayConfig const& config, int64_
     return id;
 }
 
+std::uint64_t ItemDisplayManager::allocUniqueIdLocked() { return mNextActorUniqueId++; }
+
+std::uint64_t ItemDisplayManager::allocRuntimeIdLocked() { return mNextRuntimeId++; }
+
 bool ItemDisplayManager::destroy(int64_t id) {
     std::lock_guard lock(mMutex);
 
+    mDirtyIds.erase(id); // 已删除的展示不再参与 tick 脏刷新
     auto rit = mRuntimes.find(id);
     if (rit == mRuntimes.end()) return false;
 
@@ -647,6 +654,7 @@ bool ItemDisplayManager::destroy(int64_t id) {
 
 void ItemDisplayManager::destroyAll() {
     std::lock_guard lock(mMutex);
+    mDirtyIds.clear();
     for (auto& [id, rt] : mRuntimes) {
         auto uuids = std::vector<mce::UUID>{rt.shownPlayers.begin(), rt.shownPlayers.end()};
         for (auto const& uuid : uuids) {
@@ -688,7 +696,7 @@ bool ItemDisplayManager::setItemWithNbt(
     it->second.item    = item;
     it->second.itemAux = aux;
     it->second.itemNbt = nbt;
-    refreshLocked(id);
+    mDirtyIds.insert(id); // tick 内合并 respawn（防同 tick 多次 Remove+Add 串台）
     return true;
 }
 
@@ -698,7 +706,7 @@ bool ItemDisplayManager::setGlint(int64_t id, bool on) {
     if (it == mConfigs.end()) return false;
     if (it->second.itemGlint == on) return true; // 幂等: apply 高频调用不触发 respawn
     it->second.itemGlint = on;
-    refreshLocked(id); // despawn→respawn 原子替换（ItemStack 已变）
+    mDirtyIds.insert(id); // tick 内合并 respawn（ItemStack 已变）
     return true;
 }
 
@@ -710,8 +718,7 @@ bool ItemDisplayManager::setPosition(int64_t id, float x, float y, float z, int 
     it->second.y = y;
     it->second.z = z;
     if (dim >= 0) it->second.dimension = dim;
-    refreshLocked(id);
-    syncVisibilityLocked(); // 位置/维度变化影响可见性
+    mDirtyIds.insert(id); // 位置/维度变化影响可见性, tick 脏刷新时统一重算
     return true;
 }
 
@@ -722,7 +729,7 @@ bool ItemDisplayManager::setOffset(int64_t id, std::string const& ox, std::strin
     it->second.offsetX = ox;
     it->second.offsetY = oy;
     it->second.offsetZ = oz;
-    refreshLocked(id);
+    mDirtyIds.insert(id);
     return true;
 }
 
@@ -733,7 +740,7 @@ bool ItemDisplayManager::setBaseOffset(int64_t id, std::string const& ox, std::s
     it->second.baseOffsetX = ox;
     it->second.baseOffsetY = oy;
     it->second.baseOffsetZ = oz;
-    refreshLocked(id);
+    mDirtyIds.insert(id);
     return true;
 }
 
@@ -744,7 +751,7 @@ bool ItemDisplayManager::setRotation(int64_t id, std::string const& rx, std::str
     it->second.rotX = rx;
     it->second.rotY = ry;
     it->second.rotZ = rz;
-    refreshLocked(id);
+    mDirtyIds.insert(id);
     return true;
 }
 
@@ -753,7 +760,7 @@ bool ItemDisplayManager::setScale(int64_t id, std::string const& scale) {
     auto it = mConfigs.find(id);
     if (it == mConfigs.end()) return false;
     it->second.scale = scale;
-    refreshLocked(id);
+    mDirtyIds.insert(id);
     return true;
 }
 
@@ -764,7 +771,7 @@ bool ItemDisplayManager::setExtend(int64_t id, std::string const& scale, std::st
     it->second.extendScale = scale;
     it->second.extendRotX  = rx;
     it->second.extendRotY  = ry;
-    refreshLocked(id);
+    mDirtyIds.insert(id);
     return true;
 }
 
@@ -773,7 +780,7 @@ bool ItemDisplayManager::setMode(int64_t id, int mode) {
     auto it = mConfigs.find(id);
     if (it == mConfigs.end()) return false;
     it->second.mode = mode;
-    refreshLocked(id);
+    mDirtyIds.insert(id);
     return true;
 }
 
@@ -782,7 +789,7 @@ bool ItemDisplayManager::setEnabled(int64_t id, bool enabled) {
     auto it = mConfigs.find(id);
     if (it == mConfigs.end()) return false;
     it->second.enabled = enabled;
-    syncVisibilityLocked();
+    mDirtyIds.insert(id); // 开关影响可见性, tick 脏刷新时统一重算
     return true;
 }
 
@@ -791,7 +798,7 @@ bool ItemDisplayManager::setViewDistance(int64_t id, double dist) {
     auto it = mConfigs.find(id);
     if (it == mConfigs.end()) return false;
     it->second.viewDistance = dist;
-    syncVisibilityLocked();
+    mDirtyIds.insert(id); // 视距影响可见性, tick 脏刷新时统一重算
     return true;
 }
 
@@ -809,7 +816,7 @@ bool ItemDisplayManager::rotateY(int64_t id, float delta) {
     } else {
         ry = std::format("({})+{}", ry, delta);
     }
-    refreshLocked(id);
+    mDirtyIds.insert(id);
     return true;
 }
 
@@ -829,7 +836,7 @@ bool ItemDisplayManager::scaleBy(int64_t id, double factor) {
     } else {
         s = std::format("({})*{}", s, factor);
     }
-    refreshLocked(id);
+    mDirtyIds.insert(id);
     return true;
 }
 
@@ -861,25 +868,68 @@ int64_t ItemDisplayManager::findNearest(float x, float y, float z, int dim, doub
 
 void ItemDisplayManager::refreshLocked(int64_t id) {
     // 参数变化后刷新所有已见玩家（despawn → respawn 原子替换）
+    //
+    // 串台修复(2026-08-24): respawn 必须更换全新 uniqueId/runtimeId。
+    // 旧实现复用同一对 ID, 客户端实体删除是延迟的（帧末销毁）—— 同帧/临近帧内
+    // RemoveActor(旧ID) + AddActor(同ID) 会让 Add 撞上"待删但未删"的实体,
+    // 触发客户端 runtimeId 重映射的未定义行为: 后续按 runtimeId 寻址的
+    // MobEquipment/AnimateEntity 包可能被路由到错误实体（其他悬浮物）,
+    // 表现为"操作一个悬浮物, 别的悬浮物在操作者视角内容改变但实际不变"。
+    // 换新 ID 后客户端看到的是纯粹的"删旧实体 + 建全新实体", 无任何 ID 复用。
     auto it  = mConfigs.find(id);
     auto rit = mRuntimes.find(id);
     if (it == mConfigs.end() || rit == mRuntimes.end()) return;
 
-    auto uuids = std::vector<mce::UUID>{rit->second.shownPlayers.begin(), rit->second.shownPlayers.end()};
+    auto& rt    = rit->second;
+    auto  uuids = std::vector<mce::UUID>{rt.shownPlayers.begin(), rt.shownPlayers.end()};
+
+    // 第一遍: 全部 despawn（Remove 按旧 uniqueId, 动画队列清理按旧 runtimeId）
+    std::vector<Player*> toSpawn;
+    bool                 replaced = false;
     for (auto const& uuid : uuids) {
         auto* player = findPlayerByUuid(uuid);
         if (!player) {
-            rit->second.shownPlayers.erase(uuid);
+            rt.shownPlayers.erase(uuid);
             continue;
         }
-        despawnForPlayer(rit->second, *player);
-        rit->second.shownPlayers.erase(uuid);
-        if (it->second.enabled) {
-            if (spawnForPlayer(id, it->second, rit->second, *player)) {
-                rit->second.shownPlayers.insert(uuid);
-            }
+        despawnForPlayer(rt, *player);
+        rt.shownPlayers.erase(uuid);
+        replaced = true;
+        if (it->second.enabled) toSpawn.push_back(player);
+    }
+
+    // despawn 全部完成后再统一换新 ID（确保动画队列按旧 runtimeId 清理完毕）
+    if (replaced) {
+        rt.uniqueId  = allocUniqueIdLocked();
+        rt.runtimeId = allocRuntimeIdLocked();
+    }
+
+    // 第二遍: 用新 ID respawn
+    for (auto* player : toSpawn) {
+        if (spawnForPlayer(id, it->second, rt, *player)) {
+            rt.shownPlayers.insert(player->getUuid());
         }
     }
+}
+
+void ItemDisplayManager::processDirtyLocked() {
+    // tick 内合并处理脏展示。
+    // 旧实现每个 setter 立即 refreshLocked —— 消费者(MeowHolographicRenderer)的
+    // apply 一次连调 5 个 setter, 同一 tick 客户端会收到 4 组 Remove+Add 交错序列,
+    // 极易触发上述客户端 ID 重映射串台。改为 setter 只标脏, 本方法在 tick hook
+    // (主线程, 动画 flush 之前) 统一执行: 无论几次 setter 调用都只 respawn 一次。
+    if (mDirtyIds.empty()) return;
+    auto dirty = std::move(mDirtyIds);
+    mDirtyIds.clear();
+
+    bool needVisibility = false;
+    for (auto id : dirty) {
+        if (!mConfigs.contains(id)) continue; // 中途被 destroy
+        // 位置/维度/开关变化影响可见性（refreshLocked 内部不重算, 统一在末尾重算一次）
+        needVisibility = true;
+        refreshLocked(id);
+    }
+    if (needVisibility) syncVisibilityLocked();
 }
 
 void ItemDisplayManager::syncVisibilityLocked() {
@@ -924,6 +974,11 @@ struct ItemDisplayTickHookAccess {
         std::lock_guard lock(mgr.mMutex);
         mgr.syncVisibilityLocked();
     }
+    // tick 内合并处理脏展示（单次 respawn; 主线程统一发包）
+    static void processDirty(ItemDisplayManager& mgr) {
+        std::lock_guard lock(mgr.mMutex);
+        mgr.processDirtyLocked();
+    }
     // 幽灵动画防护: 该 runtimeId 的实体是否仍存活且对该玩家可见
     static bool alive(ItemDisplayManager& mgr, std::uint64_t runtimeId, mce::UUID const& uuid) {
         std::lock_guard lock(mgr.mMutex);
@@ -936,6 +991,10 @@ struct ItemDisplayTickHookAccess {
 
 LL_TYPE_INSTANCE_HOOK(ItemDisplayTickHook, HookPriority::Normal, Level, &Level::$tick, void) {
     origin();
+
+    // 脏刷新优先于动画 flush：本 tick 内累积的 setter 变更在此合并为单次 respawn
+    // （新入队动画的 tick 均为 now+2 起步, 不会被本次 flush 发出）
+    ItemDisplayTickHookAccess::processDirty(ItemDisplayManager::getInstance());
 
     auto const now = currentTick();
     auto&      q   = animQueue();

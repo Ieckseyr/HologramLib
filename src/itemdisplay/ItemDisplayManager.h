@@ -96,8 +96,13 @@ private:
     // 内部: 持锁状态下刷新可见性 / 变更后刷新
     void refreshLocked(int64_t id);
     void syncVisibilityLocked();
+    // tick 内合并处理脏展示（同一 tick 的多次 setter 调用合并为单次 respawn）
+    void processDirtyLocked();
     // 持锁状态下的创建主体（id 已查重）; 失败返回 < 0
     int64_t createLocked(ItemDisplayConfig const& config, int64_t id);
+    // 实体 ID 分配（respawn 换新 ID, 防客户端"同帧 Remove+Add 同 ID"重映射串台）
+    [[nodiscard]] std::uint64_t allocUniqueIdLocked();
+    [[nodiscard]] std::uint64_t allocRuntimeIdLocked();
 
     friend struct ItemDisplayTickHookAccess;
 
@@ -105,6 +110,9 @@ private:
     int64_t                                             mNextId{1};
     std::unordered_map<int64_t, ItemDisplayConfig>      mConfigs;
     std::unordered_map<int64_t, Runtime>                mRuntimes;
+    std::unordered_set<int64_t>                         mDirtyIds;
+    std::uint64_t                                       mNextActorUniqueId{0x6D00000000000001ULL};
+    std::uint64_t                                       mNextRuntimeId{0x6D000000ULL};
     std::unordered_set<mce::UUID>                       mInitializedPlayers;
     ll::event::ListenerPtr                              mJoinListener;
     ll::event::ListenerPtr                              mDisconnectListener;

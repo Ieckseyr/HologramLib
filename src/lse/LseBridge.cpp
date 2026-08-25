@@ -1,4 +1,14 @@
-// LseBridge.cpp - lrca 运行时挂载实现
+// LseBridge.cpp - lrca 运行时挂载实现（精确 + 导出表模糊两级符号解析）
+//
+// 背景（2026-08-25 本机实证）：本机 LegacyRemoteCall.dll 与源内符号快照
+// 不匹配（不同编译版本的 MSVC STL mangling 差异），GetProcAddress 精确
+// 匹配全失败 → 旧实现 gAttachFailed 置位后永久放弃，LSE 桥形同虚设，
+// 所有 ll.import("HologramLib",...) 报 "has not been exported"。
+//
+// 修复（与 MeowPAPI LseBridge 同源方案，2026-08-25 实测模糊匹配可用）：
+// 精确失败后手动解析 PE 导出表按前缀模糊匹配（"?exportFunc@RemoteCall@@YA"
+// 等 6 个前缀）。MSVC ABI 自 2015 起 std::function/std::string 布局稳定，
+// 前缀命中的函数二进制兼容。
 #include "LseBridge.h"
 
 #include <Windows.h>
