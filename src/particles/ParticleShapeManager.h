@@ -1,11 +1,4 @@
 // ParticleShapeManager.h - 通用协议层粒子形状系统
-// 批量并发发送: 逐玩家构造 vanilla SpawnParticleEffectPacket 经
-// Packet::sendToClient(NetworkSystem 通道) 入队, BDS tick flush 自动聚合压缩
-// 为单 Batch 数据报（与原版粒子广播同路径, 客户端单数据报整批收到）。
-// 粒子瞬态 → 每 intervalTicks 整批重发维持常驻视觉。
-//
-// 采样点全部在构造时换算为局部坐标（锚点 = 形状几何参考点, 平移/旋转/缩放
-// 均作用于局部点, 下次发射自动生效 → "粒子移动" = setPos 后按新变换发射）。
 #pragma once
 
 #include <cstdint>
@@ -77,6 +70,11 @@ public:
         std::uint64_t endTick{};                   // 0 = 永久
         std::uint64_t nextEmitTick{};
         bool visibleAll{true};                     // 白名单空 = true
+
+        // 发送帧模板缓存（预序列化静态部分; 坐标 12B 运行期补丁）
+        // frameTpl = [varuint 包头][包体(marker 坐标)]; framePosOff = 坐标偏移
+        std::string  frameTpl;
+        std::size_t  framePosOff{static_cast<std::size_t>(-1)}; // -1 = 需重建
 
         // 发射缓存（采样结果, 几何/step 未变时复用）
         bool          cacheValid{false};
@@ -162,6 +160,7 @@ private:
     int64_t insertShape(Shape&& s);
     static void sampleLocal(Shape& s);                          // 局部点采样（写入 localPts）
     bool emitShape(Shape& s, std::uint64_t now);                // 单形状发射; false = 应移除
+    bool buildFrameTemplate(Shape& s);                          // 预序列化帧模板（marker 定位坐标偏移）
 
     mutable std::mutex                       mMutex;
     std::unordered_map<int64_t, Shape>       mShapes;

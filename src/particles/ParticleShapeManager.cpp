@@ -4,8 +4,11 @@
 #include <ll/api/memory/Hook.h>
 #include <ll/api/service/Bedrock.h>
 
-#include <mc/common/SubClientId.h>
+#include <mc/deps/core/utility/BinaryStream.h>
+#include <mc/network/Compressibility.h>
 #include <mc/network/MinecraftPackets.h>
+#include <mc/network/NetworkPeer.h>
+#include <mc/network/NetworkSystem.h>
 #include <mc/network/Packet.h>
 #include <mc/network/packet/SpawnParticleEffectPacket.h>
 #include <mc/world/actor/player/Player.h>
@@ -13,6 +16,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <format>
 #include <sstream>
 
@@ -498,6 +502,7 @@ bool ParticleShapeManager::setEffect(int64_t id, std::string const& effect) {
     auto it = mShapes.find(id);
     if (it == mShapes.end()) return false;
     it->second.effect = effect;
+    it->second.framePosOff = static_cast<std::size_t>(-1); // 效果名变化 → 帧模板重建
     return true;
 }
 
@@ -674,6 +679,43 @@ void ParticleShapeManager::tick() {
     }
 }
 
+// 预序列化帧模板: 一次完整序列化（marker 坐标）→ 扫描定位坐标偏移。
+// 此后每粒子只补丁 12 字节浮点坐标, 静态部分（维度/actorId/效果名/Molang）
+// 永不重复序列化。setEffect / 跟随跨维度时置 framePosOff=-1 失效重建。
+bool ParticleShapeManager::buildFrameTemplate(Shape& s) {
+    auto packet = MinecraftPackets::createPacket(MinecraftPacketIds::SpawnParticleEffect);
+    if (!packet) return false;
+    auto* spe = static_cast<SpawnParticleEffectPacket*>(packet.get());
+    spe->mVanillaDimensionId = (uchar)s.dimId;
+    spe->mActorId            = ::ActorUniqueID{-1};
+    spe->mEffectName         = s.effect;
+    spe->mMolangVariables    = std::nullopt;
+    // marker 坐标: 三段特殊浮点位型, 效果名(ASCII)中不可能出现
+    constexpr float mkX = -98765.5f, mkY = 87654.25f, mkZ = -76543.125f;
+    spe->mPos = ::Vec3{mkX, mkY, mkZ};
+
+    BinaryStream body;
+    spe->write(body);
+    float const marker[3] = {mkX, mkY, mkZ};
+    std::string const markerStr{reinterpret_cast<char const*>(marker), sizeof marker};
+    auto off = body.mBuffer.find(markerStr);
+    if (off == std::string::npos) return false;
+
+    // varuint 包头（pid | 发送者/接收者子客户端位全 0）
+    std::string head;
+    std::uint32_t v = static_cast<std::uint32_t>(spe->getId());
+    while (v & ~0x7Fu) {
+        head.push_back((char)((v & 0x7F) | 0x80));
+        v >>= 7;
+    }
+    head.push_back((char)v);
+
+    s.frameTpl.assign(head);
+    s.frameTpl += body.mBuffer;
+    s.framePosOff = head.size() + off;
+    return true;
+}
+
 bool ParticleShapeManager::emitShape(Shape& s, std::uint64_t now) {
     auto level = ll::service::getLevel();
     if (!level) return true; // level 未就绪: 保留待发
@@ -709,6 +751,7 @@ bool ParticleShapeManager::emitShape(Shape& s, std::uint64_t now) {
         // 跟随时形状维度 = 跟随者维度（跨维度自动跟随）
         if (follower->getDimensionId().id != s.dimId) {
             s.dimId = follower->getDimensionId().id;
+            s.framePosOff = static_cast<std::size_t>(-1); // 维度字节变化 → 帧模板重建
             targets.clear();
             collectDim(s.dimId);
             if (s.visibleAll && targets.empty()) return true;
@@ -733,21 +776,24 @@ bool ParticleShapeManager::emitShape(Shape& s, std::uint64_t now) {
     }
     size_t const n = pts.size() / 3;
 
-    // ── 批量并发发送（vanilla 通道）──
-    // 复用单个 vanilla SpawnParticleEffectPacket 对象, 逐粒子改 mPos 后经
-    // Packet::sendToClient 入队（LLAPI → NetworkSystem::send）。BDS 在 tick
-    // flush 时自动把本 tick 全部出站包聚合压缩为单 Batch 数据报, 客户端
-    // 单数据报整批收到（与原版粒子广播同路径, 不会触发 PacketMalformed）。
-    auto packet = MinecraftPackets::createPacket(MinecraftPacketIds::SpawnParticleEffect);
-    if (!packet) return true;
-    auto* spe = static_cast<SpawnParticleEffectPacket*>(packet.get());
-    spe->mVanillaDimensionId = (uchar)s.dimId;
-    spe->mActorId            = ::ActorUniqueID{-1};
-    spe->mEffectName         = s.effect;
-    spe->mMolangVariables    = std::nullopt;
+    // 发送
+    if (s.framePosOff == static_cast<std::size_t>(-1) && !buildFrameTemplate(s)) return true;
+
+    auto networkSystem = ll::service::getNetworkSystem();
+    if (!networkSystem) return true;
+
+    static thread_local std::string frame; // 复用缓冲: 粒子间只改 12 字节
+    frame = s.frameTpl;
+    auto patchAndSend = [&](NetworkPeer* peer, size_t i) {
+        std::memcpy(&frame[s.framePosOff],     &world[i * 3],     4);
+        std::memcpy(&frame[s.framePosOff + 4], &world[i * 3 + 1], 4);
+        std::memcpy(&frame[s.framePosOff + 8], &world[i * 3 + 2], 4);
+        peer->sendPacket(frame, NetworkPeer::Reliability::Reliable, Compressibility::Compressible);
+    };
 
     for (auto* player : targets) {
-        auto const& networkId = player->getNetworkIdentifier();
+        auto* peer = networkSystem->getPeerForUser(player->getNetworkIdentifier());
+        if (peer == nullptr) continue; // 连接失效: 跳过该玩家
         if (s.viewDistance > 0) {
             auto const& ppos = player->getPosition();
             double const px = ppos.x, py = ppos.y, pz = ppos.z;
@@ -755,20 +801,17 @@ bool ParticleShapeManager::emitShape(Shape& s, std::uint64_t now) {
             for (size_t i = 0; i < n; i++) {
                 double dx = world[i * 3] - px, dy = world[i * 3 + 1] - py, dz = world[i * 3 + 2] - pz;
                 if (dx * dx + dy * dy + dz * dz > r2) continue;
-                spe->mPos = ::Vec3{world[i * 3], world[i * 3 + 1], world[i * 3 + 2]};
-                spe->sendToClient(networkId, SubClientId::PrimaryClient);
+                patchAndSend(peer, i);
             }
         } else {
             for (size_t i = 0; i < n; i++) {
-                spe->mPos = ::Vec3{world[i * 3], world[i * 3 + 1], world[i * 3 + 2]};
-                spe->sendToClient(networkId, SubClientId::PrimaryClient);
+                patchAndSend(peer, i);
             }
         }
     }
     return true;
 }
 
-// ── tick 驱动 hook（无形状时空转 no-op; 静态常驻注册）──
 
 LL_TYPE_INSTANCE_HOOK(ParticleShapeTickHook, HookPriority::Normal, Level, &Level::$tick, void) {
     origin();
