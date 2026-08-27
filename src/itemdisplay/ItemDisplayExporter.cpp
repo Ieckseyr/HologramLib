@@ -124,6 +124,79 @@ void ItemDisplayExporter::exportAll() {
     hologramlib::lse::exportAs(NAMESPACE, "itemDisplaySetGlint",
         [&mgr](int64_t id, bool on) -> bool { return mgr.setGlint(id, on); });
 
+    // 1.10.0: 可见玩家白名单 —— 仅指定玩家可见（按玩家名/LSE realName 匹配）
+    // itemDisplaySetVisiblePlayers(id, playerNames: [s]) -> bool（空列表 = 清除限制 = 全员可见）
+    hologramlib::lse::exportAs(NAMESPACE, "itemDisplaySetVisiblePlayers",
+        [&mgr](int64_t id, std::vector<std::string> playerNames) -> bool {
+            return mgr.setVisiblePlayers(id, playerNames);
+        });
+    // itemDisplayClearVisiblePlayers(id) -> bool（恢复全员可见）
+    hologramlib::lse::exportAs(NAMESPACE, "itemDisplayClearVisiblePlayers",
+        [&mgr](int64_t id) -> bool { return mgr.clearVisiblePlayers(id); });
+
+    // 1.10.1: 标量版白名单 —— 单玩家（规避 LSE 数组编组差异, JS 侧推荐）
+    // itemDisplaySetVisiblePlayer(id, playerName: s) -> bool
+    hologramlib::lse::exportAs(NAMESPACE, "itemDisplaySetVisiblePlayer",
+        [&mgr](int64_t id, std::string const& playerName) -> bool {
+            return mgr.setVisiblePlayer(id, playerName);
+        });
+    // 1.10.1: 诊断探针 —— 返回展示运行态摘要字符串（dim/pos/mode/filter/shown）
+    // itemDisplayGetInfo(id) -> s（找不到返回 "not_found"）
+    hologramlib::lse::exportAs(NAMESPACE, "itemDisplayGetInfo",
+        [&mgr](int64_t id) -> std::string { return mgr.getDebugInfo(id); });
+
+    // 1.13.0: animateScale 导出已移除（前置纯洁性——动画调度归 LSE 消费者,
+    // 库只保留 scaleTo 纯 setter 基元, 由 LSE 步进驱动实现渐变）
+
+    // 1.12.0: 单次跳变缩放 —— 以新 scale 常量原地重发完整方块动画序列
+    // （无逐帧动画、无 respawn; v.scale 写入者立即一致, 渐变路径的逐 tick 竞争抖动不存在）
+    // itemDisplayScaleTo(id, targetScale: f) -> b   仅方块模式(mode=0 auto/2)
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "itemDisplayScaleTo",
+        [&mgr](int64_t id, double targetScale) -> bool { return mgr.scaleTo(id, targetScale); });
+
+    // 1.12.0: 无感创建 —— mode/视距/白名单在首次 spawn 前写入, 全程只发一次 Add 序列
+    // （ItemPhys 无感创建等价; 创建后无需 setMode/setViewDistance/setVisiblePlayer, 无 respawn 闪烁）
+    // itemDisplayCreateSeamless(x,y,z,dim,item,aux,offX,offY,offZ,rotX,rotY,rotZ,scale,
+    //                           mode, viewDistance, visiblePlayer) -> int64
+    //   mode: -1=默认(auto) 1=item 2=block; viewDistance: -1=默认 0=不限; visiblePlayer: 空串=全员
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "itemDisplayCreateSeamless",
+        [&mgr](float               x,
+               float               y,
+               float               z,
+               int                 dim,
+               std::string const&  item,
+               int                 aux,
+               std::string const&  offX,
+               std::string const&  offY,
+               std::string const&  offZ,
+               std::string const&  rotX,
+               std::string const&  rotY,
+               std::string const&  rotZ,
+               std::string const&  scale,
+               int                 mode,
+               double              viewDistance,
+               std::string const&  visiblePlayer) -> int64_t {
+            ItemDisplayConfig cfg;
+            cfg.x         = x;
+            cfg.y         = y;
+            cfg.z         = z;
+            cfg.dimension = dim;
+            cfg.item      = item;
+            cfg.itemAux   = aux;
+            cfg.offsetX   = offX;
+            cfg.offsetY   = offY;
+            cfg.offsetZ   = offZ;
+            cfg.rotX      = rotX;
+            cfg.rotY      = rotY;
+            cfg.rotZ      = rotZ;
+            cfg.scale     = scale;
+            return mgr.createSeamless(cfg, mode, viewDistance, visiblePlayer);
+        });
+
     // 属性
     hologramlib::lse::exportAs(NAMESPACE, "itemDisplaySetItem",
         [&mgr](int64_t id, std::string const& item, int aux) -> bool {

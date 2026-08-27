@@ -141,6 +141,12 @@ void FloatingTextExporter::exportAnimationFunctions() {
         [&mgr](int64_t id, float x, float y, float z) -> bool {
             return mgr.setLocation(id, x, y, z);
         });
+
+    // setDimension(id, dimId) -> bool（1.12.0: 迁移维度; 已绘制时原地重发无闪烁）
+    hologramlib::lse::exportAs(NAMESPACE, "holoSetDimension",
+        [&mgr](int64_t id, int dimId) -> bool {
+            return mgr.setDimension(id, dimId);
+        });
     
     // setFollowPlayer(id, playerName, offsetY) -> bool
     hologramlib::lse::exportAs(NAMESPACE, "holoSetFollowPlayer",

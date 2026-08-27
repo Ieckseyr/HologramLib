@@ -2,7 +2,23 @@
 
 Bedrock 协议层统一悬浮显示库（LeviLamina 26.10.14 / 协议 944）。
 
-将形状渲染、悬浮字全息、物品详情、FMBE 物品悬浮显示四大能力域合并为**单一插件**，同时提供**冻结的 C++ 虚接口**与 **LSE（ll.import）兼容层**。形状/悬浮字渲染通过 `PrimitiveShapes` 协议包完成，物品悬浮显示通过 FMBE（狐狸+发包）技术实现——均不产生真实实体、不写存档、零服务器开销。
+将八大能力域合并为**单一插件**，同时提供**冻结的 C++ 虚接口**与 **LSE（ll.import）兼容层**：
+
+| 能力域 | C++ 接口 | LSE 前缀 | 说明 |
+|--------|----------|----------|------|
+| 形状渲染 | `IShapeDrawer` | `shape*`（36 函数） | 线/盒/圆/球/箭头/文本，协议层 PrimitiveShapes 包 |
+| 悬浮字全息 | `IHologramText` | `holo*`（26 函数） | 多行文本、彩虹、变量占位符，跨维度迁移 |
+| 渐变线 | — | `gradient*`（11 函数） | 多色渐变轨迹线 |
+| 物品详情 | `IItemDetail` | `itemDetail*`（2 函数） | 自动翻译 "钻石 x64" |
+| FMBE 物品悬浮 | `IItemDisplay`（1.6.0） | `itemDisplay*`（30 函数） | 狐狸+发包；无感创建（createSeamless）、白名单、视距、scaleTo |
+| 自定义实体 | `ICustomEntity`（1.10.0） | `entity*`（33 函数） | 协议层生成实体：姿态/装备槽/动画/ActorLink 骑乘 |
+| Ghost 交互 | 监听器 + 轮询 | `ghost*`（2 函数） | 非真实实体的交互事件路由（InteractPacket hook, 1.12.0） |
+| 粒子形状 | `IParticleShape`（1.14.0） | `particle*`（21 函数） | 点/线/矩形环/填充面/盒框/六面/多面体 + moveTo/旋转/自旋/跟随 |
+
+除 FMBE/自定义实体走"假实体 + 发包"外，其余渲染均不产生真实实体、不写存档、零服务器开销；粒子发送走 vanilla `SpawnParticleEffectPacket` 批量通道（BDS tick flush 自动聚合压缩为单 Batch 数据报）。
+
+- API 版本：**1.15.0**（`HOLOGLIB_API_VERSION 0x011500`）
+- 插件发布版本：`26.10.5`
 
 ## 目录
 
@@ -13,9 +29,13 @@ HologramLib/
 │   ├── HologramLibImpl.cpp             #   接口实现（委托各 Manager 单例）
 │   ├── PacketDebugRenderer.*           #   形状渲染（协议层）
 │   ├── ProtocolShape.h / ProtocolPackets.*
-│   ├── FloatingTextManager.* / FloatingTextExporter.*
-│   ├── GradientLineManager.* / GradientLineExporter.*
-│   ├── itemdetail/ItemDetailManager.*
+│   ├── FloatingTextManager.*           #   悬浮字
+│   ├── GradientLineManager.*           #   渐变线
+│   ├── itemdetail/                     #   物品详情
+│   ├── itemdisplay/                    #   FMBE 物品悬浮
+│   ├── customentity/                   #   自定义实体
+│   ├── particles/                      #   通用粒子形状（批量发送/moveTo 动画）
+│   ├── ghost/                          #   Ghost 交互路由
 │   ├── lse/                            #   LSE 兼容层（运行时挂载 lrca）
 │   ├── MemoryOperators.cpp             #   跨 DLL 内存配对
 │   └── ModEntry.*                      #   生命周期 + LSE 双时机挂载
@@ -31,7 +51,6 @@ HologramLib/
 - Visual Studio 2022（MSVC x64）
 - [xmake](https://xmake.io)
 - LeviLamina 26.10.14（xmake 自动拉取）
-- `BedrockProtocol-944` 本地静态库（`../BedrockProtocol-944/install/{include,lib}`，含协议 944 的 `sculk::protocol` 封包实现）
 
 ```bash
 xmake f -c -y
@@ -42,8 +61,8 @@ xmake -y
 
 ## 部署
 
-1. 将 `bin/HologramLib/HologramLib.dll`（连同 manifest.json）放入服务端 `plugins/HologramLib/`
-2. 启动服务器，日志确认：
+1. 关服 → 将 `bin/HologramLib/HologramLib.dll`（连同 manifest.json）放入服务端 `plugins/HologramLib/` → 开服
+2. 启动日志确认：
    - `HologramLib enabling...`
    - LegacyRemoteCall 在场：`LSE compat layer attached (LegacyRemoteCall detected).`
    - LegacyRemoteCall 缺席：`LegacyRemoteCall absent: LSE (ll.import) calls disabled; native C++ API unaffected.`
@@ -71,13 +90,18 @@ lib.holograms().addLine(holo, "在线: {online}");
 lib.holograms().setLineRainbow(holo, 1, 1.5f);
 lib.holograms().draw(holo);
 
-// 物品悬浮显示（FMBE 狐狸+发包; 三轴旋转/函数平移/缩放支持 Molang 表达式）
-auto disp = lib.itemDisplays().create({});
-lib.itemDisplays().setRotation(disp, "180", "math.sin(query.life_time*90)*360", "180");
-lib.itemDisplays().setOffset(disp, "math.sin(query.life_time)*2", "0", "0");
+// FMBE 物品悬浮（狐狸+发包; 三轴旋转/平移/缩放支持 Molang 表达式）
+hologramlib::ItemDisplayConfig cfg;
+cfg.x = 100.5f; cfg.y = 65.0f; cfg.z = -200.5f;
+cfg.rotY = "math.sin(query.life_time*90)*360";   // 旋转动画
+auto disp = lib.itemDisplays().create(cfg);
 
-// 物品详情（自动翻译为 "钻石 x64"）
-auto detail = lib.itemDetails().show(0, 100.5f, 65.0f, -200.5f, "minecraft:diamond", 0, 64);
+// 粒子形状: 填充面 + 白名单 + 平滑移动（锚点 easeOutCubic 插值, 整面随锚点移动）
+auto wall = lib.particleShapes().createPlane(
+    "Steve", 0, 100, 64, -200, 48, 32, /*axis=*/2, /*step=*/3,
+    "minecraft:heart_particle", /*interval=*/10, /*lifetime=*/0);
+lib.particleShapes().setVisiblePlayers(wall, {"uuid1", "uuid2"}); // 空 = 维度全员
+lib.particleShapes().moveTo(wall, 150, 64, -200, 100);            // 5 秒平滑滑移
 ```
 
 xmake 接入：
@@ -91,19 +115,22 @@ add_links("HologramLib")
 ### LSE 脚本
 
 ```js
-// 统一命名空间 "HologramLib", 四域前缀:
-//   shape* 形状 / holo* 悬浮字 / gradient* 渐变线 / itemDetail* 物品详情
+// 统一命名空间 "HologramLib", 八域前缀:
+//   shape* / holo* / gradient* / itemDetail*
+//   itemDisplay* / entity* / ghost* / particle*
 const shapeCreateLine = ll.import("HologramLib", "shapeCreateLine");
 const holoCreate      = ll.import("HologramLib", "holoCreate");
-const gradientCreate  = ll.import("HologramLib", "gradientCreate");
-const itemDetailShow  = ll.import("HologramLib", "itemDetailShow");
+const itemDisplayCreateBeacon = ll.import("HologramLib", "itemDisplayCreateBeacon");
+const particleMoveTo  = ll.import("HologramLib", "particleMoveTo");
 ```
 
 完整函数清单见 [API.md](API.md)。
 
 ## 依赖
-- Levilamina
+
+- LeviLamina
 - [SculkCatalystMC/Protocol](https://github.com/SculkCatalystMC/Protocol)
 
 ## 许可
-MIT许可
+
+MIT 许可（见 [LICENSE](LICENSE)）

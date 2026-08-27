@@ -130,6 +130,68 @@ void CustomEntityExporter::exportAll() {
         [&mgr](float x, float y, float z, int dim, float maxDist) -> int64_t {
             return mgr.findNearest(x, y, z, dim, maxDist);
         });
+
+    // ── 1.12.0 追加 ──
+
+    // entitySetPose(id, pose) -> bool（PoseIndex 0..13; 盔甲架坐姿/睡姿/跳舞等, 经 respawn 生效）
+    hologramlib::lse::exportAs(
+        NAMESPACE, "entitySetPose", [&mgr](int64_t id, int pose) -> bool { return mgr.setPose(id, pose); });
+
+    // entitySetEquipmentSlot(id, slot, name, aux, nbt) -> bool
+    // 槽位: 0=mainhand 1=offhand 2=head 3=chest 4=legs 5=feet; name 空清空槽位; nbt 为 SNBT 字符串
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "entitySetEquipmentSlot",
+        [&mgr](int64_t id, int slot, std::string const& name, int aux, std::string const& nbt) -> bool {
+            return mgr.setEquipmentSlot(id, slot, name, aux, nbt);
+        });
+
+    // entityScaleBy(id, factor) -> bool（相对缩放: 现有 scale × factor, 自动钳制 0.0625~10）
+    hologramlib::lse::exportAs(
+        NAMESPACE, "entityScaleBy", [&mgr](int64_t id, float factor) -> bool {
+            return mgr.scaleBy(id, factor);
+        });
+
+    // entitySetVisiblePlayers(id, playerNames: [s]) -> bool（空列表 = 清除限制 = 全员可见）
+    hologramlib::lse::exportAs(NAMESPACE, "entitySetVisiblePlayers",
+        [&mgr](int64_t id, std::vector<std::string> playerNames) -> bool {
+            return mgr.setVisiblePlayers(id, playerNames);
+        });
+    // entityClearVisiblePlayers(id) -> bool（恢复全员可见）
+    hologramlib::lse::exportAs(NAMESPACE, "entityClearVisiblePlayers",
+        [&mgr](int64_t id) -> bool { return mgr.clearVisiblePlayers(id); });
+    // entitySetVisiblePlayer(id, playerName: s) -> bool（单玩家白名单; JS 侧推荐标量版）
+    hologramlib::lse::exportAs(NAMESPACE, "entitySetVisiblePlayer",
+        [&mgr](int64_t id, std::string const& playerName) -> bool {
+            return mgr.setVisiblePlayer(id, playerName);
+        });
+
+    // entityGetInfo(id) -> s（诊断探针; 找不到返回 "not_found"）
+    hologramlib::lse::exportAs(
+        NAMESPACE, "entityGetInfo", [&mgr](int64_t id) -> std::string { return mgr.getDebugInfo(id); });
+
+    // entitySetRidePlayer(id, playerName) -> bool（实体骑到指定玩家头上; 空名清除; 玩家须在线）
+    hologramlib::lse::exportAs(NAMESPACE, "entitySetRidePlayer",
+        [&mgr](int64_t id, std::string const& playerName) -> bool {
+            return mgr.setRidePlayer(id, playerName);
+        });
+    // entitySetRideEntity(id, vehicleEntityId) -> bool（实体骑到另一自定义实体上; 0 清除）
+    hologramlib::lse::exportAs(NAMESPACE, "entitySetRideEntity",
+        [&mgr](int64_t id, int64_t vehicleEntityId) -> bool {
+            return mgr.setRideEntity(id, vehicleEntityId);
+        });
+    // entityClearRide(id) -> bool（解除骑乘链接）
+    hologramlib::lse::exportAs(
+        NAMESPACE, "entityClearRide", [&mgr](int64_t id) -> bool { return mgr.clearRide(id); });
+
+    // entityPlayAnimation(id, animation, stopExpression, durationTicks) -> bool
+    // 播放原版动画（如 "animation.humanoid.base_pose"）; stopExpression 空串 = 常驻;
+    // durationTicks>0 到期自动停止; controller 名库内自动唯一化
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "entityPlayAnimation",
+        [&mgr](int64_t id, std::string const& animation, std::string const& stopExpression, int durationTicks)
+            -> bool { return mgr.playAnimation(id, animation, stopExpression, durationTicks); });
 }
 
 } // namespace debugshape_export

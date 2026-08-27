@@ -277,6 +277,8 @@ void sendFoxActor(Player& player, ItemDisplayConfig const& data, Runtime const& 
         {"minecraft:lava_movement",       0,     0.02f, 3.4028235e38f},
         {"minecraft:absorption",          0,     0,     16.f         },
         {"minecraft:luck",                -1024, 0,     1024         },
+        // 抗击退满值: 玩家碰撞/攻击不再推动狐狸载体（载体位移 = 展示物抽搐）
+        {"minecraft:knockback_resistance", 1.f,  0.f,   1.f          },
     };
     pkt.mSynchedProperties = {};
     pkt.mActorLinks        = {};
@@ -556,6 +558,9 @@ void ItemDisplayManager::init() {
         [this](ll::event::PlayerJoinEvent& ev) {
             std::lock_guard lock(mMutex);
             mInitializedPlayers.insert(ev.self().getUuid());
+            // 玩家就绪立即补发其可见信标（不等最多 1 秒的周期 sync——
+            // "进服自动显示所在领地边界"场景在信标先于玩家创建时可即时呈现）
+            syncVisibilityLocked();
         }
     );
     mDisconnectListener = ll::event::EventBus::getInstance().emplaceListener<ll::event::PlayerDisconnectEvent>(
@@ -581,6 +586,7 @@ void ItemDisplayManager::shutdown() {
     mConfigs.clear();
     mRuntimes.clear();
     mDirtyIds.clear();
+    mVisibleFilter.clear();
     mInitializedPlayers.clear();
     animQueue().clear();
 }
@@ -610,6 +616,27 @@ int64_t ItemDisplayManager::createWithId(ItemDisplayConfig const& config, int64_
     // 防自增游标未来撞上该 ID
     if (desiredId >= mNextId && desiredId < 0x10000000) mNextId = desiredId + 1;
     return createLocked(config, desiredId);
+}
+
+int64_t ItemDisplayManager::createSeamless(
+    ItemDisplayConfig const& config,
+    int                     mode,
+    double                  viewDistance,
+    std::string const&      visiblePlayer
+) {
+    std::lock_guard lock(mMutex);
+    ItemDisplayConfig cfg = config;
+    if (mode == 1 || mode == 2) cfg.mode = mode;
+    if (viewDistance >= 0) cfg.viewDistance = viewDistance;
+
+    auto const id = mNextId++;
+    // 白名单在 createLocked 的首次 syncVisibility 之前写入:
+    // 首帧 spawn 只发给目标玩家, 名单外玩家从头到尾收不到任何包（无感创建）
+    if (!visiblePlayer.empty()) {
+        mVisibleFilter.emplace(id, std::unordered_set<std::string>{visiblePlayer});
+    }
+    // mode/视距已定 → 消费者无需再调 setMode/setViewDistance → 不标脏 → 无 respawn
+    return createLocked(cfg, id);
 }
 
 bool ItemDisplayManager::isIdUsed(int64_t id) const {
@@ -649,6 +676,7 @@ bool ItemDisplayManager::destroy(int64_t id) {
     }
     mRuntimes.erase(rit);
     mConfigs.erase(id);
+    mVisibleFilter.erase(id);
     return true;
 }
 
@@ -665,6 +693,7 @@ void ItemDisplayManager::destroyAll() {
     }
     mConfigs.clear();
     mRuntimes.clear();
+    mVisibleFilter.clear();
 }
 
 bool ItemDisplayManager::exists(int64_t id) const {
@@ -779,6 +808,7 @@ bool ItemDisplayManager::setMode(int64_t id, int mode) {
     std::lock_guard lock(mMutex);
     auto it = mConfigs.find(id);
     if (it == mConfigs.end()) return false;
+    if (it->second.mode == mode) return true; // 幂等: 同值不触发 respawn（防创建后闪换）
     it->second.mode = mode;
     mDirtyIds.insert(id);
     return true;
@@ -797,9 +827,133 @@ bool ItemDisplayManager::setViewDistance(int64_t id, double dist) {
     std::lock_guard lock(mMutex);
     auto it = mConfigs.find(id);
     if (it == mConfigs.end()) return false;
+    if (it->second.viewDistance == dist) return true; // 幂等: 同值不触发 respawn
     it->second.viewDistance = dist;
     mDirtyIds.insert(id); // 视距影响可见性, tick 脏刷新时统一重算
     return true;
+}
+
+bool ItemDisplayManager::setVisiblePlayers(int64_t id, std::vector<std::string> const& playerNames) {
+    std::lock_guard lock(mMutex);
+    if (!mConfigs.contains(id)) return false;
+
+    if (playerNames.empty()) {
+        mVisibleFilter.erase(id); // 空列表 = 清除限制 = 全员可见
+    } else {
+        std::unordered_set<std::string> names(playerNames.begin(), playerNames.end());
+        mVisibleFilter.insert_or_assign(id, std::move(names));
+    }
+
+    // 白名单变化只影响"给谁看", 不改变实体参数 —— 直接重算可见性
+    // （对名单外已见玩家 despawn, 名单内新玩家 spawn）
+    syncVisibilityLocked();
+    return true;
+}
+
+bool ItemDisplayManager::clearVisiblePlayers(int64_t id) {
+    std::lock_guard lock(mMutex);
+    if (!mConfigs.contains(id)) return false;
+    if (mVisibleFilter.erase(id) == 0) return true; // 本就无限制, 视为成功
+    syncVisibilityLocked();
+    return true;
+}
+
+bool ItemDisplayManager::setVisiblePlayer(int64_t id, std::string const& playerName) {
+    std::lock_guard lock(mMutex);
+    if (!mConfigs.contains(id)) return false;
+
+    mVisibleFilter.insert_or_assign(id, std::unordered_set<std::string>{playerName});
+
+    // 与 setVisiblePlayers 一致: 名单变化直接重算可见性（名单外 despawn, 名单内 spawn）
+    syncVisibilityLocked();
+    return true;
+}
+
+bool ItemDisplayManager::scaleTo(int64_t id, double targetScale) {
+    std::lock_guard lock(mMutex);
+    auto it = mConfigs.find(id);
+    if (it == mConfigs.end()) return false;
+    // 仅方块路径（auto 下信标类方块物品 effectiveMode=2）
+    if (it->second.mode == 1) return false;
+    if (!std::isfinite(targetScale) || targetScale < 0.01) targetScale = 0.01;
+
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+
+    // 新 scale 常量化入配置（respawn/查询保持一致）
+    it->second.scale = std::format("{:.4f}", targetScale);
+
+    // 以新常量重发完整方块动画序列（+2..+6 一包一 tick, 与安装节奏一致）:
+    // controller 名带 ".<展示id>" 后缀 → 客户端同名原地覆盖, 不 Remove/Add、不换实体。
+    // 关键: sleeping 矩阵表达式携带 v.scale=新常量, swelling/头部定位/旋转表达式随之
+    // 全部基于新值重算——v.scale 的所有写入者立即一致, 不存在逐帧竞争（即无抖动）。
+    auto const& data = it->second;
+    auto&       rt   = rit->second;
+    auto const  base = currentTick();
+    auto const  tag  = "." + std::to_string(id);
+
+    for (auto const& uuid : rt.shownPlayers) {
+        animQueue().emplace(
+            base + 2,
+            AnimEntry{uuid, rt.runtimeId, "animation.player.sleeping",
+                      "controller.animation.fox.move" + tag, buildBlockMatrixExpr(data)}
+        );
+        animQueue().emplace(
+            base + 3,
+            AnimEntry{uuid, rt.runtimeId, "animation.creeper.swelling",
+                      "wiki.fmbe.3d_blocks.anim1" + tag, std::string{kBlockSwellingExpr}}
+        );
+        animQueue().emplace(
+            base + 4,
+            AnimEntry{uuid, rt.runtimeId, "animation.ender_dragon.neck_head_movement",
+                      "wiki.fmbe.3d_blocks.anim2" + tag, std::string{kBlockHeadPosExpr}}
+        );
+        animQueue().emplace(
+            base + 5,
+            AnimEntry{uuid, rt.runtimeId, "animation.warden.move",
+                      "wiki.fmbe.3d_blocks.anim3" + tag, std::string{kBlockBodyRotExpr}}
+        );
+        animQueue().emplace(
+            base + 6,
+            AnimEntry{uuid, rt.runtimeId, "animation.player.attack.rotations",
+                      "wiki.fmbe.3d_blocks.anim4" + tag, std::string{kBlockAttackRotExpr}}
+        );
+    }
+    return true;
+}
+
+std::string ItemDisplayManager::getDebugInfo(int64_t id) const {
+    std::lock_guard lock(mMutex);
+    auto it = mConfigs.find(id);
+    if (it == mConfigs.end()) return "not_found";
+
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return "no_runtime";
+
+    auto fit = mVisibleFilter.find(id);
+    std::string filterList;
+    if (fit != mVisibleFilter.end()) {
+        for (auto const& n : fit->second) {
+            if (!filterList.empty()) filterList += ",";
+            filterList += n;
+        }
+    }
+    auto& d  = it->second;
+    auto& rt = rit->second;
+    return std::format(
+        "id={} dim={} pos=({:.1f},{:.1f},{:.1f}) mode={} enabled={} item='{}' view={} filter=[{}] shown={}",
+        id,
+        d.dimension,
+        d.x,
+        d.y,
+        d.z,
+        d.mode,
+        d.enabled,
+        d.item,
+        d.viewDistance,
+        filterList,
+        rt.shownPlayers.size()
+    );
 }
 
 bool ItemDisplayManager::rotateY(int64_t id, float delta) {
@@ -846,6 +1000,17 @@ std::vector<int64_t> ItemDisplayManager::getAllIds() const {
     ids.reserve(mConfigs.size());
     for (auto const& [id, cfg] : mConfigs) ids.push_back(id);
     return ids;
+}
+
+bool ItemDisplayManager::findByRuntimeId(std::uint64_t runtimeId, int64_t& outId) const {
+    std::lock_guard lock(mMutex);
+    for (auto const& [id, rt] : mRuntimes) {
+        if (rt.runtimeId == runtimeId) {
+            outId = id;
+            return true;
+        }
+    }
+    return false;
 }
 
 int64_t ItemDisplayManager::findNearest(float x, float y, float z, int dim, double maxDist) const {
@@ -948,8 +1113,13 @@ void ItemDisplayManager::syncVisibilityLocked() {
             if (rit == mRuntimes.end()) continue;
             auto& rt = rit->second;
 
+            // 可见玩家白名单: 有条目时仅名单内玩家可见（按 Player::getRealName, 即 LSE realName 匹配）
+            auto fit = mVisibleFilter.find(id);
+            bool const allowedByFilter =
+                fit == mVisibleFilter.end() || fit->second.contains(player.getRealName());
+
             bool const visible =
-                data.enabled && dimId == DimensionType(data.dimension)
+                data.enabled && allowedByFilter && dimId == DimensionType(data.dimension)
                 && (data.viewDistance <= 0
                     || ((ppos.x - data.x) * (ppos.x - data.x) + (ppos.y - data.y) * (ppos.y - data.y)
                         + (ppos.z - data.z) * (ppos.z - data.z))

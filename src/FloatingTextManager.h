@@ -175,6 +175,9 @@ public:
     
     // 设置位置
     bool setLocation(int64_t id, float x, float y, float z);
+
+    // 迁移维度（1.12.0）: 已绘制时同步底层形状维度并按原绘制目标原地重发
+    bool setDimension(int64_t id, int dimId);
     
     // 设置跟随玩家
     bool setFollowPlayer(int64_t id, const std::string& playerName, float offsetY = 2.0f);

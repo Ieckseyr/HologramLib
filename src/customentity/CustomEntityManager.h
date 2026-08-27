@@ -14,7 +14,9 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -65,11 +67,34 @@ public:
     bool setInvisible(int64_t id, bool on);     // 便捷开关（与 flags 独立, 发包时合成）
     bool setEnabled(int64_t id, bool enabled);
     bool setViewDistance(int64_t id, double dist);
+    bool setPose(int64_t id, int pose);         // PoseIndex 0..13（盔甲架坐姿/睡姿/跳舞等）
+    // 装备槽位: 0=mainhand 1=offhand 2=head 3=chest 4=legs 5=feet；name 空清空
+    bool setEquipmentSlot(int64_t id, int slot, std::string const& name, int aux, std::string const& nbt);
+
+    // ── 1.12.0 追加 ──
+    bool scaleBy(int64_t id, double factor);    // 相对缩放（结果钳制 0.0625~10）
+    // 可见玩家白名单（按 Player::getRealName 匹配; 空列表 = 清除 = 全员可见）
+    bool setVisiblePlayers(int64_t id, std::vector<std::string> const& playerNames);
+    bool clearVisiblePlayers(int64_t id);
+    bool setVisiblePlayer(int64_t id, std::string const& playerName);
+    std::string getDebugInfo(int64_t id) const; // 诊断探针（找不到返回 "not_found"）
+    // 骑乘链接（SetActorLinkPacket; 变更经 respawn 重放; 两者互斥, 后设者生效）
+    bool setRidePlayer(int64_t id, std::string const& playerName); // 骑到指定玩家头上（须在线）
+    bool setRideEntity(int64_t id, int64_t vehicleEntityId);      // 骑到另一自定义实体上
+    bool clearRide(int64_t id);
+    // 播放原版动画（AnimateEntityPacket; controller 名按实体 id 自动唯一化）
+    // stopExpression 空串 = 常驻; durationTicks>0 时到期自动停止
+    bool playAnimation(
+        int64_t id, std::string const& animation, std::string const& stopExpression, int durationTicks
+    );
 
     std::vector<int64_t> getAllIds() const;
 
     // 查找距 (x,y,z) 最近的实体（dim 匹配; maxDist<=0 无限制; 无匹配返回 -1）
     int64_t findNearest(float x, float y, float z, int dim, double maxDist) const;
+
+    // runtimeId -> 库内 id 反查（ghost 交互路由用; 无匹配返回 false）
+    bool findByRuntimeId(std::uint64_t runtimeId, int64_t& outId) const;
 
 private:
     CustomEntityManager()  = default;
@@ -86,6 +111,7 @@ public:
 private:
     // 内部: 持锁状态下刷新可见性 / 变更后刷新
     void refreshLocked(int64_t id);
+    void refreshLightLocked(int64_t id); // 轻脏增量刷新（不换ID, 零闪烁, 动画驱动）
     void syncVisibilityLocked();
     // tick 内合并处理脏实体（同一 tick 的多次 setter 调用合并为单次 respawn）
     void processDirtyLocked();
@@ -94,14 +120,35 @@ private:
     // 实体 ID 分配（respawn 换新 ID, 防客户端"同帧 Remove+Add 同 ID"重映射串台）
     [[nodiscard]] std::uint64_t allocUniqueIdLocked();
     [[nodiscard]] std::uint64_t allocRuntimeIdLocked();
+    // 骑乘链接载具 uniqueId 解析（持锁; 玩家须在线 / 载具实体须存在; 无链接返回 nullopt）
+    [[nodiscard]] std::optional<std::uint64_t> resolveVehicleUniqueIdLocked(CustomEntityConfig const& data);
+    // 持锁状态下的动画队列 flush（到期条目发送 + 失效条目丢弃）
+    void flushAnimsLocked();
 
     friend struct CustomEntityTickHookAccess;
+
+    // 动画延迟发送队列（AnimateEntityPacket; playAnimation 入队, tick hook 经 processDirtyLocked flush）
+    struct EntityAnimEntry {
+        mce::UUID     playerUuid;
+        std::uint64_t runtimeId;
+        int64_t       entityId;
+        std::string   animation;
+        std::string   controller;
+        std::string   stopExpression;
+    };
 
     mutable std::recursive_mutex                     mMutex;
     int64_t                                          mNextId{1};
     std::unordered_map<int64_t, CustomEntityConfig>  mConfigs;
     std::unordered_map<int64_t, Runtime>             mRuntimes;
+    // 重脏: 需 respawn 重建(identifier/pose/equipment/flags/variant/color/markVariant/viewDistance/enabled)
     std::unordered_set<int64_t>                      mDirtyIds;
+    // 轻脏: 增量包刷新即可(setPosition/setRotation/setScale/setNametag/setInvisible)
+    // —— 不换 uniqueId/runtimeId, 客户端无闪烁; 动画每 tick 驱动只走此路径
+    std::unordered_set<int64_t>                      mLightDirtyIds;
+    // 可见玩家白名单（id -> 玩家名集合; 无条目 = 全员可见, 兼容默认行为）
+    std::unordered_map<int64_t, std::unordered_set<std::string>> mVisibleFilter;
+    std::multimap<std::uint64_t, EntityAnimEntry>    mAnimQueue;
     // Actor ID 段: 0x6E 前缀（与 ItemDisplay 的 0x6D 段隔离, 客户端 ID 空间全局不撞）
     std::uint64_t                                    mNextActorUniqueId{0x6E00000000000001ULL};
     std::uint64_t                                    mNextRuntimeId{0x6E000000ULL};

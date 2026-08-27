@@ -286,6 +286,22 @@ bool FloatingTextManager::setLocation(int64_t id, float x, float y, float z) {
     return true;
 }
 
+bool FloatingTextManager::setDimension(int64_t id, int dimId) {
+    std::lock_guard<std::mutex> lock(mMutex);
+
+    auto* ft = getFloatingText(id);
+    if (!ft) return false;
+
+    ft->dimId = dimId;
+
+    // 已绘制: 同步底层形状维度后按原绘制目标原地重发（同 networkId 覆盖, 无闪烁）
+    if (ft->isDrawn && ft->textShapeId >= 0) {
+        PacketDebugRenderer::getInstance().setDimension(ft->textShapeId, dimId);
+        redrawTextShape(*ft);
+    }
+    return true;
+}
+
 bool FloatingTextManager::setFollowPlayer(int64_t id, const std::string& playerName, float offsetY) {
     std::lock_guard<std::mutex> lock(mMutex);
 

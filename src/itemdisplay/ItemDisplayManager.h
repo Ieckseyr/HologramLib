@@ -45,6 +45,17 @@ public:
     int64_t createRandom(ItemDisplayConfig const& config);
     // 指定 ID 创建（持久化恢复用）; desiredId<=0 或占用返回 -2
     int64_t createWithId(ItemDisplayConfig const& config, int64_t desiredId);
+    // 无感创建（1.12.0）: mode/viewDistance/可见玩家白名单在首次 spawn 之前写入,
+    // 全程只发一次 Add 序列（ItemPhys 无感创建等价）。旧路径 create+setMode+
+    // setViewDistance+setVisiblePlayer 会在创建后触发白名单收窄(他人 Add→Remove)
+    // 与脏 respawn(Remove+Add 换新 ID) —— 生成瞬间多波 Add/Remove 交错 = 闪烁。
+    // mode: -1=不改(用 config 默认) 1/2=指定; viewDistance: -1=不改; visiblePlayer: 空串=不限
+    int64_t createSeamless(
+        ItemDisplayConfig const& config,
+        int                     mode,
+        double                  viewDistance,
+        std::string const&      visiblePlayer
+    );
     // 查询 ID 是否在用
     bool isIdUsed(int64_t id) const;
     bool    destroy(int64_t id);
@@ -67,10 +78,30 @@ public:
     bool scaleBy(int64_t id, double factor); // 在现有 scale 上乘系数（放大/缩小）
     bool setGlint(int64_t id, bool on);      // 附魔光效开关（BDS 原生路径, 幂等）
 
+    // 可见玩家白名单（1.10.0 追加; 仅指定玩家可见; 空列表 = 清除 = 全员可见）
+    // 名单按玩家名（Player::getRealName, 即 LSE player.realName）匹配
+    bool setVisiblePlayers(int64_t id, std::vector<std::string> const& playerNames);
+    bool clearVisiblePlayers(int64_t id);
+    // 标量版（1.10.1）: 单玩家白名单 —— 规避 LSE 数组参数编组差异, JS 侧推荐
+    bool setVisiblePlayer(int64_t id, std::string const& playerName);
+    // 诊断探针（1.10.1）: 返回展示运行态摘要（dim/pos/mode/filter/shown 等, 字符串返回便于 JS 读取）
+    std::string getDebugInfo(int64_t id) const;
+
+    // 单次跳变缩放（1.12.0）: 纯 setter 基元, 无动画调度、无 respawn
+    // 以新 scale 常量重发完整方块动画序列（controller 名带 .<id> 后缀原地覆盖）。
+    // 每次调用后实体处于单一稳定配置（sleeping 矩阵与 swelling 同步基于新常量）,
+    // 不存在逐帧双写入者竞争——出现/消失等动画序列由 LSE 消费者自行步进驱动
+    //（前置库保持纯洁: 只提供基元, 不内置动画逻辑; animateScale 已于 1.13.0 移除）
+    // 仅方块路径(mode=0 auto/2)
+    bool scaleTo(int64_t id, double targetScale);
+
     std::vector<int64_t> getAllIds() const;
 
     // 查找距 (x,y,z) 最近的显示（dim 匹配; maxDist<=0 无限制; 无匹配返回 -1）
     int64_t findNearest(float x, float y, float z, int dim, double maxDist) const;
+
+    // runtimeId -> 库内 id 反查（ghost 交互路由用; 无匹配返回 false）
+    bool findByRuntimeId(std::uint64_t runtimeId, int64_t& outId) const;
 
 private:
     ItemDisplayManager()  = default;
@@ -111,6 +142,9 @@ private:
     std::unordered_map<int64_t, ItemDisplayConfig>      mConfigs;
     std::unordered_map<int64_t, Runtime>                mRuntimes;
     std::unordered_set<int64_t>                         mDirtyIds;
+    // 可见玩家白名单（id -> 玩家名集合; 无条目 = 全员可见, 兼容默认行为）
+    std::unordered_map<int64_t, std::unordered_set<std::string>> mVisibleFilter;
+
     std::uint64_t                                       mNextActorUniqueId{0x6D00000000000001ULL};
     std::uint64_t                                       mNextRuntimeId{0x6D000000ULL};
     std::unordered_set<mce::UUID>                       mInitializedPlayers;
