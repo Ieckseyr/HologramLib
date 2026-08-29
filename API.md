@@ -1,4 +1,4 @@
-﻿# HologramLib API 参考
+# HologramLib API 参考
 
 - API 版本：1.17.0（`HOLOGLIB_API_VERSION 0x011700`）
 - 唯一公开头：`include/hologramlib/HologramLib.h`
@@ -311,7 +311,7 @@ if (id > 0) {
 
 纯协议假玩家：`PlayerListPacket(Add, 携带皮肤) → AddPlayerPacket → [20 tick] PlayerListPacket(Remove)`（假玩家短暂出现在 Tab 后移除，实体因皮肤已缓存持续渲染）。不占服务端实体系统；点击交互经 ghost 管线 `domain="npc"` 派发（§1.7）。
 
-皮肤注册表全局共享：PNG 文件注册（GDI+ 解码 64×64/128×128，自定义 geometry/armSize）或从在线玩家采集（`Player::mSkin → SerializedSkinImpl` 全字段拷贝：贴图/披风/动画贴图/几何/Persona 部件/染色 → 以 skinId 永久注册副本，玩家之后换肤不影响）。解码/采集一次，多 NPC 复用零重复开销。
+皮肤注册表全局共享：PNG 文件注册（GDI+ 解码 64×64/128×128，自定义 geometry/armSize）或从在线玩家采集（`Player::mSkin → SerializedSkinImpl` 全字段拷贝：贴图/披风/动画贴图/几何/Persona 部件/染色 → 以 skinId 永久注册副本，玩家之后换肤不影响）。解码/采集一次，多 NPC 复用零重复开销。注册/采集即写盘 `plugins/HologramLib/npc_skins/<skinId>.bin`（全字段二进制快照），启动自动加载 → 重启不丢、无需源玩家在线；unregister 同步删除快照。
 
 | 分类 | 方法 | 签名 | 说明 |
 |------|------|------|------|
@@ -671,7 +671,7 @@ rot(box, 45, 0, 0);
 | 函数 | 签名 |
 |------|------|
 | playerNpcRegisterSkin | `(pngPath: s, skinId: s, geometry: s, armSize: s) -> b`（skinId 空 = 文件名; geometry 空 = geometry.humanoid.custom; armSize: wide/slim） |
-| playerNpcCaptureSkin | `(skinId: s, playerName: s) -> b`（从在线玩家采集当前皮肤, 永久注册） |
+| playerNpcCaptureSkin | `(skinId: s, playerName: s) -> b`（从在线玩家采集当前皮肤, 永久快照: 磁盘持久化, 换肤/重启不影响） |
 | playerNpcHasSkin | `(skinId: s) -> b` |
 | playerNpcUnregisterSkin | `(skinId: s) -> b`（有 NPC 引用时拒绝） |
 | playerNpcGetSkinIds | `() -> [s]` |
