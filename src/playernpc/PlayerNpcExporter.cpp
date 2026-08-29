@@ -33,6 +33,15 @@ public:
     std::vector<std::string> getSkinIds() const override {
         return PlayerNpcManager::getInstance().getSkinIds();
     }
+    int importSkins(std::string const& dirPath) override {
+        return PlayerNpcManager::getInstance().importSkins(dirPath);
+    }
+    bool getSkinBlob(std::string const& skinId, std::string& out) const override {
+        return PlayerNpcManager::getInstance().getSkinBlob(skinId, out);
+    }
+    bool registerSkinFromBlob(std::string const& blob) override {
+        return PlayerNpcManager::getInstance().registerSkinFromBlob(blob);
+    }
 
     int64_t create(hologramlib::PlayerNpcConfig const& config) override {
         return PlayerNpcManager::getInstance().create(config);
@@ -113,13 +122,21 @@ void PlayerNpcExporter::exportAll() {
             return mgr.registerSkin(skin);
         });
 
-    // playerNpcCaptureSkin(skinId, playerName) -> bool（从在线玩家采集, 永久注册）
+    // playerNpcImportSkins(dirPath) -> int（目录批量导入: 一个子文件夹 = 一套皮肤, PNG + 可选 .json 几何;
+    // skinId = 文件夹名; 返回导入数量, 目录无效返回 -1）
+    // playerNpcCaptureSkin(skinId, playerName) -> bool（从在线玩家采集, 运行时快照注册, 换肤不影响）
+    // 注: 库不落盘 —— 持久化由消费方负责（C++ 侧 getSkinBlob 落盘, 重启 registerSkinFromBlob 恢复）
     hologramlib::lse::exportAs(
         NAMESPACE,
         "playerNpcCaptureSkin",
         [&mgr](std::string const& skinId, std::string const& playerName) -> bool {
             return mgr.captureSkin(skinId, playerName);
         });
+
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "playerNpcImportSkins",
+        [&mgr](std::string const& dirPath) -> int { return mgr.importSkins(dirPath); });
 
     // playerNpcHasSkin(skinId) -> bool
     hologramlib::lse::exportAs(

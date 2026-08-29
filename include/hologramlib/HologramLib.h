@@ -18,9 +18,9 @@
 #include <string>
 #include <vector>
 
-// 库 API 版本（与 IHologramLib::version() 同值, BCD: 0x011700 = 1.17.0）
+// 库 API 版本（与 IHologramLib::version() 同值, BCD: 0x011800 = 1.18.0）
 // 消费方可用于编译期静态断言最低版本要求
-#define HOLOGLIB_API_VERSION 0x011700
+#define HOLOGLIB_API_VERSION 0x011800
 
 #ifdef HOLOGLIB_EXPORTS
 #define HOLOGLIB_API __declspec(dllexport)
@@ -483,6 +483,8 @@ struct PlayerNpcSkin {
     std::string geometry{"geometry.humanoid.custom"};
     // 手臂尺寸: "wide"（粗） / "slim"（细）; 默认 wide
     std::string armSize{"wide"};
+    // 完整几何 JSON 内容（1.18.0; 可选, 提供时启用自定义模型, identifier 自动从 JSON 提取）
+    std::string geometryData{};
 };
 
 struct PlayerNpcConfig {
@@ -538,6 +540,15 @@ public:
 
     // 诊断探针: 返回 NPC 运行态摘要字符串（找不到返回 "not_found"）
     virtual std::string getDebugInfo(int64_t id) const = 0;
+
+    // ── 1.18.0 追加: 目录批量导入皮肤（一个子文件夹 = 一套皮肤）──
+    // 子文件夹内: PNG 贴图（必需）+ .json 几何模型（可选, 缺省 = 标准玩家模型）
+    // skinId = 子文件夹名; 返回导入数量（目录无效返回 -1）
+    virtual int importSkins(std::string const& dirPath) = 0;
+    // 皮肤全字段序列化导出（消费方持久化用; 未注册返回 false）
+    virtual bool getSkinBlob(std::string const& skinId, std::string& out) const = 0;
+    // blob 反序列化注册（与 getSkinBlob 配对; 格式非法返回 false）
+    virtual bool registerSkinFromBlob(std::string const& blob) = 0;
 };
 
 // ─────────────────────────────────────────────
@@ -556,7 +567,7 @@ public:
     // LSE 兼容层是否可用（LegacyRemoteCall 运行时检测成功）
     virtual bool isLseAvailable() = 0;
 
-    // 库版本（BCD: 0x011700 = 1.17.0, 与 HOLOGLIB_API_VERSION 同值）
+    // 库版本（BCD: 0x011800 = 1.18.0, 与 HOLOGLIB_API_VERSION 同值）
     virtual uint32_t version() = 0;
 
     // ── 1.6.0 追加（冻结契约: 只在尾部追加）──

@@ -41,6 +41,12 @@ public:
     bool hasSkin(std::string const& skinId) const;
     bool unregisterSkin(std::string const& skinId); // 有 NPC 引用时拒绝
     std::vector<std::string> getSkinIds() const;
+    // 目录批量导入（1.18.0; 一个子文件夹 = 一套皮肤: PNG + 可选 .json 几何）
+    // 返回导入数量; 目录无效返回 -1
+    int importSkins(std::string const& dirPath);
+    // 皮肤全字段序列化导出 / blob 注册（消费方持久化用）
+    bool getSkinBlob(std::string const& skinId, std::string& out) const;
+    bool registerSkinFromBlob(std::string const& blob);
 
     // NPC 生命周期（创建失败: -1 常规 / -2 id 占用 / -3 皮肤未注册）
     int64_t create(PlayerNpcConfig const& config);

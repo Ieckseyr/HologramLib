@@ -2,10 +2,8 @@
 //
 // PNG 解码移植自 SCustomNpc loadNpcSkin（GDI+ BGRA→RGBA 转换）;
 // 玩家采集走 Player::mSkin → SerializedSkinImpl 字段级映射（全字段: 几何/披风/动画/Persona）。
-// 1.17.1: 注册/采集即写盘 <mod目录>/npc_skins/（全字段二进制）, init 批量加载 → 永久快照。
+// 1.18.0: 目录批量导入 + blob 导出/注册 API（库不落盘, 持久化由消费方负责）。
 #include "NpcSkinRegistry.h"
-
-#include "ModEntry.h"
 
 #include <ll/api/io/Logger.h>
 #include <ll/api/io/LoggerRegistry.h>
@@ -35,7 +33,6 @@ using std::min;
 #include <format>
 #include <fstream>
 #include <iterator>
-#include <system_error>
 
 namespace debugshape_export {
 
@@ -51,13 +48,29 @@ std::string blobToString(mce::Blob const& blob) {
     return std::string(reinterpret_cast<char const*>(blob.data()), blob.size());
 }
 
-// ── 磁盘持久化: 二进制序列化（小端, length-prefixed）──
-// 文件布局: "HLNS" | u32 version | skinId | SerializedSkin 全字段
-// 设计目标: 全字段快照落盘 → 玩家换肤/重启/源玩家不上线均不影响已注册皮肤
-constexpr char           kSkinFileMagic[4]  = {'H', 'L', 'N', 'S'};
-constexpr std::uint32_t  kSkinFileVersion   = 1;
-// 单文件大小上限（动画皮肤 + 几何 + 披风理论峰值远低于此; 超限视为损坏跳过）
-constexpr std::uint64_t  kSkinFileMaxSize   = 16 * 1024 * 1024;
+// 从 geometry JSON 提取首个模型 identifier（"identifier": "geometry.xxx"）
+// 轻量扫描（不引入 JSON 依赖）; 找不到返回空 → 调用方回退 geometry 名
+std::string parseGeometryIdentifier(std::string const& json) {
+    std::size_t pos = 0;
+    while ((pos = json.find("identifier", pos)) != std::string::npos) {
+        auto colon = json.find(":", pos + 10);
+        if (colon == std::string::npos) break;
+        auto q1 = json.find("\"", colon + 1);
+        if (q1 == std::string::npos) break;
+        auto q2 = json.find("\"", q1 + 1);
+        if (q2 == std::string::npos) break;
+        auto id = json.substr(q1 + 1, q2 - q1 - 1);
+        if (!id.empty()) return id; // "minecraft:geometry" 等 key 命中时值为空串 → 继续找
+        pos = q2 + 1;
+    }
+    return {};
+}
+
+// ── blob 序列化格式（getSkinBlob / registerSkinFromBlob 配对使用）──
+// 二进制（小端, length-prefixed）: "HLNS" | u32 version | skinId | SerializedSkin 全字段
+// 设计目标: 全字段快照 → 消费方存盘后重启恢复, 皮肤成为采集时刻的永久副本
+constexpr char          kSkinFileMagic[4] = {'H', 'L', 'N', 'S'};
+constexpr std::uint32_t kSkinFileVersion   = 1;
 
 void putU32(std::string& out, std::uint32_t v) {
     out.push_back(static_cast<char>(v & 0xFF));
@@ -149,8 +162,8 @@ std::string serializeSkin(std::string const& skinId, sculk::protocol::Serialized
     return out;
 }
 
-// 读取器（越界/长度异常置 ok=false → 上层跳过该文件, 不影响其余皮肤）
-struct SkinFileReader {
+// 读取器（越界/长度异常置 ok=false → 上层报格式错误）
+struct SkinBlobReader {
     char const*  p;
     std::size_t   remaining;
     bool         ok{true};
@@ -195,7 +208,7 @@ struct SkinFileReader {
 
 bool deserializeSkin(std::string const& blob, std::string& skinId, sculk::protocol::SerializedSkin& skin) {
     if (blob.size() < sizeof(kSkinFileMagic) + sizeof(std::uint32_t)) return false;
-    SkinFileReader r{blob.data(), blob.size()};
+    SkinBlobReader r{blob.data(), blob.size()};
     char magic[sizeof(kSkinFileMagic)]{};
     if (!r.read(magic, sizeof(magic)) || std::memcmp(magic, kSkinFileMagic, sizeof(magic)) != 0) return false;
     if (r.u32() != kSkinFileVersion) return false;
@@ -228,12 +241,12 @@ bool deserializeSkin(std::string const& blob, std::string& skinId, sculk::protoc
     skin.mCapeImageHeight = r.u32();
     skin.mCapeImageBytes  = r.str();
 
-    skin.mGeometryData                = r.str();
+    skin.mGeometryData                 = r.str();
     skin.mGeometryDataMinEngineVersion = r.str();
-    skin.mAnimationData               = r.str();
-    skin.mCapeId                      = r.str();
-    skin.mArmSize                     = r.str();
-    skin.mSkinColor                   = r.str();
+    skin.mAnimationData                = r.str();
+    skin.mCapeId                       = r.str();
+    skin.mArmSize                      = r.str();
+    skin.mSkinColor                    = r.str();
 
     auto pieceCount = r.u32();
     for (std::uint32_t i = 0; i < pieceCount && r.ok; ++i) {
@@ -263,26 +276,6 @@ bool deserializeSkin(std::string const& blob, std::string& skinId, sculk::protoc
     return r.ok;
 }
 
-// skinId → 安全文件名（percent 风格: 非 [A-Za-z0-9_.-] → %HH, 不同 skinId 不撞名）
-std::string sanitizeFileName(std::string const& skinId) {
-    static char const* hex = "0123456789ABCDEF";
-    std::string out;
-    out.reserve(skinId.size() + 16);
-    for (unsigned char c : skinId) {
-        bool safe = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '.'
-                 || c == '-';
-        if (safe) {
-            out.push_back(static_cast<char>(c));
-        } else {
-            out.push_back('%');
-            out.push_back(hex[c >> 4]);
-            out.push_back(hex[c & 0xF]);
-        }
-    }
-    if (out.empty() || out == "." || out == "..") out = "_empty_";
-    return out + ".bin";
-}
-
 } // namespace
 
 NpcSkinRegistry& NpcSkinRegistry::getInstance() {
@@ -293,9 +286,6 @@ NpcSkinRegistry& NpcSkinRegistry::getInstance() {
 void NpcSkinRegistry::init() {
     std::lock_guard lock(mMutex);
     if (mGdiplusToken != nullptr) return; // 已初始化
-
-    // 持久化皮肤恢复（不依赖 GDI+, 放在 GDI+ 初始化前: GDI+ 失败也不影响已存储皮肤可用）
-    loadAllFromDisk();
 
     Gdiplus::GdiplusStartupInput startupInput{};
     ULONG_PTR                   token{};
@@ -311,7 +301,7 @@ void NpcSkinRegistry::shutdown() {
     if (mGdiplusToken == nullptr) return;
     Gdiplus::GdiplusShutdown(reinterpret_cast<ULONG_PTR>(mGdiplusToken));
     mGdiplusToken = nullptr;
-    mSkins.clear(); // 仅清内存; 磁盘快照保留, 下次 init 恢复
+    mSkins.clear(); // 纯内存; 持久化副本由消费方自行保存/恢复
 }
 
 bool NpcSkinRegistry::registerSkinFromPng(hologramlib::PlayerNpcSkin const& skin, std::string& error) {
@@ -371,20 +361,101 @@ bool NpcSkinRegistry::registerSkinFromPng(hologramlib::PlayerNpcSkin const& skin
     bitmap.UnlockBits(&data);
 
     sculk::protocol::SerializedSkin proto;
-    proto.mId                            = "HoloLibNpcSkin_" + skinId;
-    proto.mResourcePatch                 = std::format(R"({{"geometry":{{"default":"{}"}}}})", skin.geometry);
-    proto.mSkinImageWidth                 = width;
-    proto.mSkinImageHeight                = height;
-    proto.mSkinImageBytes                 = std::move(rgba);
-    proto.mGeometryDataMinEngineVersion   = "1.21.100";
-    proto.mFullId                         = proto.mId;
-    proto.mArmSize                        = (skin.armSize == "slim") ? "slim" : "wide";
-    proto.mSkinColor                       = "#0";
-    proto.mOverridesPlayerAppearance       = true;
+    proto.mId             = "HoloLibNpcSkin_" + skinId;
+    proto.mSkinImageWidth  = width;
+    proto.mSkinImageHeight = height;
+    proto.mSkinImageBytes  = std::move(rgba);
+    if (!skin.geometryData.empty()) {
+        // 自定义模型: identifier 从 JSON 提取（失败回退 geometry 名）; 全量几何随皮肤下发
+        auto identifier = parseGeometryIdentifier(skin.geometryData);
+        proto.mResourcePatch = std::format(
+            R"({{"geometry":{{"default":"{}"}}}})",
+            identifier.empty() ? skin.geometry : identifier
+        );
+        proto.mGeometryData               = skin.geometryData;
+        proto.mGeometryDataMinEngineVersion = "1.21.100";
+    } else {
+        // 标准玩家模型（geometry 名走资源包内置几何, 不下发几何数据）
+        proto.mResourcePatch               = std::format(R"({{"geometry":{{"default":"{}"}}}})", skin.geometry);
+        proto.mGeometryDataMinEngineVersion = "1.21.100";
+    }
+    proto.mFullId                   = proto.mId;
+    proto.mArmSize                  = (skin.armSize == "slim") ? "slim" : "wide";
+    proto.mSkinColor                = "#0";
+    proto.mOverridesPlayerAppearance = true;
 
-    auto [it, inserted] = mSkins.insert_or_assign(std::move(skinId), std::move(proto));
-    saveSkinToDisk(it->first, it->second); // 永久存储（PNG 源文件可能被删, 落盘后不再依赖）; inserted 只区分新插入/覆盖
+    mSkins.insert_or_assign(std::move(skinId), std::move(proto));
     return true;
+}
+
+// ── 目录批量导入: 一个子文件夹 = 一套皮肤 ──
+// 约定: 子文件夹名 = skinId; 文件夹内 PNG 贴图（必需）+ .json 几何（可选 = 默认玩家模型）
+// 排序遍历保证多次导入结果确定; 单个文件夹失败仅跳过（warn 日志）, 不影响其余
+
+int NpcSkinRegistry::importSkinsFromDir(std::string const& dirPath, std::string& error) {
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    auto root = fs::path(dirPath);
+    if (!fs::exists(root, ec) || !fs::is_directory(root, ec)) {
+        error = "not a directory: " + dirPath;
+        return -1;
+    }
+
+    // 子文件夹收集 + 排序（目录序不确定 → 导入顺序/日志顺序稳定）
+    std::vector<fs::path> subs;
+    for (auto const& entry : fs::directory_iterator(root, ec)) {
+        if (ec) break;
+        if (entry.is_directory(ec) && !ec) subs.push_back(entry.path());
+    }
+    std::sort(subs.begin(), subs.end());
+
+    int imported = 0;
+    for (auto const& sub : subs) {
+        auto skinId = sub.filename().string();
+        if (skinId.empty() || skinId == "." || skinId == "..") continue;
+
+        // 文件夹内找 PNG（贴图, 必需）与 JSON（几何, 可选）; 多个时取排序后第一个
+        std::string pngPath;
+        std::string geometryData;
+        {
+            std::vector<fs::path> files;
+            std::error_code      ec2;
+            for (auto const& f : fs::directory_iterator(sub, ec2)) {
+                if (ec2) break;
+                if (f.is_regular_file(ec2) && !ec2) files.push_back(f.path());
+            }
+            std::sort(files.begin(), files.end());
+            for (auto const& p : files) {
+                auto ext = p.extension().string();
+                for (char& c : ext) c = static_cast<char>(::tolower(static_cast<unsigned char>(c)));
+                if (ext == ".png" && pngPath.empty()) {
+                    pngPath = p.string();
+                } else if (ext == ".json" && geometryData.empty()) {
+                    std::ifstream in(p, std::ios::binary);
+                    if (in) {
+                        geometryData = std::string{std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
+                    }
+                }
+            }
+        }
+
+        if (pngPath.empty()) {
+            logger().warn("[PlayerNpc] import '{}': no .png found, skipped", skinId);
+            continue;
+        }
+
+        hologramlib::PlayerNpcSkin skin;
+        skin.pngPath       = pngPath;
+        skin.skinId       = skinId;
+        skin.geometryData = std::move(geometryData); // 空 = 标准玩家模型
+        std::string err;
+        if (registerSkinFromPng(skin, err)) { // 消费方如需持久化: 导入成功后 getSkinBlob 落盘
+            ++imported;
+        } else {
+            logger().warn("[PlayerNpc] import '{}': {}", skinId, err);
+        }
+    }
+    return imported;
 }
 
 bool NpcSkinRegistry::captureSkin(std::string const& skinId, std::string const& playerName) {
@@ -403,7 +474,7 @@ bool NpcSkinRegistry::captureSkin(std::string const& skinId, std::string const& 
     ::SerializedSkinImpl const& impl = skinImpl->mObject;
 
     // BDS 原生 SerializedSkinImpl → sculk::protocol::SerializedSkin 字段级映射
-    // （皮肤贴图/披风/动画贴图/几何/Persona 部件/染色 全量拷贝 → 永久注册副本）
+    // （皮肤贴图/披风/动画贴图/几何/Persona 部件/染色 全量拷贝 → 快照注册, 之后换肤不影响）
     sculk::protocol::SerializedSkin proto;
     proto.mId            = impl.mId;
     proto.mPlayFabId     = impl.mPlayFabId;
@@ -473,9 +544,31 @@ bool NpcSkinRegistry::captureSkin(std::string const& skinId, std::string const& 
     proto.mOverridesPlayerAppearance = impl.mOverridesPlayerAppearance;
 
     std::lock_guard lock(mMutex);
-    auto [it, inserted] = mSkins.insert_or_assign(skinId, std::move(proto));
-    // 永久快照落盘: 采集时刻的皮肤全字段 → 此后源玩家换肤/下线/重启均不影响
-    saveSkinToDisk(it->first, it->second);
+    mSkins.insert_or_assign(skinId, std::move(proto));
+    return true;
+}
+
+bool NpcSkinRegistry::getSkinBlob(std::string const& skinId, std::string& out) const {
+    std::lock_guard lock(mMutex);
+    auto it = mSkins.find(skinId);
+    if (it == mSkins.end()) return false;
+    out = serializeSkin(it->first, it->second);
+    return true;
+}
+
+bool NpcSkinRegistry::registerSkinFromBlob(std::string const& blob, std::string& error) {
+    std::string skinId;
+    sculk::protocol::SerializedSkin skin;
+    if (!deserializeSkin(blob, skinId, skin)) {
+        error = "invalid skin blob (bad magic/version/corrupted)";
+        return false;
+    }
+    if (skinId.empty()) {
+        error = "invalid skin blob (empty skinId)";
+        return false;
+    }
+    std::lock_guard lock(mMutex);
+    mSkins.insert_or_assign(std::move(skinId), std::move(skin));
     return true;
 }
 
@@ -486,9 +579,7 @@ bool NpcSkinRegistry::hasSkin(std::string const& skinId) const {
 
 bool NpcSkinRegistry::unregisterSkin(std::string const& skinId) {
     std::lock_guard lock(mMutex);
-    if (mSkins.erase(skinId) == 0) return false;
-    eraseSkinFromDisk(skinId); // 磁盘快照一并删除（真正卸载）
-    return true;
+    return mSkins.erase(skinId) > 0;
 }
 
 std::vector<std::string> NpcSkinRegistry::getSkinIds() const {
@@ -505,100 +596,6 @@ bool NpcSkinRegistry::getSkin(std::string const& skinId, sculk::protocol::Serial
     if (it == mSkins.end()) return false;
     out = it->second;
     return true;
-}
-
-// ── 磁盘持久化实现（调用方已持 mMutex）──
-
-std::filesystem::path NpcSkinRegistry::skinsDir() const {
-    // ModEntry 单例持有本 mod 的 NativeMod 引用（load 阶段构造, 生命周期内有效）
-    return ModEntry::getInstance().getSelf().getModDir() / "npc_skins";
-}
-
-std::filesystem::path NpcSkinRegistry::skinFilePath(std::string const& skinId) const {
-    return skinsDir() / sanitizeFileName(skinId);
-}
-
-void NpcSkinRegistry::saveSkinToDisk(std::string const& skinId, sculk::protocol::SerializedSkin const& skin) const {
-    namespace fs = std::filesystem;
-    std::error_code ec;
-    auto dir = skinsDir();
-    fs::create_directories(dir, ec); // 已存在不算错
-    auto path = dir / sanitizeFileName(skinId);
-    auto blob = serializeSkin(skinId, skin);
-
-    // 先写 .tmp 再原子改名: 崩溃/断电不产生半截文件（半截文件加载时会被校验跳过）
-    auto tmp = path;
-    tmp += ".tmp";
-    {
-        std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
-        if (!f) {
-            logger().warn("[PlayerNpc] cannot open skin file for write: {}", tmp.string());
-            return;
-        }
-        f.write(blob.data(), static_cast<std::streamsize>(blob.size()));
-        if (!f) {
-            logger().warn("[PlayerNpc] skin file write incomplete: {}", tmp.string());
-            fs::remove(tmp, ec);
-            return;
-        }
-    }
-    fs::rename(tmp, path, ec); // Windows 上原子覆盖已存在目标
-    if (ec) {
-        // 兜底: rename 失败（目标被占用等极少见）→ 直接写目标
-        std::ofstream f(path, std::ios::binary | std::ios::trunc);
-        if (f) {
-            f.write(blob.data(), static_cast<std::streamsize>(blob.size()));
-            std::error_code ec2;
-            fs::remove(tmp, ec2);
-            return;
-        }
-        logger().warn("[PlayerNpc] persist skin '{}' failed: {}", skinId, ec.message());
-        std::error_code ec3;
-        fs::remove(tmp, ec3);
-    }
-}
-
-void NpcSkinRegistry::eraseSkinFromDisk(std::string const& skinId) const {
-    std::error_code ec;
-    std::filesystem::remove(skinFilePath(skinId), ec); // 不存在不算错
-    auto tmp = skinFilePath(skinId);
-    tmp += ".tmp";
-    std::filesystem::remove(tmp, ec);
-}
-
-void NpcSkinRegistry::loadAllFromDisk() {
-    namespace fs = std::filesystem;
-    std::error_code ec;
-    auto dir = skinsDir();
-    if (!fs::exists(dir, ec) || ec) return;
-
-    std::uint32_t loaded = 0;
-    for (auto const& entry : fs::directory_iterator(dir, ec)) {
-        if (ec) break;
-        if (!entry.is_regular_file(ec) || ec) continue;
-        auto const& path = entry.path();
-        if (path.extension() != ".bin") continue;
-        auto size = entry.file_size(ec);
-        if (ec || size > kSkinFileMaxSize) {
-            logger().warn("[PlayerNpc] skip abnormal skin file: {}", path.filename().string());
-            continue;
-        }
-
-        std::ifstream f(path, std::ios::binary);
-        if (!f) continue;
-        std::string blob{std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>()};
-
-        std::string skinId;
-        sculk::protocol::SerializedSkin skin;
-        if (!deserializeSkin(blob, skinId, skin)) {
-            logger().warn("[PlayerNpc] skip corrupted skin file: {}", path.filename().string());
-            continue;
-        }
-        // 文件内 skinId 为准（文件名仅是 sanitize 结果）
-        mSkins.insert_or_assign(std::move(skinId), std::move(skin));
-        ++loaded;
-    }
-    if (loaded > 0) logger().info("[PlayerNpc] restored {} persistent skin(s) from disk", loaded);
 }
 
 } // namespace debugshape_export

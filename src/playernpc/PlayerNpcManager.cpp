@@ -112,6 +112,20 @@ bool PlayerNpcManager::captureSkin(std::string const& skinId, std::string const&
     return NpcSkinRegistry::getInstance().captureSkin(skinId, playerName);
 }
 
+int PlayerNpcManager::importSkins(std::string const& dirPath) {
+    std::string error;
+    return NpcSkinRegistry::getInstance().importSkinsFromDir(dirPath, error);
+}
+
+bool PlayerNpcManager::getSkinBlob(std::string const& skinId, std::string& out) const {
+    return NpcSkinRegistry::getInstance().getSkinBlob(skinId, out);
+}
+
+bool PlayerNpcManager::registerSkinFromBlob(std::string const& blob) {
+    std::string error;
+    return NpcSkinRegistry::getInstance().registerSkinFromBlob(blob, error);
+}
+
 bool PlayerNpcManager::hasSkin(std::string const& skinId) const {
     return NpcSkinRegistry::getInstance().hasSkin(skinId);
 }

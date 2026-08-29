@@ -1,6 +1,6 @@
 # HologramLib API 参考
 
-- API 版本：1.17.0（`HOLOGLIB_API_VERSION 0x011700`）
+- API 版本：1.18.0（`HOLOGLIB_API_VERSION 0x011800`）
 - 唯一公开头：`include/hologramlib/HologramLib.h`
 
 ## API 稳定性契约
@@ -10,7 +10,7 @@
 | C++ 接口 | 全部纯虚方法签名与语义（实现对象在 DLL 内创建，消费者只持引用） | 只在接口尾部追加；永不修改/删除 |
 | C++ 宏 | `HOLOGLIB_API_VERSION`、`HOLOGLIB_API`、`hologramlib` 命名空间、枚举值 | 只追加枚举值 |
 | LSE 命名空间 | 单一命名空间 `HologramLib` 全部函数名、参数顺序、返回值类型 | 只增不改不删 |
-| 版本协商 | `IHologramLib::version()`（BCD：0x011700 = 1.17.0） | 随发布递增 |
+| 版本协商 | `IHologramLib::version()`（BCD：0x011800 = 1.18.0） | 随发布递增 |
 
 破坏兼容仅允许发生在大版本（2.0.0）。`src/` 目录一切内容均为内部实现，不属于 API。
 
@@ -311,12 +311,15 @@ if (id > 0) {
 
 纯协议假玩家：`PlayerListPacket(Add, 携带皮肤) → AddPlayerPacket → [20 tick] PlayerListPacket(Remove)`（假玩家短暂出现在 Tab 后移除，实体因皮肤已缓存持续渲染）。不占服务端实体系统；点击交互经 ghost 管线 `domain="npc"` 派发（§1.7）。
 
-皮肤注册表全局共享：PNG 文件注册（GDI+ 解码 64×64/128×128，自定义 geometry/armSize）或从在线玩家采集（`Player::mSkin → SerializedSkinImpl` 全字段拷贝：贴图/披风/动画贴图/几何/Persona 部件/染色 → 以 skinId 永久注册副本，玩家之后换肤不影响）。解码/采集一次，多 NPC 复用零重复开销。注册/采集即写盘 `plugins/HologramLib/npc_skins/<skinId>.bin`（全字段二进制快照），启动自动加载 → 重启不丢、无需源玩家在线；unregister 同步删除快照。
+皮肤注册表全局共享：PNG 文件注册（GDI+ 解码 64×64/128×128，自定义 geometry/armSize）、目录批量导入（一个子文件夹 = PNG + 可选 `.json` 几何模型，缺省 = 标准玩家模型）或从在线玩家采集（`Player::mSkin → SerializedSkinImpl` 全字段拷贝：贴图/披风/动画贴图/几何/Persona 部件/染色 → 以 skinId 注册运行时快照，玩家之后换肤不影响）。解码/采集一次，多 NPC 复用零重复开销。**库不落盘**——持久化由消费方负责：注册/采集/导入成功后 `getSkinBlob` 导出全字段二进制快照存到自己的目录，重启时 `registerSkinFromBlob` 恢复，不依赖源 PNG/玩家在线。
 
 | 分类 | 方法 | 签名 | 说明 |
 |------|------|------|------|
 | 皮肤 | registerSkin | `(PlayerNpcSkin const& skin) -> bool` | PNG 注册（skinId 空 = 文件名; 重复覆盖） |
+| | importSkins | `(std::string const& dirPath) -> int` | 目录批量导入（skinId = 子文件夹名; PNG 必需 + `.json` 几何可选; 返回导入数量, 目录无效 -1） |
 | | captureSkin | `(std::string const& skinId, std::string const& playerName) -> bool` | 从在线玩家采集（不在线返回 false; 重复覆盖） |
+| | getSkinBlob | `(std::string const& skinId, std::string& out) const -> bool` | 全字段序列化导出（消费方持久化用; 未注册 false） |
+| | registerSkinFromBlob | `(std::string const& blob) -> bool` | blob 反序列化注册（与 getSkinBlob 配对; 格式非法 false） |
 | | hasSkin / unregisterSkin / getSkinIds | — | unregister 有 NPC 引用时拒绝 |
 | 生命周期 | create / createRandom / createWithId | `(PlayerNpcConfig const&) -> int64_t` | 失败: -1 常规 / -2 id 占用 / -3 皮肤未注册; 持久化由消费者负责 |
 | | destroy / destroyAll / exists / get / isIdUsed / getAllIds | — | 同其他域 |
@@ -331,6 +334,7 @@ struct PlayerNpcSkin {
     std::string skinId;                                         // 空 = 用文件名
     std::string geometry{"geometry.humanoid.custom"};          // 模型（resourcePatch）
     std::string armSize{"wide"};                                // "wide" / "slim"
+    std::string geometryData;                                   // 1.18.0 完整几何 JSON（可选, 提供时启用自定义模型）
 };
 
 struct PlayerNpcConfig {
@@ -360,7 +364,7 @@ LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib
 | `entity*` | 自定义实体 | ICustomEntity | 33 |
 | `ghost*` | 交互事件轮询 | IHologramLib | 2 |
 | `particle*` | 通用粒子形状系统 | ParticleShapeManager | 22 |
-| `playerNpc*` | 假玩家 NPC（含皮肤注册/采集） | IPlayerNpc | 23 |
+| `playerNpc*` | 假玩家 NPC（含皮肤注册/采集/目录导入） | IPlayerNpc | 24 |
 
 缺席时安全降级（`ll.import` 得 null）。
 
@@ -664,14 +668,15 @@ follow(halo, player.uuid, 0, 0.3, 0); // 锚点 = 玩家位置 + 偏移, 每 tic
 rot(box, 45, 0, 0);
 ```
 
-### 2.9 playerNpc*（假玩家 NPC，23 函数）
+### 2.9 playerNpc*（假玩家 NPC，24 函数）
 
-纯协议假玩家（不占服务端实体系统）：`PlayerList(Add, 皮肤) → AddPlayer → [20t] PlayerList(Remove)`；点击交互经 ghost 管线 `domain="npc"`（§2.7 轮询）。皮肤二来源：PNG 文件注册 / 从在线玩家采集（全字段永久副本，玩家之后换肤不影响）。
+纯协议假玩家（不占服务端实体系统）：`PlayerList(Add, 皮肤) → AddPlayer → [20t] PlayerList(Remove)`；点击交互经 ghost 管线 `domain="npc"`（§2.7 轮询）。皮肤三来源：PNG 文件注册 / 目录批量导入（一个子文件夹 = PNG + 可选 `.json` 模型）/ 从在线玩家采集（全字段运行时快照，玩家之后换肤不影响）。库不落盘，LSE 侧如需跨重启保留请重新注册/采集。
 
 | 函数 | 签名 |
 |------|------|
 | playerNpcRegisterSkin | `(pngPath: s, skinId: s, geometry: s, armSize: s) -> b`（skinId 空 = 文件名; geometry 空 = geometry.humanoid.custom; armSize: wide/slim） |
-| playerNpcCaptureSkin | `(skinId: s, playerName: s) -> b`（从在线玩家采集当前皮肤, 永久快照: 磁盘持久化, 换肤/重启不影响） |
+| playerNpcImportSkins | `(dirPath: s) -> i`（目录批量导入: 一个子文件夹 = 一套皮肤, PNG 必需 + `.json` 几何可选; skinId = 文件夹名; 返回导入数量, 目录无效 -1） |
+| playerNpcCaptureSkin | `(skinId: s, playerName: s) -> b`（从在线玩家采集当前皮肤, 全字段快照注册, 其后换肤不影响） |
 | playerNpcHasSkin | `(skinId: s) -> b` |
 | playerNpcUnregisterSkin | `(skinId: s) -> b`（有 NPC 引用时拒绝） |
 | playerNpcGetSkinIds | `() -> [s]` |
@@ -701,7 +706,7 @@ const capture = ll.import("HologramLib", "playerNpcCaptureSkin");
 const create  = ll.import("HologramLib", "playerNpcCreate");
 const pos     = ll.import("HologramLib", "playerNpcSetPos");
 
-// 1. 采集在线玩家 Steve 的当前皮肤（含几何/披风/动画, 永久注册为 "steve_skin"）
+// 1. 采集在线玩家 Steve 的当前皮肤（含几何/披风/动画, 快照注册为 "steve_skin"）
 capture("steve_skin", "Steve");
 
 // 2. 用采集皮肤创建假玩家（主世界出生点旁）
