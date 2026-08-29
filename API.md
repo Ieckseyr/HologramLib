@@ -1,21 +1,18 @@
 # HologramLib API 参考
 
-- API 版本：1.15.0（`HOLOGLIB_API_VERSION 0x011500`）
-- 插件发布版本：`26.10.5`（规则：跟随 LeviLamina 版本前两段 + 尾号自增，如 `26.10.1 → 26.10.2 → 26.10.3`；LeviLamina 升级到 `26.11.x` 时从 `26.11.1` 重新起号）
+- API 版本：1.16.0（`HOLOGLIB_API_VERSION 0x011600`）
 - 唯一公开头：`include/hologramlib/HologramLib.h`
 
 ## API 稳定性契约
 
 | 层级 | 冻结内容 | 演进规则 |
 |------|----------|----------|
-| C++ 接口 | 全部纯虚方法签名与语义（ABI 稳定：实现对象在 DLL 内创建，消费者只持引用） | 只在接口**尾部追加**方法、只新增函数；永不修改/删除 |
+| C++ 接口 | 全部纯虚方法签名与语义（实现对象在 DLL 内创建，消费者只持引用） | 只在接口尾部追加；永不修改/删除 |
 | C++ 宏 | `HOLOGLIB_API_VERSION`、`HOLOGLIB_API`、`hologramlib` 命名空间、枚举值 | 只追加枚举值 |
-| LSE 命名空间 | 单一命名空间 `HologramLib` 全部函数名（四域前缀）、参数顺序、返回值类型 | 只增不改不删 |
-| 版本协商 | `IHologramLib::version()`（BCD：0x010500 = 1.5.0） | 随发布递增 |
+| LSE 命名空间 | 单一命名空间 `HologramLib` 全部函数名、参数顺序、返回值类型 | 只增不改不删 |
+| 版本协商 | `IHologramLib::version()`（BCD：0x011600 = 1.16.0） | 随发布递增 |
 
-破坏兼容仅允许发生在大版本（2.0.0），届时提供全新接口名并长期保留旧接口最终冻结实现。
-
-`src/` 目录一切内容均为内部实现，**不属于 API**。
+破坏兼容仅允许发生在大版本（2.0.0）。`src/` 目录一切内容均为内部实现，不属于 API。
 
 ---
 
@@ -28,14 +25,15 @@ namespace hologramlib {
     class IHologramLib {
     public:
         static IHologramLib& getInstance();          // 唯一 dllexport 工厂
-        IShapeDrawer&  shapes();                     // 形状渲染
-        IHologramText& holograms();                  // 悬浮字全息
-        IItemDetail&   itemDetails();                // 物品详情
-        IItemDisplay&  itemDisplays();               // FMBE 物品悬浮（1.6.0）
-        ICustomEntity& customEntities();             // 自定义实体（1.10.0）
-        IParticleShape& particleShapes();            // 通用粒子形状（1.14.0）
-        bool     isLseAvailable();                   // LSE 兼容层是否已挂载
-        uint32_t version();                          // 0x011400
+        IShapeDrawer&   shapes();          // 形状渲染
+        IHologramText&  holograms();       // 悬浮字全息
+        IItemDetail&    itemDetails();     // 物品详情
+        IItemDisplay&    itemDisplays();   // FMBE 物品悬浮（1.6.0）
+        ICustomEntity&  customEntities();  // 自定义实体（1.10.0）
+        IParticleShape& particleShapes();  // 通用粒子形状（1.14.0）
+        IPlayerNpc&     playerNpcs();      // 假玩家 NPC（1.16.0）
+        bool     isLseAvailable();        // LSE 兼容层是否已挂载
+        uint32_t version();               // 0x011600
         int64_t  findNearestItemDisplay(float x, float y, float z, int dim, double maxDist); // 1.6.0
         void     setGhostInteractListener(std::function<void(GhostInteractEvent const&)> listener); // 1.12.0
         void     clearGhostInteractListener();                                             // 1.12.0
@@ -47,9 +45,8 @@ namespace hologramlib {
 通用约定：
 
 - 所有 `id` 为 `int64_t`，创建失败返回 `< 0`
-- 颜色分量 `0.0 ~ 1.0`（RGBA）
-- 坐标为世界坐标；`setDuration` 单位秒
-- 方法内部互斥（线程安全）；建议主线程调用（发包在调用线程执行）
+- 颜色分量 `0.0 ~ 1.0`（RGBA）；坐标为世界坐标；`setDuration` 单位秒
+- 方法内部互斥（线程安全）；发包在调用线程执行，建议主线程调用
 
 ### 1.2 IShapeDrawer（形状渲染）
 
@@ -79,13 +76,9 @@ namespace hologramlib {
 | exists | `(int64_t id) -> bool` | 存在性 |
 | type | `(int64_t id) -> ShapeType` | 形状类型 |
 
-`ShapeType` 枚举（与 LSE `getShapeType` 数值一致）：
-
 ```cpp
 enum class ShapeType : int { Text=0, Line=1, Box=2, Circle=3, Sphere=4, Arrow=5 };
 ```
-
-> 注：旧版 `FilledQuad = 6` 已移除；数值 6 保留空洞，永不复用。
 
 ### 1.3 IHologramText（悬浮字全息）
 
@@ -112,7 +105,7 @@ enum class ShapeType : int { Text=0, Line=1, Box=2, Circle=3, Sphere=4, Arrow=5 
 | 位置 | setLocation | `(int64_t id, float x, float y, float z) -> bool` | 位置 |
 | | setFollowPlayer | `(int64_t id, std::string const& playerName, float offsetY) -> bool` | 跟随玩家 |
 | | clearFollowPlayer | `(int64_t id) -> bool` | 取消跟随 |
-| | setDimension | `(int64_t id, int dimId) -> bool` | **1.12.0** 迁移维度：已绘制时同步底层形状维度并按原绘制目标原地重发（无闪烁） |
+| | setDimension | `(int64_t id, int dimId) -> bool` | 迁移维度：已绘制时同步底层形状维度并按原绘制目标原地重发（无闪烁） |
 | 显示 | draw / drawToDimension / drawToPlayer / remove | 同形状语义 | |
 | | refresh | `(int64_t id) -> bool` | 重解析变量并原地重发 |
 | 驱动 | tick | `(float deltaTime) -> void` | 动画推进（滚动/跟随） |
@@ -134,7 +127,7 @@ bool hide(int64_t id);
 
 物品名解析链：`ItemRegistry（HashedString）→ ItemStack → I18n(getDescriptionId)` → `getName/getDescriptionName` → 兜底原样显示 ID（不阻断）。
 
-### 1.5 IItemDisplay（FMBE 物品悬浮显示，1.6.0 追加）
+### 1.5 IItemDisplay（FMBE 物品悬浮显示，1.6.0）
 
 配置驱动的物品/方块悬浮展示（FMBE 狐狸+发包）。全部变换字段为**常量数字或 Molang 表达式字符串**；持久化由消费者负责（库只管渲染）。
 
@@ -152,8 +145,8 @@ struct ItemDisplayConfig {
     int    mode{0};                        // 0=auto 1=item 2=block
     double viewDistance{64.0};             // <=0 无限制
     bool   enabled{true};
-    std::string itemNbt{};                 // 物品附加数据（SNBT; 1.8.0; 自定义名称等）
-    bool   itemGlint{false};               // 附魔光效（1.9.0; BDS 原生路径注入 1 级锋利）
+    std::string itemNbt{};                 // 物品附加数据（SNBT; 自定义名称等）
+    bool   itemGlint{false};               // 附魔光效（BDS 原生路径注入 1 级锋利）
 };
 ```
 
@@ -172,22 +165,18 @@ struct ItemDisplayConfig {
 | setMode / setEnabled / setViewDistance | — | 行为 |
 | rotateY | `(int64_t, float) -> bool` | 偏航叠加增量（常量/表达式自适应） |
 | getAllIds | `() -> std::vector<int64_t>` | 全部 ID |
-| createRandom | `(ItemDisplayConfig const&) -> int64_t` | **1.7.0** 随机 ID 创建：库在随机段 `[0x10000000, 0x7FFFFFFF)` 自动生成不重复 ID（查重 + 与自增段隔离）; 成功返回生成的 ID, <0 失败 |
-| createWithId | `(ItemDisplayConfig const&, int64_t desiredId) -> int64_t` | **1.7.0** 指定 ID 创建：持久化恢复场景（如随机 ID 重启后原位还原）; desiredId<=0 或已被占用返回 -2 |
-| createSeamless | `(ItemDisplayConfig const&, int mode, double viewDistance, std::string const& visiblePlayer) -> int64_t` | **1.12.0** 无感创建：mode/视距/白名单在首次 spawn 之前写入，全程只发一次 Add 序列（ItemPhys 无感创建等价）。mode: -1=不改（用 config 默认）1/2=指定; viewDistance: -1=不改; visiblePlayer 空串=不限。消除旧路径 create→白名单收窄（他人 Add→Remove）→脏 respawn（Remove+Add 换新 ID）的创建瞬间多波闪烁 |
-| isIdUsed | `(int64_t) -> bool` | **1.7.0** 查询 ID 是否在用 |
-| scaleBy | `(int64_t, double factor) -> bool` | **1.7.1** 相对缩放（放大/缩小）：在现有 scale 上乘 factor; factor>1 放大, 0<factor<1 缩小; 常量直接相乘, 表达式包裹 `(expr)*factor`; factor<=0 返回 false |
-| setItemWithNbt | `(int64_t, std::string const& item, int aux, std::string const& nbt) -> bool` | **1.8.0** 换物品（带附加数据）：nbt 为 SNBT 字符串（自定义名称等用户数据）; 空串 = 清除附加数据; SNBT 解析失败按无 NBT 处理并告警 |
-| setGlint | `(int64_t, bool on) -> bool` | **1.9.0** 附魔光效开关：开 = BDS 原生 `saveEnchantsToUserData` 注入 1 级锋利（客户端紫色光效）; 关 = 移除附魔; 幂等（值未变不重发） |
-| scaleTo | `(int64_t, double targetScale) -> bool` | **1.12.0** 单次跳变缩放（纯 setter 基元）：以新 scale 常量重发完整 5 包方块动画序列（controller 名带 `.<id>` 后缀客户端同名原地覆盖），无 respawn、无 Remove/Add。每次调用后实体处于单一稳定配置（sleeping 矩阵与 swelling 同步基于新常量）——不存在逐帧双写入者竞争。仅方块路径（mode=0 auto/2）。targetScale<0.01 钳制为 0.01 |
-| ~~animateScale~~ | — | **1.13.0 已移除**（前置纯洁性决策：动画调度归 LSE 消费者，库只提供基元）。渐变动画请由 LSE 基于 `scaleTo` 步进驱动（如 5 步 easeOutCubic） |
-| findNearestItemDisplay（IHologramLib 单例） | `(float x, float y, float z, int dim, double maxDist) -> int64_t` | 最近查找（dim 匹配; maxDist<=0 无限制; 无匹配 -1） |
+| createRandom | `(ItemDisplayConfig const&) -> int64_t` | 随机段 `[0x10000000, 0x7FFFFFFF)` 自动生成不重复 ID; 成功返回生成的 ID, <0 失败 |
+| createWithId | `(ItemDisplayConfig const&, int64_t desiredId) -> int64_t` | 指定 ID 创建（持久化恢复用）; desiredId<=0 或已被占用返回 -2 |
+| isIdUsed | `(int64_t) -> bool` | 查询 ID 是否在用 |
+| scaleBy | `(int64_t, double factor) -> bool` | 相对缩放：现有 scale × factor; 常量直接相乘, 表达式包裹 `(expr)*factor`; factor<=0 返回 false |
+| setItemWithNbt | `(int64_t, std::string const& item, int aux, std::string const& nbt) -> bool` | 换物品（带附加数据）：nbt 为 SNBT; 空串 = 清除; 解析失败按无 NBT 处理并告警 |
+| setGlint | `(int64_t, bool on) -> bool` | 附魔光效开关：开 = BDS 原生 `saveEnchantsToUserData` 注入 1 级锋利; 幂等 |
 
-可见性由库内 Level tick hook 自动同步（每 20 tick：同维度 + 可见距离内玩家自动生成/移除；玩家断线自动清理）；属性变更即时生效（对已见玩家原子 despawn→respawn）。`setMode` / `setViewDistance` 幂等（**1.12.0**：同值不标脏不 respawn，防创建后闪换）。
+可见性由库内 Level tick hook 自动同步（每 20 tick：同维度 + 可见距离内玩家自动生成/移除；玩家断线自动清理）；属性变更即时生效（对已见玩家原子 despawn→respawn）。`setMode` / `setViewDistance` 幂等（同值不标脏不 respawn）。
 
-> **FMBE 出现/消失动画（1.13.0 纯洁性决策）**：库内不内置动画调度（`animateScale` 已移除——其逐 tick swelling 覆写与安装序列 sleeping 矩阵每帧重申的 `v.scale` 以不同节奏交替竞争，方块位置补偿项随 `v.scale` 摆动 = 渐变全程抖动）。动画由 LSE 消费者基于 `scaleTo` 基元**步进驱动**：每步调用后实体处于单一稳定配置（无逐帧双写竞争，步进间无抖动）。典型序列（MeowLand 边界实证）：`createSeamless` 直接以缩小版 scale(0.1) 发包 → 延迟约 500ms → 5 步 easeOutCubic `scaleTo` 渐进放大到目标; 消失 5 步 `scaleTo` 渐进缩到 0.01 → `destroy`。
+无感创建（`createSeamless`）、单次跳变缩放（`scaleTo`）与可见白名单目前仅 LSE 导出（§2.5），未上 C++ 接口。渐变动画由消费者基于 `scaleTo` 步进驱动（如 5 步 easeOutCubic）。
 
-### 1.6 ICustomEntity（自定义实体，1.10.0 追加）
+### 1.6 ICustomEntity（自定义实体，1.10.0）
 
 AddActorPacket 直发客户端生成**纯视觉实体**，不占服务端实体系统。适合 NPC 壳 / 装饰生物 / 盔甲架布景等（无碰撞、无服务端逻辑；交互经 ghost 事件路由，见 1.7）。
 
@@ -215,7 +204,6 @@ struct CustomEntityConfig {
     bool        enabled{true};
     int         pose{0};                             // PoseIndex 0..13（0=Standing 3..13 坐姿/睡姿/跳舞等）
     CustomEntityEquipment equipment[6];              // 槽位: 0=mainhand 1=offhand 2=head 3=chest 4=legs 5=feet
-    // ── 1.12.0 追加 ──
     std::string ridePlayerName{};                    // 骑到指定玩家头上（SetActorLinkPacket; 须在线）
     int64_t     rideEntityId{0};                     // 骑到另一自定义实体上（对方库内 id 为载具）
 };
@@ -229,32 +217,32 @@ struct CustomEntityConfig {
 | | setPosition | `(int64_t, float, float, float, int) -> bool` | dim<0 仅改坐标 |
 | | setRotation | `(int64_t, float yaw, float pitch) -> bool` | 朝向（度） |
 | | setNametag | `(int64_t, std::string const&) -> bool` | 空串清除 |
-| | setScale | `(int64_t, float) -> bool` | <=0 拒绝；经 UpdateAttributesPacket 轻脏增量刷新（零闪烁） |
+| | setScale | `(int64_t, float) -> bool` | <=0 拒绝 |
 | | setVariant / setMarkVariant / setColorIndex | `(int64_t, int) -> bool` | 变种/染色 |
 | | setFlags / setInvisible / setEnabled / setViewDistance | — | 行为 |
-| | setPose | `(int64_t, int pose) -> bool` | PoseIndex 0..13（盔甲架/玩家姿态） |
+| | setPose | `(int64_t, int pose) -> bool` | PoseIndex 0..13 |
 | | setEquipmentSlot | `(int64_t, int slot, std::string const& name, int aux, std::string const& nbt) -> bool` | 六槽装备; name 空清空槽位; nbt 为 SNBT |
 | | findNearest | `(float x, float y, float z, int dim, double maxDist) -> int64_t` | 最近查找; 无匹配 -1 |
-| 缩放 | scaleBy | `(int64_t, double factor) -> bool` | **1.12.0** 相对缩放：现有 scale × factor，结果自动钳制 0.0625~10; factor<=0 返回 false |
-| 可见性 | setVisiblePlayers | `(int64_t, std::vector<std::string> const&) -> bool` | **1.12.0** 白名单（按 realName 匹配）; 空列表 = 清除限制 |
-| | setVisiblePlayer / clearVisiblePlayers | `(int64_t, std::string const&) / (int64_t) -> bool` | **1.12.0** 标量版 / 清除（恢复全员可见） |
-| 诊断 | getDebugInfo | `(int64_t) -> std::string` | **1.12.0** 运行态摘要; 未找到返回 `not_found` |
-| 骑乘 | setRidePlayer | `(int64_t, std::string const& playerName) -> bool` | **1.12.0** 实体骑到玩家头上（SetActorLinkPacket; 空名清除; 须在线） |
-| | setRideEntity | `(int64_t, int64_t vehicleEntityId) -> bool` | **1.12.0** 骑到另一自定义实体上; 0 清除 |
-| | clearRide | `(int64_t) -> bool` | **1.12.0** 解除骑乘链接 |
-| 动画 | playAnimation | `(int64_t, std::string const& animation, std::string const& stopExpression, int durationTicks) -> bool` | **1.12.0** 播放原版动画（AnimateEntityPacket, 如 `animation.humanoid.base_pose`）; stopExpression 空串 = 常驻; durationTicks>0 到期自动停止 |
+| 缩放 | scaleBy | `(int64_t, double factor) -> bool` | 相对缩放：现有 scale × factor，结果自动钳制 0.0625~10; factor<=0 返回 false |
+| 可见性 | setVisiblePlayers | `(int64_t, std::vector<std::string> const&) -> bool` | 白名单（按 realName 匹配）; 空列表 = 清除限制 |
+| | setVisiblePlayer / clearVisiblePlayers | `(int64_t, std::string const&) / (int64_t) -> bool` | 标量版 / 清除（恢复全员可见） |
+| 诊断 | getDebugInfo | `(int64_t) -> std::string` | 运行态摘要; 未找到返回 `not_found` |
+| 骑乘 | setRidePlayer | `(int64_t, std::string const& playerName) -> bool` | 骑到玩家头上（空名清除; 须在线） |
+| | setRideEntity | `(int64_t, int64_t vehicleEntityId) -> bool` | 骑到另一自定义实体上; 0 清除 |
+| | clearRide | `(int64_t) -> bool` | 解除骑乘链接 |
+| 动画 | playAnimation | `(int64_t, std::string const& animation, std::string const& stopExpression, int durationTicks) -> bool` | 播放原版动画（AnimateEntityPacket, 如 `animation.humanoid.base_pose`）; stopExpression 空串 = 常驻; durationTicks>0 到期自动停止 |
 
 属性变更经 tick 脏刷新合并为单次 respawn（无闪烁串台）；可见性由库内 Level tick hook 自动同步（同 itemDisplay 模式）。
 
 ### 1.7 GhostInteractEvent（ghost 交互事件，1.12.0）
 
-客户端会对"协议上存在"的实体发 InteractPacket；库 hook `ServerNetworkHandler::$handle` 收包后，将目标 runtimeId 反查回库内 id 并派发，实现**可点击 NPC / 全息菜单**。
+客户端会对"协议上存在"的实体发 InteractPacket；库 hook 收包后将目标 runtimeId 反查回库内 id 并派发，实现**可点击 NPC / 全息菜单**。
 
 ```cpp
 struct GhostInteractEvent {
     std::string playerName;   // 点击者（realName）
     int         action{0};    // InteractPacket Action 原始值
-    std::string domain;       // "entity" / "itemDisplay"
+    std::string domain;       // "entity" / "itemDisplay" / "npc"
     int64_t     id{-1};       // 对应域的库内 id
     bool        hasPos{false};
     float       x{0}, y{0}, z{0};
@@ -265,9 +253,9 @@ struct GhostInteractEvent {
 - 消费方式二选一（可并存）：C++ 推送 `setGhostInteractListener`；LSE 轮询 `ghostPollInteractions`（取走并清空队列，队列上限 256 条、满时丢最旧）
 - 恒调 origin，不改变 BDS 对未知 runtimeId 交互包的原版行为；无监听且无人轮询时仅做 runtimeId 段判别，近零开销
 
-### 1.8 IParticleShape（通用协议层粒子形状，1.14.0 追加 / 1.15.0 升级）
+### 1.8 IParticleShape（通用协议层粒子形状，1.14.0）
 
-点/线/矩形环/填充面/长方体框/六面/多面体 + 平移/平滑移动/旋转/自旋/缩放/跟随。批量并发发送（1.15.0）：逐玩家 vanilla `SpawnParticleEffectPacket` 经 `NetworkSystem` 入队，BDS tick flush 自动聚合压缩单 Batch 数据报（与原版粒子广播同路径）；采样/视距裁剪/周期重发由库内 tick 自驱动，消费者只管创建与控制。访问方式：`IHologramLib::getInstance().particleShapes()`。
+点/线/矩形环/填充面/长方体框/六面/多面体 + 平移/平滑移动/旋转/自旋/缩放/跟随。批量并发发送：逐玩家 vanilla `SpawnParticleEffectPacket` 经 `NetworkSystem` 入队，BDS tick flush 自动聚合压缩单 Batch 数据报（与原版粒子广播同路径）；采样/视距裁剪/周期重发由库内 tick 自驱动，消费者只管创建与控制。
 
 | 分类 | 方法 | 签名 | 说明 |
 |------|------|------|------|
@@ -280,7 +268,7 @@ struct GhostInteractEvent {
 | | createPoly | `(owner, dimId, std::vector<float> const& verts, std::vector<std::int32_t> const& edges, float step, effect, intervalTicks, lifetimeTicks) -> int64_t` | 多面体（verts=(x,y,z)×N；edges=(i,j)×M；锚点=质心） |
 | 控制 | setPos | `(int64_t id, float x, float y, float z) -> bool` | 平移锚点（=粒子移动；同时解除跟随） |
 | | moveBy | `(int64_t id, float dx, float dy, float dz) -> bool` | 相对平移 |
-| | moveTo | `(int64_t id, float x, float y, float z, int durationTicks) -> bool` | 1.15.0 平滑点对点移动（easeOutCubic；解除跟随；duration<=0 立即到达） |
+| | moveTo | `(int64_t id, float x, float y, float z, int durationTicks) -> bool` | 平滑点对点移动（easeOutCubic；解除跟随；duration<=0 立即到达） |
 | | setRot | `(int64_t id, float rx, float ry, float rz) -> bool` | 欧拉角（度，ZYX 序，绕锚点） |
 | | spin | `(int64_t id, float sx, float sy, float sz) -> bool` | 自旋（度/tick；0,0,0 停止） |
 | | setScale | `(int64_t id, float scale) -> bool` | 各向同性缩放 |
@@ -299,13 +287,11 @@ struct GhostInteractEvent {
 
 - `intervalTicks` = 周期整批重发间隔（粒子瞬态，靠重发维持常驻视觉）；`lifetimeTicks` 0 = 永久
 - 采样点在构造时换算为局部坐标（锚点=形状几何参考点），平移/旋转/缩放作用于局部点，下次发射自动生效
-- 与 LSE `particle*`（§2.8，21 函数）共用同一 Manager，id 空间互通
+- 与 LSE `particle*`（§2.8）共用同一 Manager，id 空间互通
 
 C++ 消费示例：
 
 ```cpp
-#include "hologramlib/HologramLib.h"
-
 auto& ps = hologramlib::IHologramLib::getInstance().particleShapes();
 // 玩家脚下 16×16 粒子墙（XZ 平面填充, 跟随玩家）
 auto id = ps.createPlane("MeowLand", 0, 0, 64, 0, 16, 16, 2, 1.0f,
@@ -314,6 +300,43 @@ if (id > 0) {
     ps.follow(id, playerUuid, 0, -2, 0);
     ps.setVisiblePlayers(id, {playerUuid}); // 仅本人可见
 }
+```
+
+### 1.9 IPlayerNpc（假玩家 NPC，1.16.0）
+
+纯协议假玩家：`PlayerListPacket(Add, 携带皮肤) → AddPlayerPacket → [20 tick] PlayerListPacket(Remove)`（假玩家短暂出现在 Tab 后移除，实体因皮肤已缓存持续渲染）。不占服务端实体系统；点击交互经 ghost 管线 `domain="npc"` 派发（§1.7）。
+
+皮肤注册表全局共享：PNG 文件注册（GDI+ 解码 64×64/128×128，自定义 geometry/armSize）或从在线玩家采集（`Player::mSkin → SerializedSkinImpl` 全字段拷贝：贴图/披风/动画贴图/几何/Persona 部件/染色 → 以 skinId 永久注册副本，玩家之后换肤不影响）。解码/采集一次，多 NPC 复用零重复开销。
+
+| 分类 | 方法 | 签名 | 说明 |
+|------|------|------|------|
+| 皮肤 | registerSkin | `(PlayerNpcSkin const& skin) -> bool` | PNG 注册（skinId 空 = 文件名; 重复覆盖） |
+| | captureSkin | `(std::string const& skinId, std::string const& playerName) -> bool` | 从在线玩家采集（不在线返回 false; 重复覆盖） |
+| | hasSkin / unregisterSkin / getSkinIds | — | unregister 有 NPC 引用时拒绝 |
+| 生命周期 | create / createRandom / createWithId | `(PlayerNpcConfig const&) -> int64_t` | 失败: -1 常规 / -2 id 占用 / -3 皮肤未注册; 持久化由消费者负责 |
+| | destroy / destroyAll / exists / get / isIdUsed / getAllIds | — | 同其他域 |
+| 属性 | setPosition | `(int64_t id, float x, float y, float z, int dim) -> bool` | dim<0 仅改坐标 |
+| | setRotation / setNametag / setSkin / setViewDistance / setEnabled | — | setSkin 未注册返回 false; 变更经 tick 脏刷新合并为单次 respawn |
+| 可见性 | setVisiblePlayers / clearVisiblePlayers / setVisiblePlayer | — | 玩家名白名单（空 = 全员） |
+| 诊断 | getDebugInfo | `(int64_t id) const -> std::string` | 运行态摘要 |
+
+```cpp
+struct PlayerNpcSkin {
+    std::string pngPath;                                        // PNG 路径（64/128）
+    std::string skinId;                                         // 空 = 用文件名
+    std::string geometry{"geometry.humanoid.custom"};          // 模型（resourcePatch）
+    std::string armSize{"wide"};                                // "wide" / "slim"
+};
+
+struct PlayerNpcConfig {
+    std::string name{"NPC"};        // 显示名（nametag 同步）
+    std::string skinId{"default"};   // 必须已注册, 否则创建失败 -3
+    float x{0}, y{64}, z{0};
+    int   dimension{0};
+    float yaw{0};
+    double viewDistance{96.0};      // <=0 无限制; 滞回: 退出需超 viewDistance+4
+    bool  enabled{true};
+};
 ```
 
 ---
@@ -331,7 +354,8 @@ LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib
 | `itemDisplay*` | FMBE 物品悬浮 | IItemDisplay | 30 |
 | `entity*` | 自定义实体 | ICustomEntity | 33 |
 | `ghost*` | 交互事件轮询 | IHologramLib | 2 |
-| `particle*` | 通用粒子形状系统 | ParticleShapeManager | 20 |
+| `particle*` | 通用粒子形状系统 | ParticleShapeManager | 22 |
+| `playerNpc*` | 假玩家 NPC（含皮肤注册/采集） | IPlayerNpc | 23 |
 
 缺席时安全降级（`ll.import` 得 null）。
 
@@ -416,7 +440,7 @@ LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib
 | holoSetVerticalAnimation | `(id, type: i, speed: f, range: f) -> b`（0=无 1=弹跳 2=滚动） |
 | holoSetLineSpacing | `(id, spacing: f) -> b` |
 | holoSetLocation | `(id, x: f, y: f, z: f) -> b` |
-| holoSetDimension | `(id, dimId: i) -> b`（**1.12.0** 迁移维度; 已绘制时原地重发, 无闪烁） |
+| holoSetDimension | `(id, dimId: i) -> b`（迁移维度; 已绘制时原地重发, 无闪烁） |
 | holoSetFollowPlayer | `(id, playerName: s, offsetY: f) -> b` |
 | holoClearFollowPlayer | `(id) -> b` |
 | holoTick | `(deltaTime: f) -> nil`（动画驱动） |
@@ -451,7 +475,7 @@ LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib
 
 `itemDetailShow`：在 (x,y,z) 显示"本地化物品名 xN"（count<=1 无数量后缀）；`customText` 传 `""` 用自动文本，非空则完全替代（支持 § 颜色码与 `{变量}`）。返回悬浮字 ID，可继续用 `holo*` 精修。
 
-### 2.5 itemDisplay*（FMBE 物品悬浮显示，1.6.0 追加，30 函数; `itemDisplayAnimateScale` 已于 1.13.0 移除）
+### 2.5 itemDisplay*（FMBE 物品悬浮显示，30 函数）
 
 FMBE（狐狸+发包）技术：隐形狐狸手持物品渲染任意物品/方块的悬浮展示。三轴旋转/函数平移/缩放全部支持 **Molang 表达式**（如 `"math.sin(query.life_time*90)*360"`）。
 
@@ -459,21 +483,21 @@ FMBE（狐狸+发包）技术：隐形狐狸手持物品渲染任意物品/方�
 |------|------|
 | itemDisplayCreate | `(x: f, y: f, z: f, dim: i, itemId: s, aux: i) -> i` |
 | itemDisplayCreateAdvanced | `(x,y,z: f, dim: i, itemId: s, aux: i, offX,offY,offZ: s, rotX,rotY,rotZ: s, scale: s) -> i` |
-| itemDisplayCreateSeamless | `(x,y,z: f, dim: i, itemId: s, aux: i, offX,offY,offZ: s, rotX,rotY,rotZ: s, scale: s, mode: i, viewDistance: f, visiblePlayer: s) -> i`（**1.12.0** 无感创建: mode/视距/白名单在首次 spawn 之前写入, 全程只发一次 Add 序列——ItemPhys 无感创建等价; 创建后无需 setMode/setViewDistance/setVisiblePlayer, 无白名单收窄 Add→Remove、无脏 respawn Remove+Add 闪烁。mode: -1=默认 auto 1=item 2=block; viewDistance: -1=默认 0=不限; visiblePlayer 空串=全员。批量边界渲染等"创建瞬间可见"场景首选） |
-| itemDisplayCreateRandom | `(x: f, y: f, z: f, dim: i, itemId: s, aux: i) -> i`（**1.7.0** 库自动生成随机段 `[0x10000000,0x7FFFFFFF)` 不重复 ID, 成功返还 ID 值; <0 失败） |
-| itemDisplayCreateWithId | `(x: f, y: f, z: f, dim: i, itemId: s, aux: i, desiredId: i) -> i`（**1.7.0** 指定 ID 创建, 持久化恢复用; desiredId<=0 或已占用返回 -2） |
+| itemDisplayCreateSeamless | `(x,y,z: f, dim: i, itemId: s, aux: i, offX,offY,offZ: s, rotX,rotY,rotZ: s, scale: s, mode: i, viewDistance: f, visiblePlayer: s) -> i`（无感创建: mode/视距/白名单在首次 spawn 之前写入, 全程只发一次 Add 序列; 创建后无需 setMode/setViewDistance/setVisiblePlayer。mode: -1=默认 auto 1=item 2=block; viewDistance: -1=默认 0=不限; visiblePlayer 空串=全员） |
+| itemDisplayCreateRandom | `(x: f, y: f, z: f, dim: i, itemId: s, aux: i) -> i`（随机段 `[0x10000000,0x7FFFFFFF)` 不重复 ID） |
+| itemDisplayCreateWithId | `(x: f, y: f, z: f, dim: i, itemId: s, aux: i, desiredId: i) -> i`（指定 ID 创建, 持久化恢复用; <=0 或已占用返回 -2） |
 | itemDisplayDestroy | `(id) -> b` |
 | itemDisplayDestroyAll | `() -> nil` |
 | itemDisplayExists | `(id) -> b` |
-| itemDisplayIsIdUsed | `(id) -> b`（**1.7.0** 查询 ID 是否在用） |
-| itemDisplayScaleBy | `(id, factor: f) -> b`（**1.7.1** 相对缩放: factor>1 放大, 0<factor<1 缩小; 常量直接乘, 表达式包裹乘法） |
-| itemDisplaySetItemWithNbt | `(id, itemId: s, aux: i, nbt: s) -> b`（**1.8.0** 换物品带附加数据: nbt 为 SNBT 字符串, 携带自定义名称等; 空串清除） |
-| itemDisplaySetGlint | `(id, on: b) -> b`（**1.9.0** 附魔光效开关: BDS 原生路径注入 1 级锋利, 客户端紫色光效） |
-| itemDisplaySetVisiblePlayers | `(id, playerNames: [s]) -> b`（**1.10.0** 可见玩家白名单: 仅名单内玩家可见, 按玩家名/LSE `player.realName` 匹配; 空列表 = 清除限制 = 全员可见; 维度/视距条件仍叠加生效） |
-| itemDisplayClearVisiblePlayers | `(id) -> b`（**1.10.0** 清除白名单, 恢复全员可见） |
-| itemDisplaySetVisiblePlayer | `(id, playerName: s) -> b`（**1.10.1** 标量版单玩家白名单, 语义同上; 规避数组编组差异, JS 侧推荐） |
-| itemDisplayGetInfo | `(id) -> s`（**1.10.1** 诊断探针: 返回运行态摘要 `id/dim/pos/mode/enabled/item/view/filter/shown`; 未找到返回 `not_found`） |
-| itemDisplayScaleTo | `(id, targetScale: f) -> b`（**1.12.0** 单次跳变缩放·纯 setter 基元: 以新 scale 常量重发完整 5 包方块动画序列（controller 名带 `.<id>` 后缀客户端同名原地覆盖）, 无 respawn、无 Remove/Add。每步调用后实体处于单一稳定配置（sleeping 矩阵与 swelling 同步基于新常量）——无逐帧双写竞争。**1.13.0 起动画调度归 LSE**：渐变动画由消费者以 `scaleTo` 步进驱动（如 5 步 easeOutCubic setInterval, MeowLand 边界实证方案）; `itemDisplayAnimateScale`（1.10.2 C++ 端渐变调度）已于 1.13.0 移除。仅方块模式; scale<0.01 钳制为 0.01） |
+| itemDisplayIsIdUsed | `(id) -> b` |
+| itemDisplayScaleBy | `(id, factor: f) -> b`（相对缩放: factor>1 放大, 0<factor<1 缩小） |
+| itemDisplaySetItemWithNbt | `(id, itemId: s, aux: i, nbt: s) -> b`（换物品带附加数据: nbt 为 SNBT; 空串清除） |
+| itemDisplaySetGlint | `(id, on: b) -> b`（附魔光效开关: BDS 原生路径注入 1 级锋利, 客户端紫色光效） |
+| itemDisplaySetVisiblePlayers | `(id, playerNames: [s]) -> b`（可见玩家白名单: 按玩家名/LSE `player.realName` 匹配; 空列表 = 全员可见; 维度/视距条件仍叠加） |
+| itemDisplayClearVisiblePlayers | `(id) -> b`（清除白名单, 恢复全员可见） |
+| itemDisplaySetVisiblePlayer | `(id, playerName: s) -> b`（标量版单玩家白名单; JS 侧推荐） |
+| itemDisplayGetInfo | `(id) -> s`（诊断探针: 返回运行态摘要; 未找到返回 `not_found`） |
+| itemDisplayScaleTo | `(id, targetScale: f) -> b`（单次跳变缩放: 以新 scale 常量重发完整方块动画序列, 无 respawn、无 Remove/Add; 渐变动画由消费者步进驱动（如 5 步 easeOutCubic）。仅方块模式; scale<0.01 钳制为 0.01） |
 | itemDisplayGetAllIds | `() -> [i]` |
 | itemDisplaySetItem | `(id, itemId: s, aux: i) -> b`（换物品; 清除附加数据） |
 | itemDisplaySetPosition | `(id, x,y,z: f, dim: i) -> b`（dim<0 仅改坐标） |
@@ -488,9 +512,9 @@ FMBE（狐狸+发包）技术：隐形狐狸手持物品渲染任意物品/方�
 | itemDisplayRotateY | `(id, delta: f) -> b`（偏航叠加增量） |
 | itemDisplayFindNearest | `(x,y,z: f, dim: i, maxDist: f) -> i`（最近查找; 无匹配 -1） |
 
-渲染模式：`auto`（默认）按物品 3D/2D 自动选择；`item` 平面物品渲染（wiki.scale/wiki.posrot 路径，rotY 内部自动 +205 补偿狐狸头朝向）；`block` 3D 方块渲染（完整旋转矩阵路径 + 二段扩展变换）。可见性由库内 Level tick hook 自动同步（同维度 + 可见距离内玩家自动生成/移除，玩家加入/断线自动清理）。
+渲染模式：`auto`（默认）按物品 3D/2D 自动选择；`item` 平面物品渲染（rotY 内部自动 +205 补偿狐狸头朝向）；`block` 3D 方块渲染（完整旋转矩阵路径 + 二段扩展变换）。可见性由库内 Level tick hook 自动同步。
 
-### 2.6 entity*（自定义实体，1.10.0 追加，33 函数）
+### 2.6 entity*（自定义实体，33 函数）
 
 AddActorPacket 直发客户端生成纯视觉实体（NPC 壳/装饰生物/盔甲架布景; 无碰撞、不可真实交互——点击经 `ghost*` 路由）。属性变更经 tick 脏刷新合并为单次 respawn（无闪烁）。
 
@@ -500,8 +524,8 @@ AddActorPacket 直发客户端生成纯视觉实体（NPC 壳/装饰生物/盔�
 |------|------|
 | entityCreate | `(identifier: s, x,y,z: f, dim: i) -> i` |
 | entityCreateAdvanced | `(identifier: s, x,y,z: f, dim: i, yaw: f, pitch: f, scale: f, nametag: s) -> i` |
-| entityCreateRandom | `(identifier: s, x,y,z: f, dim: i) -> i`（随机段 `[0x10000000,0x7FFFFFFF)` ID, 成功返还 ID 值; <0 失败） |
-| entityCreateWithId | `(identifier: s, x,y,z: f, dim: i, desiredId: i) -> i`（指定 ID 创建, 持久化恢复用; <=0 或占用返回 -2） |
+| entityCreateRandom | `(identifier: s, x,y,z: f, dim: i) -> i`（随机段 ID） |
+| entityCreateWithId | `(identifier: s, x,y,z: f, dim: i, desiredId: i) -> i`（指定 ID 创建; <=0 或占用返回 -2） |
 | entityDestroy | `(id) -> b` |
 | entityDestroyAll | `() -> nil` |
 | entityExists | `(id) -> b` |
@@ -516,7 +540,7 @@ AddActorPacket 直发客户端生成纯视觉实体（NPC 壳/装饰生物/盔�
 | entitySetPosition | `(id, x,y,z: f, dim: i) -> b`（dim<0 仅改坐标） |
 | entitySetRotation | `(id, yaw: f, pitch: f) -> b`（度） |
 | entitySetNametag | `(id, text: s) -> b`（支持 § 颜色码; 空串清除） |
-| entitySetScale | `(id, scale: f) -> b`（<=0 拒绝; 客户端有效域 0.0625~10 自动钳制） |
+| entitySetScale | `(id, scale: f) -> b`（<=0 拒绝; 自动钳制 0.0625~10） |
 | entitySetVariant | `(id, variant: i) -> b` |
 | entitySetMarkVariant | `(id, markVariant: i) -> b` |
 | entitySetColorIndex | `(id, colorIndex: i) -> b`（羊/项圈等染色实体） |
@@ -524,25 +548,25 @@ AddActorPacket 直发客户端生成纯视觉实体（NPC 壳/装饰生物/盔�
 | entitySetInvisible | `(id, on: b) -> b`（隐身便捷开关, 幂等） |
 | entitySetEnabled | `(id, enabled: b) -> b` |
 | entitySetViewDistance | `(id, dist: f) -> b`（<=0 无限制） |
-| entitySetPose | `(id, pose: i) -> b`（**1.12.0** PoseIndex 0..13; 盔甲架坐姿/睡姿/跳舞等, 经 respawn 生效） |
-| entitySetEquipmentSlot | `(id, slot: i, name: s, aux: i, nbt: s) -> b`（**1.12.0** 槽位 0=mainhand 1=offhand 2=head 3=chest 4=legs 5=feet; name 空清空; nbt 为 SNBT） |
+| entitySetPose | `(id, pose: i) -> b`（PoseIndex 0..13; 盔甲架坐姿/睡姿/跳舞等） |
+| entitySetEquipmentSlot | `(id, slot: i, name: s, aux: i, nbt: s) -> b`（槽位 0=mainhand 1=offhand 2=head 3=chest 4=legs 5=feet; name 空清空; nbt 为 SNBT） |
 | entityFindNearest | `(x,y,z: f, dim: i, maxDist: f) -> i`（最近查找; 无匹配 -1） |
 
-**1.12.0 追加（对称性补全 / 新能力）**
+**扩展能力**
 
 | 函数 | 签名 |
 |------|------|
 | entityScaleBy | `(id, factor: f) -> b`（相对缩放: 现有 scale × factor, 自动钳制 0.0625~10） |
-| entitySetVisiblePlayers | `(id, playerNames: [s]) -> b`（可见玩家白名单; 空列表 = 清除限制 = 全员可见） |
+| entitySetVisiblePlayers | `(id, playerNames: [s]) -> b`（可见玩家白名单; 空列表 = 全员可见） |
 | entitySetVisiblePlayer | `(id, playerName: s) -> b`（单玩家白名单标量版; JS 侧推荐） |
 | entityClearVisiblePlayers | `(id) -> b`（恢复全员可见） |
-| entityGetInfo | `(id) -> s`（诊断探针: 运行态摘要; 未找到返回 `not_found`） |
+| entityGetInfo | `(id) -> s`（诊断探针; 未找到返回 `not_found`） |
 | entitySetRidePlayer | `(id, playerName: s) -> b`（实体骑到指定玩家头上; 空名清除; 玩家须在线） |
 | entitySetRideEntity | `(id, vehicleEntityId: i) -> b`（骑到另一自定义实体上; 0 清除） |
 | entityClearRide | `(id) -> b`（解除骑乘链接） |
 | entityPlayAnimation | `(id, animation: s, stopExpression: s, durationTicks: i) -> b`（播放原版动画, 如 `animation.humanoid.base_pose`; stopExpression 空串 = 常驻; durationTicks>0 到期自动停止） |
 
-### 2.7 ghost*（交互事件轮询，1.12.0 追加，2 函数）
+### 2.7 ghost*（交互事件轮询，2 函数）
 
 | 函数 | 签名 |
 |------|------|
@@ -552,7 +576,7 @@ AddActorPacket 直发客户端生成纯视觉实体（NPC 壳/装饰生物/盔�
 事件条目为可解析字符串，格式：
 
 ```
-player=<realName> action=<1..6> domain=<entity|itemDisplay> id=<库内id> pos=(x,y,z)
+player=<realName> action=<1..6> domain=<entity|itemDisplay|npc> id=<库内id> pos=(x,y,z)
 ```
 
 - `action`：1=Interact（右键交互）2=Attack（攻击/左键）3=StopRiding 4=InteractUpdate 5=NpcOpen 6=OpenInventory
@@ -573,13 +597,13 @@ setInterval(() => {
 }, 200);
 ```
 
-### 2.8 particle*（通用协议层粒子形状系统，1.14.0 / 1.15.0 升级，21 函数）
+### 2.8 particle*（通用粒子形状系统，22 函数）
 
-**批量并发发送 + 全形状 + 智能控制**：供所有插件使用的通用粒子系统。形状（点/线/矩形环/填充面/长方体框/六面/多面体）+ 变换（平移/平滑移动/旋转/自旋/缩放/跟随玩家）+ 多玩家白名单 + 逐玩家视距裁剪，全部由 C++ tick 自驱动。发送走 vanilla 通道：逐玩家构造 `SpawnParticleEffectPacket` 经 `NetworkSystem` 入队，BDS tick flush 自动聚合压缩为单 Batch 数据报（与原版粒子广播同路径），客户端单数据报整批收到；配合白名单与视距裁剪，实际发包量远低于 LSE 逐粒子 `spawnParticle` 的全员序列发送。
+形状（点/线/矩形环/填充面/长方体框/六面/多面体）+ 变换（平移/平滑移动/旋转/自旋/缩放/跟随玩家）+ 多玩家白名单 + 逐玩家视距裁剪，全部由 C++ tick 自驱动。发送走 vanilla 通道，BDS tick flush 自动聚合压缩为单 Batch 数据报。
 
 **核心概念**：
-- **形状**：创建时按世界坐标定义，内部换算为局部坐标（锚点 = 线中点/矩形中心/盒中心/多面体质心），采样点缓存复用；坐标全链路 float，支持任意浮点位置
-- **变换**：`world = anchor + R(欧拉ZYX, 度) · (scale · local)`；`setPos` 即"粒子移动"（下次发射按新位置整批重发）；`moveTo`（1.15.0）为平滑点对点移动——锚点 easeOutCubic 插值逼近目标，单点/整面（plane/rect）/整体形状（box/poly）均随锚点整体移动；`spin` 为度/tick 自旋（tick 内累积，与发射节奏解耦）；`follow` 时锚点每 tick = 玩家位置 + 偏移（跨维度自动跟随；moveTo/setPos 会解除跟随）
+- **形状**：创建时按世界坐标定义，内部换算为局部坐标（锚点 = 线中点/矩形中心/盒中心/多面体质心），采样点缓存复用
+- **变换**：`world = anchor + R(欧拉ZYX, 度) · (scale · local)`；`setPos` 即"粒子移动"（下次发射按新位置整批重发）；`moveTo` 为平滑点对点移动（锚点 easeOutCubic 插值逼近目标，单点/整面（plane/rect）/整体形状（box/poly）均随锚点整体移动）；`spin` 为度/tick 自旋；`follow` 时锚点每 tick = 玩家位置 + 偏移（跨维度自动跟随；moveTo/setPos 会解除跟随）
 - **可见性**：白名单（uuid CSV）空 = 形状所在维度全员；逐玩家 3D 视距裁剪（`viewDistance` 0 = 不裁剪）
 - **生命周期**：`lifetimeTicks` 0 = 永久；`setLifetime` 从现在起重新计时；粒子瞬态 → 每 `intervalTicks` 整批重发维持常驻视觉
 - **平面轴**（rect/plane `axis` 参数）：0=XY（w 沿 X、h 沿 Y）、1=YZ（w 沿 Z、h 沿 Y）、2=XZ（w 沿 X、h 沿 Z）
@@ -595,7 +619,7 @@ setInterval(() => {
 | particleCreatePoly | `(owner: s, dimId: i, verts: s, edges: s, step: f, effect: s, interval: i, lifetime: i) -> id`（verts `"x,y,z;x,y,z"`世界坐标锚点=质心; edges `"i-j"`顶点索引对） |
 | particleSetPos | `(id: i64, x, y, z: f) -> b`（平移锚点; 解除跟随） |
 | particleMoveBy | `(id: i64, dx, dy, dz: f) -> b`（相对平移） |
-| particleMoveTo | `(id: i64, x, y, z: f, durationTicks: i) -> b`（1.15.0 平滑点对点移动, easeOutCubic; 解除跟随; duration<=0 = 立即到达） |
+| particleMoveTo | `(id: i64, x, y, z: f, durationTicks: i) -> b`（平滑点对点移动, easeOutCubic; 解除跟随; duration<=0 = 立即到达） |
 | particleSetRot | `(id: i64, rx, ry, rz: f) -> b`（欧拉角, 度, ZYX 序, 绕锚点） |
 | particleSpin | `(id: i64, sx, sy, sz: f) -> b`（自旋速率, 度/tick; 0,0,0 停止） |
 | particleSetScale | `(id: i64, s: f) -> b` |
@@ -632,7 +656,58 @@ follow(halo, player.uuid, 0, 0.3, 0); // 锚点 = 玩家位置 + 偏移, 每 tic
 rot(box, 45, 0, 0);
 ```
 
-MeowLand 领地渲染即基于本系统：边框 = rect 环线（2D）/ box 线框（3D）+ 四角柱 line；粒子墙 = plane，JS 每 300ms 量化窗口 `particleSetPos` 平移（墙跟随玩家移动，粒子移动即整批重发在新位置）。
+### 2.9 playerNpc*（假玩家 NPC，23 函数）
+
+纯协议假玩家（不占服务端实体系统）：`PlayerList(Add, 皮肤) → AddPlayer → [20t] PlayerList(Remove)`；点击交互经 ghost 管线 `domain="npc"`（§2.7 轮询）。皮肤二来源：PNG 文件注册 / 从在线玩家采集（全字段永久副本，玩家之后换肤不影响）。
+
+| 函数 | 签名 |
+|------|------|
+| playerNpcRegisterSkin | `(pngPath: s, skinId: s, geometry: s, armSize: s) -> b`（skinId 空 = 文件名; geometry 空 = geometry.humanoid.custom; armSize: wide/slim） |
+| playerNpcCaptureSkin | `(skinId: s, playerName: s) -> b`（从在线玩家采集当前皮肤, 永久注册） |
+| playerNpcHasSkin | `(skinId: s) -> b` |
+| playerNpcUnregisterSkin | `(skinId: s) -> b`（有 NPC 引用时拒绝） |
+| playerNpcGetSkinIds | `() -> [s]` |
+| playerNpcCreate | `(x, y, z: f, dim: i, name: s, skinId: s) -> id`（失败 <0: -2 id 占用, -3 皮肤未注册） |
+| playerNpcCreateRandom | 同 create 参数（随机段 ID） |
+| playerNpcCreateWithId | `(x, y, z: f, dim: i, name: s, skinId: s, desiredId: i64) -> id`（持久化恢复用） |
+| playerNpcDestroy | `(id: i64) -> b` |
+| playerNpcDestroyAll | `() -> void` |
+| playerNpcExists | `(id: i64) -> b` |
+| playerNpcIsIdUsed | `(id: i64) -> b` |
+| playerNpcGetAllIds | `() -> [i64]` |
+| playerNpcSetPos | `(id: i64, x, y, z: f, dim: i) -> b`（dim<0 仅改坐标） |
+| playerNpcSetRotation | `(id: i64, yaw: f) -> b` |
+| playerNpcSetNametag | `(id: i64, text: s) -> b`（空串清除） |
+| playerNpcSetSkin | `(id: i64, skinId: s) -> b`（换肤 = respawn） |
+| playerNpcSetViewDistance | `(id: i64, dist: f) -> b`（<=0 无限制） |
+| playerNpcSetEnabled | `(id: i64, enabled: b) -> b` |
+| playerNpcSetVisiblePlayers | `(id: i64, players: [s]) -> b`（空列表 = 全员可见） |
+| playerNpcClearVisiblePlayers | `(id: i64) -> b` |
+| playerNpcSetVisiblePlayer | `(id: i64, playerName: s) -> b` |
+| playerNpcGetDebugInfo | `(id: i64) -> s`（诊断探针） |
+
+LSE 示例（采集玩家皮肤并创建 NPC）：
+
+```js
+const capture = ll.import("HologramLib", "playerNpcCaptureSkin");
+const create  = ll.import("HologramLib", "playerNpcCreate");
+const pos     = ll.import("HologramLib", "playerNpcSetPos");
+
+// 1. 采集在线玩家 Steve 的当前皮肤（含几何/披风/动画, 永久注册为 "steve_skin"）
+capture("steve_skin", "Steve");
+
+// 2. 用采集皮肤创建假玩家（主世界出生点旁）
+const npc = create(100.5, 64, 100.5, 0, "Steve的分身", "steve_skin");
+// 移动 / 换肤 / 白名单
+pos(npc, 105.5, 64, 100.5, -1);
+```
+
+PNG 注册示例（自定义皮肤 + slim 手臂）：
+
+```js
+const reg = ll.import("HologramLib", "playerNpcRegisterSkin");
+reg("E:/server/skins/girl.png", "girl", "", "slim");
+```
 
 ---
 
