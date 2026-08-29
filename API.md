@@ -1,6 +1,6 @@
-# HologramLib API 参考
+﻿# HologramLib API 参考
 
-- API 版本：1.16.0（`HOLOGLIB_API_VERSION 0x011600`）
+- API 版本：1.17.0（`HOLOGLIB_API_VERSION 0x011700`）
 - 唯一公开头：`include/hologramlib/HologramLib.h`
 
 ## API 稳定性契约
@@ -10,7 +10,7 @@
 | C++ 接口 | 全部纯虚方法签名与语义（实现对象在 DLL 内创建，消费者只持引用） | 只在接口尾部追加；永不修改/删除 |
 | C++ 宏 | `HOLOGLIB_API_VERSION`、`HOLOGLIB_API`、`hologramlib` 命名空间、枚举值 | 只追加枚举值 |
 | LSE 命名空间 | 单一命名空间 `HologramLib` 全部函数名、参数顺序、返回值类型 | 只增不改不删 |
-| 版本协商 | `IHologramLib::version()`（BCD：0x011600 = 1.16.0） | 随发布递增 |
+| 版本协商 | `IHologramLib::version()`（BCD：0x011700 = 1.17.0） | 随发布递增 |
 
 破坏兼容仅允许发生在大版本（2.0.0）。`src/` 目录一切内容均为内部实现，不属于 API。
 
@@ -33,7 +33,7 @@ namespace hologramlib {
         IParticleShape& particleShapes();  // 通用粒子形状（1.14.0）
         IPlayerNpc&     playerNpcs();      // 假玩家 NPC（1.16.0）
         bool     isLseAvailable();        // LSE 兼容层是否已挂载
-        uint32_t version();               // 0x011600
+        uint32_t version();               // 0x011700
         int64_t  findNearestItemDisplay(float x, float y, float z, int dim, double maxDist); // 1.6.0
         void     setGhostInteractListener(std::function<void(GhostInteractEvent const&)> listener); // 1.12.0
         void     clearGhostInteractListener();                                             // 1.12.0
@@ -147,6 +147,8 @@ struct ItemDisplayConfig {
     bool   enabled{true};
     std::string itemNbt{};                 // 物品附加数据（SNBT; 自定义名称等）
     bool   itemGlint{false};               // 附魔光效（BDS 原生路径注入 1 级锋利）
+    float  hitboxWidth{0.0f};              // AABB 判定体积宽（R53; 0 = 无判定体积, 1.17.0）
+    float  hitboxHeight{0.0f};             // AABB 判定体积高（R54; 0 = 无判定体积, 1.17.0）
 };
 ```
 
@@ -171,6 +173,9 @@ struct ItemDisplayConfig {
 | scaleBy | `(int64_t, double factor) -> bool` | 相对缩放：现有 scale × factor; 常量直接相乘, 表达式包裹 `(expr)*factor`; factor<=0 返回 false |
 | setItemWithNbt | `(int64_t, std::string const& item, int aux, std::string const& nbt) -> bool` | 换物品（带附加数据）：nbt 为 SNBT; 空串 = 清除; 解析失败按无 NBT 处理并告警 |
 | setGlint | `(int64_t, bool on) -> bool` | 附魔光效开关：开 = BDS 原生 `saveEnchantsToUserData` 注入 1 级锋利; 幂等 |
+| follow | `(int64_t, std::string const& playerName, float offX, float offY, float offZ) -> bool` | 1.17.0 展示跟随玩家：每 tick 同步目标实时坐标（含跨维度自动 respawn），对已见玩家发 MoveActorAbsolute（非 teleport，客户端插值）平滑位移，全程无 respawn；玩家下线自动解除（方块原地保留）；`setPosition` 手动设位解除跟随 |
+| unfollow | `(int64_t) -> bool` | 1.17.0 解除跟随；无跟随关系返回 true |
+| setHitbox | `(int64_t, float width, float height) -> bool` | 1.17.0 AABB 判定体积：对已见玩家广播 SetActorData(R53/R54)，即时无 respawn；数值持久入配置（respawn 自动按当前值发包）；0/0 恢复不可命中 |
 
 可见性由库内 Level tick hook 自动同步（每 20 tick：同维度 + 可见距离内玩家自动生成/移除；玩家断线自动清理）；属性变更即时生效（对已见玩家原子 despawn→respawn）。`setMode` / `setViewDistance` 幂等（同值不标脏不 respawn）。
 
@@ -236,12 +241,12 @@ struct CustomEntityConfig {
 
 ### 1.7 GhostInteractEvent（ghost 交互事件，1.12.0）
 
-客户端会对"协议上存在"的实体发 InteractPacket；库 hook 收包后将目标 runtimeId 反查回库内 id 并派发，实现**可点击 NPC / 全息菜单**。
+客户端点击/攻击"协议上存在"的实体时，事件经 InventoryTransactionPacket 内嵌的 ItemUseOnActor 事务到达（协议 944 起 InteractPacket 不再承载实体交互）；库 hook 收包后将目标 runtimeId 反查回库内 id 并派发，实现**可点击 NPC / 全息菜单**。
 
 ```cpp
 struct GhostInteractEvent {
     std::string playerName;   // 点击者（realName）
-    int         action{0};    // InteractPacket Action 原始值
+    int         action{0};    // 1=右键交互 2=左键攻击（见下方说明）
     std::string domain;       // "entity" / "itemDisplay" / "npc"
     int64_t     id{-1};       // 对应域的库内 id
     bool        hasPos{false};
@@ -249,7 +254,7 @@ struct GhostInteractEvent {
 };
 ```
 
-- `action`：1=Interact 2=Attack 3=StopRiding 4=InteractUpdate 5=NpcOpen 6=OpenInventory
+- `action`：1=右键交互 2=左键攻击（ItemUseOnActor 的 Interact/ItemInteract 映射为 1，Attack 映射为 2；与旧 InteractPacket 语义对齐，消费端无需区分来源）
 - 消费方式二选一（可并存）：C++ 推送 `setGhostInteractListener`；LSE 轮询 `ghostPollInteractions`（取走并清空队列，队列上限 256 条、满时丢最旧）
 - 恒调 origin，不改变 BDS 对未知 runtimeId 交互包的原版行为；无监听且无人轮询时仅做 runtimeId 段判别，近零开销
 
@@ -351,7 +356,7 @@ LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib
 | `holo*` | 悬浮字全息 | IHologramText | 26 |
 | `gradient*` | 渐变线 | GradientLineManager | 11 |
 | `itemDetail*` | 物品详情 | IItemDetail | 2 |
-| `itemDisplay*` | FMBE 物品悬浮 | IItemDisplay | 30 |
+| `itemDisplay*` | FMBE 物品悬浮 | IItemDisplay | 33 |
 | `entity*` | 自定义实体 | ICustomEntity | 33 |
 | `ghost*` | 交互事件轮询 | IHologramLib | 2 |
 | `particle*` | 通用粒子形状系统 | ParticleShapeManager | 22 |
@@ -475,7 +480,7 @@ LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib
 
 `itemDetailShow`：在 (x,y,z) 显示"本地化物品名 xN"（count<=1 无数量后缀）；`customText` 传 `""` 用自动文本，非空则完全替代（支持 § 颜色码与 `{变量}`）。返回悬浮字 ID，可继续用 `holo*` 精修。
 
-### 2.5 itemDisplay*（FMBE 物品悬浮显示，30 函数）
+### 2.5 itemDisplay*（FMBE 物品悬浮显示，33 函数）
 
 FMBE（狐狸+发包）技术：隐形狐狸手持物品渲染任意物品/方块的悬浮展示。三轴旋转/函数平移/缩放全部支持 **Molang 表达式**（如 `"math.sin(query.life_time*90)*360"`）。
 
@@ -511,6 +516,9 @@ FMBE（狐狸+发包）技术：隐形狐狸手持物品渲染任意物品/方�
 | itemDisplaySetViewDistance | `(id, dist: f) -> b`（<=0 无限制） |
 | itemDisplayRotateY | `(id, delta: f) -> b`（偏航叠加增量） |
 | itemDisplayFindNearest | `(x,y,z: f, dim: i, maxDist: f) -> i`（最近查找; 无匹配 -1） |
+| itemDisplayFollow | `(id, playerName: s, offX,offY,offZ: f) -> b`（1.17.0 展示跟随玩家: 每 tick 同步目标实时坐标（含跨维度自动 respawn）, 对已见玩家发 MoveActorAbsolute（非 teleport, 客户端插值）平滑位移, 全程无 respawn 无闪烁; 玩家下线自动解除跟随（方块原地保留）; `itemDisplaySetPosition` 手动设位解除跟随） |
+| itemDisplayUnfollow | `(id) -> b`（1.17.0 解除跟随; 无跟随关系返回 true） |
+| itemDisplaySetHitbox | `(id, width: f, height: f) -> b`（1.17.0 AABB 判定体积: 对已见玩家广播 SetActorDataPacket(R53=Width R54=Height), 即时无 respawn; 数值持久入配置, respawn/新观察者自动按当前值发包; 0/0 = 恢复不可命中。开启后客户端射线可命中 → 攻击经 `ghost*` 路由回库内 id） |
 
 渲染模式：`auto`（默认）按物品 3D/2D 自动选择；`item` 平面物品渲染（rotY 内部自动 +205 补偿狐狸头朝向）；`block` 3D 方块渲染（完整旋转矩阵路径 + 二段扩展变换）。可见性由库内 Level tick hook 自动同步。
 

@@ -18,9 +18,9 @@
 #include <string>
 #include <vector>
 
-// 库 API 版本（与 IHologramLib::version() 同值, BCD: 0x011500 = 1.15.0）
+// 库 API 版本（与 IHologramLib::version() 同值, BCD: 0x011700 = 1.17.0）
 // 消费方可用于编译期静态断言最低版本要求
-#define HOLOGLIB_API_VERSION 0x011500
+#define HOLOGLIB_API_VERSION 0x011700
 
 #ifdef HOLOGLIB_EXPORTS
 #define HOLOGLIB_API __declspec(dllexport)
@@ -201,6 +201,11 @@ struct ItemDisplayConfig {
     // 附魔光效开关（1.9.0 追加）: true = 经 BDS 原生 saveEnchantsToUserData
     // 注入 1 级锋利（仅取光效）; 与 itemNbt 独立叠加
     bool itemGlint{false};
+    // ── 1.17.0 追加（冻结契约: 结构尾部追加）──
+    // AABB 判定体积（SetActorData R53=Width R54=Height; 0/0 = 无判定体积不可命中,
+    // 默认值与历史行为一致）。> 0 时客户端射线可命中 → 攻击经 ghost 交互路由回库内 id
+    float hitboxWidth{0.0f};
+    float hitboxHeight{0.0f};
 };
 
 class IItemDisplay {
@@ -253,6 +258,20 @@ public:
     // 附魔光效开关: 开 = BDS 原生路径注入 1 级锋利（客户端紫色光效）,
     // 关 = 移除附魔; 幂等（值未变不重发）; id 不存在返回 false
     virtual bool setGlint(int64_t id, bool on) = 0;
+
+    // ── 1.17.0 追加（冻结契约: 只在尾部追加）──
+    // 展示跟随玩家: 每 tick 读取目标玩家实时坐标（含跨维度自动 respawn）,
+    // 对已见玩家发 MoveActorAbsolute（非 teleport 标志, 客户端插值）驱动狐狸载体
+    // 平滑位移 —— 全程无 respawn、无 Remove/Add、无闪烁。
+    // 目标玩家下线自动解除跟随（方块原地保留）; setPosition 手动设位解除跟随。
+    // playerName 按玩家名（Player::getRealName 即 LSE realName）匹配; id 不存在返回 false
+    virtual bool follow(int64_t id, std::string const& playerName, float offX, float offY, float offZ) = 0;
+    // 解除跟随（方块保留在当前位置）; 无跟随关系时返回 true
+    virtual bool unfollow(int64_t id) = 0;
+    // AABB 判定体积: 对已见玩家广播 SetActorDataPacket(R53/R54), 轻量即时无 respawn;
+    // 数值持久入配置（后续 respawn 自动按当前值发包）; width/height=0 恢复不可选中;
+    // id 不存在返回 false
+    virtual bool setHitbox(int64_t id, float width, float height) = 0;
 };
 
 // ─────────────────────────────────────────────
@@ -443,10 +462,82 @@ public:
 struct GhostInteractEvent {
     std::string playerName;   // 点击者（realName）
     int         action{0};    // InteractPacket Action 原始值（1=Interact 2=Attack 3=StopRiding 4=InteractUpdate 5=NpcOpen 6=OpenInventory）
-    std::string domain;       // "entity" / "itemDisplay"
+    std::string domain;       // "entity" / "itemDisplay" / "npc"
     int64_t     id{-1};       // 对应域的库内 id
     bool        hasPos{false};
     float       x{0}, y{0}, z{0};
+};
+
+// ─────────────────────────────────────────────
+// 假玩家 NPC（自定义皮肤; 1.16.0 追加）
+// PlayerListPacket + AddPlayerPacket 纯协议假玩家:
+// 不占服务端实体系统（无 AI/碰撞/寻路/存档开销）,
+// 完整 3D 玩家模型 + 任意自定义皮肤, 点击经 ghost 交互派发
+// ─────────────────────────────────────────────
+
+// 皮肤注册入参（PNG 文件路径方式; 几何/手臂尺寸等可自定义）
+struct PlayerNpcSkin {
+    std::string pngPath{};     // PNG 文件路径（64x64 / 128x128）
+    std::string skinId{};      // 注册名（空 = 用 pngPath 文件名）
+    // 几何自定义（resourcePatch; 默认标准玩家模型）
+    std::string geometry{"geometry.humanoid.custom"};
+    // 手臂尺寸: "wide"（粗） / "slim"（细）; 默认 wide
+    std::string armSize{"wide"};
+};
+
+struct PlayerNpcConfig {
+    std::string name{"NPC"};         // 显示名（nametag 同步; 即 PlayerList 条目名）
+    std::string skinId{"default"};   // 已注册皮肤 ID（未注册 = 创建失败 -3）
+    float       x{0}, y{64}, z{0};    // 世界坐标
+    int         dimension{0};        // 维度 ID
+    float       yaw{0};              // 朝向（度; 头/身旋转同值）
+    double      viewDistance{96.0};  // 可见距离（方块; <=0 无限制）
+    bool        enabled{true};
+};
+
+class IPlayerNpc {
+public:
+    virtual ~IPlayerNpc() = default;
+
+    // ── 皮肤注册表（全局; NPC 引用 skinId, 解码一次多处复用）──
+    // PNG 注册（64/128; 失败返回 false 并给出错误; 重复注册覆盖）
+    virtual bool registerSkin(PlayerNpcSkin const& skin) = 0;
+    // 从在线玩家采集当前皮肤（含几何/披风/动画全部字段）→ 以 skinId 永久注册
+    // 玩家不在线返回 false; 重复 skinId 覆盖
+    virtual bool captureSkin(std::string const& skinId, std::string const& playerName) = 0;
+    virtual bool hasSkin(std::string const& skinId) const = 0;
+    virtual bool unregisterSkin(std::string const& skinId) = 0; // 有 NPC 引用时拒绝并返回 false
+    virtual std::vector<std::string> getSkinIds() const = 0;
+
+    // ── 生命周期（id 驱动; 创建失败返回 < 0; 持久化由消费者负责）──
+    // 返回: <0 失败 -3=皮肤未注册
+    virtual int64_t create(PlayerNpcConfig const& config) = 0;
+    virtual int64_t createRandom(PlayerNpcConfig const& config) = 0;  // 随机段 ID
+    virtual int64_t createWithId(PlayerNpcConfig const& config, int64_t desiredId) = 0; // <=0/占用返回 -2
+    virtual bool    destroy(int64_t id) = 0;
+    virtual void    destroyAll() = 0;
+    virtual bool    exists(int64_t id) const = 0;
+    virtual bool    get(int64_t id, PlayerNpcConfig& out) const = 0;   // 拷贝输出当前配置
+    virtual bool    isIdUsed(int64_t id) const = 0;
+    virtual std::vector<int64_t> getAllIds() const = 0;
+
+    // ── 属性（变更经 tick 脏刷新合并为单次 respawn, 无闪烁串台）──
+    virtual bool setPosition(int64_t id, float x, float y, float z, int dim) = 0; // dim<0 仅改坐标
+    virtual bool setRotation(int64_t id, float yaw) = 0;
+    virtual bool setNametag(int64_t id, std::string const& text) = 0;  // 空串清除
+    // 换皮肤 = Remove + PlayerList Add + AddPlayer（协议限制, 有一次重入; 未注册返回 false）
+    virtual bool setSkin(int64_t id, std::string const& skinId) = 0;
+    virtual bool setViewDistance(int64_t id, double dist) = 0;
+    virtual bool setEnabled(int64_t id, bool enabled) = 0;
+
+    // ── 可见玩家白名单（仅指定玩家可见; 按 Player::getRealName 即 LSE realName 匹配）──
+    // setVisiblePlayers 空列表 = 清除限制 = 全员可见
+    virtual bool setVisiblePlayers(int64_t id, std::vector<std::string> const& playerNames) = 0;
+    virtual bool clearVisiblePlayers(int64_t id) = 0;
+    virtual bool setVisiblePlayer(int64_t id, std::string const& playerName) = 0;
+
+    // 诊断探针: 返回 NPC 运行态摘要字符串（找不到返回 "not_found"）
+    virtual std::string getDebugInfo(int64_t id) const = 0;
 };
 
 // ─────────────────────────────────────────────
@@ -465,7 +556,7 @@ public:
     // LSE 兼容层是否可用（LegacyRemoteCall 运行时检测成功）
     virtual bool isLseAvailable() = 0;
 
-    // 库版本（BCD: 0x010701 = 1.7.1）
+    // 库版本（BCD: 0x011700 = 1.17.0, 与 HOLOGLIB_API_VERSION 同值）
     virtual uint32_t version() = 0;
 
     // ── 1.6.0 追加（冻结契约: 只在尾部追加）──
@@ -487,6 +578,9 @@ public:
 
     // ── 1.14.0 追加（冻结契约: 只在尾部追加）──
     virtual IParticleShape& particleShapes() = 0;
+
+    // ── 1.16.0 追加（冻结契约: 只在尾部追加）──
+    virtual IPlayerNpc& playerNpcs() = 0;
 };
 
 } // namespace hologramlib

@@ -238,6 +238,26 @@ void ItemDisplayExporter::exportAll() {
         [&mgr](float x, float y, float z, int dim, float maxDist) -> int64_t {
             return mgr.findNearest(x, y, z, dim, maxDist);
         });
+
+    // 1.17.0: 展示跟随玩家 —— 每 tick 同步目标玩家实时坐标（含跨维度自动 respawn）,
+    // 对已见玩家发 MoveActorAbsolute（非 teleport, 客户端插值）平滑位移, 全程无 respawn。
+    // itemDisplayFollow(id, playerName: s, offX: f, offY: f, offZ: f) -> b
+    //   玩家下线自动解除跟随（方块原地保留）; setPosition 手动设位解除跟随
+    hologramlib::lse::exportAs(NAMESPACE, "itemDisplayFollow",
+        [&mgr](int64_t id, std::string const& playerName, float offX, float offY, float offZ) -> bool {
+            return mgr.follow(id, playerName, offX, offY, offZ);
+        });
+    // itemDisplayUnfollow(id) -> b（解除跟随; 无跟随关系返回 true）
+    hologramlib::lse::exportAs(NAMESPACE, "itemDisplayUnfollow",
+        [&mgr](int64_t id) -> bool { return mgr.unfollow(id); });
+
+    // 1.17.0: AABB 判定体积 —— 对已见玩家广播 SetActorDataPacket(R53/R54), 即时无 respawn;
+    // 数值持久入配置（后续 respawn 自动按当前值发包）; 0/0 = 恢复不可命中。
+    // itemDisplaySetHitbox(id, width: f, height: f) -> b
+    hologramlib::lse::exportAs(NAMESPACE, "itemDisplaySetHitbox",
+        [&mgr](int64_t id, float width, float height) -> bool {
+            return mgr.setHitbox(id, width, height);
+        });
 }
 
 } // namespace debugshape_export

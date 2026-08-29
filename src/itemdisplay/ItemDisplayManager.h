@@ -95,6 +95,16 @@ public:
     // 仅方块路径(mode=0 auto/2)
     bool scaleTo(int64_t id, double targetScale);
 
+    // ── 1.17.0 追加 ──
+    // 展示跟随玩家: 每 tick 同步目标玩家实时坐标（含跨维度）, 对已见玩家发
+    // MoveActorAbsolute（非 teleport, 客户端插值）平滑位移, 全程无 respawn 无闪烁。
+    // 玩家下线自动解除（方块原地保留）; setPosition 手动设位解除跟随。
+    bool follow(int64_t id, std::string const& playerName, float offX, float offY, float offZ);
+    bool unfollow(int64_t id); // 解除跟随; 无跟随关系返回 true
+    // AABB 判定体积: R53/R54 元数据广播（即时, 无 respawn）, 数值持久入配置;
+    // 0/0 = 恢复不可命中（与历史行为一致）
+    bool setHitbox(int64_t id, float width, float height);
+
     std::vector<int64_t> getAllIds() const;
 
     // 查找距 (x,y,z) 最近的显示（dim 匹配; maxDist<=0 无限制; 无匹配返回 -1）
@@ -129,6 +139,8 @@ private:
     void syncVisibilityLocked();
     // tick 内合并处理脏展示（同一 tick 的多次 setter 调用合并为单次 respawn）
     void processDirtyLocked();
+    // 1.17.0: 跟随同步（tick hook 每 tick 调用; 更新配置坐标 + 发移动包 + 跨维度标脏）
+    void followTickLocked();
     // 持锁状态下的创建主体（id 已查重）; 失败返回 < 0
     int64_t createLocked(ItemDisplayConfig const& config, int64_t id);
     // 实体 ID 分配（respawn 换新 ID, 防客户端"同帧 Remove+Add 同 ID"重映射串台）
@@ -137,6 +149,14 @@ private:
 
     friend struct ItemDisplayTickHookAccess;
 
+    // 1.17.0: 跟随状态（id -> 目标玩家 + 偏移 + 上次同步坐标; 空表零开销）
+    struct FollowState {
+        std::string playerName; // Player::getRealName（LSE realName）
+        float       offX{0}, offY{0}, offZ{0};
+        float       lastX{0}, lastY{0}, lastZ{0};
+        bool        synced{false};
+    };
+
     mutable std::recursive_mutex                        mMutex;
     int64_t                                             mNextId{1};
     std::unordered_map<int64_t, ItemDisplayConfig>      mConfigs;
@@ -144,6 +164,8 @@ private:
     std::unordered_set<int64_t>                         mDirtyIds;
     // 可见玩家白名单（id -> 玩家名集合; 无条目 = 全员可见, 兼容默认行为）
     std::unordered_map<int64_t, std::unordered_set<std::string>> mVisibleFilter;
+    // 1.17.0: 跟随登记表（id -> 跟随状态; destroy/下线/setPosition 时清除）
+    std::unordered_map<int64_t, FollowState>            mFollowers;
 
     std::uint64_t                                       mNextActorUniqueId{0x6D00000000000001ULL};
     std::uint64_t                                       mNextRuntimeId{0x6D000000ULL};

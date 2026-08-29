@@ -37,6 +37,7 @@
 #include <sculk/protocol/codec/level/MolangVersion.hpp>
 #include <sculk/protocol/codec/packet/AddActorPacket.hpp>
 #include <sculk/protocol/codec/packet/AnimateEntityPacket.hpp>
+#include <sculk/protocol/codec/packet/MoveActorAbsolutePacket.hpp>
 #include <sculk/protocol/codec/packet/RemoveActorPacket.hpp>
 #include <sculk/protocol/codec/packet/SetActorDataPacket.hpp>
 #include <sculk/protocol/codec/utility/deps/BinaryStream.hpp>
@@ -282,13 +283,15 @@ void sendFoxActor(Player& player, ItemDisplayConfig const& data, Runtime const& 
     };
     pkt.mSynchedProperties = {};
     pkt.mActorLinks        = {};
-    // ItemPhys 原版配方: flags=(1<<5)|(1<<30)|(1<<31) + R53/R54=0.0f
+    // ItemPhys 原版配方: flags=(1<<5)|(1<<30)|(1<<31) + R53/R54
     // (FMBE 动画生效后狐狸本体被 swelling 变形隐藏, 只显示叼的物品)
+    // 1.17.0: R53/R54（包围盒 Width/Height）从展示配置读取（默认 0.0 = 无判定体积,
+    // 存量行为不变）; setHitbox 配置后 respawn/新观察者 spawn 自动按当前值发包
     std::int64_t flags       = (std::int64_t(1) << 5) | (std::int64_t(1) << 30) | (std::int64_t(1) << 31);
     pkt.mMetaData.mDataItems = {
         {sculk::protocol::ActorDataIDs::Reserved0,  flags},
-        {sculk::protocol::ActorDataIDs::Reserved53, 0.0f},
-        {sculk::protocol::ActorDataIDs::Reserved54, 0.0f},
+        {sculk::protocol::ActorDataIDs::Reserved53, data.hitboxWidth},
+        {sculk::protocol::ActorDataIDs::Reserved54, data.hitboxHeight},
     };
     sendSculkToPlayer(player, pkt);
 }
@@ -304,18 +307,48 @@ void sendEquipment(Player& player, std::uint64_t runtimeId, ::ItemStack const& s
     equipPkt.sendTo(player);
 }
 
-void sendDataPacket(Player& player, std::uint64_t runtimeId) {
+void sendDataPacket(Player& player, std::uint64_t runtimeId, float hitboxWidth, float hitboxHeight) {
     sculk::protocol::SetActorDataPacket pkt;
     pkt.mActorRuntimeId    = runtimeId;
     pkt.mSynchedProperties = {};
     pkt.mTick              = 0;
     // 与 AddActor 完全一致的 flags（ItemPhys 原版: 两包同配方, 避免 flags 抖动）
+    // 1.17.0: R53/R54 从展示配置读取（与 sendFoxActor 同源）
     std::int64_t flags       = (std::int64_t(1) << 5) | (std::int64_t(1) << 30) | (std::int64_t(1) << 31);
     pkt.mMetaData.mDataItems = {
         {sculk::protocol::ActorDataIDs::Reserved0,  flags},
-        {sculk::protocol::ActorDataIDs::Reserved53, 0.0f},
-        {sculk::protocol::ActorDataIDs::Reserved54, 0.0f},
+        {sculk::protocol::ActorDataIDs::Reserved53, hitboxWidth},
+        {sculk::protocol::ActorDataIDs::Reserved54, hitboxHeight},
     };
+    sendSculkToPlayer(player, pkt);
+}
+
+// 1.17.0: AABB 判定体积即时广播（轻量元数据更新, 无 respawn）
+// 与 sendDataPacket 同配方（flags + R53/R54）, 对已见玩家逐个发送
+void sendHitboxPacket(Player& player, std::uint64_t runtimeId, float width, float height) {
+    sculk::protocol::SetActorDataPacket pkt;
+    pkt.mActorRuntimeId    = runtimeId;
+    pkt.mSynchedProperties = {};
+    pkt.mTick              = 0;
+    std::int64_t flags       = (std::int64_t(1) << 5) | (std::int64_t(1) << 30) | (std::int64_t(1) << 31);
+    pkt.mMetaData.mDataItems = {
+        {sculk::protocol::ActorDataIDs::Reserved0,  flags},
+        {sculk::protocol::ActorDataIDs::Reserved53, width},
+        {sculk::protocol::ActorDataIDs::Reserved54, height},
+    };
+    sendSculkToPlayer(player, pkt);
+}
+
+// 1.17.0: 跟随位移包 —— MoveActorAbsolute 非 teleport 标志（客户端平滑插值, 与原版
+// 生物移动同路径）; 旋转恒 0（方块朝向保持轴对齐, 朝向由 Molang 动画独立控制）
+void sendFollowMove(Player& player, std::uint64_t runtimeId, float x, float y, float z) {
+    sculk::protocol::MoveActorAbsolutePacket pkt;
+    pkt.mActorRuntimeId = runtimeId;
+    pkt.mHeader         = 0x00; // 无 teleport: 客户端按原版移动插值（平滑跟随的关键）
+    pkt.mPosition       = {x, y, z};
+    pkt.mRotationX      = 0;
+    pkt.mRotationY      = 0;
+    pkt.mRotationYHead  = 0;
     sendSculkToPlayer(player, pkt);
 }
 
@@ -510,7 +543,7 @@ bool spawnForPlayer(int64_t id, ItemDisplayConfig const& data, Runtime& rt, Play
 
     sendFoxActor(player, data, rt);
     sendEquipment(player, rt.runtimeId, stack);
-    sendDataPacket(player, rt.runtimeId);
+    sendDataPacket(player, rt.runtimeId, data.hitboxWidth, data.hitboxHeight);
     scheduleAnims(id, data, rt, player, mode);
     logger().debug(
         "[ItemDisplay] spawned #{} '{}' at ({:.1f},{:.1f},{:.1f}) dim={} mode={}",
@@ -587,6 +620,7 @@ void ItemDisplayManager::shutdown() {
     mRuntimes.clear();
     mDirtyIds.clear();
     mVisibleFilter.clear();
+    mFollowers.clear();
     mInitializedPlayers.clear();
     animQueue().clear();
 }
@@ -677,6 +711,7 @@ bool ItemDisplayManager::destroy(int64_t id) {
     mRuntimes.erase(rit);
     mConfigs.erase(id);
     mVisibleFilter.erase(id);
+    mFollowers.erase(id); // 1.17.0: 跟随关系随展示一并清除
     return true;
 }
 
@@ -694,6 +729,7 @@ void ItemDisplayManager::destroyAll() {
     mConfigs.clear();
     mRuntimes.clear();
     mVisibleFilter.clear();
+    mFollowers.clear(); // 1.17.0
 }
 
 bool ItemDisplayManager::exists(int64_t id) const {
@@ -743,6 +779,8 @@ bool ItemDisplayManager::setPosition(int64_t id, float x, float y, float z, int 
     std::lock_guard lock(mMutex);
     auto it = mConfigs.find(id);
     if (it == mConfigs.end()) return false;
+    // 1.17.0: 手动设位 = 解除跟随（同粒子 Shape 的 setPos 语义; 跟随中手动摆位无意义）
+    mFollowers.erase(id);
     it->second.x = x;
     it->second.y = y;
     it->second.z = z;
@@ -1097,6 +1135,99 @@ void ItemDisplayManager::processDirtyLocked() {
     if (needVisibility) syncVisibilityLocked();
 }
 
+// ── 1.17.0: 展示跟随 / AABB 判定体积 ──
+
+bool ItemDisplayManager::follow(int64_t id, std::string const& playerName, float offX, float offY, float offZ) {
+    std::lock_guard lock(mMutex);
+    if (!mConfigs.contains(id)) return false;
+    FollowState st{};
+    st.playerName = playerName;
+    st.offX       = offX;
+    st.offY       = offY;
+    st.offZ       = offZ;
+    st.synced     = false; // 首个 tick 吸附到跟随点（respawn 落位, 避免从旧位置长距离滑行）
+    mFollowers.insert_or_assign(id, std::move(st));
+    return true;
+}
+
+bool ItemDisplayManager::unfollow(int64_t id) {
+    std::lock_guard lock(mMutex);
+    mFollowers.erase(id); // 无跟随关系也返回 true（幂等; 方块保留在当前位置）
+    return true;
+}
+
+bool ItemDisplayManager::setHitbox(int64_t id, float width, float height) {
+    std::lock_guard lock(mMutex);
+    auto it = mConfigs.find(id);
+    if (it == mConfigs.end()) return false;
+    it->second.hitboxWidth  = width > 0 ? width : 0.0f; // 0/负 = 恢复不可命中（历史行为）
+    it->second.hitboxHeight = height > 0 ? height : 0.0f;
+    // 即时广播 R53/R54（轻量元数据, 无 respawn）; respawn/新观察者 spawn 同源读配置
+    auto rit = mRuntimes.find(id);
+    if (rit != mRuntimes.end()) {
+        for (auto const& uuid : rit->second.shownPlayers) {
+            if (auto* player = findPlayerByUuid(uuid)) {
+                sendHitboxPacket(*player, rit->second.runtimeId, it->second.hitboxWidth, it->second.hitboxHeight);
+            }
+        }
+    }
+    return true;
+}
+
+void ItemDisplayManager::followTickLocked() {
+    if (mFollowers.empty()) return;
+    auto level = ll::service::getLevel();
+    if (!level) return;
+
+    for (auto it = mFollowers.begin(); it != mFollowers.end();) {
+        auto& fs = it->second;
+
+        // 目标玩家按名解析（Player::getRealName 即 LSE realName）
+        Player* target = nullptr;
+        level->forEachPlayer([&](Player& p) {
+            if (p.getRealName() == fs.playerName) {
+                target = &p;
+                return false;
+            }
+            return true;
+        });
+        auto cit = mConfigs.find(it->first);
+        auto rit = mRuntimes.find(it->first);
+        if (!target || cit == mConfigs.end() || rit == mRuntimes.end()) {
+            it = mFollowers.erase(it); // 下线/改名/已销毁 = 解除跟随, 方块原地保留
+            continue;
+        }
+
+        auto&    cfg = cit->second;
+        auto const& tpos = target->getPosition();
+        float const nx = tpos.x + fs.offX;
+        float const ny = tpos.y + fs.offY;
+        float const nz = tpos.z + fs.offZ;
+
+        if (!fs.synced || target->getDimensionId() != DimensionType(cfg.dimension)) {
+            // 首帧或跨维度: 更新配置 + 标脏走 respawn（新维度观察者可见; 移动包跨维度无意义）
+            cfg.dimension = target->getDimensionId().id;
+            cfg.x         = nx;
+            cfg.y         = ny;
+            cfg.z         = nz;
+            mDirtyIds.insert(it->first);
+            fs.synced     = true;
+            ++it;
+            continue;
+        }
+
+        cfg.x = nx;
+        cfg.y = ny;
+        cfg.z = nz;
+        for (auto const& uuid : rit->second.shownPlayers) {
+            if (auto* player = findPlayerByUuid(uuid)) {
+                sendFollowMove(*player, rit->second.runtimeId, nx, ny, nz);
+            }
+        }
+        ++it;
+    }
+}
+
 void ItemDisplayManager::syncVisibilityLocked() {
     auto level = ll::service::getLevel();
     if (!level) return;
@@ -1149,6 +1280,11 @@ struct ItemDisplayTickHookAccess {
         std::lock_guard lock(mgr.mMutex);
         mgr.processDirtyLocked();
     }
+    // 1.17.0: 跟随同步（更新配置坐标 + 发移动包 + 跨维度标脏）
+    static void followTick(ItemDisplayManager& mgr) {
+        std::lock_guard lock(mgr.mMutex);
+        mgr.followTickLocked();
+    }
     // 幽灵动画防护: 该 runtimeId 的实体是否仍存活且对该玩家可见
     static bool alive(ItemDisplayManager& mgr, std::uint64_t runtimeId, mce::UUID const& uuid) {
         std::lock_guard lock(mgr.mMutex);
@@ -1165,6 +1301,9 @@ LL_TYPE_INSTANCE_HOOK(ItemDisplayTickHook, HookPriority::Normal, Level, &Level::
     // 脏刷新优先于动画 flush：本 tick 内累积的 setter 变更在此合并为单次 respawn
     // （新入队动画的 tick 均为 now+2 起步, 不会被本次 flush 发出）
     ItemDisplayTickHookAccess::processDirty(ItemDisplayManager::getInstance());
+
+    // 1.17.0: 跟随同步 —— 脏刷新之后（respawn 换新 ID 前移动包作废的时序窗口在此收口）
+    ItemDisplayTickHookAccess::followTick(ItemDisplayManager::getInstance());
 
     auto const now = currentTick();
     auto&      q   = animQueue();

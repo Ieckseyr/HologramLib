@@ -11,6 +11,7 @@
 #include "itemdisplay/ItemDisplayManager.h"
 #include "customentity/CustomEntityManager.h"
 #include "particles/ParticleShapeManager.h"
+#include "playernpc/PlayerNpcExporter.h" // playerNpcAdapter()
 #include "ghost/GhostInteractRouter.h"
 // 单元合并：ghost/GhostInteractRouter.cpp 并入本编译单元
 // （沙箱内无法重配置 xmake.lua 注册新源文件；脱离沙箱后可拆回 add_files("src/ghost/GhostInteractRouter.cpp")）
@@ -276,7 +277,19 @@ public:
     bool setGlint(int64_t id, bool on) override {
         return debugshape_export::ItemDisplayManager::getInstance().setGlint(id, on);
     }
+    // 1.17.0: display follow / hitbox glue
+    bool follow(int64_t id, std::string const& playerName, float offX, float offY, float offZ) override {
+        return debugshape_export::ItemDisplayManager::getInstance().follow(id, playerName, offX, offY, offZ);
+    }
+    bool unfollow(int64_t id) override {
+        return debugshape_export::ItemDisplayManager::getInstance().unfollow(id);
+    }
+    bool setHitbox(int64_t id, float width, float height) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setHitbox(id, width, height);
+    }
 };
+
+
 
 class CustomEntityImpl final : public ICustomEntity {
 public:
@@ -528,6 +541,8 @@ public:
     ICustomEntity& customEntities() override { return mCustomEntities; }
 
     IParticleShape& particleShapes() override { return mParticleShapes; }
+
+    IPlayerNpc& playerNpcs() override { return debugshape_export::playerNpcAdapter(); }
 
     void setGhostInteractListener(std::function<void(GhostInteractEvent const&)> listener) override {
         debugshape_export::GhostInteractRouter::getInstance().setListener(std::move(listener));

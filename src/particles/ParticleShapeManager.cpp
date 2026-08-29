@@ -29,7 +29,7 @@ std::uint64_t currentTick() {
     return level ? level->getCurrentTick().tickID : 0;
 }
 
-constexpr int TOTAL_CAP = 2048; // 单形状单次发射总点数上限（网络保护）
+constexpr int TOTAL_CAP = 2048; // 单形状单次发射总点数上限
 
 // ── 局部点采样辅助（全部写入局部坐标, 锚点为原点）──
 
