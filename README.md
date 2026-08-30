@@ -16,12 +16,12 @@ Bedrock 协议层统一悬浮显示库（LeviLamina 26.10.14 / 协议 944）。�
 
 除 FMBE/自定义实体走"假实体 + 发包"外，其余渲染均不产生真实实体、不写存档、零服务器开销；粒子发送走 vanilla `SpawnParticleEffectPacket` 批量通道（BDS tick flush 自动聚合压缩为单 Batch 数据报）。
 
-- API 版本：**1.18.0**（`HOLOGLIB_API_VERSION 0x011800`）
+- API 版本：**1.19.0**（`HOLOGLIB_API_VERSION 0x011900`）
 - 插件发布版本：`26.10.7`
 
 ## 更新日志
 
-- `26.10.7`（API 1.19.0）：新增皮肤从内存导出（`getSkinBlob`/`registerSkinFromBlob`，消费方自行持久化）；目录批量导入皮肤（一个子文件夹 = PNG + 可选 `.json` 模型）；`PlayerNpcSkin.geometryData` 自定义几何模型；库移除磁盘存储，改为纯 API
+- `26.10.7`（API 1.19.0）：新增皮肤从内存导出（`getSkinBlob`/`registerSkinFromBlob`，消费方自行持久化）；目录批量导入皮肤（一个子文件夹 = PNG + 可选 `.json` 模型）；`PlayerNpcSkin.geometryData` 自定义几何模型；库移除磁盘存储，改为纯 API；新增 NPC 缩放（`PlayerNpcConfig.scale` + `playerNpcSetScale`，0.0625~10，碰撞箱等比）；修复 NPC 视距裁剪/脏刷新/Tab 移除失效（tick hook 未注册）
 - `26.10.6`（API 1.17.1）：皮肤采集永久存储修复
 
 ## 目录
