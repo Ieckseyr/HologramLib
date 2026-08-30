@@ -21,7 +21,7 @@ Bedrock 协议层统一悬浮显示库（LeviLamina 26.10.14 / 协议 944）。�
 
 ## 更新日志
 
-- `26.10.7`（API 1.18.0）：新增皮肤从内存导出（`getSkinBlob`/`registerSkinFromBlob`，消费方自行持久化）；目录批量导入皮肤（一个子文件夹 = PNG + 可选 `.json` 模型）；`PlayerNpcSkin.geometryData` 自定义几何模型；库移除磁盘存储，改为纯 API
+- `26.10.7`（API 1.19.0）：新增皮肤从内存导出（`getSkinBlob`/`registerSkinFromBlob`，消费方自行持久化）；目录批量导入皮肤（一个子文件夹 = PNG + 可选 `.json` 模型）；`PlayerNpcSkin.geometryData` 自定义几何模型；库移除磁盘存储，改为纯 API
 - `26.10.6`（API 1.17.1）：皮肤采集永久存储修复
 
 ## 目录
