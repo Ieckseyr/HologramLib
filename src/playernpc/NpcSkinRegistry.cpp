@@ -1,8 +1,4 @@
 // NpcSkinRegistry.cpp - 皮肤注册表实现
-//
-// PNG 解码移植自 SCustomNpc loadNpcSkin（GDI+ BGRA→RGBA 转换）;
-// 玩家采集走 Player::mSkin → SerializedSkinImpl 字段级映射（全字段: 几何/披风/动画/Persona）。
-// 1.18.0: 目录批量导入 + blob 导出/注册 API（库不落盘, 持久化由消费方负责）。
 #include "NpcSkinRegistry.h"
 
 #include <ll/api/io/Logger.h>
@@ -66,9 +62,7 @@ std::string parseGeometryIdentifier(std::string const& json) {
     return {};
 }
 
-// ── blob 序列化格式（getSkinBlob / registerSkinFromBlob 配对使用）──
-// 二进制（小端, length-prefixed）: "HLNS" | u32 version | skinId | SerializedSkin 全字段
-// 设计目标: 全字段快照 → 消费方存盘后重启恢复, 皮肤成为采集时刻的永久副本
+// blob 序列化格式（小端, length-prefixed）: "HLNS" | u32 version | skinId | SerializedSkin 全字段
 constexpr char          kSkinFileMagic[4] = {'H', 'L', 'N', 'S'};
 constexpr std::uint32_t kSkinFileVersion   = 1;
 
@@ -388,9 +382,8 @@ bool NpcSkinRegistry::registerSkinFromPng(hologramlib::PlayerNpcSkin const& skin
     return true;
 }
 
-// ── 目录批量导入: 一个子文件夹 = 一套皮肤 ──
-// 约定: 子文件夹名 = skinId; 文件夹内 PNG 贴图（必需）+ .json 几何（可选 = 默认玩家模型）
-// 排序遍历保证多次导入结果确定; 单个文件夹失败仅跳过（warn 日志）, 不影响其余
+// 目录批量导入: 一个子文件夹 = 一套皮肤（PNG 必需 + .json 几何可选）;
+// skinId = 子文件夹名; 排序遍历保证结果确定, 单个失败仅跳过
 
 int NpcSkinRegistry::importSkinsFromDir(std::string const& dirPath, std::string& error) {
     namespace fs = std::filesystem;
@@ -473,8 +466,7 @@ bool NpcSkinRegistry::captureSkin(std::string const& skinId, std::string const& 
     if (!skinImpl) return false;
     ::SerializedSkinImpl const& impl = skinImpl->mObject;
 
-    // BDS 原生 SerializedSkinImpl → sculk::protocol::SerializedSkin 字段级映射
-    // （皮肤贴图/披风/动画贴图/几何/Persona 部件/染色 全量拷贝 → 快照注册, 之后换肤不影响）
+    // BDS 原生 SerializedSkinImpl → sculk SerializedSkin 全字段拷贝（快照注册）
     sculk::protocol::SerializedSkin proto;
     proto.mId            = impl.mId;
     proto.mPlayFabId     = impl.mPlayFabId;

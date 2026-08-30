@@ -122,10 +122,8 @@ void PlayerNpcExporter::exportAll() {
             return mgr.registerSkin(skin);
         });
 
-    // playerNpcImportSkins(dirPath) -> int（目录批量导入: 一个子文件夹 = 一套皮肤, PNG + 可选 .json 几何;
-    // skinId = 文件夹名; 返回导入数量, 目录无效返回 -1）
-    // playerNpcCaptureSkin(skinId, playerName) -> bool（从在线玩家采集, 运行时快照注册, 换肤不影响）
-    // 注: 库不落盘 —— 持久化由消费方负责（C++ 侧 getSkinBlob 落盘, 重启 registerSkinFromBlob 恢复）
+    // playerNpcImportSkins(dirPath) -> int（目录批量导入; skinId = 子文件夹名）
+    // playerNpcCaptureSkin(skinId, playerName) -> bool（运行时快照注册, 换肤不影响; 库不落盘）
     hologramlib::lse::exportAs(
         NAMESPACE,
         "playerNpcCaptureSkin",
