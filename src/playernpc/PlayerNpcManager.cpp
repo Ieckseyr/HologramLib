@@ -16,6 +16,8 @@
 #include "NpcProtocol.h"
 #include "NpcSkinRegistry.h"
 
+#include "PlayerNpcManager.h"
+
 namespace debugshape_export {
 
 namespace {
@@ -405,6 +407,11 @@ void PlayerNpcManager::refreshLocked(int64_t id) {
         rt.uniqueId  = mNextActorUniqueId++;
         rt.runtimeId = mNextRuntimeId++;
     }
+
+    // BUGFIX: 丢弃旧 spawn 排定的 Tab 移除条目, 否则其到点会把本次重发的
+    // PlayerList 皮肤条目删掉 → 客户端丢皮肤 → 重生体变回默认史蒂夫
+    // （连续两次 refresh 间隔 < 20 tick 时必现: 缩放/换肤等脏刷新）
+    mTabRemovals.erase(id);
 
     for (auto* player : toSpawn) {
         sculk::protocol::SerializedSkin skin;
