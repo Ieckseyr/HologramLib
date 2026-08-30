@@ -18,9 +18,9 @@
 #include <string>
 #include <vector>
 
-// 库 API 版本（与 IHologramLib::version() 同值, BCD: 0x011800 = 1.18.0）
+// 库 API 版本（与 IHologramLib::version() 同值, BCD: 0x011900 = 1.19.0）
 // 消费方可用于编译期静态断言最低版本要求
-#define HOLOGLIB_API_VERSION 0x011800
+#define HOLOGLIB_API_VERSION 0x011900
 
 #ifdef HOLOGLIB_EXPORTS
 #define HOLOGLIB_API __declspec(dllexport)
@@ -494,6 +494,7 @@ struct PlayerNpcConfig {
     int         dimension{0};        // 维度 ID
     float       yaw{0};              // 朝向（度; 头/身旋转同值）
     double      viewDistance{96.0};  // 可见距离（方块; <=0 无限制）
+    float       scale{1.0f};          // 模型缩放（1.19.0; 0.0625~10 客户端硬限, 碰撞箱等比）
     bool        enabled{true};
 };
 
@@ -530,6 +531,7 @@ public:
     // 换皮肤 = Remove + PlayerList Add + AddPlayer（协议限制, 有一次重入; 未注册返回 false）
     virtual bool setSkin(int64_t id, std::string const& skinId) = 0;
     virtual bool setViewDistance(int64_t id, double dist) = 0;
+    virtual bool setScale(int64_t id, float scale) = 0; // 1.19.0; <0.0625 或 >10 拒绝
     virtual bool setEnabled(int64_t id, bool enabled) = 0;
 
     // ── 可见玩家白名单（仅指定玩家可见; 按 Player::getRealName 即 LSE realName 匹配）──
@@ -567,7 +569,7 @@ public:
     // LSE 兼容层是否可用（LegacyRemoteCall 运行时检测成功）
     virtual bool isLseAvailable() = 0;
 
-    // 库版本（BCD: 0x011800 = 1.18.0, 与 HOLOGLIB_API_VERSION 同值）
+    // 库版本（BCD: 0x011900 = 1.19.0, 与 HOLOGLIB_API_VERSION 同值）
     virtual uint32_t version() = 0;
 
     // ── 1.6.0 追加（冻结契约: 只在尾部追加）──

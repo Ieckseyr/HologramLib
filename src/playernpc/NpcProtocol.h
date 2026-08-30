@@ -114,6 +114,7 @@ inline bool spawnPlayerList(
 }
 
 // 假玩家生成第二步: AddPlayer 实体化（时序上必须在 PlayerList Add 之后）
+// scale: 模型缩放（1.19.0; Reserved38=SCALE 元数据, 53/54 碰撞箱随玩家默认 0.6x1.8 等比）
 inline bool spawnPlayerBody(
     Player&            player,
     std::int64_t       id,
@@ -121,8 +122,10 @@ inline bool spawnPlayerBody(
     std::uint64_t      uniqueId,
     Vec3 const&        position,
     float              yaw,
-    std::string const& name
+    std::string const& name,
+    float              scale = 1.0f
 ) {
+    float const s = std::clamp(scale, 0.0625f, 10.0f); // 客户端硬限, 与实体 scale 同域
     sculk::protocol::AddPlayerPacket packet;
     packet.mUuid               = npcUuid(id);
     packet.mName               = name;
@@ -136,6 +139,9 @@ inline bool spawnPlayerBody(
         {sculk::protocol::ActorDataIDs::Reserved0, std::int64_t{0}},
         {sculk::protocol::ActorDataIDs::Name, name},
         {sculk::protocol::ActorDataIDs::NametagAlwaysShow, std::int32_t{1}},
+        {sculk::protocol::ActorDataIDs::Reserved38, s},
+        {sculk::protocol::ActorDataIDs::Reserved53, 0.6f * s},
+        {sculk::protocol::ActorDataIDs::Reserved54, 1.8f * s},
     };
     packet.mAbilities.mPlayerRawId = static_cast<std::int64_t>(uniqueId);
     packet.mAbilities.mPlayerPermission = 1; // Member

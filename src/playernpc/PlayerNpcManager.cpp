@@ -1,9 +1,4 @@
 // PlayerNpcManager.cpp - 假玩家 NPC 管理器实现
-//
-// 架构对齐 ItemDisplayManager（自增/随机/指定 ID 三段隔离 + 脏刷新合并 respawn +
-// 白名单过滤 + 事件驱动 spawn/despawn + tick hook 主线程统一发包）,
-// 协议时序移植自 SCustomNpc: PlayerList(Add)→AddPlayer→[20t]PlayerList(Remove)
-#include "PlayerNpcManager.h"
 
 #include <ll/api/event/EventBus.h>
 #include <ll/api/event/player/PlayerDisconnectEvent.h>
@@ -298,6 +293,16 @@ bool PlayerNpcManager::setViewDistance(int64_t id, double dist) {
     return true;
 }
 
+bool PlayerNpcManager::setScale(int64_t id, float scale) {
+    if (scale < 0.0625f || scale > 10.0f) return false;
+    std::lock_guard lock(mMutex);
+    auto it = mConfigs.find(id);
+    if (it == mConfigs.end()) return false;
+    it->second.scale = scale;
+    mDirtyIds.insert(id);
+    return true;
+}
+
 bool PlayerNpcManager::setEnabled(int64_t id, bool enabled) {
     std::lock_guard lock(mMutex);
     auto it = mConfigs.find(id);
@@ -406,7 +411,7 @@ void PlayerNpcManager::refreshLocked(int64_t id) {
         if (!NpcSkinRegistry::getInstance().getSkin(cfg.skinId, skin)) continue;
         Vec3 pos{cfg.x, cfg.y, cfg.z};
         if (npc_protocol::spawnPlayerList(*player, id, rt.uniqueId, cfg.name, skin)
-            && npc_protocol::spawnPlayerBody(*player, id, rt.runtimeId, rt.uniqueId, pos, cfg.yaw, cfg.name)) {
+            && npc_protocol::spawnPlayerBody(*player, id, rt.runtimeId, rt.uniqueId, pos, cfg.yaw, cfg.name, cfg.scale)) {
             rt.shownPlayers.insert(player->getUuid());
             mTabRemovals[id].push_back({player->getUuid(), currentTick() + 20});
         }
@@ -452,7 +457,16 @@ void PlayerNpcManager::syncVisibilityLocked() {
                 if (!NpcSkinRegistry::getInstance().getSkin(data.skinId, skin)) continue;
                 Vec3 pos{data.x, data.y, data.z};
                 if (npc_protocol::spawnPlayerList(player, id, rt.uniqueId, data.name, skin)
-                    && npc_protocol::spawnPlayerBody(player, id, rt.runtimeId, rt.uniqueId, pos, data.yaw, data.name)) {
+                    && npc_protocol::spawnPlayerBody(
+                        player,
+                        id,
+                        rt.runtimeId,
+                        rt.uniqueId,
+                        pos,
+                        data.yaw,
+                        data.name,
+                        data.scale
+                    )) {
                     rt.shownPlayers.insert(uuid);
                     mTabRemovals[id].push_back({uuid, currentTick() + 20});
                 }
@@ -524,5 +538,11 @@ LL_TYPE_INSTANCE_HOOK(PlayerNpcTickHook, HookPriority::Normal, Level, &Level::$t
         PlayerNpcTickHookAccess::sync(PlayerNpcManager::getInstance());
     }
 }
+
+// ── BUGFIX: 缺失的 hook 注册器 ──
+// 该 hook 此前从未注册（对比 CustomEntity/ItemDisplay/ParticleShape 均有 Registrar）,
+// 导致: 视距动态裁剪/周期可见性同步/脏刷新(setViewDistance/setSkin 等)/Tab 移除队列
+// 全部只在玩家进服或 NPC 创建时执行一次 —— 表现为"视距不生效"。
+static ll::memory::HookRegistrar<PlayerNpcTickHook> gPlayerNpcTickHookRegistrar;
 
 } // namespace debugshape_export

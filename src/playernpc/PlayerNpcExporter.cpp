@@ -78,6 +78,9 @@ public:
     bool setViewDistance(int64_t id, double dist) override {
         return PlayerNpcManager::getInstance().setViewDistance(id, dist);
     }
+    bool setScale(int64_t id, float scale) override {
+        return PlayerNpcManager::getInstance().setScale(id, scale);
+    }
     bool setEnabled(int64_t id, bool enabled) override {
         return PlayerNpcManager::getInstance().setEnabled(id, enabled);
     }
@@ -239,6 +242,10 @@ void PlayerNpcExporter::exportAll() {
         NAMESPACE,
         "playerNpcSetViewDistance",
         [&mgr](int64_t id, double dist) -> bool { return mgr.setViewDistance(id, dist); });
+
+    // playerNpcSetScale(id, scale) -> bool（0.0625~10 客户端硬限）
+    hologramlib::lse::exportAs(
+        NAMESPACE, "playerNpcSetScale", [&mgr](int64_t id, float scale) -> bool { return mgr.setScale(id, scale); });
 
     // playerNpcSetEnabled(id, enabled) -> bool
     hologramlib::lse::exportAs(

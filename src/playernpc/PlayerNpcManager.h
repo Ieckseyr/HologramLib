@@ -65,6 +65,7 @@ public:
     bool setNametag(int64_t id, std::string const& text);
     bool setSkin(int64_t id, std::string const& skinId); // 未注册返回 false
     bool setViewDistance(int64_t id, double dist);
+    bool setScale(int64_t id, float scale); // <0.0625 或 >10 返回 false
     bool setEnabled(int64_t id, bool enabled);
 
     // 可见玩家白名单（Player::getRealName 即 LSE realName 匹配; 空列表 = 全员可见）
