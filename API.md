@@ -374,7 +374,7 @@ LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib
 | `entity*` | 自定义实体 | ICustomEntity | 33 |
 | `ghost*` | 交互事件轮询 | IHologramLib | 2 |
 | `particle*` | 通用粒子形状系统 | ParticleShapeManager | 22 |
-| `playerNpc*` | 假玩家 NPC（含皮肤注册/采集/目录导入） | IPlayerNpc | 24 |
+| `playerNpc*` | 假玩家 NPC（含皮肤注册/采集/目录导入） | IPlayerNpc | 25 |
 
 缺席时安全降级（`ll.import` 得 null）。
 
@@ -678,7 +678,7 @@ follow(halo, player.uuid, 0, 0.3, 0); // 锚点 = 玩家位置 + 偏移, 每 tic
 rot(box, 45, 0, 0);
 ```
 
-### 2.9 playerNpc*（假玩家 NPC，24 函数）
+### 2.9 playerNpc*（假玩家 NPC，25 函数）
 
 > **注意：NPC 皮肤暂无效（未解决）**。下列函数全部可正常调用（注册/采集/导入/换肤/导出都返回正常结果），NPC 也能正常创建、移动、朝向、缩放、视距与显隐控制；但客户端不会渲染所设置的皮肤，外观回退为默认模型。
 
