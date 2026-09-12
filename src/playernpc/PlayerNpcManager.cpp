@@ -1,5 +1,7 @@
 // PlayerNpcManager.cpp - 假玩家 NPC 管理器实现
 
+#include "EventIdCompat.h"
+
 #include <ll/api/event/EventBus.h>
 #include <ll/api/event/player/PlayerDisconnectEvent.h>
 #include <ll/api/event/player/PlayerJoinEvent.h>
@@ -38,6 +40,29 @@ Player* findPlayerByUuid(mce::UUID const& uuid) {
     return level->getPlayer(uuid);
 }
 
+// realName → 在线玩家（与可见白名单同一匹配口径; 未找到返回 nullptr）
+Player* findPlayerByName(std::string const& realName) {
+    if (realName.empty()) return nullptr;
+    auto level = ll::service::getLevel();
+    if (!level) return nullptr;
+    Player* found = nullptr;
+    level->forEachPlayer([&](Player& p) {
+        if (found) return true;
+        if (p.getRealName() == realName) {
+            found = &p;
+            return false;
+        }
+        return true;
+    });
+    return found;
+}
+
+// 取该玩家应看到的朝向: 有 per-player 覆盖用覆盖值, 否则用 config 值
+float effectiveYaw(PlayerNpcManager::Runtime const& rt, mce::UUID const& uuid, PlayerNpcConfig const& cfg) {
+    auto it = rt.playerRot.find(uuid);
+    return it == rt.playerRot.end() ? cfg.yaw : it->second.yaw;
+}
+
 } // namespace
 
 PlayerNpcManager& PlayerNpcManager::getInstance() {
@@ -65,7 +90,10 @@ void PlayerNpcManager::init() {
             std::lock_guard lock(mMutex);
             auto const& uuid = ev.self().getUuid();
             mInitializedPlayers.erase(uuid);
-            for (auto& [id, rt] : mRuntimes) rt.shownPlayers.erase(uuid);
+            for (auto& [id, rt] : mRuntimes) {
+                rt.shownPlayers.erase(uuid);
+                rt.playerRot.erase(uuid); // 逐客户端朝向覆盖随玩家离线清理
+            }
             for (auto& [id, removals] : mTabRemovals) {
                 std::erase_if(removals, [&uuid](TabRemoval const& r) { return r.playerUuid == uuid; });
             }
@@ -87,6 +115,7 @@ void PlayerNpcManager::shutdown() {
         mConfigs.clear();
         mRuntimes.clear();
         mDirtyIds.clear();
+        mLightDirtyIds.clear();
         mTabRemovals.clear();
         mVisibleFilter.clear();
         mInitializedPlayers.clear();
@@ -185,7 +214,11 @@ int64_t PlayerNpcManager::createLocked(PlayerNpcConfig const& config, int64_t id
     mConfigs.emplace(id, config);
     mRuntimes.emplace(id, std::move(rt));
 
-    syncVisibilityLocked();
+    // 不在这里立刻发包，而是标脏等 tick 末尾统一处理：
+    // 消费方常常在同一 tick 里创建又销毁（例如先建再改），立刻发包会让客户端
+    // 在几毫秒内收到多个"新玩家"，直接报错断线。合并后只会发出最终留下的那个。
+    // 代价是可见性最多晚一个 tick（50ms）。
+    mDirtyIds.insert(id);
     return id;
 }
 
@@ -267,10 +300,72 @@ bool PlayerNpcManager::setRotation(int64_t id, float yaw) {
     return true;
 }
 
+// ── 1.20.0: 轻量朝向 / 逐客户端朝向 ──
+
+bool PlayerNpcManager::setRotationLight(int64_t id, float yaw) {
+    std::lock_guard lock(mMutex);
+    auto it = mConfigs.find(id);
+    if (it == mConfigs.end()) return false;
+    it->second.yaw = yaw;
+    mLightDirtyIds.insert(id); // 只发 MoveActorAbsolute, 不重建实体
+    return true;
+}
+
+bool PlayerNpcManager::setPlayerRotation(int64_t id, std::string const& playerName, float yaw) {
+    std::lock_guard lock(mMutex);
+    if (!mConfigs.contains(id) || !mRuntimes.contains(id)) return false;
+    auto* player = findPlayerByName(playerName);
+    if (player == nullptr) return false;
+    auto& rt = mRuntimes[id];
+    if (!rt.shownPlayers.contains(player->getUuid())) return false; // 该玩家还没见过这个 NPC
+    rt.playerRot[player->getUuid()] = hologramlib::PerPlayerRotation{yaw, 0.0f};
+    mLightDirtyIds.insert(id);
+    return true;
+}
+
+bool PlayerNpcManager::clearPlayerRotation(int64_t id, std::string const& playerName) {
+    std::lock_guard lock(mMutex);
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    auto* player = findPlayerByName(playerName);
+    if (player == nullptr) return false;
+    if (rit->second.playerRot.erase(player->getUuid()) == 0) return false;
+    mLightDirtyIds.insert(id);
+    return true;
+}
+
+bool PlayerNpcManager::clearPlayerRotations(int64_t id) {
+    std::lock_guard lock(mMutex);
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    if (rit->second.playerRot.empty()) return true;
+    rit->second.playerRot.clear();
+    mLightDirtyIds.insert(id);
+    return true;
+}
+
+// 轻脏刷新: 只发朝向增量（MoveActorAbsolute; 逐玩家用各自覆盖朝向）, 不重建实体/不重发皮肤
+void PlayerNpcManager::refreshLightLocked(int64_t id) {
+    auto it  = mConfigs.find(id);
+    auto rit = mRuntimes.find(id);
+    if (it == mConfigs.end() || rit == mRuntimes.end()) return;
+    auto const& cfg = it->second;
+    auto&       rt  = rit->second;
+    if (!cfg.enabled || rt.shownPlayers.empty()) return;
+
+    Vec3 const pos{cfg.x, cfg.y, cfg.z};
+    for (auto const& uuid : rt.shownPlayers) {
+        auto* player = findPlayerByUuid(uuid);
+        if (player == nullptr) continue;
+        npc_protocol::move(*player, rt.runtimeId, pos, effectiveYaw(rt, uuid, cfg));
+    }
+}
+
 bool PlayerNpcManager::setNametag(int64_t id, std::string const& text) {
     std::lock_guard lock(mMutex);
     auto it = mConfigs.find(id);
     if (it == mConfigs.end()) return false;
+    if (it->second.name == text) return true; // PAPI 每秒重译相同文本: 不标脏, 避免无谓重建
     it->second.name = text;
     mDirtyIds.insert(id);
     return true;
@@ -391,34 +486,40 @@ void PlayerNpcManager::refreshLocked(int64_t id) {
     auto& cfg = it->second;
     auto& rt  = rit->second;
 
-    // despawn 全部已显示玩家 → 换新实体 ID → respawn（防客户端 ID 重映射串台, 与 ItemDisplay 一致）
-    std::vector<Player*> toSpawn;
-    bool                 replaced = false;
+    // 刷新属性时不要发 PlayerList Remove 再重新 Add：短时间内对同一份皮肤做
+    // Remove→Add，客户端会在皮肤还没落地时丢弃条目，导致断线。
+    // 改为原地更新：先 RemoveActor 清掉旧实体，再用同 UUID 同皮肤覆盖 PlayerList，
+    // 最后用新的 runtimeId 重新 AddPlayer。
+    std::vector<Player*> toRefresh;
     for (auto const& uuid : rt.shownPlayers) {
-        auto* player = findPlayerByUuid(uuid);
-        if (player == nullptr) continue;
-        npc_protocol::remove(*player, id, rt.uniqueId);
-        replaced = true;
-        if (cfg.enabled) toSpawn.push_back(player);
+        if (auto* player = findPlayerByUuid(uuid)) toRefresh.push_back(player);
+    }
+    if (toRefresh.empty()) return;
+
+    rt.runtimeId = mNextRuntimeId++;
+
+    for (auto* player : toRefresh) {
+        sculk::protocol::RemoveActorPacket rm;
+        rm.mActorUniqueId = static_cast<std::int64_t>(rt.uniqueId);
+        npc_protocol::sendToPlayer(*player, rm, NetworkPeer::Reliability::Reliable);
     }
     rt.shownPlayers.clear();
 
-    if (replaced) {
-        rt.uniqueId  = mNextActorUniqueId++;
-        rt.runtimeId = mNextRuntimeId++;
-    }
-
-    // BUGFIX: 丢弃旧 spawn 排定的 Tab 移除条目, 否则其到点会把本次重发的
-    // PlayerList 皮肤条目删掉 → 客户端丢皮肤 → 重生体变回默认史蒂夫
-    // （连续两次 refresh 间隔 < 20 tick 时必现: 缩放/换肤等脏刷新）
-    mTabRemovals.erase(id);
-
-    for (auto* player : toSpawn) {
+    for (auto* player : toRefresh) {
         sculk::protocol::SerializedSkin skin;
         if (!NpcSkinRegistry::getInstance().getSkin(cfg.skinId, skin)) continue;
         Vec3 pos{cfg.x, cfg.y, cfg.z};
         if (npc_protocol::spawnPlayerList(*player, id, rt.uniqueId, cfg.name, skin)
-            && npc_protocol::spawnPlayerBody(*player, id, rt.runtimeId, rt.uniqueId, pos, cfg.yaw, cfg.name, cfg.scale)) {
+            && npc_protocol::spawnPlayerBody(
+                *player,
+                id,
+                rt.runtimeId,
+                rt.uniqueId,
+                pos,
+                effectiveYaw(rt, player->getUuid(), cfg), // 逐客户端朝向覆盖
+                cfg.name,
+                cfg.scale
+            )) {
             rt.shownPlayers.insert(player->getUuid());
             mTabRemovals[id].push_back({player->getUuid(), currentTick() + 20});
         }
@@ -429,7 +530,10 @@ void PlayerNpcManager::syncVisibilityLocked() {
     auto level = ll::service::getLevel();
     if (!level) return;
 
-    level->forEachPlayer([this](Player& player) {
+    // 每 tick 最多生成 2 个：多个 NPC 同时生成会让客户端一次收到数 MB 数据而断开
+    int spawnedThisTick = 0;
+
+    level->forEachPlayer([this, &spawnedThisTick](Player& player) {
         auto const uuid = player.getUuid();
         if (!mInitializedPlayers.contains(uuid)) return true;
 
@@ -460,9 +564,22 @@ void PlayerNpcManager::syncVisibilityLocked() {
                 data.enabled && allowedByFilter && dimId == DimensionType(data.dimension) && inView;
 
             if (visible && !rt.shownPlayers.contains(uuid)) {
+                if (spawnedThisTick >= 2) return true; // 本 tick 名额已用完, 下个 tick 继续
                 sculk::protocol::SerializedSkin skin;
-                if (!NpcSkinRegistry::getInstance().getSkin(data.skinId, skin)) continue;
+                if (!NpcSkinRegistry::getInstance().getSkin(data.skinId, skin)) {
+                    // 皮肤缺失会导致 NPC 永远不生成且无任何提示, 首次命中打 warn
+                    if (!mWarnedMissingSkins.contains(data.skinId)) {
+                        mWarnedMissingSkins.insert(data.skinId);
+                        logger().warn(
+                            "[PlayerNpc] npc #{} 的皮肤 '{}' 未注册, 跳过生成 (请 registerSkin/采集后再试)",
+                            id,
+                            data.skinId
+                        );
+                    }
+                    continue;
+                }
                 Vec3 pos{data.x, data.y, data.z};
+                        // 旧版顺序：PlayerList → AddPlayer
                 if (npc_protocol::spawnPlayerList(player, id, rt.uniqueId, data.name, skin)
                     && npc_protocol::spawnPlayerBody(
                         player,
@@ -470,11 +587,12 @@ void PlayerNpcManager::syncVisibilityLocked() {
                         rt.runtimeId,
                         rt.uniqueId,
                         pos,
-                        data.yaw,
+                        effectiveYaw(rt, uuid, data), // 逐客户端朝向覆盖
                         data.name,
                         data.scale
                     )) {
                     rt.shownPlayers.insert(uuid);
+                    ++spawnedThisTick;
                     mTabRemovals[id].push_back({uuid, currentTick() + 20});
                 }
             } else if (!visible && rt.shownPlayers.contains(uuid) && outOfHysteresis) {
@@ -505,6 +623,17 @@ struct PlayerNpcTickHookAccess {
         std::lock_guard lock(mgr.mMutex);
         mgr.processDirtyLocked();
     }
+    // 轻脏: 只发朝向增量包（逐客户端朝向 / 跟踪式改朝向; 不重建实体）
+    static void processLightDirty(PlayerNpcManager& mgr) {
+        std::lock_guard lock(mgr.mMutex);
+        if (mgr.mLightDirtyIds.empty()) return;
+        auto light = std::move(mgr.mLightDirtyIds);
+        mgr.mLightDirtyIds.clear();
+        for (auto id : light) {
+            if (!mgr.mConfigs.contains(id)) continue;
+            mgr.refreshLightLocked(id);
+        }
+    }
     static void sync(PlayerNpcManager& mgr) {
         std::lock_guard lock(mgr.mMutex);
         mgr.syncVisibilityLocked();
@@ -516,13 +645,8 @@ struct PlayerNpcTickHookAccess {
             auto& removals = it->second;
             std::erase_if(removals, [&](PlayerNpcManager::TabRemoval const& r) {
                 if (r.dueTick > now) return false;
-                // 假玩家仍对该玩家可见: 移除 Tab 条目（皮肤已缓存, 实体持续渲染）
-                auto rit = mgr.mRuntimes.find(it->first);
-                if (rit != mgr.mRuntimes.end() && rit->second.shownPlayers.contains(r.playerUuid)) {
-                    if (auto* player = findPlayerByUuid(r.playerUuid)) {
-                        npc_protocol::removePlayerList(*player, it->first);
-                    }
-                }
+                // 不再按计划移除 Tab 条目：条目刚加入就移除会让客户端异常断线。
+                // 假人就常驻在 Tab 列表里（多一个名字而已），实体销毁时自然一起移除。
                 return true;
             });
             if (removals.empty()) it = mgr.mTabRemovals.erase(it);
@@ -536,6 +660,7 @@ LL_TYPE_INSTANCE_HOOK(PlayerNpcTickHook, HookPriority::Normal, Level, &Level::$t
     origin();
 
     PlayerNpcTickHookAccess::processDirty(PlayerNpcManager::getInstance());
+    PlayerNpcTickHookAccess::processLightDirty(PlayerNpcManager::getInstance());
     PlayerNpcTickHookAccess::processTabRemovals(PlayerNpcManager::getInstance());
 
     static std::uint64_t lastSyncTick = 0;

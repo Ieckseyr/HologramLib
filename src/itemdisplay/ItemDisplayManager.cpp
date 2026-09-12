@@ -4,6 +4,8 @@
 // 主键改为 int64 id，去除持久化与命令层（由消费者负责）。
 #include "ItemDisplayManager.h"
 
+#include "../EventIdCompat.h"
+
 #include <random>
 
 #include <ll/api/event/EventBus.h>
@@ -40,7 +42,7 @@
 #include <sculk/protocol/codec/packet/MoveActorAbsolutePacket.hpp>
 #include <sculk/protocol/codec/packet/RemoveActorPacket.hpp>
 #include <sculk/protocol/codec/packet/SetActorDataPacket.hpp>
-#include <sculk/protocol/codec/utility/deps/BinaryStream.hpp>
+#include <sculk/protocol/utility/BinaryStream.hpp>
 
 #include <algorithm>
 #include <charconv>
@@ -212,7 +214,11 @@ std::optional<::ItemStack> buildItemStack(std::string const& rawName, int aux, s
     auto tryGet = [&](std::string const& name) -> std::optional<::ItemStack> {
         auto weak = level->getItemRegistry().getItem(::HashedString(name));
         if (!weak) return std::nullopt;
-        return ::ItemStack(*weak, 1, aux, tag.get());
+        // 26.32: ItemStack 无 4 参构造, 默认构造 + reinit + setUserData
+        ::ItemStack stack{};
+        stack.reinit(*weak, 1, aux);
+        if (tag) stack.setUserData(std::make_unique<::CompoundTag>(*tag));
+        return stack;
     };
     std::optional<::ItemStack> stack;
     if (stack = tryGet(rawName)) { // 原名（含自定义命名空间）
@@ -221,14 +227,17 @@ std::optional<::ItemStack> buildItemStack(std::string const& rawName, int aux, s
     }
     if (!stack) return std::nullopt;
 
-    // 自写光效验证: isEnchanted=false 说明结构/类型仍有偏差 →
-    // 原生路径兜底保证光效必现, 并 dump 原生格式作为 ground truth 供下轮修正
+    // 自写光效未生效（isEnchanted 仍为 false）时走原生路径兜底，保证光效必现;
+    // 同时打印原生 NBT，便于对照自写结构的偏差。
     if (glint && !stack->isEnchanted()) {
         auto                  ench = stack->constructItemEnchantsFromUserData();
         ::EnchantmentInstance inst{};
         inst.mEnchantType = ::Enchant::Type::Sharpness;
         inst.mLevel       = 1;
-        ench.addEnchant(inst, true);
+        // 26.32: ItemEnchants::addEnchant 已移除, 直接写入通用槽(slot -1 → 数组索引 0)
+        auto instances = ench.getEnchantInstances();
+        instances[0].push_back(inst);
+        ench.setEnchantInstances(std::move(instances));
         stack->saveEnchantsToUserData(ench);
         logger().warn(
             "[ItemDisplay] 光效自写未生效(isEnchanted=false), 已走原生兜底。自写: [{}] 原生格式: [{}]",
@@ -344,7 +353,7 @@ void sendHitboxPacket(Player& player, std::uint64_t runtimeId, float width, floa
 void sendFollowMove(Player& player, std::uint64_t runtimeId, float x, float y, float z) {
     sculk::protocol::MoveActorAbsolutePacket pkt;
     pkt.mActorRuntimeId = runtimeId;
-    pkt.mHeader         = 0x00; // 无 teleport: 客户端按原版移动插值（平滑跟随的关键）
+    pkt.mFlags          = {};    // 无 teleport: 客户端按原版移动插值（平滑跟随的关键）
     pkt.mPosition       = {x, y, z};
     pkt.mRotationX      = 0;
     pkt.mRotationY      = 0;
@@ -498,16 +507,21 @@ void scheduleAnims(int64_t id, ItemDisplayConfig const& data, Runtime const& rt,
         animQueue().emplace(at, AnimEntry{uuid, rt.runtimeId, std::move(anim), std::move(ctrl), std::move(stop)});
     };
 
-    if (block) {
-        push(base + 2, "animation.player.sleeping", "controller.animation.fox.move" + tag, buildBlockMatrixExpr(data));
-        push(base + 3, "animation.creeper.swelling", "wiki.fmbe.3d_blocks.anim1" + tag, std::string{kBlockSwellingExpr});
-        push(base + 4, "animation.ender_dragon.neck_head_movement", "wiki.fmbe.3d_blocks.anim2" + tag, std::string{kBlockHeadPosExpr});
-        push(base + 5, "animation.warden.move", "wiki.fmbe.3d_blocks.anim3" + tag, std::string{kBlockBodyRotExpr});
-        push(base + 6, "animation.player.attack.rotations", "wiki.fmbe.3d_blocks.anim4" + tag, std::string{kBlockAttackRotExpr});
-    } else {
-        push(base + 2, "animation.player.sleeping", "controller.animation.fox.move" + tag, "");
-        push(base + 3, "animation.creeper.swelling", "wiki.scale" + tag, buildItemScaleExpr(data));
-        push(base + 4, "animation.ender_dragon.neck_head_movement", "wiki.posrot" + tag, std::string{kItemPosRotExpr});
+    // 三轮投递（spawn 后即刻 + 2s + 5s 重投）: 玩家上线首 tick 实体即 spawn,
+    // 但客户端多在加载屏, 一次性 AnimateEntityPacket 会被丢弃 → 方块停留最小状态。
+    // AnimateEntityPacket 幂等（controller 同名覆盖）, 重投无副作用; flush 前有活性验证兜底。
+    for (auto const pass : {std::uint64_t{0}, std::uint64_t{38}, std::uint64_t{98}}) {
+        if (block) {
+            push(base + pass + 2, "animation.player.sleeping", "controller.animation.fox.move" + tag, buildBlockMatrixExpr(data));
+            push(base + pass + 3, "animation.creeper.swelling", "wiki.fmbe.3d_blocks.anim1" + tag, std::string{kBlockSwellingExpr});
+            push(base + pass + 4, "animation.ender_dragon.neck_head_movement", "wiki.fmbe.3d_blocks.anim2" + tag, std::string{kBlockHeadPosExpr});
+            push(base + pass + 5, "animation.warden.move", "wiki.fmbe.3d_blocks.anim3" + tag, std::string{kBlockBodyRotExpr});
+            push(base + pass + 6, "animation.player.attack.rotations", "wiki.fmbe.3d_blocks.anim4" + tag, std::string{kBlockAttackRotExpr});
+        } else {
+            push(base + pass + 2, "animation.player.sleeping", "controller.animation.fox.move" + tag, "");
+            push(base + pass + 3, "animation.creeper.swelling", "wiki.scale" + tag, buildItemScaleExpr(data));
+            push(base + pass + 4, "animation.ender_dragon.neck_head_movement", "wiki.posrot" + tag, std::string{kItemPosRotExpr});
+        }
     }
 }
 
@@ -1206,7 +1220,7 @@ void ItemDisplayManager::followTickLocked() {
 
         if (!fs.synced || target->getDimensionId() != DimensionType(cfg.dimension)) {
             // 首帧或跨维度: 更新配置 + 标脏走 respawn（新维度观察者可见; 移动包跨维度无意义）
-            cfg.dimension = target->getDimensionId().id;
+            cfg.dimension = ((int)target->getDimensionId());
             cfg.x         = nx;
             cfg.y         = ny;
             cfg.z         = nz;

@@ -1,4 +1,4 @@
-// NpcSkinRegistry.h - 假玩家 NPC 皮肤注册表（纯内存, 库不落盘; 持久化由消费方经 blob API 自理）
+// NpcSkinRegistry.h - 假玩家皮肤注册表（纯内存；持久化由消费方用 blob API 自理）
 #pragma once
 
 #include <cstdint>
@@ -19,29 +19,29 @@ class NpcSkinRegistry {
 public:
     static NpcSkinRegistry& getInstance();
 
-    // GDI+ 生命周期（ModEntry enable/disable 调用; 重复调用安全）
+    // GDI+ 生命周期（ModEntry enable/disable 调用，可重复调用）
     void init();
     void shutdown();
 
-    // PNG 注册（geometryData 非空时启用自定义模型; 重复 skinId 覆盖）
+    // 用 PNG 注册皮肤；geometryData 非空则启用自定义模型。重复 skinId 覆盖。
     bool registerSkinFromPng(hologramlib::PlayerNpcSkin const& skin, std::string& error);
 
-    // 目录批量导入: 一个子文件夹 = 一套皮肤（PNG 必需 + .json 几何可选）
-    // skinId = 子文件夹名; 返回导入数量, 目录无效返回 -1
+    // 批量导入目录：一个子文件夹 = 一套皮肤（PNG 必需，.json 几何可选）。
+    // skinId 取子文件夹名。返回导入数量，目录无效返回 -1。
     int importSkinsFromDir(std::string const& dirPath, std::string& error);
 
-    // 从在线玩家采集（玩家不在线返回 false）
+    // 采集在线玩家的皮肤（玩家不在线返回 false）
     bool captureSkin(std::string const& skinId, std::string const& playerName);
 
-    // blob 导出/注册（消费方持久化配对用）
+    // blob 导出 / 注册（与消费方的持久化配对使用）
     bool getSkinBlob(std::string const& skinId, std::string& out) const;
     bool registerSkinFromBlob(std::string const& blob, std::string& error);
 
     bool hasSkin(std::string const& skinId) const;
-    bool unregisterSkin(std::string const& skinId); // 皮肤不存在返回 false（其余一律成功）
+    bool unregisterSkin(std::string const& skinId); // 皮肤不存在返回 false，其余一律成功
     std::vector<std::string> getSkinIds() const;
 
-    // NPC 发包用: 拷贝输出皮肤（未注册返回 false）
+    // 发包用：拷贝一份皮肤（未注册返回 false）
     bool getSkin(std::string const& skinId, sculk::protocol::SerializedSkin& out) const;
 
 private:

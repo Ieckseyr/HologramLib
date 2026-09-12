@@ -5,16 +5,16 @@
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/level/Level.h>
 
-#include "sculk/protocol/codec/utility/deps/BinaryStream.hpp"
+#include "sculk/protocol/utility/BinaryStream.hpp"
 
 namespace debugshape_export {
 
 //   VarUInt(header) + VarUInt(shapeCount) + [shape...]
 std::string ProtocolPacketWriter::buildDebugDrawerPacket(std::vector<DebugShape> const& shapes) {
-    using sculk::protocol::abi_v944::DebugDrawerPacket;
-    using sculk::protocol::abi_v944::BinaryStream;
+    using sculk::protocol::PrimitiveShapesPacket;
+    using sculk::protocol::BinaryStream;
 
-    DebugDrawerPacket packet;
+    PrimitiveShapesPacket packet;
     packet.mShapes = shapes;
 
     std::vector<std::byte> buffer;
@@ -83,7 +83,7 @@ bool ProtocolPacketWriter::sendToDimension(int dimId, std::vector<DebugShape> co
     if (!networkSystem.has_value()) return false;
 
     level->forEachPlayer([&](::Player& player) -> bool {
-        if (player.getDimensionId().id != dimId) return true;
+        if (((int)player.getDimensionId()) != dimId) return true;
         auto& nid = player.getNetworkIdentifier();
         auto* peer = networkSystem->getPeerForUser(nid);
         if (peer) {

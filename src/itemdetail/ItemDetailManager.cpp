@@ -26,7 +26,9 @@ std::string ItemDetailManager::resolveItemName(const std::string& itemId, int au
     if (level) {
         auto weak = level->getItemRegistry().getItem(::HashedString(itemId));
         if (weak) {
-            ::ItemStack stack(*weak, 1, aux, nullptr);
+            // 26.32: ItemStack 无 4 参构造, 改用默认构造 + reinit
+            ::ItemStack stack{};
+            stack.reinit(*weak, 1, aux);
             auto        key = stack.getDescriptionId();
             if (!key.empty()) {
                 auto& i18n       = getI18n();

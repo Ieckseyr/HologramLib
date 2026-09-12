@@ -1,7 +1,9 @@
-// PacketDebugRenderer.cpp - 基于 Protocol v944 的形状渲染器实现
+﻿// PacketDebugRenderer.cpp - 基于 BedrockProtocol v2168 的形状渲染器实现
 //
-// 直接持有 v944 DebugShape，通过 DebugDrawerPacket + NetworkPeer::sendPacket 发送。
+// 直接持有 v2168 PrimitiveShapes，通过 PrimitiveShapesPacket + NetworkPeer::sendPacket 发送。
 #include "PacketDebugRenderer.h"
+
+#include "EventIdCompat.h"
 
 #include <ll/api/event/EventBus.h>
 #include <ll/api/event/player/PlayerJoinEvent.h>
@@ -501,7 +503,7 @@ void PacketDebugRenderer::resendVisibleToPlayer(::Player& player, bool log) {
     auto const playerName = player.mName.get();
     {
         std::lock_guard<std::mutex> lock(mMutex);
-        auto const playerDim = player.getDimensionId().id;
+        auto const playerDim = ((int)player.getDimensionId());
         toSend.reserve(mShapes.size());
         for (auto const& [id, shape] : mShapes) {
             if (!shape->visible) continue;

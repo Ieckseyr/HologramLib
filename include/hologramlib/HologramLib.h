@@ -18,9 +18,9 @@
 #include <string>
 #include <vector>
 
-// 库 API 版本（与 IHologramLib::version() 同值, BCD: 0x011900 = 1.19.0）
+// 库 API 版本（与 IHologramLib::version() 同值, BCD: 0x011A00 = 1.20.0）
 // 消费方可用于编译期静态断言最低版本要求
-#define HOLOGLIB_API_VERSION 0x011900
+#define HOLOGLIB_API_VERSION 0x011A00
 
 #ifdef HOLOGLIB_EXPORTS
 #define HOLOGLIB_API __declspec(dllexport)
@@ -29,6 +29,13 @@
 #endif
 
 namespace hologramlib {
+
+// 单玩家朝向（度; 逐客户端朝向功能用）
+// Bedrock yaw 约定: 0°=南(+Z) 90°=西(-X) 180°=北(-Z) 270°=东(+X); 前向 = (-sin yaw, cos yaw)
+struct PerPlayerRotation {
+    float yaw{0};
+    float pitch{0};
+};
 
 // 形状类型（与 LSE 导出的 DebugShape::getShapeType 数值一致）
 enum class ShapeType : int {
@@ -361,9 +368,29 @@ public:
     virtual bool clearRide(int64_t id) = 0;
     // 播放原版动画（AnimateEntityPacket; controller 名库内按实体 id 自动唯一化）
     // stopExpression 空串 = 常驻; durationTicks>0 时到期自动停止; id 不存在返回 false
+    // 注意: 一次性发包, 不持久化 —— 无观察者时返回 false; 新观察者的补发由消费方经 spawn 回调自行处理
     virtual bool playAnimation(
         int64_t id, std::string const& animation, std::string const& stopExpression, int durationTicks
     ) = 0;
+    // 对指定玩家单发该实体的动画包（spawn 回调里补发用; 玩家未在线/未见过该实体返回 false）
+    virtual bool playAnimationTo(
+        int64_t id, std::string const& playerName,
+        std::string const& animation, std::string const& stopExpression, int durationTicks
+    ) = 0;
+    // ── 1.19.0: 实体 spawn 时机通知（纯通知, 无库内状态; 补发决策与数据归消费方）──
+    // 实体对某玩家 spawn/respawn 完成后回调; 消费方可在此用 playAnimationTo 补发自己的持久数据
+    using EntitySpawnCallback = std::function<void(int64_t id, std::string const& playerName)>;
+    virtual void setEntitySpawnCallback(EntitySpawnCallback callback) = 0; // 传 nullptr 清除
+
+    // ── 1.20.0 追加: 逐客户端朝向（每个观察者看到不同朝向; "看向自己"玩法）──
+    // 覆盖指定玩家收到的该实体 yaw/pitch（AddActor 出生包与后续增量包都按覆盖值下发）;
+    // 未覆盖的玩家仍用 config 朝向; 玩家离线/未见过该实体返回 false。
+    // 变更走轻脏增量（不发 RemoveActor, 无闪烁）, 需在下一 tick 生效。
+    virtual bool setPlayerRotation(int64_t id, std::string const& playerName, float yaw, float pitch) = 0;
+    // 清除单个玩家的朝向覆盖（回到 config 朝向）
+    virtual bool clearPlayerRotation(int64_t id, std::string const& playerName) = 0;
+    // 清除该实体全部玩家的朝向覆盖（关闭逐客户端朝向时调用）
+    virtual bool clearPlayerRotations(int64_t id) = 0;
 };
 // ─────────────────────────────────────────────
 // 通用协议层粒子形状系统（1.14.0 追加; 1.15.0 发送通道升级 + moveTo）
@@ -551,6 +578,18 @@ public:
     virtual bool getSkinBlob(std::string const& skinId, std::string& out) const = 0;
     // blob 反序列化注册（与 getSkinBlob 配对; 格式非法返回 false）
     virtual bool registerSkinFromBlob(std::string const& blob) = 0;
+
+    // ── 1.20.0 追加: 轻量朝向更新 + 逐客户端朝向 ──
+    // 只发朝向增量包（MoveActorAbsolute, 不重建实体/不重发皮肤, 无闪烁）;
+    // 与 setRotation（走 respawn）区别: 适合每 tick 跟踪式改朝向
+    virtual bool setRotationLight(int64_t id, float yaw) = 0;
+    // 覆盖指定玩家收到的该 NPC 朝向（出生包与增量包都按覆盖值下发）;
+    // 未覆盖的玩家仍用 config 朝向; 玩家离线/未见过该 NPC 返回 false。下一 tick 生效。
+    virtual bool setPlayerRotation(int64_t id, std::string const& playerName, float yaw) = 0;
+    // 清除单个玩家的朝向覆盖（回到 config 朝向）
+    virtual bool clearPlayerRotation(int64_t id, std::string const& playerName) = 0;
+    // 清除该 NPC 全部玩家的朝向覆盖（关闭逐客户端朝向时调用）
+    virtual bool clearPlayerRotations(int64_t id) = 0;
 };
 
 // ─────────────────────────────────────────────
@@ -569,7 +608,7 @@ public:
     // LSE 兼容层是否可用（LegacyRemoteCall 运行时检测成功）
     virtual bool isLseAvailable() = 0;
 
-    // 库版本（BCD: 0x011900 = 1.19.0, 与 HOLOGLIB_API_VERSION 同值）
+    // 库版本（BCD: 0x011A00 = 1.20.0, 与 HOLOGLIB_API_VERSION 同值）
     virtual uint32_t version() = 0;
 
     // ── 1.6.0 追加（冻结契约: 只在尾部追加）──
@@ -594,6 +633,12 @@ public:
 
     // ── 1.16.0 追加（冻结契约: 只在尾部追加）──
     virtual IPlayerNpc& playerNpcs() = 0;
+
+    // ── 1.19.1 追加（冻结契约: 只在尾部追加）──
+    // ghost 交互多播监听: 多个插件可同时注册, 互不覆盖（旧 set/clear 单槽接口保留兼容）。
+    // 返回 token（0=失败）; removeGhostInteractListener(token) 移除; 事件在主线程网络处理路径上回调。
+    virtual uint64_t addGhostInteractListener(std::function<void(GhostInteractEvent const&)> listener) = 0;
+    virtual bool removeGhostInteractListener(uint64_t token) = 0;
 };
 
 } // namespace hologramlib

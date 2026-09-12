@@ -51,6 +51,25 @@ void GhostInteractRouter::clearListener() {
     mListener = nullptr;
 }
 
+std::uint64_t GhostInteractRouter::addListener(std::function<void(hologramlib::GhostInteractEvent const&)> listener) {
+    if (!listener) return 0;
+    std::lock_guard lock(mMutex);
+    auto const token = mNextToken++;
+    mListeners.push_back({token, std::move(listener)});
+    return token;
+}
+
+bool GhostInteractRouter::removeListener(std::uint64_t token) {
+    std::lock_guard lock(mMutex);
+    for (auto it = mListeners.begin(); it != mListeners.end(); ++it) {
+        if (it->token == token) {
+            mListeners.erase(it);
+            return true;
+        }
+    }
+    return false;
+}
+
 std::vector<hologramlib::GhostInteractEvent> GhostInteractRouter::poll() {
     std::lock_guard lock(mMutex);
     std::vector<hologramlib::GhostInteractEvent> out(mQueue.begin(), mQueue.end());
@@ -64,12 +83,21 @@ void GhostInteractRouter::clearQueue() {
 }
 
 void GhostInteractRouter::dispatch(hologramlib::GhostInteractEvent const& ev) {
-    std::lock_guard lock(mMutex);
-    // 队列有界（防无人轮询时无限膨胀; 满时丢最旧）
-    constexpr std::size_t kMaxQueue = 256;
-    if (mQueue.size() >= kMaxQueue) mQueue.pop_front();
-    mQueue.push_back(ev);
-    if (mListener) mListener(ev);
+    // 快照后锁外回调, 避免监听器内再调 add/removeListener 造成死锁
+    std::function<void(hologramlib::GhostInteractEvent const&)> legacy;
+    std::vector<std::function<void(hologramlib::GhostInteractEvent const&)>> multicast;
+    {
+        std::lock_guard lock(mMutex);
+        // 队列有界（防无人轮询时无限膨胀; 满时丢最旧）
+        constexpr std::size_t kMaxQueue = 256;
+        if (mQueue.size() >= kMaxQueue) mQueue.pop_front();
+        mQueue.push_back(ev);
+        legacy = mListener;
+        multicast.reserve(mListeners.size());
+        for (auto const& l : mListeners) multicast.push_back(l.fn);
+    }
+    for (auto const& fn : multicast) fn(ev);
+    if (legacy) legacy(ev);
 }
 
 std::string GhostInteractRouter::formatEvent(hologramlib::GhostInteractEvent const& ev) {

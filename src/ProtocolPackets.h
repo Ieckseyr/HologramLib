@@ -1,7 +1,8 @@
-// ProtocolPackets.h - 基于 Protocol v944 的数据包发送
+﻿// ProtocolPackets.h - 基于 BedrockProtocol v2168 的数据包发送
 //
-// 使用 sculk::protocol::abi_v944::DebugDrawerPacket 构造完整数据包
-// （含包头），再通过 BDS 底层 NetworkPeer::sendPacket 发送原始字节流。
+// 使用 sculk::protocol::PrimitiveShapesPacket（v944 DebugDrawerPacket 的
+// v2168 演进名，包 ID 328 不变）构造完整数据包（含包头），
+// 再通过 BDS 底层 NetworkPeer::sendPacket 发送原始字节流。
 #pragma once
 
 #include <cstdint>
@@ -17,7 +18,7 @@
 namespace debugshape_export {
 // 协议层数据包发送器
 //
-// 使用 v944 DebugDrawerPacket::writeWithHeader 构造完整字节流：
+// 使用 v2168 PrimitiveShapesPacket::writeWithHeader 构造完整字节流：
 //   VarUInt(header) + VarUInt(shapeCount) + [shape...]
 //
 // 然后通过 NetworkPeer::sendPacket 发送原始字节。

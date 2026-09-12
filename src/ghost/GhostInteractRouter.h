@@ -30,6 +30,10 @@ public:
     void setListener(std::function<void(hologramlib::GhostInteractEvent const&)> listener);
     void clearListener();
 
+    // 多播监听器（1.19.1）; 返回 token（用于移除, 0=失败）; 事件在主线程网络处理路径上回调
+    std::uint64_t addListener(std::function<void(hologramlib::GhostInteractEvent const&)> listener);
+    bool          removeListener(std::uint64_t token);
+
     // 轮询队列（LSE; 取走并清空）
     std::vector<hologramlib::GhostInteractEvent> poll();
     void                                          clearQueue();
@@ -48,8 +52,15 @@ private:
     GhostInteractRouter()  = default;
     ~GhostInteractRouter() = default;
 
+    struct TaggedListener {
+        std::uint64_t                                            token;
+        std::function<void(hologramlib::GhostInteractEvent const&)> fn;
+    };
+
     std::mutex mMutex;
-    std::function<void(hologramlib::GhostInteractEvent const&)> mListener;
+    std::uint64_t                                            mNextToken = 1;
+    std::function<void(hologramlib::GhostInteractEvent const&)> mListener; // 旧单槽（兼容）
+    std::vector<TaggedListener>                              mListeners;    // 多播
     std::deque<hologramlib::GhostInteractEvent>                 mQueue;
 };
 

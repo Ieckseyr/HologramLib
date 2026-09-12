@@ -14,6 +14,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <mutex>
 #include <optional>
@@ -83,10 +84,18 @@ public:
     bool setRideEntity(int64_t id, int64_t vehicleEntityId);      // 骑到另一自定义实体上
     bool clearRide(int64_t id);
     // 播放原版动画（AnimateEntityPacket; controller 名按实体 id 自动唯一化）
-    // stopExpression 空串 = 常驻; durationTicks>0 时到期自动停止
+    // stopExpression 空串 = 常驻; durationTicks>0 时到期自动停止; 一次性发包不持久化
     bool playAnimation(
         int64_t id, std::string const& animation, std::string const& stopExpression, int durationTicks
     );
+    // 对指定玩家单发该实体的动画包（消费方在 spawn 回调里补发用）
+    bool playAnimationTo(
+        int64_t id, std::string const& playerName,
+        std::string const& animation, std::string const& stopExpression, int durationTicks
+    );
+    // spawn 时机通知回调（实体对玩家 spawn/respawn 完成后调用; 传 nullptr 清除）
+    using EntitySpawnCallback = std::function<void(int64_t id, std::string const& playerName)>;
+    void setEntitySpawnCallback(EntitySpawnCallback callback);
 
     std::vector<int64_t> getAllIds() const;
 
@@ -95,6 +104,13 @@ public:
 
     // runtimeId -> 库内 id 反查（ghost 交互路由用; 无匹配返回 false）
     bool findByRuntimeId(std::uint64_t runtimeId, int64_t& outId) const;
+
+    // ── 1.20.0 追加: 逐客户端朝向（每个观察者看到不同朝向）──
+    // 覆盖指定玩家收到的 yaw/pitch（出生包 AddActor 与后续增量包都按覆盖值下发）;
+    // 未覆盖的玩家仍用 config 朝向; 变更走轻脏增量, 下一 tick 生效
+    bool setPlayerRotation(int64_t id, std::string const& playerName, float yaw, float pitch);
+    bool clearPlayerRotation(int64_t id, std::string const& playerName);
+    bool clearPlayerRotations(int64_t id);
 
 private:
     CustomEntityManager()  = default;
@@ -106,11 +122,16 @@ public:
         std::uint64_t                 uniqueId{};   // ActorUniqueID
         std::uint64_t                 runtimeId{};  // ActorRuntimeID
         std::unordered_set<mce::UUID> shownPlayers; // 已向其发送实体的玩家
+        // 逐客户端朝向覆盖（玩家 uuid → 朝向; 缺省 = 用 config 的 yaw/pitch）
+        // 玩家 uuid 不随 respawn 变化, 覆盖自动跨 respawn 保留
+        std::unordered_map<mce::UUID, hologramlib::PerPlayerRotation> playerRot;
     };
 
 private:
     // 内部: 持锁状态下刷新可见性 / 变更后刷新
     void refreshLocked(int64_t id);
+    // spawn 完成通知（shownPlayers.insert 之后调用; 锁内直调, mMutex 可重入）
+    void notifySpawnLocked(int64_t id, Player& player);
     void refreshLightLocked(int64_t id); // 轻脏增量刷新（不换ID, 零闪烁, 动画驱动）
     void syncVisibilityLocked();
     // tick 内合并处理脏实体（同一 tick 的多次 setter 调用合并为单次 respawn）
@@ -149,6 +170,7 @@ private:
     // 可见玩家白名单（id -> 玩家名集合; 无条目 = 全员可见, 兼容默认行为）
     std::unordered_map<int64_t, std::unordered_set<std::string>> mVisibleFilter;
     std::multimap<std::uint64_t, EntityAnimEntry>    mAnimQueue;
+    EntitySpawnCallback                               mSpawnCallback; // 消费方补发钩子（无库内状态）
     // Actor ID 段: 0x6E 前缀（与 ItemDisplay 的 0x6D 段隔离, 客户端 ID 空间全局不撞）
     std::uint64_t                                    mNextActorUniqueId{0x6E00000000000001ULL};
     std::uint64_t                                    mNextRuntimeId{0x6E000000ULL};

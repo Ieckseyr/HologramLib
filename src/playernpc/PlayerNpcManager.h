@@ -78,6 +78,15 @@ public:
     // runtimeId -> 库内 id 反查（ghost 交互路由用; 无匹配返回 false）
     bool findByRuntimeId(std::uint64_t runtimeId, int64_t& outId) const;
 
+    // ── 1.20.0 追加: 轻量朝向更新 + 逐客户端朝向 ──
+    // 只发朝向增量包（MoveActorAbsolute; 不重建实体/不重发皮肤, 无闪烁）, 下一 tick 生效
+    bool setRotationLight(int64_t id, float yaw);
+    // 覆盖指定玩家收到的朝向（出生包 AddPlayer 与增量包都按覆盖值下发）;
+    // 未覆盖的玩家仍用 config 朝向; 玩家离线/未见过该 NPC 返回 false
+    bool setPlayerRotation(int64_t id, std::string const& playerName, float yaw);
+    bool clearPlayerRotation(int64_t id, std::string const& playerName);
+    bool clearPlayerRotations(int64_t id);
+
 private:
     PlayerNpcManager()  = default;
     ~PlayerNpcManager() = default;
@@ -88,6 +97,9 @@ public:
         std::uint64_t                 uniqueId{};   // ActorUniqueID
         std::uint64_t                 runtimeId{};  // ActorRuntimeID
         std::unordered_set<mce::UUID> shownPlayers; // 已向其发送假玩家的玩家
+        // 逐客户端朝向覆盖（玩家 uuid → 朝向; 缺省 = 用 config 的 yaw）
+        // 玩家 uuid 不随 respawn 变化, 覆盖自动跨 respawn 保留
+        std::unordered_map<mce::UUID, hologramlib::PerPlayerRotation> playerRot;
     };
 
     // 待处理 Tab 移除（spawn 后 20 tick; NPC id -> 条目列表）
@@ -99,6 +111,7 @@ public:
 private:
     // 内部（持锁状态）
     void    refreshLocked(int64_t id);            // respawn（换新实体 ID, 防串台）
+    void    refreshLightLocked(int64_t id);      // 轻脏: 只发 MoveActorAbsolute（朝向/坐标增量）
     void    syncVisibilityLocked();              // 可见性重算（含滞回）
     void    processDirtyLocked();                 // tick 内合并脏刷新
     int64_t createLocked(PlayerNpcConfig const& config, int64_t id);
@@ -111,11 +124,18 @@ private:
     std::unordered_map<int64_t, PlayerNpcConfig>               mConfigs;
     std::unordered_map<int64_t, Runtime>                       mRuntimes;
     std::unordered_set<int64_t>                                mDirtyIds;
+    std::unordered_set<int64_t>                                mLightDirtyIds; // 轻脏: 只发朝向/坐标增量
     std::unordered_map<int64_t, std::vector<TabRemoval>>        mTabRemovals;
     std::unordered_map<int64_t, std::unordered_set<std::string>> mVisibleFilter;
+    std::unordered_set<std::string>                              mWarnedMissingSkins; // 皮肤缺失告警去重
 
-    // Actor ID 段: 0x6F 前缀（与 ItemDisplay 0x6D / CustomEntity 0x6E 段隔离, ghost 路由按段分发）
-    std::uint64_t                                             mNextActorUniqueId{0x6F00000000000001ULL};
+    // Actor ID 段：
+    //   actorUniqueId 取 0x1F600000 起（约 5 亿）：客户端能稳定处理的量级
+    //   （原生玩家约 6.6e12、探针约 2e6 都正常，但 2^48 量级会让客户端出错）
+    //   runtimeId 用 0x6F 段，ghost 交互路由依赖该段做分发
+    // Actor ID 段：uniqueId 用 0x1F600000 起（安全量级），runtimeId 用 0x6F 段
+    // （ghost 交互路由按段分发，且要避开真实实体的 runtimeId 区间）
+    std::uint64_t                                             mNextActorUniqueId{0x1F600000ULL};
     std::uint64_t                                             mNextRuntimeId{0x6F000000ULL};
 
     std::unordered_set<mce::UUID>                             mInitializedPlayers;

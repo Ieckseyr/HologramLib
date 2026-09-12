@@ -15,7 +15,7 @@
 #include <mc/world/actor/player/Player.h>
 
 #include <sculk/protocol/codec/packet/IPacket.hpp>
-#include <sculk/protocol/codec/utility/deps/BinaryStream.hpp>
+#include <sculk/protocol/utility/BinaryStream.hpp>
 
 #include <string>
 #include <vector>

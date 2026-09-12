@@ -1,6 +1,6 @@
 # HologramLib API 参考
 
-- API 版本：1.18.0（`HOLOGLIB_API_VERSION 0x011800`）
+- API 版本：1.20.0（`HOLOGLIB_API_VERSION 0x011A00`）
 - 唯一公开头：`include/hologramlib/HologramLib.h`
 
 ## API 稳定性契约
@@ -10,7 +10,7 @@
 | C++ 接口 | 全部纯虚方法签名与语义（实现对象在 DLL 内创建，消费者只持引用） | 只在接口尾部追加；永不修改/删除 |
 | C++ 宏 | `HOLOGLIB_API_VERSION`、`HOLOGLIB_API`、`hologramlib` 命名空间、枚举值 | 只追加枚举值 |
 | LSE 命名空间 | 单一命名空间 `HologramLib` 全部函数名、参数顺序、返回值类型 | 只增不改不删 |
-| 版本协商 | `IHologramLib::version()`（BCD：0x011800 = 1.18.0） | 随发布递增 |
+| 版本协商 | `IHologramLib::version()`（BCD：0x011A00 = 1.20.0） | 随发布递增 |
 
 破坏兼容仅允许发生在大版本（2.0.0）。`src/` 目录一切内容均为内部实现，不属于 API。
 
@@ -38,6 +38,8 @@ namespace hologramlib {
         void     setGhostInteractListener(std::function<void(GhostInteractEvent const&)> listener); // 1.12.0
         void     clearGhostInteractListener();                                             // 1.12.0
         std::vector<std::string> pollGhostInteractions();                                  // 1.12.0 LSE 轮询版
+        uint64_t addGhostInteractListener(std::function<void(GhostInteractEvent const&)> listener); // 1.19.1 多播
+        bool     removeGhostInteractListener(uint64_t token);                               // 1.19.1
     };
 }
 ```
@@ -231,6 +233,9 @@ struct CustomEntityConfig {
 | 缩放 | scaleBy | `(int64_t, double factor) -> bool` | 相对缩放：现有 scale × factor，结果自动钳制 0.0625~10; factor<=0 返回 false |
 | 可见性 | setVisiblePlayers | `(int64_t, std::vector<std::string> const&) -> bool` | 白名单（按 realName 匹配）; 空列表 = 清除限制 |
 | | setVisiblePlayer / clearVisiblePlayers | `(int64_t, std::string const&) / (int64_t) -> bool` | 标量版 / 清除（恢复全员可见） |
+| 逐客户端朝向（1.20.0, 仅 C++ 接口; LSE 导出暂未覆盖） | setPlayerRotation | `(int64_t, std::string const& playerName, float yaw, float pitch) -> bool` | **1.20.0**: 覆盖指定玩家收到的该实体朝向（出生包 AddActor 与增量包都按覆盖值下发）; 未覆盖的玩家仍用 config 朝向; 玩家离线/未见过该实体返回 false; 变更走轻脏增量（无闪烁）, 下一 tick 生效 |
+| | clearPlayerRotation | `(int64_t, std::string const& playerName) -> bool` | 清除单个玩家的朝向覆盖 |
+| | clearPlayerRotations | `(int64_t) -> bool` | 清除该实体全部玩家的朝向覆盖 |
 | 诊断 | getDebugInfo | `(int64_t) -> std::string` | 运行态摘要; 未找到返回 `not_found` |
 | 骑乘 | setRidePlayer | `(int64_t, std::string const& playerName) -> bool` | 骑到玩家头上（空名清除; 须在线） |
 | | setRideEntity | `(int64_t, int64_t vehicleEntityId) -> bool` | 骑到另一自定义实体上; 0 清除 |
@@ -325,6 +330,9 @@ if (id > 0) {
 | | destroy / destroyAll / exists / get / isIdUsed / getAllIds | — | 同其他域 |
 | 属性 | setPosition | `(int64_t id, float x, float y, float z, int dim) -> bool` | dim<0 仅改坐标 |
 | | setRotation / setNametag / setSkin / setViewDistance / setEnabled | — | setSkin 未注册返回 false; 变更经 tick 脏刷新合并为单次 respawn |
+| 朝向（1.20.0, 仅 C++ 接口; LSE 导出暂未覆盖） | setRotationLight | `(int64_t id, float yaw) -> bool` | 轻量朝向: 只发 MoveActorAbsolute 增量（不重建实体/不重发皮肤, 无闪烁）, 适合每 tick 跟踪 |
+| | setPlayerRotation | `(int64_t id, std::string const& playerName, float yaw) -> bool` | 覆盖指定玩家收到的朝向（出生包与增量包都按覆盖值）; 未覆盖玩家用 config 朝向 |
+| | clearPlayerRotation / clearPlayerRotations | `(int64_t[, std::string const&]) -> bool` | 清除单个 / 全部玩家的朝向覆盖 |
 | 可见性 | setVisiblePlayers / clearVisiblePlayers / setVisiblePlayer | — | 玩家名白名单（空 = 全员） |
 | 诊断 | getDebugInfo | `(int64_t id) const -> std::string` | 运行态摘要 |
 

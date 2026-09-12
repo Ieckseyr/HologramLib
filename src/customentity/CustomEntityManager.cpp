@@ -5,6 +5,8 @@
 // 可见性: 玩家入服/每 20 tick 同步 + 视距/维度过滤（与 ItemDisplay 同模式）
 #include "CustomEntityManager.h"
 
+#include "../EventIdCompat.h"
+
 #include <random>
 
 #include <ll/api/event/EventBus.h>
@@ -38,6 +40,7 @@
 #include "SculkPacketSend.h"
 
 #include <algorithm>
+#include <memory>
 #include <string>
 
 namespace debugshape_export {
@@ -90,6 +93,38 @@ Player* findPlayerByUuid(mce::UUID const& uuid) {
     return level->getPlayer(uuid);
 }
 
+// realName → 在线玩家（与可见白名单同一匹配口径; 未找到返回 nullptr）
+Player* findPlayerByName(std::string const& realName) {
+    if (realName.empty()) return nullptr;
+    auto level = ll::service::getLevel();
+    if (!level) return nullptr;
+    Player* found = nullptr;
+    level->forEachPlayer([&](Player& p) {
+        if (found) return true;
+        if (p.getRealName() == realName) {
+            found = &p;
+            return false;
+        }
+        return true;
+    });
+    return found;
+}
+
+// 取该玩家应看到的朝向: 有 per-player 覆盖用覆盖值, 否则用 config 值
+struct PitchYaw {
+    float pitch{0};
+    float yaw{0};
+};
+PitchYaw effectiveRot(
+    CustomEntityManager::Runtime const& rt,
+    mce::UUID const&                    uuid,
+    CustomEntityConfig const&           data
+) {
+    auto it = rt.playerRot.find(uuid);
+    if (it == rt.playerRot.end()) return PitchYaw{data.pitch, data.yaw};
+    return PitchYaw{it->second.pitch, it->second.yaw};
+}
+
 // identifier 规范化: 短名补 minecraft: 前缀; 空串返回空（创建时校验拒绝）
 std::string normalizeIdentifier(std::string const& raw) {
     if (raw.empty()) return {};
@@ -114,7 +149,11 @@ using Runtime = CustomEntityManager::Runtime;
         auto tryGet = [&](std::string const& name) -> ::ItemStack {
             auto weak = level->getItemRegistry().getItem(::HashedString(name));
             if (!weak) return {};
-            return ::ItemStack(*weak, 1, eq.aux, tag.get());
+            // 26.32: ItemStack 无 4 参构造, 默认构造 + reinit + setUserData
+            ::ItemStack stack{};
+            stack.reinit(*weak, 1, eq.aux);
+            if (tag) stack.setUserData(std::make_unique<::CompoundTag>(*tag));
+            return stack;
         };
         ::ItemStack stack = tryGet(eq.name);
         if (stack.isNull()) {
@@ -137,15 +176,18 @@ void sendCustomActor(
     Runtime const&                     rt,
     std::optional<std::uint64_t> const& vehicleUniqueId
 ) {
+    // 逐客户端朝向: 该玩家有覆盖时用覆盖值, 否则用 config 值
+    PitchYaw const rot = effectiveRot(rt, player.getUuid(), data);
+
     sculk::protocol::AddActorPacket pkt;
     pkt.mActorUniqueId  = static_cast<std::int64_t>(rt.uniqueId);
     pkt.mActorRuntimeId = rt.runtimeId;
     pkt.mIdentifier     = normalizeIdentifier(data.identifier);
     pkt.mPosition       = {data.x, data.y, data.z};
     pkt.mVelocity       = {0, 0, 0};
-    pkt.mRotation       = {data.pitch, data.yaw}; // Vec2{pitch, yaw} 与 BDS ActorRotation 同序
-    pkt.mYHeadRotation  = data.yaw;
-    pkt.mYBodyRotation  = data.yaw;
+    pkt.mRotation       = {rot.pitch, rot.yaw}; // Vec2{pitch, yaw} 与 BDS ActorRotation 同序
+    pkt.mYHeadRotation  = rot.yaw;
+    pkt.mYBodyRotation  = rot.yaw;
     pkt.mActorLinks     = {};
 
     // flags 合成: 原始位掩码 | 隐身便捷位(0x20)
@@ -242,10 +284,16 @@ void sendCustomActor(
             // 无 6 参构造器: 默认构造（五槽全空）后逐槽赋值（TypedStorage 经 operator= 转发）
             ::MobArmorEquipmentPacket armorPkt;
             armorPkt.mRuntimeId = ::ActorRuntimeID{rt.runtimeId};
-            armorPkt.mHead      = ::NetworkItemStackDescriptor{head};
-            armorPkt.mTorso     = ::NetworkItemStackDescriptor{torso};
-            armorPkt.mLegs      = ::NetworkItemStackDescriptor{legs};
-            armorPkt.mFeet      = ::NetworkItemStackDescriptor{feet};
+            // 26.32: NetworkItemStackDescriptor 无拷贝赋值(TypedStorage operator= 不可用),
+            // 原地析构 + 重建, 经显式构造器 NetworkItemStackDescriptor(ItemStack const&)
+            std::destroy_at(&armorPkt.mHead);
+            std::construct_at(&armorPkt.mHead, head);
+            std::destroy_at(&armorPkt.mTorso);
+            std::construct_at(&armorPkt.mTorso, torso);
+            std::destroy_at(&armorPkt.mLegs);
+            std::construct_at(&armorPkt.mLegs, legs);
+            std::destroy_at(&armorPkt.mFeet);
+            std::construct_at(&armorPkt.mFeet, feet);
             armorPkt.sendTo(player);
         }
     }
@@ -323,7 +371,10 @@ void CustomEntityManager::init() {
             std::lock_guard lock(mMutex);
             auto const& uuid = ev.self().getUuid();
             mInitializedPlayers.erase(uuid);
-            for (auto& [id, rt] : mRuntimes) rt.shownPlayers.erase(uuid);
+            for (auto& [id, rt] : mRuntimes) {
+                rt.shownPlayers.erase(uuid);
+                rt.playerRot.erase(uuid); // 逐客户端朝向覆盖随玩家离线清理
+            }
         }
     );
 }
@@ -490,6 +541,41 @@ bool CustomEntityManager::setRotation(int64_t id, float yaw, float pitch) {
     it->second.yaw   = yaw;
     it->second.pitch = pitch;
     mLightDirtyIds.insert(id); // 增量 MoveActorAbsolute 可直接刷新朝向
+    return true;
+}
+
+// ── 逐客户端朝向（1.20.0）──
+
+bool CustomEntityManager::setPlayerRotation(int64_t id, std::string const& playerName, float yaw, float pitch) {
+    std::lock_guard lock(mMutex);
+    if (!mConfigs.contains(id) || !mRuntimes.contains(id)) return false;
+    auto* player = findPlayerByName(playerName);
+    if (player == nullptr) return false;
+    auto& rt = mRuntimes[id];
+    if (!rt.shownPlayers.contains(player->getUuid())) return false; // 该玩家还没见过这个实体
+    rt.playerRot[player->getUuid()] = hologramlib::PerPlayerRotation{yaw, pitch};
+    mLightDirtyIds.insert(id); // 增量包按玩家覆盖值刷新（无闪烁）
+    return true;
+}
+
+bool CustomEntityManager::clearPlayerRotation(int64_t id, std::string const& playerName) {
+    std::lock_guard lock(mMutex);
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    auto* player = findPlayerByName(playerName);
+    if (player == nullptr) return false;
+    if (rit->second.playerRot.erase(player->getUuid()) == 0) return false;
+    mLightDirtyIds.insert(id);
+    return true;
+}
+
+bool CustomEntityManager::clearPlayerRotations(int64_t id) {
+    std::lock_guard lock(mMutex);
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    if (rit->second.playerRot.empty()) return true;
+    rit->second.playerRot.clear();
+    mLightDirtyIds.insert(id);
     return true;
 }
 
@@ -789,6 +875,56 @@ bool CustomEntityManager::playAnimation(
     return true;
 }
 
+bool CustomEntityManager::playAnimationTo(
+    int64_t id, std::string const& playerName,
+    std::string const& animation, std::string const& stopExpression, int durationTicks
+) {
+    std::lock_guard lock(mMutex);
+    auto it = mConfigs.find(id);
+    if (it == mConfigs.end()) return false;
+    if (animation.empty()) return false;
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    if (!it->second.enabled) return false;
+
+    auto level = ll::service::getLevel();
+    if (!level) return false;
+    Player*     target = nullptr;
+    mce::UUID   uuid{};
+    level->forEachPlayer([&](Player& p) {
+        if (p.getRealName() == playerName) {
+            target = &p;
+            uuid   = p.getUuid();
+            return false;
+        }
+        return true;
+    });
+    if (!target) return false;
+    if (!rit->second.shownPlayers.contains(uuid)) return false; // 未见过该实体的玩家不发
+
+    auto const now  = currentTick();
+    auto const ctrl = "wiki.customentity." + std::to_string(id);
+    mAnimQueue.emplace(now + 2, EntityAnimEntry{uuid, rit->second.runtimeId, id, animation, ctrl, stopExpression});
+    if (durationTicks > 0) {
+        mAnimQueue.emplace(
+            now + 2 + static_cast<std::uint64_t>(durationTicks),
+            EntityAnimEntry{uuid, rit->second.runtimeId, id, animation, ctrl, "query.any_animation"}
+        );
+    }
+    return true;
+}
+
+void CustomEntityManager::setEntitySpawnCallback(EntitySpawnCallback callback) {
+    std::lock_guard lock(mMutex);
+    mSpawnCallback = std::move(callback);
+}
+
+// spawn 完成通知: 纯时机事件, 库不存任何消费方数据;
+// 消费方在回调里查自己的存储决定补发什么（如 playAnimationTo 重放动画）
+void CustomEntityManager::notifySpawnLocked(int64_t id, Player& player) {
+    if (mSpawnCallback) mSpawnCallback(id, player.getRealName()); // mMutex 可重入, 回调内调库 API 安全
+}
+
 bool CustomEntityManager::findByRuntimeId(std::uint64_t runtimeId, int64_t& outId) const {
     std::lock_guard lock(mMutex);
     for (auto const& [id, rt] : mRuntimes) {
@@ -907,6 +1043,7 @@ void CustomEntityManager::refreshLocked(int64_t id) {
     for (auto* player : toSpawn) {
         if (spawnForPlayer(id, it->second, rt, *player, resolveVehicleUniqueIdLocked(it->second))) {
             rt.shownPlayers.insert(player->getUuid());
+            notifySpawnLocked(id, *player);
         }
     }
 }
@@ -939,17 +1076,20 @@ void CustomEntityManager::refreshLightLocked(int64_t id) {
         auto* player = findPlayerByUuid(uuid);
         if (!player) continue;
 
+        // 逐客户端朝向: 该玩家有覆盖时用覆盖值, 否则用 config 值
+        PitchYaw const rot = effectiveRot(rt, uuid, data);
+
         // 1) 坐标+朝向增量
         //    mHeader 标志位: bit0(0x01)=OnGround bit1(0x02)=Teleport bit2(0x04)=ForceMove
         //    Teleport 使客户端忽略碰撞/插值直接落位（动画逐 tick 覆盖所需的语义）
         {
             sculk::protocol::MoveActorAbsolutePacket maap;
             maap.mActorRuntimeId = rt.runtimeId;
-            maap.mHeader         = 0x02;
+            maap.mFlags          = sculk::protocol::MoveActorAbsolutePacket::Flags::Teleport;
             maap.mPosition       = {data.x, data.y, data.z};
-            maap.mRotationX     = rotToByte(data.pitch);
-            maap.mRotationY     = rotToByte(data.yaw);
-            maap.mRotationYHead = rotToByte(data.yaw);
+            maap.mRotationX     = rotToByte(rot.pitch);
+            maap.mRotationY     = rotToByte(rot.yaw);
+            maap.mRotationYHead = rotToByte(rot.yaw);
             sendSculkPacketToPlayer(*player, maap);
         }
 
@@ -1052,6 +1192,7 @@ void CustomEntityManager::syncVisibilityLocked() {
             if (visible && !rt.shownPlayers.contains(uuid)) {
                 if (spawnForPlayer(id, data, rt, player, resolveVehicleUniqueIdLocked(data))) {
                     rt.shownPlayers.insert(uuid);
+                    notifySpawnLocked(id, player);
                 }
             } else if (!visible && rt.shownPlayers.contains(uuid)) {
                 despawnForPlayer(rt, player);

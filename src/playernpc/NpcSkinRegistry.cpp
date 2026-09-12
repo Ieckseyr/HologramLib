@@ -1,5 +1,6 @@
 // NpcSkinRegistry.cpp - 皮肤注册表实现
 #include "NpcSkinRegistry.h"
+#include "NpcProtocol.h"
 
 #include <ll/api/io/Logger.h>
 #include <ll/api/io/LoggerRegistry.h>
@@ -14,6 +15,9 @@
 #include <mc/world/actor/player/SerializedSkinRef.h>
 #include <mc/world/actor/player/persona/persona.h>
 #include <mc/world/level/Level.h>
+#include <ll/api/memory/Hook.h>
+#include <mc/network/BatchedNetworkPeer.h>
+#include <mc/network/NetworkPeer.h>
 
 #include <Windows.h>
 #include <objidl.h>
@@ -25,10 +29,14 @@ using std::min;
 #include <gdiplus.h>
 
 #include <cstring>
+#include <functional>
+#include <utility>
+#include <cmath>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <iterator>
+#include <unordered_map>
 
 namespace debugshape_export {
 
@@ -42,6 +50,98 @@ auto& logger() {
 // mce::Blob（皮肤贴图像素）→ std::string 拷贝
 std::string blobToString(mce::Blob const& blob) {
     return std::string(reinterpret_cast<char const*>(blob.data()), blob.size());
+}
+
+// 客户端只认新版数组式几何（"minecraft:geometry":[...]）。
+// BDS 发送前会转换，但 impl 里的原始数据仍是旧式（"geometry.<名字>":{...}），这里做同样的转换。
+std::string normalizeGeometry(std::string geometry, std::uint32_t texW, std::uint32_t texH) {
+    if (geometry.empty()) return geometry;
+    if (geometry.find("minecraft:geometry") != std::string::npos) return geometry; // 已是新式
+
+    auto const keyPos = geometry.find("\"geometry.");
+    if (keyPos == std::string::npos) return geometry;
+    auto const keyEnd = geometry.find('"', keyPos + 1);
+    if (keyEnd == std::string::npos) return geometry;
+    std::string const identifier = geometry.substr(keyPos + 1, keyEnd - keyPos - 1);
+
+    auto const braceStart = geometry.find('{', keyEnd);
+    if (braceStart == std::string::npos) return geometry;
+    int    depth = 0;
+    std::size_t end = braceStart;
+    for (; end < geometry.size(); ++end) {
+        if (geometry[end] == '{') ++depth;
+        else if (geometry[end] == '}') { if (--depth == 0) break; }
+    }
+    if (end >= geometry.size()) return geometry;
+
+    std::string const body = geometry.substr(braceStart + 1, end - braceStart - 1);
+    return std::format(
+        R"({{"format_version":"1.12.0","minecraft:geometry":[{{"description":{{"identifier":"{}","texture_width":{},"texture_height":{}}},{}}}]}})",
+        identifier,
+        texW,
+        texH,
+        body
+    );
+}
+
+// 标准人形几何定义：资源包 patch 引用的几何必须真实存在，客户端才认这份皮肤。
+constexpr char kStandardHumanoidGeometry[] =
+    R"({"format_version":"1.12.0","minecraft:geometry":[{"description":{"identifier":"geometry.humanoid.custom","texture_width":64,"texture_height":64,"visible_bounds_width":2,"visible_bounds_height":4,"visible_bounds_offset":[0,1.5,0]},"bones":[{"name":"body","pivot":[0,24,0],"cubes":[{"origin":[-4,12,-2],"size":[8,12,4],"uv":[16,16]}]},{"name":"waist","pivot":[0,12,0]},{"name":"head","pivot":[0,24,0],"cubes":[{"origin":[-4,24,-4],"size":[8,8,8],"uv":[0,0]}]},{"name":"rightArm","pivot":[-5,22,0],"cubes":[{"origin":[-8,12,-2],"size":[4,12,4],"uv":[40,16]}]},{"name":"leftArm","pivot":[5,22,0],"cubes":[{"origin":[4,12,-2],"size":[4,12,4],"uv":[32,48]}]},{"name":"rightLeg","pivot":[-1.9,12,0],"cubes":[{"origin":[-3.9,0,-2],"size":[4,12,4],"uv":[0,16]}]},{"name":"leftLeg","pivot":[1.9,12,0],"cubes":[{"origin":[-0.1,0,-2],"size":[4,12,4],"uv":[16,48]}]}]}]})";
+
+// 去掉 JSON 里的空白
+std::string compactJson(std::string json) {
+    std::string out;
+    out.reserve(json.size());
+    bool inString = false;
+    for (std::size_t i = 0; i < json.size(); ++i) {
+        char const c = json[i];
+        if (inString) {
+            out.push_back(c);
+            if (c == 0x22 && (i == 0 || json[i - 1] != 0x5C)) inString = false; // 0x22: 引号, 0x5C: 反斜杠
+        } else if (c == 0x22) {
+            inString = true;
+            out.push_back(c);
+        } else if (c != 0x20 && c != 0x0A && c != 0x0D && c != 0x09) { // 空格/换行/回车/制表
+            out.push_back(c);
+        }
+    }
+    return out;
+}
+
+// 统一收尾：皮肤字段原样保留，只在缺少几何时补一份标准定义。
+void finalizeSkin(sculk::protocol::SerializedSkin& skin) {
+    if (skin.mGeometryData.empty()) {
+        skin.mGeometryData                 = kStandardHumanoidGeometry;
+        skin.mGeometryDataMinEngineVersion = "1.12.0";
+        skin.mResourcePatch                = R"({"geometry":{"default":"geometry.humanoid.custom"}})";
+    }
+}
+
+
+// 服务端没有 mce::Color::toHexString（仅客户端符号），这里自己转十六进制字符串。
+std::string colorToHexString(mce::Color const& color) {
+    auto const toByte = [](float component) -> unsigned {
+        return static_cast<unsigned>(std::round(255.0f * std::clamp(component, 0.0f, 1.0f)));
+    };
+    // 必须带 alpha（8 位 ARGB）：缺了会变成全透明，客户端会弃用该皮肤回退默认。
+    return std::format(
+        "#{:02x}{:02x}{:02x}{:02x}",
+        toByte(color.a), toByte(color.r), toByte(color.g), toByte(color.b)
+    );
+}
+
+// persona::stringFromPieceType 在服务端不可用（仅客户端符号），用反向映射表自建。
+std::string const& pieceTypeToString(::SharedTypes::persona::PieceType type) {
+    static auto const reverse = [] {
+        std::unordered_map<::SharedTypes::persona::PieceType, std::string> map;
+        for (auto const& [str, pieceType] : ::persona::StringToPieceTypeMap()) {
+            map.try_emplace(pieceType, str); // 同一 PieceType 保留首个字符串
+        }
+        return map;
+    }();
+    static std::string const fallback = "unknown";
+    auto it = reverse.find(type);
+    return it != reverse.end() ? it->second : fallback;
 }
 
 // 从 geometry JSON 提取首个模型 identifier（"identifier": "geometry.xxx"）
@@ -64,7 +164,7 @@ std::string parseGeometryIdentifier(std::string const& json) {
 
 // blob 序列化格式（小端, length-prefixed）: "HLNS" | u32 version | skinId | SerializedSkin 全字段
 constexpr char          kSkinFileMagic[4] = {'H', 'L', 'N', 'S'};
-constexpr std::uint32_t kSkinFileVersion   = 1;
+constexpr std::uint32_t kSkinFileVersion   = 3; // 版本变更即作废旧快照（消费方会重新捕获）
 
 void putU32(std::string& out, std::uint32_t v) {
     out.push_back(static_cast<char>(v & 0xFF));
@@ -205,7 +305,7 @@ bool deserializeSkin(std::string const& blob, std::string& skinId, sculk::protoc
     SkinBlobReader r{blob.data(), blob.size()};
     char magic[sizeof(kSkinFileMagic)]{};
     if (!r.read(magic, sizeof(magic)) || std::memcmp(magic, kSkinFileMagic, sizeof(magic)) != 0) return false;
-    if (r.u32() != kSkinFileVersion) return false;
+    if (r.u32() != kSkinFileVersion) return false; // 旧版本快照作废，由消费方重新捕获
 
     skinId = r.str();
     if (!r.ok) return false;
@@ -271,6 +371,7 @@ bool deserializeSkin(std::string const& blob, std::string& skinId, sculk::protoc
 }
 
 } // namespace
+
 
 NpcSkinRegistry& NpcSkinRegistry::getInstance() {
     static NpcSkinRegistry instance;
@@ -373,10 +474,10 @@ bool NpcSkinRegistry::registerSkinFromPng(hologramlib::PlayerNpcSkin const& skin
         proto.mResourcePatch               = std::format(R"({{"geometry":{{"default":"{}"}}}})", skin.geometry);
         proto.mGeometryDataMinEngineVersion = "1.21.100";
     }
-    proto.mFullId                   = proto.mId;
-    proto.mArmSize                  = (skin.armSize == "slim") ? "slim" : "wide";
-    proto.mSkinColor                = "#0";
+    proto.mArmSize                   = (skin.armSize == "slim") ? "slim" : "wide";
+    proto.mSkinColor                 = "#0";
     proto.mOverridesPlayerAppearance = true;
+    finalizeSkin(proto); // 缺几何时补标准定义
 
     mSkins.insert_or_assign(std::move(skinId), std::move(proto));
     return true;
@@ -453,6 +554,7 @@ int NpcSkinRegistry::importSkinsFromDir(std::string const& dirPath, std::string&
 
 bool NpcSkinRegistry::captureSkin(std::string const& skinId, std::string const& playerName) {
     if (skinId.empty()) return false;
+
     auto level = ll::service::getLevel();
     if (!level) return false;
 
@@ -497,21 +599,25 @@ bool NpcSkinRegistry::captureSkin(std::string const& skinId, std::string const& 
     proto.mCapeImageHeight = impl.mCapeImage.get().mHeight;
     proto.mCapeImageBytes  = blobToString(impl.mCapeImage.get().mImageBytes);
 
-    // 几何数据（自定义模型; Json → 字符串, 空/Null → 空串 = 走资源包内置几何）
-    auto const& geometry = impl.mGeometryData.get();
+    // 几何数据：BDS 发给客户端的是处理后的版本（mGeometryDataMutable，persona 格式），
+    // 原始导入的模型（mGeometryData）客户端不一定认；优先用处理后的，没有才退回原始。
+    // 几何优先用 BDS 处理后的版本（客户端认这个），没有才退回原始模型
+    auto const& geoMutable = impl.mGeometryDataMutable.get();
+    auto const& geoRaw     = impl.mGeometryData.get();
+    auto const& geometry   = geoMutable.isNull() ? geoRaw : geoMutable;
     proto.mGeometryData = geometry.isNull() ? std::string{} : geometry.toStyledString();
     proto.mGeometryDataMinEngineVersion = impl.mGeometryDataMinEngineVersion.get().mSemVersion.get().asString();
 
     proto.mAnimationData = impl.mAnimationData;
     proto.mCapeId        = impl.mCapeId;
-    proto.mArmSize       = (impl.mArmSizeType == ::persona::ArmSize::Type::Slim) ? "slim" : "wide";
-    proto.mSkinColor     = impl.mSkinColor.get().toHexString();
+    proto.mArmSize       = (impl.mArmSizeType == ::SharedTypes::persona::ArmSizeType::Slim) ? "slim" : "wide";
+    proto.mSkinColor     = colorToHexString(impl.mSkinColor.get());
 
     // Persona 部件（市场皮肤; 普通自定义皮肤为空）
     for (auto const& piece : impl.mPersonaPieces.get()) {
         sculk::protocol::SerializedSkin::PersonaPiece out{};
         out.mPieceId         = piece.mPieceId;
-        out.mPieceType       = ::persona::stringFromPieceType(piece.mPieceType, piece.mIsDefaultPiece);
+        out.mPieceType       = pieceTypeToString(piece.mPieceType);
         out.mPackId          = piece.mPackId.get().asString();
         out.mIsDefaultPiece = piece.mIsDefaultPiece;
         out.mProductId       = piece.mProductId;
@@ -521,10 +627,10 @@ bool NpcSkinRegistry::captureSkin(std::string const& skinId, std::string const& 
     // 部件染色映射
     for (auto const& [pieceType, tints] : impl.mPieceTintColors.get()) {
         sculk::protocol::SerializedSkin::PieceTintColors out{};
-        out.mPieceType = ::persona::stringFromPieceType(pieceType, false);
+        out.mPieceType = pieceTypeToString(pieceType);
         out.mPieceTintColors.reserve(tints.colors.get().size());
         for (auto const& color : tints.colors.get()) {
-            out.mPieceTintColors.push_back(color.toHexString());
+            out.mPieceTintColors.push_back(colorToHexString(color));
         }
         proto.mPieceTintColors.push_back(std::move(out));
     }
@@ -534,6 +640,33 @@ bool NpcSkinRegistry::captureSkin(std::string const& skinId, std::string const& 
     proto.mIsPersonaCapeOnClassicSkin = impl.mIsPersonaCapeOnClassicSkin;
     proto.mIsPrimaryUser              = impl.mIsPrimaryUser;
     proto.mOverridesPlayerAppearance = impl.mOverridesPlayerAppearance;
+
+    // 市场皮肤（persona）的 id 与各资源路径里嵌着原玩家的标识，这里统一换成
+    // 由原 id 派生的固定值，并把 persona 标记摘掉，使同一份皮肤可复用于 NPC。
+    bool const isPersona = proto.mIsPersonaSkin || proto.mId.rfind("persona-", 0) == 0;
+    if (isPersona) {
+        std::string playerTag = proto.mId; // "persona-<玩家标识>"
+        if (playerTag.rfind("persona-", 0) == 0) playerTag.erase(0, 8);
+        std::string const generic = std::to_string(std::hash<std::string>{}(proto.mId) & 0x7FFFFFFF);
+        auto replaceAll = [](std::string& str, std::string const& from, std::string const& to) {
+            if (from.empty() || from == to) return;
+            for (std::size_t pos = 0; (pos = str.find(from, pos)) != std::string::npos; pos += to.size()) {
+                str.replace(pos, from.size(), to);
+            }
+        };
+        replaceAll(proto.mResourcePatch, playerTag, generic);
+        replaceAll(proto.mGeometryData, playerTag, generic);
+        replaceAll(proto.mAnimationData, playerTag, generic);
+        replaceAll(proto.mCapeId, playerTag, generic);
+
+        proto.mId              = "hl_npc_" + generic;
+        proto.mPersonaPieces.clear();
+        proto.mPieceTintColors.clear();
+        proto.mIsPersonaSkin   = false;
+        proto.mIsPrimaryUser   = true;
+    }
+
+    finalizeSkin(proto);
 
     std::lock_guard lock(mMutex);
     mSkins.insert_or_assign(skinId, std::move(proto));
@@ -559,6 +692,7 @@ bool NpcSkinRegistry::registerSkinFromBlob(std::string const& blob, std::string&
         error = "invalid skin blob (empty skinId)";
         return false;
     }
+    finalizeSkin(skin); // 兼容旧快照：同样整理成客户端接受的样子
     std::lock_guard lock(mMutex);
     mSkins.insert_or_assign(std::move(skinId), std::move(skin));
     return true;

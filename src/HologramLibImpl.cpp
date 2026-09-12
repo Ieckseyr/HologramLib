@@ -394,6 +394,27 @@ public:
             id, animation, stopExpression, durationTicks
         );
     }
+    bool playAnimationTo(
+        int64_t id, std::string const& playerName,
+        std::string const& animation, std::string const& stopExpression, int durationTicks
+    ) override {
+        return debugshape_export::CustomEntityManager::getInstance().playAnimationTo(
+            id, playerName, animation, stopExpression, durationTicks
+        );
+    }
+    void setEntitySpawnCallback(EntitySpawnCallback callback) override {
+        debugshape_export::CustomEntityManager::getInstance().setEntitySpawnCallback(std::move(callback));
+    }
+    // ── 1.20.0: 逐客户端朝向 ──
+    bool setPlayerRotation(int64_t id, std::string const& playerName, float yaw, float pitch) override {
+        return debugshape_export::CustomEntityManager::getInstance().setPlayerRotation(id, playerName, yaw, pitch);
+    }
+    bool clearPlayerRotation(int64_t id, std::string const& playerName) override {
+        return debugshape_export::CustomEntityManager::getInstance().clearPlayerRotation(id, playerName);
+    }
+    bool clearPlayerRotations(int64_t id) override {
+        return debugshape_export::CustomEntityManager::getInstance().clearPlayerRotations(id);
+    }
 };
 class ParticleShapeImpl final : public IParticleShape {
 public:
@@ -549,6 +570,12 @@ public:
     }
     void clearGhostInteractListener() override {
         debugshape_export::GhostInteractRouter::getInstance().clearListener();
+    }
+    uint64_t addGhostInteractListener(std::function<void(GhostInteractEvent const&)> listener) override {
+        return debugshape_export::GhostInteractRouter::getInstance().addListener(std::move(listener));
+    }
+    bool removeGhostInteractListener(uint64_t token) override {
+        return debugshape_export::GhostInteractRouter::getInstance().removeListener(token);
     }
     std::vector<std::string> pollGhostInteractions() override {
         auto events = debugshape_export::GhostInteractRouter::getInstance().poll();

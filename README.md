@@ -1,6 +1,6 @@
 # HologramLib
 
-Bedrock 协议层统一悬浮显示库（LeviLamina 26.10.14 / 协议 944）。将九大能力域合并为**单一插件**，同时提供**冻结的 C++ 虚接口**与 **LSE（ll.import）兼容层**：
+Bedrock 协议层统一悬浮显示库（LeviLamina 26.40 / BDS 1.26.40 / 协议 2168）。将九大能力域合并为**单一插件**，同时提供**冻结的 C++ 虚接口**与 **LSE（ll.import）兼容层**：
 
 | 能力域 | C++ 接口 | LSE 前缀 | 说明 |
 |--------|----------|----------|------|
@@ -8,20 +8,21 @@ Bedrock 协议层统一悬浮显示库（LeviLamina 26.10.14 / 协议 944）。�
 | 悬浮字全息 | `IHologramText` | `holo*`（26 函数） | 多行文本、彩虹、变量占位符，跨维度迁移 |
 | 渐变线 | — | `gradient*`（11 函数） | 多色渐变轨迹线 |
 | 物品详情 | `IItemDetail` | `itemDetail*`（2 函数） | 自动翻译 "钻石 x64" |
-| FMBE 物品悬浮 | `IItemDisplay`（1.6.0） | `itemDisplay*`（30 函数） | 狐狸+发包；无感创建（createSeamless）、白名单、视距、scaleTo |
-| 自定义实体 | `ICustomEntity`（1.10.0） | `entity*`（33 函数） | 协议层生成实体：姿态/装备槽/动画/ActorLink 骑乘 |
-| Ghost 交互 | 监听器 + 轮询 | `ghost*`（2 函数） | 非真实实体的交互事件路由（InteractPacket hook, 1.12.0） |
-| 粒子形状 | `IParticleShape`（1.14.0） | `particle*`（21 函数） | 点/线/矩形环/填充面/盒框/六面/多面体 + moveTo/旋转/自旋/跟随 |
-| 假玩家 NPC | `IPlayerNpc`（1.16.0） | `playerNpc*`（24 函数） | 纯协议假玩家；皮肤 PNG 注册/在线采集/目录导入/自定义模型 |
+| FMBE 物品悬浮 | `IItemDisplay`（1.6.0） | `itemDisplay*`（33 函数） | 狐狸+发包；无感创建（createSeamless）、白名单、视距、scaleTo |
+| 自定义实体 | `ICustomEntity`（1.10.0） | `entity*`（33 函数） | 协议层生成实体：姿态/装备槽/动画/ActorLink 骑乘；逐客户端朝向（1.20.0） |
+| Ghost 交互 | 监听器 + 轮询 | `ghost*`（2 函数） | 非真实实体的交互事件路由（InteractPacket hook, 1.12.0）；C++ 侧支持多播监听（1.19.1） |
+| 粒子形状 | `IParticleShape`（1.14.0） | `particle*`（22 函数） | 点/线/矩形环/填充面/盒框/六面/多面体 + moveTo/旋转/自旋/跟随 |
+| 假玩家 NPC | `IPlayerNpc`（1.16.0） | `playerNpc*`（25 函数） | 纯协议假玩家；皮肤 PNG 注册/在线采集/目录导入/自定义模型；逐客户端朝向（1.20.0） |
 
 除 FMBE/自定义实体走"假实体 + 发包"外，其余渲染均不产生真实实体、不写存档、零服务器开销；粒子发送走 vanilla `SpawnParticleEffectPacket` 批量通道（BDS tick flush 自动聚合压缩为单 Batch 数据报）。
 
-- API 版本：**1.19.0**（`HOLOGLIB_API_VERSION 0x011900`）
-- 插件发布版本：`26.10.7`
+- API 版本：**1.20.0**（`HOLOGLIB_API_VERSION 0x011A00`）
+- 插件发布版本：`26.40.1`
 
 ## 更新日志
 
-- `26.10.7`（API 1.19.0）：新增皮肤从内存导出（`getSkinBlob`/`registerSkinFromBlob`，消费方自行持久化）；目录批量导入皮肤（一个子文件夹 = PNG + 可选 `.json` 模型）；`PlayerNpcSkin.geometryData` 自定义几何模型；库移除磁盘存储，改为纯 API；新增 NPC 缩放（`PlayerNpcConfig.scale` + `playerNpcSetScale`，0.0625~10，碰撞箱等比）；修复 NPC 视距裁剪/脏刷新/Tab 移除失效（tick hook 未注册）；修复 NPC 重生（缩放/换肤等脏刷新）皮肤丢失变默认史蒂夫（过期 Tab 移除条目误删新皮肤条目）
+- `26.40.1`（API 1.20.0）：适配 LeviLamina 26.40 / BDS 1.26.40（协议 2168，形状渲染改用 Protocol v2168 静态库）；修复事件 ID 与官方 LeviLamina 不一致导致监听器全部收不到事件（`src/EventIdCompat.h`）；新增逐客户端朝向（`setPlayerRotation` / `clearPlayerRotation` / `clearPlayerRotations`，实体与 NPC 通用）与轻量朝向更新（`setRotationLight`）；新增 ghost 交互多播监听（1.19.1）；NPC 创建/脏刷新合并到 tick 末尾统一发包（同一 tick 内多次下发会让客户端收到密集"新玩家"而断线）；不再下发 PlayerList 移除（客户端在皮肤条目仍活跃时移除该条目会崩，实体照常消失）；PlayerList / AddPlayer 发送跳过 BDS 回读校验
+- `26.10.7`（API 1.19.0）：新增皮肤从内存导出（`getSkinBlob`/`registerSkinFromBlob`，消费方自行持久化）；目录批量导入皮肤（一个子文件夹 = PNG + 可选 `.json` 模型）；`PlayerNpcSkin.geometryData` 自定义几何模型；库移除磁盘存储，改为纯 API；新增 NPC 缩放（`PlayerNpcConfig.scale` + `playerNpcSetScale`，0.0625~10，碰撞箱等比）；修复 NPC 视距裁剪/脏刷新/Tab 移除失效（tick hook 未注册）；修复 NPC 重生（缩放/换肤等脏刷新）皮肤丢失（过期 Tab 移除条目误删新皮肤条目）
 - `26.10.6`（API 1.17.1）：皮肤采集永久存储修复
 
 ## 目录
@@ -31,6 +32,7 @@ HologramLib/
 ├── include/hologramlib/HologramLib.h   # 唯一公开头（API 冻结契约在顶部注释）
 ├── src/                                # 内部实现（不属于 API, 可自由变更）
 │   ├── HologramLibImpl.cpp             #   接口实现（委托各 Manager 单例）
+│   ├── EventIdCompat.h                 #   事件 ID 对齐（MSVC 编译必需）
 │   ├── PacketDebugRenderer.*           #   形状渲染（协议层）
 │   ├── ProtocolShape.h / ProtocolPackets.*
 │   ├── FloatingTextManager.*           #   悬浮字
@@ -54,7 +56,8 @@ HologramLib/
 
 - Visual Studio 2022（MSVC x64）
 - [xmake](https://xmake.io)
-- LeviLamina 26.10.14（xmake 自动拉取）
+- LeviLamina 26.40.0（xmake 自动拉取）
+- [SculkCatalystMC/Protocol](https://github.com/SculkCatalystMC/Protocol) v2168 静态库（自行 CMake 构建并安装到 `../BedrockProtocol-main/install`）
 
 ```bash
 xmake f -c -y
@@ -119,9 +122,9 @@ add_links("HologramLib")
 ### LSE 脚本
 
 ```js
-// 统一命名空间 "HologramLib", 八域前缀:
+// 统一命名空间 "HologramLib", 九域前缀:
 //   shape* / holo* / gradient* / itemDetail*
-//   itemDisplay* / entity* / ghost* / particle*
+//   itemDisplay* / entity* / ghost* / particle* / playerNpc*
 const shapeCreateLine = ll.import("HologramLib", "shapeCreateLine");
 const holoCreate      = ll.import("HologramLib", "holoCreate");
 const itemDisplayCreateBeacon = ll.import("HologramLib", "itemDisplayCreateBeacon");

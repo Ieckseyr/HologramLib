@@ -18,6 +18,8 @@
 
 #include "hologramlib/HologramLib.h"
 
+#include "EventIdCompat.h"
+
 #include <ll/api/event/EventBus.h>
 #include <ll/api/event/server/ServerStartedEvent.h>
 #include <ll/api/mod/RegisterHelper.h>

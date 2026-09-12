@@ -1,6 +1,6 @@
-// PacketDebugRenderer.h - 基于 Protocol v944 的形状渲染器
+﻿// PacketDebugRenderer.h - 基于 BedrockProtocol v2168 的形状渲染器
 //
-// 直接持有 v944 DebugShape，通过 DebugDrawerPacket + NetworkPeer::sendPacket 发送。
+// 直接持有 v2168 PrimitiveShapes，通过 PrimitiveShapesPacket + NetworkPeer::sendPacket 发送。
 #pragma once
 
 #include <cstdint>

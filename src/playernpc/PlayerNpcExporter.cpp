@@ -98,6 +98,20 @@ public:
     std::string getDebugInfo(int64_t id) const override {
         return PlayerNpcManager::getInstance().getDebugInfo(id);
     }
+
+    // ── 1.20.0: 轻量朝向 / 逐客户端朝向 ──
+    bool setRotationLight(int64_t id, float yaw) override {
+        return PlayerNpcManager::getInstance().setRotationLight(id, yaw);
+    }
+    bool setPlayerRotation(int64_t id, std::string const& playerName, float yaw) override {
+        return PlayerNpcManager::getInstance().setPlayerRotation(id, playerName, yaw);
+    }
+    bool clearPlayerRotation(int64_t id, std::string const& playerName) override {
+        return PlayerNpcManager::getInstance().clearPlayerRotation(id, playerName);
+    }
+    bool clearPlayerRotations(int64_t id) override {
+        return PlayerNpcManager::getInstance().clearPlayerRotations(id);
+    }
 };
 
 hologramlib::IPlayerNpc& playerNpcAdapter() {

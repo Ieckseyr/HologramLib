@@ -8,10 +8,14 @@
 #pragma once
 
 #include <cmath>
+#include <format>
 #include <cstdint>
+#include <atomic>
 #include <string>
+#include <type_traits>
 #include <vector>
 
+#include <ll/api/io/LoggerRegistry.h>
 #include <ll/api/service/Bedrock.h>
 
 #include <mc/deps/core/utility/BinaryStream.h>
@@ -25,8 +29,9 @@
 #include <sculk/protocol/codec/packet/AddPlayerPacket.hpp>
 #include <sculk/protocol/codec/packet/MoveActorAbsolutePacket.hpp>
 #include <sculk/protocol/codec/packet/PlayerListPacket.hpp>
+#include <sculk/protocol/codec/packet/PlayerSkinPacket.hpp>
 #include <sculk/protocol/codec/packet/RemoveActorPacket.hpp>
-#include <sculk/protocol/codec/utility/deps/BinaryStream.hpp>
+#include <sculk/protocol/utility/BinaryStream.hpp>
 
 #include "NpcSkinRegistry.h"
 
@@ -34,17 +39,39 @@ namespace debugshape_export::npc_protocol {
 
 // sculk 协议包通用发送（与 ItemDisplayManager::sendSculkToPlayer 同配方:
 // vanilla 反序列化校验 + varint 头部封装 + NetworkSystem peer 发送）
+//
+// 26.40 的 BDS 校验对 PlayerListPacket / AddPlayerPacket 会误判（拒绝完全合法的数据），
+// 这两型跳过校验直接发送；其余包（AddActor/RemoveActor 等）保留校验作为防线。
 template <typename PacketT>
 bool sendToPlayer(Player& player, PacketT const& packet, NetworkPeer::Reliability reliability) {
     std::vector<std::byte>        bodyBuffer;
     sculk::protocol::BinaryStream bodyStream(bodyBuffer);
     packet.write(bodyStream);
 
-    std::string          checkBuffer(reinterpret_cast<char const*>(bodyBuffer.data()), bodyBuffer.size());
-    ReadOnlyBinaryStream checkStream(checkBuffer, true);
-    auto                 checkPacket = MinecraftPackets::createPacket(static_cast<MinecraftPacketIds>(packet.getId()));
-    if (!checkPacket || !checkPacket->read(checkStream)) {
-        return false; // 校验失败: 不发, 调用方保留 shown 状态下轮重试
+    constexpr bool kSkipBdsReadCheck =
+        std::is_same_v<PacketT, sculk::protocol::PlayerListPacket>
+        || std::is_same_v<PacketT, sculk::protocol::AddPlayerPacket>;
+
+    if constexpr (!kSkipBdsReadCheck) {
+        std::string          checkBuffer(reinterpret_cast<char const*>(bodyBuffer.data()), bodyBuffer.size());
+        ReadOnlyBinaryStream checkStream(checkBuffer, true);
+        auto checkPacket = MinecraftPackets::createPacket(static_cast<MinecraftPacketIds>(packet.getId()));
+        if (!checkPacket || !checkPacket->read(checkStream)) {
+            // 校验失败: 不发, 调用方保留 shown 状态下轮重试。
+            // 首次失败打 warn（此后静默, 防每秒重试刷屏）——否则 NPC 链路断点完全不可见。
+            static std::atomic<bool> warned{false};
+            if (!warned.exchange(true)) {
+                ll::io::LoggerRegistry::getInstance()
+                    .getOrCreate("HologramLib")
+                    ->warn(
+                        "[PlayerNpc] {} BDS read 校验失败, 丢弃 (read {}/{} bytes) —— 此类失败不再重复记录",
+                        std::string(packet.getName()),
+                        checkStream.mReadPointer,
+                        checkStream.mView.size()
+                    );
+            }
+            return false;
+        }
     }
 
     BinaryStream sendStream;
@@ -69,11 +96,9 @@ inline std::uint8_t rotationByte(float degrees) {
     return static_cast<std::uint8_t>(std::lround(wrapped * (256.0f / 360.0f)));
 }
 
-// NPC 协议 UUID: 固定高位段（与真实玩家 UUID 空间天然隔离, 与库内 id 一一对应）
 inline sculk::protocol::UUID npcUuid(std::int64_t id) {
     return {0xF0B3'4E50'4300'0000ULL, static_cast<std::uint64_t>(id)};
 }
-
 inline sculk::protocol::PlayerListEntry playerListEntry(
     sculk::protocol::UUID const&           uuid,
     std::int64_t                           uniqueId,
@@ -84,9 +109,13 @@ inline sculk::protocol::PlayerListEntry playerListEntry(
     entry.mUUID            = uuid;
     entry.mActorUniqueId   = uniqueId;
     entry.mPlayerName     = name;
+    // xuid 不能留空，客户端会报错断线，固定写 "0"。
+    entry.mXuid            = "0";
+    entry.mPlatformChatId = "";
     entry.mSerializedSkin = skin;
     entry.mBuildPlatform  = 1;
     entry.mSkinTrusted    = true;
+    entry.mColor          = 0;
     return entry;
 }
 
@@ -154,7 +183,7 @@ inline bool spawnPlayerBody(
 inline bool move(Player& player, std::uint64_t runtimeId, Vec3 const& position, float yaw) {
     sculk::protocol::MoveActorAbsolutePacket packet;
     packet.mActorRuntimeId = runtimeId;
-    packet.mHeader        = 1; // On ground（纯视觉实体无物理）
+    packet.mFlags         = sculk::protocol::MoveActorAbsolutePacket::Flags::OnGround; // 纯视觉实体无物理
     packet.mPosition      = {position.x, position.y, position.z};
     packet.mRotationX     = 0;
     packet.mRotationY     = rotationByte(yaw);
@@ -162,9 +191,10 @@ inline bool move(Player& player, std::uint64_t runtimeId, Vec3 const& position, 
     return sendToPlayer(player, packet, NetworkPeer::Reliability::UnreliableSequenced);
 }
 
-// 假玩家移除（PlayerList Remove + RemoveActor 双包; 与 despawn 语义一致）
-inline bool remove(Player& player, std::int64_t id, std::uint64_t uniqueId) {
-    removePlayerList(player, id);
+// 假玩家移除：只发 RemoveActor。
+// 不发 PlayerList Remove —— 26.40 客户端在皮肤条目仍活跃时移除玩家列表条目会崩
+// （实体照常消失, 只是玩家列表里会留下这个名字）。
+inline bool remove(Player& player, std::int64_t /*id*/, std::uint64_t uniqueId) {
     sculk::protocol::RemoveActorPacket packet;
     packet.mActorUniqueId = static_cast<std::int64_t>(uniqueId);
     return sendToPlayer(player, packet, NetworkPeer::Reliability::Reliable);

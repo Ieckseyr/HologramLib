@@ -724,7 +724,7 @@ bool ParticleShapeManager::emitShape(Shape& s, std::uint64_t now) {
     std::vector<Player*> targets;
     auto collectDim = [&](int dim) {
         level->forEachPlayer([&](Player& pl) -> bool {
-            if (pl.getDimensionId().id == dim) targets.push_back(&pl);
+            if (((int)pl.getDimensionId()) == dim) targets.push_back(&pl);
             return true;
         });
     };
@@ -733,7 +733,7 @@ bool ParticleShapeManager::emitShape(Shape& s, std::uint64_t now) {
     } else {
         for (auto const& uuidStr : s.visiblePlayers) {
             auto* pl = level->getPlayer(mce::UUID::fromString(uuidStr));
-            if (pl && pl->getDimensionId().id == s.dimId) targets.push_back(pl);
+            if (pl && ((int)pl->getDimensionId()) == s.dimId) targets.push_back(pl);
         }
     }
     // 全员可见但无人在该维度 → 空转保留（等人来）; 白名单模式无有效目标 → 移除
@@ -749,8 +749,8 @@ bool ParticleShapeManager::emitShape(Shape& s, std::uint64_t now) {
         anchorY = (float)fpos.y + s.offY;
         anchorZ = (float)fpos.z + s.offZ;
         // 跟随时形状维度 = 跟随者维度（跨维度自动跟随）
-        if (follower->getDimensionId().id != s.dimId) {
-            s.dimId = follower->getDimensionId().id;
+        if (((int)follower->getDimensionId()) != s.dimId) {
+            s.dimId = ((int)follower->getDimensionId());
             s.framePosOff = static_cast<std::size_t>(-1); // 维度字节变化 → 帧模板重建
             targets.clear();
             collectDim(s.dimId);

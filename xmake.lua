@@ -21,11 +21,11 @@ else
     add_repositories("liteldev-repo https://github.com/LiteLDev/xmake-repo.git")
 end
 
--- 与服务端(26.10.14 / 协议944)匹配的 levilamina 版本
+-- 与服务端(26.40 / BDS 1.26.40)匹配的 levilamina 版本（bedrockdata v26.40.8-server.2）
 if is_config("target_type", "server") then
-    add_requires("levilamina 26.10.14", {configs = {target_type = "server"}})
+    add_requires("levilamina 26.40.0", {configs = {target_type = "server"}})
 else
-    add_requires("levilamina 26.10.14", {configs = {target_type = "client"}})
+    add_requires("levilamina 26.40.0", {configs = {target_type = "client"}})
 end
 
 add_requires("levibuildscript")
@@ -52,9 +52,9 @@ target("HologramLib")
     set_kind("shared")
     set_languages("c++23")
 
-    -- BedrockProtocol-944 静态库（CMake 构建后安装到本地）
-    add_includedirs("../BedrockProtocol-944/install/include")
-    add_linkdirs("../BedrockProtocol-944/install/lib")
+    -- BedrockProtocol-main 静态库 v2168（CMake 构建后安装到本地, 协议2168/MC 26.40+）
+    add_includedirs("../BedrockProtocol-main/install/include")
+    add_linkdirs("../BedrockProtocol-main/install/lib")
     add_links("Protocol")
 
     -- GDI+（NPC 皮肤 PNG 解码）
@@ -64,6 +64,7 @@ target("HologramLib")
     add_headerfiles("include/(hologramlib/HologramLib.h)")
 
     -- 插件源文件
+    add_headerfiles("src/EventIdCompat.h")
     add_headerfiles("src/ProtocolShape.h")
     add_headerfiles("src/PacketDebugRenderer.h")
     add_headerfiles("src/RemoteCallExporter.h")
@@ -112,7 +113,7 @@ target("HologramLib")
     add_files("src/HologramLibImpl.cpp")
     add_includedirs("src", "include")
     set_symbols("hidden")
-    add_ldflags("/OPT:REF", "/OPT:ICF", "/DEBUG:NONE")
+    add_ldflags("/OPT:REF", "/OPT:ICF")
 
     if is_config("target_type", "server") then
         add_defines("LL_PLAT_S")
