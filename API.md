@@ -314,6 +314,8 @@ if (id > 0) {
 
 ### 1.9 IPlayerNpc（假玩家 NPC，1.16.0）
 
+> **注意：NPC 皮肤暂无效（未解决）**。本节接口与数据链路均正常工作——皮肤注册（PNG / 在线采集 / 目录导入）、`getSkinBlob` / `registerSkinFromBlob` 导出恢复、NPC 创建/移动/朝向/缩放/视距/显隐、点击交互都可正常调用并生效；唯一失效的是最终显示：客户端不渲染所设置的皮肤，NPC 外观回退为默认模型。
+
 纯协议假玩家：`PlayerListPacket(Add, 携带皮肤) → AddPlayerPacket → [20 tick] PlayerListPacket(Remove)`（假玩家短暂出现在 Tab 后移除，实体因皮肤已缓存持续渲染）。不占服务端实体系统；点击交互经 ghost 管线 `domain="npc"` 派发（§1.7）。
 
 皮肤注册表全局共享：PNG 文件注册（GDI+ 解码 64×64/128×128，自定义 geometry/armSize）、目录批量导入（一个子文件夹 = PNG + 可选 `.json` 几何模型，缺省 = 标准玩家模型）或从在线玩家采集（`Player::mSkin → SerializedSkinImpl` 全字段拷贝：贴图/披风/动画贴图/几何/Persona 部件/染色 → 以 skinId 注册运行时快照，玩家之后换肤不影响）。解码/采集一次，多 NPC 复用零重复开销。**库不落盘**——持久化由消费方负责：注册/采集/导入成功后 `getSkinBlob` 导出全字段二进制快照存到自己的目录，重启时 `registerSkinFromBlob` 恢复，不依赖源 PNG/玩家在线。
@@ -677,6 +679,8 @@ rot(box, 45, 0, 0);
 ```
 
 ### 2.9 playerNpc*（假玩家 NPC，24 函数）
+
+> **注意：NPC 皮肤暂无效（未解决）**。下列函数全部可正常调用（注册/采集/导入/换肤/导出都返回正常结果），NPC 也能正常创建、移动、朝向、缩放、视距与显隐控制；但客户端不会渲染所设置的皮肤，外观回退为默认模型。
 
 纯协议假玩家（不占服务端实体系统）：`PlayerList(Add, 皮肤) → AddPlayer → [20t] PlayerList(Remove)`；点击交互经 ghost 管线 `domain="npc"`（§2.7 轮询）。皮肤三来源：PNG 文件注册 / 目录批量导入（一个子文件夹 = PNG + 可选 `.json` 模型）/ 从在线玩家采集（全字段运行时快照，玩家之后换肤不影响）。库不落盘，LSE 侧如需跨重启保留请重新注册/采集。
 

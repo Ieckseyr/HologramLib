@@ -525,6 +525,9 @@ struct PlayerNpcConfig {
     bool        enabled{true};
 };
 
+// 注意（26.40, 未解决）：本域全部接口可用且数据链路完整——皮肤注册/在线采集/目录导入、
+// getSkinBlob/registerSkinFromBlob 导出恢复、创建/移动/朝向/缩放/视距/显隐/交互都正常，
+// 但客户端目前不渲染所设置的皮肤，NPC 外观回退为默认模型（即"设置生效、显示无效"）。
 class IPlayerNpc {
 public:
     virtual ~IPlayerNpc() = default;
