@@ -1,6 +1,6 @@
 // NpcSkinRegistry.cpp - 皮肤注册表实现
 #include "NpcSkinRegistry.h"
-#include "NpcProtocol.h"
+#include "NpcPlayerList.h"
 
 #include <ll/api/io/Logger.h>
 #include <ll/api/io/LoggerRegistry.h>
@@ -108,8 +108,9 @@ std::string compactJson(std::string json) {
     return out;
 }
 
-// 统一收尾：皮肤字段原样保留，只在缺少几何时补一份标准定义。
-void finalizeSkin(sculk::protocol::SerializedSkin& skin) {
+// 统一 NPC 缓存标识；PNG、采集和旧 blob 恢复都必须填写 Id / FullId。
+void finalizeSkin(sculk::protocol::SerializedSkin& skin, std::string const& registryId) {
+    npc_protocol::finalizeSkinIds(skin, registryId);
     if (skin.mGeometryData.empty()) {
         skin.mGeometryData                 = kStandardHumanoidGeometry;
         skin.mGeometryDataMinEngineVersion = "1.12.0";
@@ -477,7 +478,7 @@ bool NpcSkinRegistry::registerSkinFromPng(hologramlib::PlayerNpcSkin const& skin
     proto.mArmSize                   = (skin.armSize == "slim") ? "slim" : "wide";
     proto.mSkinColor                 = "#0";
     proto.mOverridesPlayerAppearance = true;
-    finalizeSkin(proto); // 缺几何时补标准定义
+    finalizeSkin(proto, skinId); // 填齐 Id / FullId，缺几何时补标准定义
 
     mSkins.insert_or_assign(std::move(skinId), std::move(proto));
     return true;
@@ -573,7 +574,7 @@ bool NpcSkinRegistry::captureSkin(std::string const& skinId, std::string const& 
     proto.mId            = impl.mId;
     proto.mPlayFabId     = impl.mPlayFabId;
     proto.mResourcePatch = impl.mResourcePatch;
-    proto.mFullId        = impl.mFullId.get().empty() ? proto.mId : impl.mFullId.get();
+    // FullId 在所有标识改写完成后统一设置，避免保留原玩家的旧缓存键。
 
     // 主皮肤贴图
     proto.mSkinImageWidth  = impl.mSkinImage.get().mWidth;
@@ -666,7 +667,7 @@ bool NpcSkinRegistry::captureSkin(std::string const& skinId, std::string const& 
         proto.mIsPrimaryUser   = true;
     }
 
-    finalizeSkin(proto);
+    finalizeSkin(proto, skinId);
 
     std::lock_guard lock(mMutex);
     mSkins.insert_or_assign(skinId, std::move(proto));
@@ -692,7 +693,7 @@ bool NpcSkinRegistry::registerSkinFromBlob(std::string const& blob, std::string&
         error = "invalid skin blob (empty skinId)";
         return false;
     }
-    finalizeSkin(skin); // 兼容旧快照：同样整理成客户端接受的样子
+    finalizeSkin(skin, skinId); // 同时修复旧快照里缺失或过期的 FullId
     std::lock_guard lock(mMutex);
     mSkins.insert_or_assign(std::move(skinId), std::move(skin));
     return true;

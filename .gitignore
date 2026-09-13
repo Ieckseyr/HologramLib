@@ -1,4 +1,4 @@
-# 严格白名单: 仅跟踪 src/ include/ xmake.lua manifest.json README.md API.md .gitignore
+# 严格白名单: 源码、协议回归检查与项目配置文档
 /*
 
 !/.gitignore
@@ -7,6 +7,7 @@
 !/LICENSE
 !/src/
 !/include/
+!/tests/
 !/xmake.lua
 !/manifest.json
 

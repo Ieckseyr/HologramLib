@@ -16,6 +16,8 @@ Bedrock 协议层统一悬浮显示库（LeviLamina 26.40 / BDS 1.26.40 / 协议
 
 > **假玩家 NPC 的皮肤暂无效（未解决）**：`playerNpc*` 的创建/移动/朝向/缩放/视距/显隐，以及皮肤注册表（PNG 注册、在线采集、目录导入、`getSkinBlob` 导出/`registerSkinFromBlob` 恢复）均正常工作，数据链路完整；但客户端目前不会渲染所设置的皮肤，NPC 外观回退为默认模型。
 
+当前源码已补齐 PNG / 在线采集 / blob 恢复的 `Id` 与 `FullId`，PlayerList 只进行包体前缀校验，不执行 BDS 回读；这些修正仍待客户端验证。发送前检查单条 2168 PlayerList 包体前缀（Add `01 01 00`，Remove `01 00 01`），前缀异常时丢弃并记录实际前缀；首次成功提交到 NetworkPeer 时输出 `PlayerList submitted` 日志。它表示本地校验和提交成功，不表示客户端已渲染。PlayerList / AddPlayer 均跳过 BDS 回读，Tab 保留策略保持原样。
+
 除 FMBE/自定义实体走"假实体 + 发包"外，其余渲染均不产生真实实体、不写存档、零服务器开销；粒子发送走 vanilla `SpawnParticleEffectPacket` 批量通道（BDS tick flush 自动聚合压缩为单 Batch 数据报）。
 
 - API 版本：**1.20.0**（`HOLOGLIB_API_VERSION 0x011A00`）
@@ -67,6 +69,16 @@ xmake -y
 # 产物: build/windows/x64/release/HologramLib.{dll,lib}
 # 打包: bin/HologramLib/HologramLib.dll
 ```
+
+NPC 皮肤协议的离线回归检查（在 x64 Native Tools PowerShell 中运行，需要 Python；不启动或部署服务端）：
+
+```powershell
+./tests/check-npc-playerlist.ps1
+# 也可显式指定要核对的头文件、静态库及样本目录：
+./tests/check-npc-playerlist.ps1 -ProtocolInclude D:/path/to/include -ProtocolLibrary D:/path/to/Protocol.lib -OutputDirectory ./work/npc-wire-check
+```
+
+检查使用实际链接库生成 PlayerList 字节，再由独立 Python 解码器核对 2168 字段、可信标记位置、`Id` / `FullId` 和包体完全消费。样本保存为 `PlayerList-add.body.bin`、`PlayerList-remove.body.bin`、带包头的 `PlayerList-add.packet.bin` 与 `wire-check.json`。fixture 中的几何仅用于字节测试，不是游戏内渲染样本。头文件版本宏要求 2168；实际静态库仍以生成的字节为准。
 
 ## 部署
 

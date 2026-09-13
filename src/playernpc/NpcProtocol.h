@@ -2,8 +2,8 @@
 //
 // 移植自 SCustomNpc VisualPacket.h, 适配 HologramLib 发送通道
 // （MinecraftPackets 校验 + NetworkSystem peer 发送, 与 ItemDisplay 同路径）:
-//   spawnPlayer:  PlayerListPacket(Add, 携带皮肤) → AddPlayerPacket → 20 tick 后 Tab 移除
-//   remove:       PlayerListPacket(Remove) + RemoveActorPacket
+//   spawnPlayer:  PlayerListPacket(Add, 携带皮肤) → AddPlayerPacket（当前保留 Tab 条目）
+//   remove:       RemoveActorPacket
 //   move:         MoveActorAbsolutePacket（UnreliableSequenced 免发放心跳）
 #pragma once
 
@@ -34,23 +34,37 @@
 #include <sculk/protocol/utility/BinaryStream.hpp>
 
 #include "NpcSkinRegistry.h"
+#include "NpcPlayerList.h"
 
 namespace debugshape_export::npc_protocol {
 
 // sculk 协议包通用发送（与 ItemDisplayManager::sendSculkToPlayer 同配方:
 // vanilla 反序列化校验 + varint 头部封装 + NetworkSystem peer 发送）
 //
-// 26.40 的 BDS 校验对 PlayerListPacket / AddPlayerPacket 会误判（拒绝完全合法的数据），
-// 这两型跳过校验直接发送；其余包（AddActor/RemoveActor 等）保留校验作为防线。
+// PlayerList 只检查 2168 包体前缀，与 AddPlayer 一样跳过 BDS 回读。
+// 其余包保留原有 BDS 反序列化校验。
 template <typename PacketT>
 bool sendToPlayer(Player& player, PacketT const& packet, NetworkPeer::Reliability reliability) {
     std::vector<std::byte>        bodyBuffer;
     sculk::protocol::BinaryStream bodyStream(bodyBuffer);
     packet.write(bodyStream);
 
-    constexpr bool kSkipBdsReadCheck =
-        std::is_same_v<PacketT, sculk::protocol::PlayerListPacket>
-        || std::is_same_v<PacketT, sculk::protocol::AddPlayerPacket>;
+    constexpr bool kIsPlayerList = std::is_same_v<PacketT, sculk::protocol::PlayerListPacket>;
+    constexpr bool kSkipBdsReadCheck = kIsPlayerList || std::is_same_v<PacketT, sculk::protocol::AddPlayerPacket>;
+
+    if constexpr (kIsPlayerList) {
+        if (!hasValidPlayerListPrefix(packet, bodyBuffer)) {
+            static std::atomic<bool> warned{false};
+            if (!warned.exchange(true)) {
+                ll::io::LoggerRegistry::getInstance().getOrCreate("HologramLib")->warn(
+                    "[PlayerNpc] PlayerList 2168 framing rejected: action={} entries={} bytes={} bodyPrefix=[{}]",
+                    static_cast<unsigned>(packet.mAction), packet.mPlayerEntryList.size(),
+                    bodyBuffer.size(), bodyPrefixHex(bodyBuffer)
+                );
+            }
+            return false;
+        }
+    }
 
     if constexpr (!kSkipBdsReadCheck) {
         std::string          checkBuffer(reinterpret_cast<char const*>(bodyBuffer.data()), bodyBuffer.size());
@@ -64,10 +78,11 @@ bool sendToPlayer(Player& player, PacketT const& packet, NetworkPeer::Reliabilit
                 ll::io::LoggerRegistry::getInstance()
                     .getOrCreate("HologramLib")
                     ->warn(
-                        "[PlayerNpc] {} BDS read 校验失败, 丢弃 (read {}/{} bytes) —— 此类失败不再重复记录",
+                        "[PlayerNpc] {} BDS read 校验失败, 丢弃 (read {}/{} bytes, bodyPrefix=[{}]) —— 此类失败不再重复记录",
                         std::string(packet.getName()),
                         checkStream.mReadPointer,
-                        checkStream.mView.size()
+                        checkStream.mView.size(),
+                        bodyPrefixHex(bodyBuffer)
                     );
             }
             return false;
@@ -87,6 +102,20 @@ bool sendToPlayer(Player& player, PacketT const& packet, NetworkPeer::Reliabilit
     auto* peer = networkSystem->getPeerForUser(player.getNetworkIdentifier());
     if (peer == nullptr) return false;
     peer->sendPacket(sendStream.mBuffer, reliability, Compressibility::Compressible);
+    if constexpr (kIsPlayerList) {
+        // One sample per action, after the exact validated buffer is handed to NetworkPeer.
+        // This proves local serialization/submission, not that a client rendered the skin.
+        static std::atomic<bool> logged[2]{};
+        auto const action = static_cast<unsigned>(packet.mAction);
+        if (!logged[action].exchange(true)) {
+            auto const& skin = packet.mPlayerEntryList.front().mSerializedSkin;
+            ll::io::LoggerRegistry::getInstance().getOrCreate("HologramLib")->info(
+                "[PlayerNpc] PlayerList submitted: protocol={} action={} bytes={} bodyPrefix=[{}] skinId='{}' fullId='{}'",
+                SCULK_NETWORK_PROTOCOL_VERSION, action, bodyBuffer.size(), bodyPrefixHex(bodyBuffer),
+                skin.mId, skin.mFullId
+            );
+        }
+    }
     return true;
 }
 
@@ -94,29 +123,6 @@ inline std::uint8_t rotationByte(float degrees) {
     auto wrapped = std::fmod(degrees, 360.0f);
     if (wrapped < 0.0f) wrapped += 360.0f;
     return static_cast<std::uint8_t>(std::lround(wrapped * (256.0f / 360.0f)));
-}
-
-inline sculk::protocol::UUID npcUuid(std::int64_t id) {
-    return {0xF0B3'4E50'4300'0000ULL, static_cast<std::uint64_t>(id)};
-}
-inline sculk::protocol::PlayerListEntry playerListEntry(
-    sculk::protocol::UUID const&           uuid,
-    std::int64_t                           uniqueId,
-    std::string const&                     name,
-    sculk::protocol::SerializedSkin const&  skin
-) {
-    sculk::protocol::PlayerListEntry entry;
-    entry.mUUID            = uuid;
-    entry.mActorUniqueId   = uniqueId;
-    entry.mPlayerName     = name;
-    // xuid 不能留空，客户端会报错断线，固定写 "0"。
-    entry.mXuid            = "0";
-    entry.mPlatformChatId = "";
-    entry.mSerializedSkin = skin;
-    entry.mBuildPlatform  = 1;
-    entry.mSkinTrusted    = true;
-    entry.mColor          = 0;
-    return entry;
 }
 
 // Tab 列表移除条目（不需要皮肤/名字; AddPlayer 后 20 tick 调用）
