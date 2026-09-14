@@ -15,6 +15,13 @@ namespace debugshape_export::npc_protocol {
 
 static_assert(SCULK_NETWORK_PROTOCOL_VERSION == 2168, "HologramLib NPCs require Protocol 2168 headers and library");
 
+// 26.40 carries skin trust inside SerializedSkin as a tri-state string on the wire
+// (schema TrustedSkinFlag: Unset/False/True), not as a trailing player-list boolean.
+// SerializedSkin encodes it as uint8_t: 0 = "unset", 1 = "false", 2 = "true".
+inline constexpr std::uint8_t kSkinTrustedUnset = 0;
+inline constexpr std::uint8_t kSkinTrustedFalse = 1;
+inline constexpr std::uint8_t kSkinTrustedTrue  = 2;
+
 // NPCs use one identity for the skin and its complete cached appearance, as Geyser does.
 // Rebuild FullId after capture/Persona rewriting and when restoring older blobs.
 inline void finalizeSkinIds(sculk::protocol::SerializedSkin& skin, std::string_view registryId) {
@@ -39,10 +46,11 @@ inline sculk::protocol::PlayerListEntry playerListEntry(
     entry.mXuid           = "0";
     entry.mPlatformChatId = "";
     entry.mSerializedSkin = skin;
-    // 2168 writes trust inside SerializedSkin, not as a trailing PlayerList boolean.
-    entry.mSerializedSkin.mTrustedSkinFlag = "true";
+    // PlayerListEntry::write() copies mSkinTrusted into the skin tri-state, so a stale
+    // value carried on the caller's skin must not decide trust here. Set both explicitly.
+    entry.mSkinTrusted                     = true;
+    entry.mSerializedSkin.mTrustedSkinFlag = kSkinTrustedTrue;
     entry.mBuildPlatform  = 1;
-    entry.mSkinTrusted    = true;
     entry.mColor          = 0;
     return entry;
 }

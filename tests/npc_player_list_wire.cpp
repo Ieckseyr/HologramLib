@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
         skin.mSkinColor = "#ff123456";
         skin.mOverridesPlayerAppearance = true;
         // An old false value must not defeat the trusted NPC PlayerList entry.
-        skin.mTrustedSkinFlag = "false";
+        skin.mTrustedSkinFlag = kSkinTrustedFalse;
 
         sculk::protocol::PlayerListPacket add;
         add.mAction = Action::Add;
