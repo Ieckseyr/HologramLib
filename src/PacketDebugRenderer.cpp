@@ -3,6 +3,8 @@
 // 直接持有 v2168 PrimitiveShapes，通过 PrimitiveShapesPacket + NetworkPeer::sendPacket 发送。
 #include "PacketDebugRenderer.h"
 
+#include "DiagLog.h"
+
 #include "EventIdCompat.h"
 
 #include <ll/api/event/EventBus.h>
@@ -19,13 +21,6 @@
 #include <cmath>
 
 namespace debugshape_export {
-
-namespace {
-auto& pdLogger() {
-    static auto log = ll::io::LoggerRegistry::getInstance().getOrCreate("HologramLib");
-    return *log;
-}
-} // namespace
 
 PacketDebugRenderer& PacketDebugRenderer::getInstance() {
     static PacketDebugRenderer instance;
@@ -520,7 +515,7 @@ void PacketDebugRenderer::resendVisibleToPlayer(::Player& player, bool log) {
     if (!toSend.empty()) {
         ProtocolPacketWriter::sendToPlayer(player, toSend);
         if (log) {
-            pdLogger().info("[DebugDrawer] 进服重发: 玩家 {} 补发 {} 个形状", playerName, toSend.size());
+            HLIB_LOG_INFO("[DebugDrawer] 进服重发: 玩家 {} 补发 {} 个形状", playerName, toSend.size());
         }
     }
 }

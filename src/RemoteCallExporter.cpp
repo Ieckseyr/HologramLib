@@ -1,4 +1,6 @@
 #include "RemoteCallExporter.h"
+
+#include "DiagLog.h"
 #include "PacketDebugRenderer.h"
 #include "ModEntry.h"
 
@@ -11,8 +13,7 @@ namespace debugshape_export {
 static constexpr const char* NAMESPACE = "HologramLib";
 
 void RemoteCallExporter::exportAll() {
-    auto& logger = ModEntry::getInstance().getSelf().getLogger();
-    logger.info("Exporting DebugShape functions to LegacyRemoteCall (Protocol Layer)...");
+    HLIB_LOG_INFO("Exporting DebugShape functions to LegacyRemoteCall (Protocol Layer)...");
     
     fmt::print("[DebugShape] Starting exportAll...\n");
     
@@ -23,7 +24,7 @@ void RemoteCallExporter::exportAll() {
     
     fmt::print("[DebugShape] All functions exported successfully.\n");
     
-    logger.info("All functions exported successfully.");
+    HLIB_LOG_INFO("All functions exported successfully.");
 }
 
 void RemoteCallExporter::exportCreateFunctions() {

@@ -2,6 +2,8 @@
 
 #include "EventIdCompat.h"
 
+#include "DiagLog.h"
+
 #include <ll/api/event/EventBus.h>
 #include <ll/api/event/player/PlayerDisconnectEvent.h>
 #include <ll/api/event/player/PlayerJoinEvent.h>
@@ -23,11 +25,6 @@
 namespace debugshape_export {
 
 namespace {
-
-auto& logger() {
-    static auto log = ll::io::LoggerRegistry::getInstance().getOrCreate("HologramLib");
-    return *log;
-}
 
 std::uint64_t currentTick() {
     auto level = ll::service::getLevel();
@@ -128,7 +125,7 @@ void PlayerNpcManager::shutdown() {
 bool PlayerNpcManager::registerSkin(hologramlib::PlayerNpcSkin const& skin) {
     std::string error;
     if (!NpcSkinRegistry::getInstance().registerSkinFromPng(skin, error)) {
-        logger().warn("[PlayerNpc] registerSkin failed: {}", error);
+        HLIB_LOG_WARN("[PlayerNpc] registerSkin failed: {}", error);
         return false;
     }
     return true;
@@ -159,7 +156,7 @@ bool PlayerNpcManager::hasSkin(std::string const& skinId) const {
 bool PlayerNpcManager::unregisterSkin(std::string const& skinId) {
     std::lock_guard lock(mMutex);
     if (skinReferencedLocked(skinId)) {
-        logger().warn("[PlayerNpc] unregisterSkin '{}' rejected: still referenced by NPC", skinId);
+        HLIB_LOG_WARN("[PlayerNpc] unregisterSkin '{}' rejected: still referenced by NPC", skinId);
         return false;
     }
     return NpcSkinRegistry::getInstance().unregisterSkin(skinId);
@@ -570,7 +567,7 @@ void PlayerNpcManager::syncVisibilityLocked() {
                     // 皮肤缺失会导致 NPC 永远不生成且无任何提示, 首次命中打 warn
                     if (!mWarnedMissingSkins.contains(data.skinId)) {
                         mWarnedMissingSkins.insert(data.skinId);
-                        logger().warn(
+                        HLIB_LOG_WARN(
                             "[PlayerNpc] npc #{} 的皮肤 '{}' 未注册, 跳过生成 (请 registerSkin/采集后再试)",
                             id,
                             data.skinId

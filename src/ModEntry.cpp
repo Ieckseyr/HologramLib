@@ -1,4 +1,6 @@
 #include "ModEntry.h"
+
+#include "DiagLog.h"
 #include "RemoteCallExporter.h"
 #include "PacketDebugRenderer.h"
 #include "FloatingTextExporter.h"
@@ -49,15 +51,13 @@ static void exportLseFunctions() {
 }
 
 bool ModEntry::load() {
-    auto& logger = getSelf().getLogger();
-    logger.info("HologramLib (unified hologram/shape/itemdetail library) loading...");
+    HLIB_LOG_INFO("HologramLib (unified hologram/shape/itemdetail library) loading...");
     return true;
 }
 
 bool ModEntry::enable() {
-    auto& logger = getSelf().getLogger();
     // 构建时间戳: 与磁盘 DLL 的 LastWriteTime 对比即可确认部署的是否为当前构建
-    logger.info("HologramLib enabling... (API 0x{:06X}, build {} {})", HOLOGLIB_API_VERSION, __DATE__, __TIME__);
+    HLIB_LOG_INFO("HologramLib enabling... (API 0x{:06X}, build {} {})", HOLOGLIB_API_VERSION, __DATE__, __TIME__);
 
     ItemDisplayManager::getInstance().init();
     CustomEntityManager::getInstance().init();
@@ -72,16 +72,16 @@ bool ModEntry::enable() {
     // - lrca 未加载 → 监听 ServerStartedEvent 兜底（届时所有插件均已加载）
     if (hologramlib::lse::attach()) {
         exportLseFunctions();
-        logger.info("LSE compat layer attached (LegacyRemoteCall detected).");
+        HLIB_LOG_INFO("LSE compat layer attached (LegacyRemoteCall detected).");
     } else {
-        logger.info("LegacyRemoteCall not loaded yet; native C++ API active, will retry on ServerStarted.");
+        HLIB_LOG_INFO("LegacyRemoteCall not loaded yet; native C++ API active, will retry on ServerStarted.");
         ll::event::EventBus::getInstance().emplaceListener<ll::event::ServerStartedEvent>(
             [this](ll::event::ServerStartedEvent&) {
                 if (hologramlib::lse::attach()) {
                     exportLseFunctions();
-                    getSelf().getLogger().info("LSE compat layer attached on ServerStarted.");
+                    HLIB_LOG_INFO("LSE compat layer attached on ServerStarted.");
                 } else {
-                    getSelf().getLogger().info(
+                    HLIB_LOG_INFO(
                         "LegacyRemoteCall absent: LSE (ll.import) calls disabled; native C++ API unaffected."
                     );
                 }
@@ -89,13 +89,12 @@ bool ModEntry::enable() {
         );
     }
 
-    logger.info("HologramLib enabled successfully.");
+    HLIB_LOG_INFO("HologramLib enabled successfully.");
     return true;
 }
 
 bool ModEntry::disable() {
-    auto& logger = getSelf().getLogger();
-    logger.info("HologramLib disabling...");
+    HLIB_LOG_INFO("HologramLib disabling...");
 
     // Destroy all shapes, release resources
     PacketDebugRenderer::getInstance().shutdown();
@@ -107,7 +106,7 @@ bool ModEntry::disable() {
     ParticleShapeManager::getInstance().shutdown();
     PlayerNpcManager::getInstance().shutdown();
 
-    logger.info("HologramLib disabled.");
+    HLIB_LOG_INFO("HologramLib disabled.");
     return true;
 }
 

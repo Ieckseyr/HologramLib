@@ -1,4 +1,6 @@
 #include "GradientLineExporter.h"
+
+#include "DiagLog.h"
 #include "GradientLineManager.h"
 #include "ModEntry.h"
 
@@ -9,8 +11,7 @@ namespace debugshape_export {
 static constexpr const char* NAMESPACE = "HologramLib";
 
 void GradientLineExporter::exportAll() {
-    auto& logger = ModEntry::getInstance().getSelf().getLogger();
-    logger.info("Exporting GradientLine functions to LegacyRemoteCall...");
+    HLIB_LOG_INFO("Exporting GradientLine functions to LegacyRemoteCall...");
     
     auto& mgr = GradientLineManager::getInstance();
     
@@ -86,7 +87,7 @@ void GradientLineExporter::exportAll() {
             mgr.tick(deltaTime);
         });
     
-    logger.info("GradientLine functions exported successfully.");
+    HLIB_LOG_INFO("GradientLine functions exported successfully.");
 }
 
 } // namespace debugshape_export

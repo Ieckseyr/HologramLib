@@ -13,6 +13,7 @@
 // respawn 必换新 uniqueId/runtimeId（防客户端同帧 Remove+Add 同 ID 重映射串台）。
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -104,6 +105,8 @@ public:
 
     // runtimeId -> 库内 id 反查（ghost 交互路由用; 无匹配返回 false）
     bool findByRuntimeId(std::uint64_t runtimeId, int64_t& outId) const;
+    // 取 (uniqueId, runtimeId) —— 交易菜单/NPC 对话载体发包要用（1.21.0）
+    bool getIdPair(int64_t id, std::uint64_t& outUniqueId, std::uint64_t& outRuntimeId) const;
 
     // ── 1.20.0 追加: 逐客户端朝向（每个观察者看到不同朝向）──
     // 覆盖指定玩家收到的 yaw/pitch（出生包 AddActor 与后续增量包都按覆盖值下发）;
@@ -111,6 +114,20 @@ public:
     bool setPlayerRotation(int64_t id, std::string const& playerName, float yaw, float pitch);
     bool clearPlayerRotation(int64_t id, std::string const& playerName);
     bool clearPlayerRotations(int64_t id);
+
+    // ── 1.21.0 未发布线: 千人千面(按观看者覆盖外观字段)──
+    // 机制与逐客户端朝向一致: 覆盖值按玩家 uuid 保存, 出生包与增量包都按覆盖值下发;
+    // 未覆盖玩家用 config 值。装备变更即时单发(不 respawn, 无闪烁)。
+    // 名字覆盖(text 空 = 清除该玩家的覆盖, 回 config 名字牌)
+    bool setPlayerNametag(int64_t id, std::string const& playerName, std::string const& text);
+    // 缩放覆盖(<=0 = 清除覆盖; 有效域 0.0625~10)
+    bool setPlayerScale(int64_t id, std::string const& playerName, float scale);
+    // 装备槽覆盖(slot 0..5; name 空 = 该槽回退 config; 即时单发)
+    bool setPlayerEquipmentSlot(
+        int64_t id, std::string const& playerName, int slot, std::string const& name, int aux, std::string const& nbt
+    );
+    // 清除该玩家的全部外观覆盖(名字/缩放/装备; 朝向单独由 clearPlayerRotation 管理)
+    bool clearPlayerAppearance(int64_t id, std::string const& playerName);
 
 private:
     CustomEntityManager()  = default;
@@ -125,6 +142,11 @@ public:
         // 逐客户端朝向覆盖（玩家 uuid → 朝向; 缺省 = 用 config 的 yaw/pitch）
         // 玩家 uuid 不随 respawn 变化, 覆盖自动跨 respawn 保留
         std::unordered_map<mce::UUID, hologramlib::PerPlayerRotation> playerRot;
+        // ── 千人千面: 按观看者覆盖外观字段（条目存在 = 覆盖对应 config 字段）──
+        std::unordered_map<mce::UUID, std::string> playerNameTag; // 覆盖名字牌
+        std::unordered_map<mce::UUID, float>       playerScale;   // 覆盖缩放
+        // 覆盖装备: 逐槽合并 —— 覆盖条目里 name 非空的槽生效, 空槽回退 config
+        std::unordered_map<mce::UUID, std::array<hologramlib::CustomEntityEquipment, 6>> playerEquip;
     };
 
 private:

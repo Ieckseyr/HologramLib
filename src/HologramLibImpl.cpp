@@ -10,8 +10,12 @@
 #include "itemdetail/ItemDetailManager.h"
 #include "itemdisplay/ItemDisplayManager.h"
 #include "customentity/CustomEntityManager.h"
+#include "sensing/PlayerSensingManager.h"
 #include "particles/ParticleShapeManager.h"
 #include "playernpc/PlayerNpcExporter.h" // playerNpcAdapter()
+#include "container/ContainerMenuManager.h" // containerMenuAdapter()
+#include "trade/TradeMenuManager.h" // tradeMenuAdapter()
+#include "npcdialog/NpcDialogueManager.h" // npcDialogueAdapter()
 #include "ghost/GhostInteractRouter.h"
 // 单元合并：ghost/GhostInteractRouter.cpp 并入本编译单元
 // （沙箱内无法重配置 xmake.lua 注册新源文件；脱离沙箱后可拆回 add_files("src/ghost/GhostInteractRouter.cpp")）
@@ -188,6 +192,7 @@ public:
     bool setDimension(int64_t id, int dimId) override {
         return debugshape_export::FloatingTextManager::getInstance().setDimension(id, dimId);
     }
+
 };
 
 class ItemDetailImpl final : public IItemDetail {
@@ -415,6 +420,28 @@ public:
     bool clearPlayerRotations(int64_t id) override {
         return debugshape_export::CustomEntityManager::getInstance().clearPlayerRotations(id);
     }
+
+    // ── 1.21.0 未发布线: 千人千面(按观看者覆盖外观) ──
+    bool setPlayerNametag(int64_t id, std::string const& playerName, std::string const& text) override {
+        return debugshape_export::CustomEntityManager::getInstance().setPlayerNametag(id, playerName, text);
+    }
+    bool setPlayerScale(int64_t id, std::string const& playerName, float scale) override {
+        return debugshape_export::CustomEntityManager::getInstance().setPlayerScale(id, playerName, scale);
+    }
+    bool setPlayerEquipmentSlot(
+        int64_t            id,
+        std::string const& playerName,
+        int                slot,
+        std::string const& name,
+        int                aux,
+        std::string const& nbt
+    ) override {
+        return debugshape_export::CustomEntityManager::getInstance()
+            .setPlayerEquipmentSlot(id, playerName, slot, name, aux, nbt);
+    }
+    bool clearPlayerAppearance(int64_t id, std::string const& playerName) override {
+        return debugshape_export::CustomEntityManager::getInstance().clearPlayerAppearance(id, playerName);
+    }
 };
 class ParticleShapeImpl final : public IParticleShape {
 public:
@@ -565,6 +592,13 @@ public:
 
     IPlayerNpc& playerNpcs() override { return debugshape_export::playerNpcAdapter(); }
 
+    // ── 1.21.0 ──
+    ITradeMenu& tradeMenus() override { return debugshape_export::tradeMenuAdapter(); }
+
+    // ── 1.22.0 ──
+    INpcDialogue& npcDialogs() override { return debugshape_export::npcDialogueAdapter(); }
+    IContainerMenu& containerMenus() override { return debugshape_export::containerMenuAdapter(); }
+
     void setGhostInteractListener(std::function<void(GhostInteractEvent const&)> listener) override {
         debugshape_export::GhostInteractRouter::getInstance().setListener(std::move(listener));
     }
@@ -596,6 +630,9 @@ public:
         }
         return out;
     }
+
+    // ── 感知域(1.21.0 未发布线): 客户端设备判断 ──
+    IPlayerSensing& playerSensing() override { return debugshape_export::playerSensingAdapter(); }
 
 private:
     ShapeDrawerImpl  mShapes;

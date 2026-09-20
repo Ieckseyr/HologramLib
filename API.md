@@ -1,6 +1,6 @@
 # HologramLib API 参考
 
-- API 版本：1.20.0（`HOLOGLIB_API_VERSION 0x011A00`）
+- API 版本：1.21.0（`HOLOGLIB_API_VERSION 0x011B00`）
 - 唯一公开头：`include/hologramlib/HologramLib.h`
 
 ## API 稳定性契约
@@ -10,7 +10,7 @@
 | C++ 接口 | 全部纯虚方法签名与语义（实现对象在 DLL 内创建，消费者只持引用） | 只在接口尾部追加；永不修改/删除 |
 | C++ 宏 | `HOLOGLIB_API_VERSION`、`HOLOGLIB_API`、`hologramlib` 命名空间、枚举值 | 只追加枚举值 |
 | LSE 命名空间 | 单一命名空间 `HologramLib` 全部函数名、参数顺序、返回值类型 | 只增不改不删 |
-| 版本协商 | `IHologramLib::version()`（BCD：0x011A00 = 1.20.0） | 随发布递增 |
+| 版本协商 | `IHologramLib::version()`（BCD：0x011B00 = 1.21.0） | 随发布递增 |
 
 破坏兼容仅允许发生在大版本（2.0.0）。`src/` 目录一切内容均为内部实现，不属于 API。
 
@@ -357,6 +357,158 @@ struct PlayerNpcConfig {
     bool  enabled{true};
 };
 ```
+
+---
+
+### 1.10 ITradeMenu（村民交易菜单，1.21.0）
+
+`IHologramLib::tradeMenus()`。**手写包**打开交易界面：界面完全由本库构造的 `UpdateTradePacket` 驱动，载荷与 BDS 26.40 原生村民交易逐字节一致（`tests/check-trade-packet.bat` 整包对拍、`check-trade-offers.bat` 只对 Offers 段）。交易界面只靠这个包打开——原生流程里没有 `ContainerType=Trade` 的 `ContainerOpen`。
+
+两条路径（`TradeMenuSpec::usePacketOffers`）：
+
+- **`true`（默认，纯协议层）**：只发自建 `UpdateTrade`，服务端不放交易表。玩家的放料/成交请求走 `ItemStackRequest(147)` 回调上报；BDS 那边没有对应容器，所以物品不会真的消耗（天然只读，与参考实现 GMLIB `ChestUI` 同路）。
+- **`false`**：给载体实体装真实交易表并调 BDS 的 `openTrading`，成交由 BDS 完成（物品真的消耗）。`carrierUniqueIdOverride != 0` 时直接以该真实实体为交易对象。
+
+载体实体：交易界面需要 `EntityUniqueId`，因此打开时会在玩家身后 5 格生成一个**隐身、仅该玩家可见**的假村民（`minecraft:villager_v2`），关闭即删除。载体是异步送达客户端的，所以 `UpdateTrade` 与经验条元数据都在几 tick 后发送（背靠背发时客户端还不认识该实体，界面绑不上去）。经验条不在包内，由载体实体的 `TradeTier` / `MaxTradeTier`（恒 4）/ `TradeExperience` 元数据驱动。
+
+| 分类 | 方法 | 签名 | 说明 |
+|------|------|------|------|
+| 生命周期 | open | `(std::string const& playerName, TradeMenuSpec const&) -> int64_t` | 同一玩家重复调用先关旧菜单；失败 -1 |
+| | update / close / closeAll / isOpen / getAllIds | — | `update` 重发交易表（真实表路径会重开界面） |
+| 回传 | addClickListener / removeClickListener | `(std::function<void(TradeClickEvent const&)>) -> uint64_t` | 语义化点击（见下）；多播 |
+| | addActionListener / removeActionListener | `(TradeActionCallback) -> uint64_t` | 逐动作（`src` / `dst` / `amount`），含关闭哨兵 |
+| | addRawActionListener / removeRawActionListener | `(TradeRawActionCallback) -> uint64_t` | 诊断：菜单打开期间**每一个** 147 动作（含没匹配上的），用来查"客户端到底发了什么" |
+
+包通道：客户端的物品请求有两条 —— 独立的 `ItemStackRequestPacket`(147)，以及搭在 `PlayerAuthInputPacket`(AuthInput, 144) 里内嵌的 `mItemStackRequest`（`PlayerAuthInputPacketPayload::mItemStackRequest`，输入标志 `PerformItemStackRequest = 36`）。菜单界面的交互常走后者（实测：触屏点交易条目时 147 一条都没有）。库两条都挂，用 BDS 自己的 `ItemStackRequestCereal::toActionData()` 把 AuthInput 那份解析态动作转成同一 cereal 形态后走同一个处理器；AuthInput 只观察不拦（它同时承载移动）。`TradeRawAction::sourcePacketId` 标明来源（147 / 144）。
+
+点击定位：交易条目在新交易界面里就是配方，客户端点它时会在请求里带 `CraftRecipe` 类动作，其配方 id 回填为 `TradeClickEvent::recipeNetId` / `offerIndex`。纯协议层路径下 netId 由本库分配（`netIdBase + 条目下标`，`netIdBase` 默认 3676，取自 BDS 抓包），映射精确；真实交易表路径下 netId 由 BDS 分配，库从载体身上的 `MerchantRecipeList` 按 `mRecipeNetId` 反查下标。列表条目动作还能按 `offerIndex = slot / 3` 兜底。
+
+**不属于本菜单的配方 id 一律忽略**：真实村民的交易界面与本菜单的容器枚举、动态 id 完全相同（`dyn` 恒为 -1），只有配方 netId 能区分 —— 不在 `[netIdBase, netIdBase + offers.size())` 范围内、或在载体交易表里找不到的配方点击不会回调，否则同时开着真实村民界面时会误报。`TradeClickEvent::slot` 报**交易侧**槽位（玩家从背包把付费物品拖进付费槽时，`dst` 才是交易槽）。
+
+```cpp
+struct TradeMenuOffer {
+    TradeMenuItem buyA, buyB, sell;   // buyB.type 空 = 无第二付费项
+    int  tier{kTradeTierNovice};      // 1 基: 1=新手 … 5=大师；高于 spec.tier 即显示为未解锁
+    int  maxUses{16};
+    int  traderExp{0};
+    bool locked{false};               // true = 无论 spec.tier 多高都显示为未解锁
+};
+
+struct TradeMenuSpec {
+    std::string tradeType{"entity.villager.butcher"}; // 自由翻译键
+    int         tier{kTradeTierNovice};               // 1 基, 超出夹紧
+    int         experience{0};                        // 经验条当前经验
+    bool        displayOnly{true};                    // true = 拦截成交（物品不消耗, 只回调点击）
+    bool        usePacketOffers{true};                // 见上: 纯协议层 / 真实交易表
+    std::int64_t carrierUniqueIdOverride{0};          // 非 0 = 用该真实实体（不放自建 offers）
+    std::vector<TradeMenuOffer> offers;
+};
+
+struct TradeClickEvent {
+    std::string playerName;
+    int64_t     menuId{-1};
+    int         offerIndex{-1};   // 被点击的条目下标; 定位不到 -1
+    int         slot{-1};         // 交易侧槽位
+    bool        accepted{false};  // false = 被拦（displayOnly）
+    int         container{0};     // ContainerEnumName: 7=配方列表, 31/32=付费A/B, 33=产物, 47/48/49=双付费
+    int         containerId{-1};
+    int         recipeNetId{-1};  // CraftRecipe 带回的配方 id; 非 CraftRecipe 动作 -1
+};
+```
+
+```cpp
+// 载体实体类型（TradeMenuSpec 尾部追加）: 默认村民; 流浪商人 = "minecraft:wandering_trader"
+// （界面外观/头图随类型变化; 两条路径都适用, 真实交易表路径装表方式相同）
+spec.carrierIdentifier = "minecraft:wandering_trader";
+```
+
+### 1.11 INpcDialogue（NPC 对话框，1.21.0）
+
+`IHologramLib::npcDialogs()`。`NpcDialoguePacket`（场景名 + 正文 + NPC 名 + 按钮 JSON）下发，`NpcRequestPacket` 回传（点了第几个按钮 / 玩家关闭）。
+
+- 按钮表完全由服务端逐玩家生成：按权限 / tag / 计分板 / 任务状态决定按钮是否出现，就是在调用本接口前自行算好 `buttons`，不需要客户端配合。
+- 多层级对话 = 点击回传带回 `sceneName` + `buttonIndex` / `actionId`，调用方据此发送下一层。
+- 载体实体是**纯协议合成**的 `minecraft:npc`（不进 BDS 实体系统），位置在世界下方 `y=-66`——客户端看不到实体，但界面里的头像照常渲染（改用隐形标志位反而会让头像一起消失）。只发给该玩家；点按钮 / 关闭 / 离线时发 `RemoveActor` 删掉。
+- `NpcDialogSpec::rawActionJson` 非空时原样作为 `mActionJSON` 下发（原版按钮结构无公开文档，用于在游戏内实测字段格式）；`carrierIdentifier` 必须是 NPC 家族，换成村民等原版实体不行（实测要求）。
+
+```cpp
+struct NpcDialogButton {
+    std::string label;
+    std::vector<std::string> commands; // 展示在按钮上; 合成 NPC 不由 BDS 代跑, 命令回传给调用方
+    std::string actionId;              // 服务器侧标识, 点击回传原样带回（对接对话树/任务）
+    int         mode{0};               // 0=普通按钮 1=关闭 2=打开
+};
+
+struct NpcDialogClickEvent {
+    std::string playerName;
+    int64_t     dialogId{-1};
+    std::string sceneName;
+    int         buttonIndex{-1};  // -1 = 非按钮事件
+    std::string actionId;
+    bool        closed{false};
+    std::vector<std::string> commands; // 被点击按钮上挂的命令（按 buttonIndex 回填）
+};
+```
+
+### 1.12 IContainerMenu（虚拟容器 / 列表界面，1.21.0）
+
+`IHologramLib::containerMenus()`。方案逐条复刻参考实现 GMLIB 的 `ChestUI`：
+
+1. `UpdateBlockPacket` 在玩家头上摆一个**客户端侧箱子方块**（只发给该玩家，服务端世界里没有它）
+2. `BlockActorDataPacket` 摆该方块的方块实体 NBT：`id=Chest` / `CustomName=标题` / `x,y,z` / `pairx,pairz,pairlead`（大箱子）/ `Items=[条目物品]` —— 条目物品走这份 NBT，**不是**逐格 `InventorySlot`
+3. 等 10 tick 发 `ContainerOpen`（`ContainerType::Container(0)` + 方块坐标 + 目标实体 `-1`）
+**按槽动态刷新用 `setItem(menuId, slot, item)`**：只发一条 `InventorySlotPacket`（真实箱子同步内容用的同一种包），
+客户端就地换掉那一格——不重发方块实体、不重发 `ContainerOpen`，**无延迟、无闪烁**；`item.type` 为空即清空该槽。
+改整页内容才用 `update(menuId, spec)`。
+
+**翻页/进子菜单/返回用 `update(menuId, spec)`**: 复用同一个载体方块, 不拆界面、不重摆方块、不等待,
+只重发方块实体 NBT（新条目/标题）+ `ContainerOpen` 让客户端重读。走 `open()` 重开每次都要付一次打开延迟
+（它会先关旧菜单、恢复真方块, 再重摆、再等 `openDelayTicks`）。
+
+4. 玩家点击 → 客户端发 `ItemStackRequest(147)` → 槽位命中本容器 → 回调（槽位号 = 条目下标）。命中容器的动作**只回传、不拦**：服务端没有这个容器，放行后 BDS 自己就会失败、客户端把预测撤回（物品闪一下回原位，无错误提示），回调照常收到——与参考实现 GMLIB 一致。实测教训: 若库自己代答一条 `ItemStackNetResult` 3（请求不允许），客户端会**弹错误提示**
+5. 关闭 → `ContainerClosePacket` → 把真方块改回去 → 回调 `closed = true`
+
+**服务端根本没有这个容器**：物品只是"摆在那里"，玩家拿走/移动都不会真的改变任何东西（天然只读，不需要 `displayOnly` 开关）。适合任务列表、成就列表、商店预览这类"只展示 + 点击回调"的界面。
+
+大小容器：`rows = 3` → 单箱子 **27 格**（方块实体不带配对键）；`rows = 6` → 大箱子 **54 格**（相邻两个箱子方块 + `pairx`/`pairz`/`pairlead` 配对，前 27 格进 lead 半、后 27 格进副半，各半的 `Slot` 都是 0..26）。方块位置取玩家脚上方 5 格并优先挑空气位（免得盖掉真实方块），关闭时按该位置真方块的网络 id 改回。容器 id 用 101..199 显示区间，与 BDS 真实容器的动态 id（1..100）不冲突。
+
+```cpp
+struct ContainerMenuSpec {
+    int rows{3};                       // 3 = 小箱子 27 格, 6 = 大箱子 54 格
+    std::vector<ContainerMenuItem> items; // 下标即槽位号（大箱子 0..53）
+    bool useMinecart{false};           // false(默认) = GMLIB 方块方案; true = 旧矿车路径（客户端不认, 仅对比）
+    std::string title{"虚拟容器"};      // 箱子界面标题（方块实体的 CustomName）
+    int openDelayTicks{10};            // 摆方块+方块实体后等多少 tick 再发 ContainerOpen
+                                       // （GMLIB: 10 再等 4 补格 ≈700ms; 本库条目在方块实体 NBT 里
+                                       // 只需要 10 ≈500ms）。调小可更快, 下限要实机扫。只影响"打开"那次
+};
+
+struct ContainerClickEvent {
+    std::string playerName;
+    int64_t     menuId{-1};
+    int         slot{-1};       // 被点击的槽位（= items 的下标）
+    bool        closed{false};  // true = 界面被关闭（此时 slot = -1）
+};
+```
+
+### 1.13 感知域 / 千人千面 / 逐玩家变量全息（1.21.0）
+
+**感知域 `IHologramLib::playerSensing()`**：挂钩 `PlayerAuthInputPacket`（每玩家每 tick）逐包捕获 `InputMode`。
+`inputDeviceOf(playerName)` 返回 `ClientInputDevice`（`Unknown/KeyboardMouse/Touch/Gamepad/MotionController`），
+`isTouch(playerName)` 便捷判断。玩家离线即清；未上报 = `Unknown`。典型用途：按设备路由 UI
+（触屏走容器列表，键鼠/手柄走交易界面 —— 触屏在纯协议层交易里走不到成交是实测结论）。
+
+**千人千面** `ICustomEntity` 追加：`setPlayerNametag(id, player, text)`（空 = 清覆盖）、
+`setPlayerScale(id, player, scale)`（<=0 = 清覆盖）、`setPlayerEquipmentSlot(id, player, slot, name, aux, nbt)`
+（slot 0..5，name 空 = 该槽回退 config，即时单发无闪烁）、`clearPlayerAppearance(id, player)`。
+机制与 `setPlayerRotation` 相同：覆盖按玩家 uuid 保存，出生包与增量包都按覆盖值下发，未覆盖玩家用 config 值。
+
+**逐玩家变量全息**：全息文本含 `{var}` 占位符且绘制目标不是单玩家时，库自动切换为**逐观看者形状**
+——每个在线玩家收到按自己名字解析的独立文本（`{player}` 对每人正确）；离线/离开维度的观看者形状
+就地销毁。无变量时仍是共享单形状（性能不变）。文本动画（滚动/弹跳）由库内 `ServerLevelTickEvent`
+监听自驱，无需消费方调用 tick。
+
+> 曾短暂实现过**逐客户端音效**与**短命飘字**，经讨论已整体移除（见 README 更新日志）。
 
 ---
 

@@ -3,11 +3,16 @@
 
 #include "lse/LseBridge.h"
 
+#include <ll/api/event/EventBus.h>
+#include <ll/api/event/Listener.h>
+#include <ll/api/event/world/ServerLevelTickEvent.h>
 #include <ll/api/service/Bedrock.h>
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/level/Level.h>
 
+#include <algorithm>
 #include <cmath>
+#include <unordered_set>
 #include <chrono>
 #include <sstream>
 #include <iomanip>
@@ -483,6 +488,95 @@ void FloatingTextManager::registerBuiltinVariables() {
     });
 }
 
+bool FloatingTextManager::textHasVariables(FloatingText const& ft) {
+    for (auto const& line : ft.lines) {
+        if (line.text.find('{') != std::string::npos) return true;
+    }
+    return false;
+}
+
+void FloatingTextManager::destroyViewerShapes(FloatingText& ft) {
+    if (ft.viewerShapes.empty()) return;
+    auto& shapeMgr = PacketDebugRenderer::getInstance();
+    for (auto const& [name, sid] : ft.viewerShapes) {
+        if (sid >= 0 && shapeMgr.exists(sid)) shapeMgr.remove(sid);
+    }
+    ft.viewerShapes.clear();
+}
+
+void FloatingTextManager::rebuildTextShapesPerViewer(FloatingText& ft) {
+    auto& shapeMgr = PacketDebugRenderer::getInstance();
+    auto  level    = ll::service::getLevel();
+    if (!level) return;
+
+    // 共享形状退场(切到逐观看者)
+    if (ft.textShapeId >= 0 && shapeMgr.exists(ft.textShapeId)) {
+        shapeMgr.remove(ft.textShapeId);
+    }
+    ft.textShapeId = -1;
+
+    const LineConfig& first = ft.lines.front();
+    Color4f color{1.0f, 1.0f, 1.0f, 1.0f};
+    if (first.colorMode == ColorMode::Solid) {
+        color = first.solidColor;
+    } else if (first.colorMode == ColorMode::Gradient) {
+        color = first.gradientStart;
+    }
+
+    // 在线玩家集合(维度目标按维度过滤; 离线/离开维度观看者的形状就地销毁)
+    std::unordered_set<std::string> online;
+    level->forEachPlayer([&](Player& p) -> bool {
+        std::string const name = p.getRealName();
+        if (ft.drawTarget == FloatingText::DrawTarget::Dimension
+            && static_cast<int>(p.getDimensionId()) != ft.dimId) {
+            auto it = ft.viewerShapes.find(name);
+            if (it != ft.viewerShapes.end()) {
+                if (shapeMgr.exists(it->second)) shapeMgr.remove(it->second);
+                ft.viewerShapes.erase(it);
+            }
+            return true;
+        }
+        online.insert(name);
+        return true;
+    });
+    for (auto it = ft.viewerShapes.begin(); it != ft.viewerShapes.end();) {
+        if (!online.contains(it->first)) {
+            if (shapeMgr.exists(it->second)) shapeMgr.remove(it->second);
+            it = ft.viewerShapes.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    // 每个观看者: 原地更新或新建(按该玩家解析文本)
+    for (auto const& name : online) {
+        std::string combined;
+        combined.reserve(ft.lines.size() * 16);
+        for (size_t i = 0; i < ft.lines.size(); ++i) {
+            if (i > 0) combined += '\n';
+            combined += processVariables(ft.lines[i].text, name);
+        }
+
+        int64_t& sid = ft.viewerShapes[name];
+        if (sid >= 0 && shapeMgr.exists(sid)) {
+            shapeMgr.setText(sid, combined);
+            shapeMgr.setScale(sid, first.scale);
+            shapeMgr.setColor(sid, color.r, color.g, color.b, color.a);
+            shapeMgr.setLocation(sid, ft.x, ft.y, ft.z);
+        } else {
+            sid = shapeMgr.createText(ft.x, ft.y, ft.z, combined);
+            if (sid < 0) {
+                ft.viewerShapes.erase(name);
+                continue;
+            }
+            shapeMgr.setScale(sid, first.scale);
+            shapeMgr.setColor(sid, color.r, color.g, color.b, color.a);
+            shapeMgr.drawToPlayer(sid, name);
+        }
+    }
+    ft.isDrawn = true;
+}
+
 std::string FloatingTextManager::processVariables(const std::string& text, const std::string& playerContext) {
     if (text.empty()) return text;
 
@@ -515,6 +609,7 @@ FloatingText* FloatingTextManager::getFloatingText(int64_t id) {
 
 // 销毁文本形状 (发送移除包 + 删除内存)
 void FloatingTextManager::destroyTextShape(FloatingText& ft) {
+    destroyViewerShapes(ft); // 逐观看者形状一并销毁(若有)
     if (ft.textShapeId < 0) return;
     // PacketDebugRenderer::destroy 内部会先发移除包再删内存
     PacketDebugRenderer::getInstance().destroy(ft.textShapeId);
@@ -536,12 +631,24 @@ void FloatingTextManager::rebuildTextShape(FloatingText& ft) {
         return;
     }
 
+    // 逐玩家变量: 目标不是单玩家时, 每个观看者一份按自己解析的形状
+    // (共享单形状只能解析一次, 全员看到同一份 —— {player} 之类会失真)
+    if (textHasVariables(ft) && ft.drawTarget != FloatingText::DrawTarget::Player) {
+        rebuildTextShapesPerViewer(ft);
+        return;
+    }
+    // 曾处于逐观看者模式(变量被清掉/目标改为单玩家): 清掉观看者形状切回共享
+    destroyViewerShapes(ft);
+
     // 合并所有行 (\n), 逐行解析动态变量
+    std::string const context =
+        (ft.drawTarget == FloatingText::DrawTarget::Player) ? ft.targetPlayer : ft.followPlayer;
+
     std::string combined;
     combined.reserve(ft.lines.size() * 16);
     for (size_t i = 0; i < ft.lines.size(); ++i) {
         if (i > 0) combined += '\n';
-        combined += processVariables(ft.lines[i].text, ft.followPlayer);
+        combined += processVariables(ft.lines[i].text, context);
     }
 
     // 首行样式作为整块基础样式 (行级颜色差异由文本内 § 颜色代码承担)
@@ -583,6 +690,35 @@ bool FloatingTextManager::redrawTextShape(FloatingText& ft) {
     default:
         return false;
     }
+}
+
+// ── 库内自驱 tick(内置滚动/弹跳动画的驱动源)──
+// 此前 FloatingTextManager::tick 只有 LSE 的 holoTick 导出, 原生侧没有驱动源。
+// 现在库自己在每个服务端 tick 驱动(1/20 秒步长)。
+// 注: LSE 的 holoTick 仍可调用, 但不再需要 —— 同时调用会让滚动类动画走两倍速。
+namespace {
+struct FloatingTextTickDriver {
+    ll::event::ListenerPtr listener;
+    FloatingTextTickDriver() {
+        listener = ll::event::EventBus::getInstance().emplaceListener<ll::event::ServerLevelTickEvent>(
+            [](ll::event::ServerLevelTickEvent const&) {
+                FloatingTextManager::getInstance().tick(1.0f / 20.0f);
+            }
+        );
+    }
+};
+FloatingTextTickDriver const& floatingTextTickDriver() {
+    static FloatingTextTickDriver instance;
+    return instance;
+}
+} // namespace
+
+// 强制实例化(确保监听器随库加载注册)
+namespace {
+struct FloatingTextTickDriverBootstrap {
+    FloatingTextTickDriverBootstrap() { (void)floatingTextTickDriver(); }
+};
+FloatingTextTickDriverBootstrap const gFloatingTextTickDriverBootstrap;
 }
 
 } // namespace debugshape_export

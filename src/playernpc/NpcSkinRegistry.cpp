@@ -1,5 +1,7 @@
 // NpcSkinRegistry.cpp - 皮肤注册表实现
 #include "NpcSkinRegistry.h"
+
+#include "DiagLog.h"
 #include "NpcPlayerList.h"
 
 #include <ll/api/io/Logger.h>
@@ -41,11 +43,6 @@ using std::min;
 namespace debugshape_export {
 
 namespace {
-
-auto& logger() {
-    static auto log = ll::io::LoggerRegistry::getInstance().getOrCreate("HologramLib");
-    return *log;
-}
 
 // mce::Blob（皮肤贴图像素）→ std::string 拷贝
 std::string blobToString(mce::Blob const& blob) {
@@ -386,7 +383,7 @@ void NpcSkinRegistry::init() {
     Gdiplus::GdiplusStartupInput startupInput{};
     ULONG_PTR                   token{};
     if (Gdiplus::GdiplusStartup(&token, &startupInput, nullptr) != Gdiplus::Ok) {
-        logger().error("[PlayerNpc] GDI+ init failed; PNG skin registration disabled");
+        HLIB_LOG_ERROR("[PlayerNpc] GDI+ init failed; PNG skin registration disabled");
         return;
     }
     mGdiplusToken = reinterpret_cast<void*>(token);
@@ -535,7 +532,7 @@ int NpcSkinRegistry::importSkinsFromDir(std::string const& dirPath, std::string&
         }
 
         if (pngPath.empty()) {
-            logger().warn("[PlayerNpc] import '{}': no .png found, skipped", skinId);
+            HLIB_LOG_WARN("[PlayerNpc] import '{}': no .png found, skipped", skinId);
             continue;
         }
 
@@ -547,7 +544,7 @@ int NpcSkinRegistry::importSkinsFromDir(std::string const& dirPath, std::string&
         if (registerSkinFromPng(skin, err)) { // 消费方如需持久化: 导入成功后 getSkinBlob 落盘
             ++imported;
         } else {
-            logger().warn("[PlayerNpc] import '{}': {}", skinId, err);
+            HLIB_LOG_WARN("[PlayerNpc] import '{}': {}", skinId, err);
         }
     }
     return imported;

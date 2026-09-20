@@ -1,9 +1,9 @@
 {
     "name":  "HologramLib",
     "entry":  "HologramLib.dll",
-    "version":  "26.40.2",
+    "version":  "26.40.3",
     "type":  "native",
     "platform":  "server",
-    "description":  "统一悬浮显示库: 协议层形状渲染 + 悬浮字全息 + 物品详情, 原生C++接口导出, LSE兼容层运行时可选(无LegacyRemoteCall前置)",
+    "description":  "统一协议层接口库: 形状渲染/悬浮字/物品悬浮/自定义实体/粒子/假玩家NPC/交易菜单/虚拟容器/NPC对话/感知域, 原生C++接口导出, LSE兼容层运行时可选(无LegacyRemoteCall前置)",
     "author":  "伊希娅 EPSILON killcerr"
 }

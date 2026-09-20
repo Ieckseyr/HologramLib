@@ -1,4 +1,6 @@
 #include "FloatingTextExporter.h"
+
+#include "DiagLog.h"
 #include "FloatingTextManager.h"
 #include "ModEntry.h"
 
@@ -9,8 +11,7 @@ namespace debugshape_export {
 static constexpr const char* NAMESPACE = "HologramLib";
 
 void FloatingTextExporter::exportAll() {
-    auto& logger = ModEntry::getInstance().getSelf().getLogger();
-    logger.info("Exporting FloatingText functions to LegacyRemoteCall...");
+    HLIB_LOG_INFO("Exporting FloatingText functions to LegacyRemoteCall...");
     
     exportCreateFunctions();
     exportLineFunctions();
@@ -18,7 +19,7 @@ void FloatingTextExporter::exportAll() {
     exportAnimationFunctions();
     exportDisplayFunctions();
     
-    logger.info("FloatingText functions exported successfully.");
+    HLIB_LOG_INFO("FloatingText functions exported successfully.");
 }
 
 void FloatingTextExporter::exportCreateFunctions() {

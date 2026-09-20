@@ -5,6 +5,8 @@
 // 可见性: 玩家入服/每 20 tick 同步 + 视距/维度过滤（与 ItemDisplay 同模式）
 #include "CustomEntityManager.h"
 
+#include "DiagLog.h"
+
 #include "../EventIdCompat.h"
 
 #include <random>
@@ -71,16 +73,10 @@ sculk::protocol::Attribute makeAttribute(
 
 // SculkPacketSend.h 的失败日志落点（模板内 extern 声明, 此处定义）
 void logSculkPacketSendFailure(char const* name) {
-    static auto log = ll::io::LoggerRegistry::getInstance().getOrCreate("HologramLib");
-    log->warn("[CustomEntity] sculk packet validation failed for {}", name);
+    HLIB_LOG_WARN("[CustomEntity] sculk packet validation failed for {}", name);
 }
 
 namespace {
-
-auto& logger() {
-    static auto log = ll::io::LoggerRegistry::getInstance().getOrCreate("HologramLib");
-    return *log;
-}
 
 std::uint64_t currentTick() {
     auto level = ll::service::getLevel();
@@ -168,6 +164,68 @@ using Runtime = CustomEntityManager::Runtime;
     }
 }
 
+// ── 千人千面: 按观看者取生效值(有覆盖用覆盖, 无覆盖用 config)──
+std::string const& effectiveNametag(CustomEntityConfig const& data, CustomEntityManager::Runtime const& rt, mce::UUID uuid) {
+    static std::string const kEmpty;
+    auto it = rt.playerNameTag.find(uuid);
+    return it != rt.playerNameTag.end() ? it->second : (data.nametag.empty() ? kEmpty : data.nametag);
+}
+
+float effectiveScaleValue(CustomEntityConfig const& data, CustomEntityManager::Runtime const& rt, mce::UUID uuid) {
+    auto it = rt.playerScale.find(uuid);
+    return it != rt.playerScale.end() ? it->second : data.scale;
+}
+
+hologramlib::CustomEntityEquipment const& effectiveEquipment(
+    CustomEntityConfig const&                    data,
+    CustomEntityManager::Runtime const&          rt,
+    mce::UUID                                    uuid,
+    int                                          slot
+) {
+    static hologramlib::CustomEntityEquipment const kEmpty;
+    auto it = rt.playerEquip.find(uuid);
+    if (it != rt.playerEquip.end()) {
+        auto const& entry = it->second[static_cast<std::size_t>(slot)];
+        if (!entry.name.empty()) return entry; // 覆盖条目里 name 非空的槽生效
+    }
+    return data.equipment[static_cast<std::size_t>(slot)];
+}
+
+// 把"生效装备"(按该观看者合并覆盖)发给一个玩家; spawn 与覆盖变更共用
+void sendEffectiveEquipment(::Player& player, CustomEntityConfig const& data, CustomEntityManager::Runtime const& rt) {
+    auto const uuid = player.getUuid();
+
+    // 槽 0=主手 / 1=副手: MobEquipmentPacket
+    for (int slot = 0; slot <= 1; ++slot) {
+        auto stack = buildEquipmentItem(effectiveEquipment(data, rt, uuid, slot));
+        if (stack.isNull()) continue;
+        ::ActorRuntimeID runtimeId{rt.runtimeId};
+        auto             cid = (slot == 1) ? ::ContainerID::Offhand : ::ContainerID::Inventory;
+        ::MobEquipmentPacket equipPkt{runtimeId, stack, static_cast<unsigned char>(slot), 0, cid};
+        equipPkt.sendTo(player);
+    }
+    // 槽 2..5: MobArmorEquipmentPacket 一次四槽
+    {
+        auto head  = buildEquipmentItem(effectiveEquipment(data, rt, uuid, 2));
+        auto torso = buildEquipmentItem(effectiveEquipment(data, rt, uuid, 3));
+        auto legs  = buildEquipmentItem(effectiveEquipment(data, rt, uuid, 4));
+        auto feet  = buildEquipmentItem(effectiveEquipment(data, rt, uuid, 5));
+        if (!head.isNull() || !torso.isNull() || !legs.isNull() || !feet.isNull()) {
+            ::MobArmorEquipmentPacket armorPkt;
+            armorPkt.mRuntimeId = ::ActorRuntimeID{rt.runtimeId};
+            std::destroy_at(&armorPkt.mHead);
+            std::construct_at(&armorPkt.mHead, head);
+            std::destroy_at(&armorPkt.mTorso);
+            std::construct_at(&armorPkt.mTorso, torso);
+            std::destroy_at(&armorPkt.mLegs);
+            std::construct_at(&armorPkt.mLegs, legs);
+            std::destroy_at(&armorPkt.mFeet);
+            std::construct_at(&armorPkt.mFeet, feet);
+            armorPkt.sendTo(player);
+        }
+    }
+}
+
 // ── 发包原语 ──
 
 void sendCustomActor(
@@ -197,10 +255,13 @@ void sendCustomActor(
     pkt.mMetaData.mDataItems.push_back(
         {sculk::protocol::ActorDataIDs::Reserved0, flags}
     );
-    if (!data.nametag.empty()) {
-        pkt.mMetaData.mDataItems.push_back(
-            {sculk::protocol::ActorDataIDs::Name, data.nametag}
-        );
+    {
+        auto const& name = effectiveNametag(data, rt, player.getUuid());
+        if (!name.empty()) {
+            pkt.mMetaData.mDataItems.push_back(
+                {sculk::protocol::ActorDataIDs::Name, name}
+            );
+        }
     }
     // NametagAlwaysShow (ID=81):
     //   BDS 实际语义: 0 → 名字牌常显（不看距离/准星）, 1 → 仅准星对准才显示
@@ -233,7 +294,7 @@ void sendCustomActor(
 
     // attributes: health 基础 + minecraft:scale 缩放（客户端有效域 0.0625~10）
     // SyncedAttribute = {name, mMinValue, mMaxValue, mCurrentValue}
-    float const scale = std::clamp(data.scale, 0.0625f, 10.0f);
+    float const scale = std::clamp(effectiveScaleValue(data, rt, player.getUuid()), 0.0625f, 10.0f);
     pkt.mAttributes = {
         {"minecraft:health", 0.0f,     20.0f,      20.0f},
         {"minecraft:scale",  0.0625f,  10.0f,      scale},
@@ -245,7 +306,7 @@ void sendCustomActor(
     // BDS 客户端对 AddActorPacket 里携带的 attributes 仅初始化不生效，
     // 需要随后的 UpdateAttributesPacket 再"应用"一次，scale 才会真正渲染。
     {
-        float const s = std::clamp(data.scale, 0.0625f, 10.0f);
+        float const s = std::clamp(effectiveScaleValue(data, rt, player.getUuid()), 0.0625f, 10.0f);
         sculk::protocol::UpdateAttributesPacket uap;
         uap.mActorRuntimeId = rt.runtimeId;
         uap.mAttributes = {
@@ -256,47 +317,8 @@ void sendCustomActor(
         sendSculkPacketToPlayer(player, uap);
     }
 
-    // ── AddActor 之后立即下发装备（空手/空槽跳过，避免无意义流量） ──
-    //  槽 0=主手 / 1=副手：MobEquipmentPacket（Inventory / Offhand container）
-    for (int slot = 0; slot <= 1; ++slot) {
-        auto stack = buildEquipmentItem(data.equipment[slot]);
-        if (stack.isNull()) continue;
-        ::ActorRuntimeID runtimeId{rt.runtimeId};
-        // 副手 (slot=1) 使用 Offhand container; 主手 (slot=0) Inventory
-        auto cid = (slot == 1) ? ::ContainerID::Offhand : ::ContainerID::Inventory;
-        ::MobEquipmentPacket equipPkt{
-            runtimeId,
-            stack,
-            static_cast<unsigned char>(slot), // slotByte
-            0,                                  // selectedSlot（默认0即可）
-            cid
-        };
-        equipPkt.sendTo(player);
-    }
-    //  槽 2=head / 3=chest / 4=legs / 5=feet：MobArmorEquipmentPacket 一次发包四个位置 + body
-    {
-        auto head  = buildEquipmentItem(data.equipment[2]);
-        auto torso = buildEquipmentItem(data.equipment[3]);
-        auto legs  = buildEquipmentItem(data.equipment[4]);
-        auto feet  = buildEquipmentItem(data.equipment[5]);
-        // 四个槽全空 → 省一次发包（body 永久空当前未使用）
-        if (!head.isNull() || !torso.isNull() || !legs.isNull() || !feet.isNull()) {
-            // 无 6 参构造器: 默认构造（五槽全空）后逐槽赋值（TypedStorage 经 operator= 转发）
-            ::MobArmorEquipmentPacket armorPkt;
-            armorPkt.mRuntimeId = ::ActorRuntimeID{rt.runtimeId};
-            // 26.32: NetworkItemStackDescriptor 无拷贝赋值(TypedStorage operator= 不可用),
-            // 原地析构 + 重建, 经显式构造器 NetworkItemStackDescriptor(ItemStack const&)
-            std::destroy_at(&armorPkt.mHead);
-            std::construct_at(&armorPkt.mHead, head);
-            std::destroy_at(&armorPkt.mTorso);
-            std::construct_at(&armorPkt.mTorso, torso);
-            std::destroy_at(&armorPkt.mLegs);
-            std::construct_at(&armorPkt.mLegs, legs);
-            std::destroy_at(&armorPkt.mFeet);
-            std::construct_at(&armorPkt.mFeet, feet);
-            armorPkt.sendTo(player);
-        }
-    }
+    // ── AddActor 之后立即下发装备(按该观看者的生效值; 空手/空槽跳过) ──
+    sendEffectiveEquipment(player, data, rt);
 
     // ── 骑乘链接（1.12.0）: AddActor 之后重放 SetActorLinkPacket ──
     // 载具 = 玩家或另一自定义实体; ghost 恒为乘客（B 端）
@@ -331,7 +353,7 @@ bool spawnForPlayer(
     if (!ll::service::getLevel()) return false;
 
     sendCustomActor(player, data, rt, vehicleUniqueId);
-    logger().debug(
+    HLIB_LOG_DEBUG(
         "[CustomEntity] spawned #{} '{}' at ({:.1f},{:.1f},{:.1f}) dim={} scale={:.3f} tag='{}'",
         id,
         data.identifier,
@@ -433,7 +455,7 @@ bool CustomEntityManager::isIdUsed(int64_t id) const {
 int64_t CustomEntityManager::createLocked(CustomEntityConfig const& config, int64_t id) {
     // identifier 必须非空（客户端无类型可渲染的实体会被丢弃）
     if (config.identifier.empty()) {
-        logger().warn("[CustomEntity] create rejected: empty identifier");
+        HLIB_LOG_WARN("[CustomEntity] create rejected: empty identifier");
         return -1;
     }
 
@@ -566,6 +588,102 @@ bool CustomEntityManager::clearPlayerRotation(int64_t id, std::string const& pla
     if (player == nullptr) return false;
     if (rit->second.playerRot.erase(player->getUuid()) == 0) return false;
     mLightDirtyIds.insert(id);
+    return true;
+}
+
+// ── 千人千面: 按观看者覆盖外观字段 ──
+bool CustomEntityManager::setPlayerNametag(int64_t id, std::string const& playerName, std::string const& text) {
+    std::lock_guard lock(mMutex);
+    if (!mConfigs.contains(id) || !mRuntimes.contains(id)) return false;
+    auto* player = findPlayerByName(playerName);
+    if (player == nullptr) return false;
+    auto& rt = mRuntimes[id];
+    if (!rt.shownPlayers.contains(player->getUuid())) return false;
+
+    if (text.empty()) {
+        rt.playerNameTag.erase(player->getUuid()); // 清覆盖 → 回 config 名字牌
+    } else {
+        rt.playerNameTag[player->getUuid()] = text;
+    }
+    mLightDirtyIds.insert(id); // 增量 SetActorData 按玩家覆盖值刷新(无闪烁)
+    return true;
+}
+
+bool CustomEntityManager::setPlayerScale(int64_t id, std::string const& playerName, float scale) {
+    std::lock_guard lock(mMutex);
+    if (!mConfigs.contains(id) || !mRuntimes.contains(id)) return false;
+    auto* player = findPlayerByName(playerName);
+    if (player == nullptr) return false;
+    auto& rt = mRuntimes[id];
+    if (!rt.shownPlayers.contains(player->getUuid())) return false;
+
+    if (scale <= 0.0f) {
+        rt.playerScale.erase(player->getUuid()); // 清覆盖
+    } else {
+        rt.playerScale[player->getUuid()] = std::clamp(scale, 0.0625f, 10.0f);
+    }
+    mLightDirtyIds.insert(id); // UpdateAttributes 增量应用
+    return true;
+}
+
+bool CustomEntityManager::setPlayerEquipmentSlot(
+    int64_t            id,
+    std::string const& playerName,
+    int                slot,
+    std::string const& name,
+    int                aux,
+    std::string const& nbt
+) {
+    std::lock_guard lock(mMutex);
+    if (slot < 0 || slot > 5) return false;
+    if (!mConfigs.contains(id) || !mRuntimes.contains(id)) return false;
+    auto* player = findPlayerByName(playerName);
+    if (player == nullptr) return false;
+    auto& rt = mRuntimes[id];
+    if (!rt.shownPlayers.contains(player->getUuid())) return false;
+
+    if (name.empty()) {
+        // 该槽覆盖移除 → 回 config; 若整个覆盖条目空了顺手摘掉
+        auto it = rt.playerEquip.find(player->getUuid());
+        if (it != rt.playerEquip.end()) {
+            it->second[static_cast<std::size_t>(slot)] = {};
+            bool allEmpty                                  = true;
+            for (auto const& e : it->second) {
+                if (!e.name.empty()) {
+                    allEmpty = false;
+                    break;
+                }
+            }
+            if (allEmpty) rt.playerEquip.erase(it);
+        }
+    } else {
+        auto& entry       = rt.playerEquip[player->getUuid()][static_cast<std::size_t>(slot)];
+        entry.name        = name;
+        entry.aux         = aux;
+        entry.nbt         = nbt;
+    }
+    // 装备是独立包, 即时单发该观看者(不 respawn, 无闪烁)
+    auto& data = mConfigs[id];
+    sendEffectiveEquipment(*player, data, rt);
+    return true;
+}
+
+bool CustomEntityManager::clearPlayerAppearance(int64_t id, std::string const& playerName) {
+    std::lock_guard lock(mMutex);
+    auto            rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    auto* player = findPlayerByName(playerName);
+    if (player == nullptr) return false;
+    auto& rt = rit->second;
+
+    bool const had = rt.playerNameTag.erase(player->getUuid()) > 0
+                  || rt.playerScale.erase(player->getUuid()) > 0
+                  || rt.playerEquip.erase(player->getUuid()) > 0;
+    if (!had) return false;
+    mLightDirtyIds.insert(id); // 名字/缩放增量恢复 config
+    if (auto* p2 = findPlayerByName(playerName)) {
+        sendEffectiveEquipment(*p2, mConfigs[id], rt); // 装备即时恢复
+    }
     return true;
 }
 
@@ -925,6 +1043,15 @@ void CustomEntityManager::notifySpawnLocked(int64_t id, Player& player) {
     if (mSpawnCallback) mSpawnCallback(id, player.getRealName()); // mMutex 可重入, 回调内调库 API 安全
 }
 
+bool CustomEntityManager::getIdPair(int64_t id, std::uint64_t& outUniqueId, std::uint64_t& outRuntimeId) const {
+    std::lock_guard lock(mMutex);
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    outUniqueId  = rit->second.uniqueId;
+    outRuntimeId = rit->second.runtimeId;
+    return true;
+}
+
 bool CustomEntityManager::findByRuntimeId(std::uint64_t runtimeId, int64_t& outId) const {
     std::lock_guard lock(mMutex);
     for (auto const& [id, rt] : mRuntimes) {
@@ -1102,10 +1229,13 @@ void CustomEntityManager::refreshLightLocked(int64_t id) {
             sadp.mMetaData.mDataItems.push_back(
                 {sculk::protocol::ActorDataIDs::Reserved0, flags}
             );
-            if (!data.nametag.empty()) {
-                sadp.mMetaData.mDataItems.push_back(
-                    {sculk::protocol::ActorDataIDs::Name, data.nametag}
-                );
+            {
+                auto const& name = effectiveNametag(data, rt, uuid);
+                if (!name.empty()) {
+                    sadp.mMetaData.mDataItems.push_back(
+                        {sculk::protocol::ActorDataIDs::Name, name}
+                    );
+                }
             }
             sadp.mMetaData.mDataItems.push_back(
                 {sculk::protocol::ActorDataIDs::NametagAlwaysShow,
@@ -1116,7 +1246,7 @@ void CustomEntityManager::refreshLightLocked(int64_t id) {
 
         // 3) scale attribute 二次应用
         {
-            float const s = std::clamp(data.scale, 0.0625f, 10.0f);
+            float const s = std::clamp(effectiveScaleValue(data, rt, uuid), 0.0625f, 10.0f);
             sculk::protocol::UpdateAttributesPacket uap;
             uap.mActorRuntimeId = rt.runtimeId;
             uap.mAttributes = {

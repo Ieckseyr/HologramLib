@@ -4,6 +4,7 @@
 !/.gitignore
 !/README.md
 !/API.md
+!/VERSION-HISTORY.md
 !/LICENSE
 !/src/
 !/include/
@@ -13,3 +14,20 @@
 
 # 白名单内仍需排除的内容
 src/**/*.log
+tests/__pycache__/
+
+# ── 本地工作产物,永不入库(显式列出, 防止将来误放行)──
+# work/  = 离线检查的输出目录(fixture 编译产物 + 生成的包字节), 由 tests/check-*.bat 重建
+# bin/   = 打包产物(部署来源)   build/ = xmake 中间产物
+# .cache = 26.40 线格式 schema 真值源 + clangd 索引   .xmake = 本地包仓库缓存
+work/
+bin/
+build/
+.cache/
+.xmake/
+.vscode/
+/*.dll
+
+# 本地文档(不随库发布)
+/架构约定.md
+/ROADMAP.md

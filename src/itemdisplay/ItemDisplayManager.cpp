@@ -4,6 +4,8 @@
 // 主键改为 int64 id，去除持久化与命令层（由消费者负责）。
 #include "ItemDisplayManager.h"
 
+#include "DiagLog.h"
+
 #include "../EventIdCompat.h"
 
 #include <random>
@@ -55,11 +57,6 @@ namespace debugshape_export {
 
 namespace {
 
-auto& logger() {
-    static auto log = ll::io::LoggerRegistry::getInstance().getOrCreate("HologramLib");
-    return *log;
-}
-
 // ── sculk 协议包通用发送（验证 + 头部封装 + peer 发送）──
 
 template <typename PacketT>
@@ -72,7 +69,7 @@ void sendSculkToPlayer(Player& player, PacketT const& packet) {
     ReadOnlyBinaryStream checkStream(checkBuffer, true);
     auto                 checkPacket = MinecraftPackets::createPacket(static_cast<MinecraftPacketIds>(packet.getId()));
     if (!checkPacket || !checkPacket->read(checkStream)) {
-        logger().warn("Sculk packet validation failed for {}", packet.getName());
+        HLIB_LOG_WARN("Sculk packet validation failed for {}", packet.getName());
         return;
     }
 
@@ -179,7 +176,7 @@ std::optional<::ItemStack> buildItemStack(std::string const& rawName, int aux, s
         if (parsed) {
             tag = std::make_unique<::CompoundTag>(std::move(*parsed));
         } else {
-            logger().warn(
+            HLIB_LOG_WARN(
                 "[ItemDisplay] itemNbt SNBT parse failed for '{}', ignored. 原文前 80 字节: [{}]",
                 rawName,
                 nbt.substr(0, 80)
@@ -239,7 +236,7 @@ std::optional<::ItemStack> buildItemStack(std::string const& rawName, int aux, s
         instances[0].push_back(inst);
         ench.setEnchantInstances(std::move(instances));
         stack->saveEnchantsToUserData(ench);
-        logger().warn(
+        HLIB_LOG_WARN(
             "[ItemDisplay] 光效自写未生效(isEnchanted=false), 已走原生兜底。自写: [{}] 原生格式: [{}]",
             tag ? tag->toSnbt(::SnbtFormat::Minimize) : std::string("(null)"),
             stack->mUserData ? stack->mUserData->toSnbt(::SnbtFormat::Minimize) : std::string("(null)")
@@ -248,7 +245,7 @@ std::optional<::ItemStack> buildItemStack(std::string const& rawName, int aux, s
 
     // 诊断: NBT/光效应用结果（runtime 重建时触发, 频率低）
     if (!nbt.empty() || glint) {
-        logger().info(
+        HLIB_LOG_INFO(
             "[ItemDisplay] 物品构建 '{}': NBT {} 字节, glint={}, isEnchanted={}",
             rawName,
             nbt.size(),
@@ -544,7 +541,7 @@ bool spawnForPlayer(int64_t id, ItemDisplayConfig const& data, Runtime& rt, Play
         rt.cachedGlint    = data.itemGlint;
         if (!rt.cachedStack) {
             rt.itemWarned = true;
-            logger().warn(
+            HLIB_LOG_WARN(
                 "[ItemDisplay] unknown item '{}' for display #{} (tried raw/short-name/alias)",
                 data.item,
                 id
@@ -559,7 +556,7 @@ bool spawnForPlayer(int64_t id, ItemDisplayConfig const& data, Runtime& rt, Play
     sendEquipment(player, rt.runtimeId, stack);
     sendDataPacket(player, rt.runtimeId, data.hitboxWidth, data.hitboxHeight);
     scheduleAnims(id, data, rt, player, mode);
-    logger().debug(
+    HLIB_LOG_DEBUG(
         "[ItemDisplay] spawned #{} '{}' at ({:.1f},{:.1f},{:.1f}) dim={} mode={}",
         id,
         data.item,

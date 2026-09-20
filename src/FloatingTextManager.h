@@ -91,6 +91,11 @@ struct FloatingText {
     float animTime = 0.0f;          // 动画时间累计
     std::vector<float> scrollOffsets;  // 每行的滚动偏移
     bool isDrawn = false;
+
+    // ── 逐玩家变量: 文本含 {var} 且目标不是单玩家时, 按观看者各建一个形状 ──
+    // (观看者名 → 形状 id; 每个观看者收到按自己名字解析的文本)
+    std::unordered_map<std::string, int64_t> viewerShapes;
+
 };
 
 
@@ -225,6 +230,12 @@ private:
     void destroyTextShape(FloatingText& ft);
     // 按绘制目标重发形状 (同 networkId 覆盖, 无闪烁)
     bool redrawTextShape(FloatingText& ft);
+    // 文本是否含变量占位符 {…}
+    [[nodiscard]] static bool textHasVariables(FloatingText const& ft);
+    // 逐观看者形状重建(含变量 + 目标不是单玩家时, 代替共享形状)
+    void rebuildTextShapesPerViewer(FloatingText& ft);
+    // 销毁全部观看者形状(切回共享路径 / 销毁条目时)
+    void destroyViewerShapes(FloatingText& ft);
     std::string processVariables(const std::string& text, const std::string& playerContext);
 
     std::unordered_map<int64_t, std::unique_ptr<FloatingText>> mFloatingTexts;

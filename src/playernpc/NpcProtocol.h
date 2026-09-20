@@ -8,6 +8,8 @@
 #pragma once
 
 #include <cmath>
+
+#include "DiagLog.h"
 #include <format>
 #include <cstdint>
 #include <atomic>
@@ -56,7 +58,7 @@ bool sendToPlayer(Player& player, PacketT const& packet, NetworkPeer::Reliabilit
         if (!hasValidPlayerListPrefix(packet, bodyBuffer)) {
             static std::atomic<bool> warned{false};
             if (!warned.exchange(true)) {
-                ll::io::LoggerRegistry::getInstance().getOrCreate("HologramLib")->warn(
+                HLIB_LOG_WARN(
                     "[PlayerNpc] PlayerList 2168 framing rejected: action={} entries={} bytes={} bodyPrefix=[{}]",
                     static_cast<unsigned>(packet.mAction), packet.mPlayerEntryList.size(),
                     bodyBuffer.size(), bodyPrefixHex(bodyBuffer)
@@ -75,9 +77,7 @@ bool sendToPlayer(Player& player, PacketT const& packet, NetworkPeer::Reliabilit
             // 首次失败打 warn（此后静默, 防每秒重试刷屏）——否则 NPC 链路断点完全不可见。
             static std::atomic<bool> warned{false};
             if (!warned.exchange(true)) {
-                ll::io::LoggerRegistry::getInstance()
-                    .getOrCreate("HologramLib")
-                    ->warn(
+                HLIB_LOG_WARN(
                         "[PlayerNpc] {} BDS read 校验失败, 丢弃 (read {}/{} bytes, bodyPrefix=[{}]) —— 此类失败不再重复记录",
                         std::string(packet.getName()),
                         checkStream.mReadPointer,
@@ -109,7 +109,7 @@ bool sendToPlayer(Player& player, PacketT const& packet, NetworkPeer::Reliabilit
         auto const action = static_cast<unsigned>(packet.mAction);
         if (!logged[action].exchange(true)) {
             auto const& skin = packet.mPlayerEntryList.front().mSerializedSkin;
-            ll::io::LoggerRegistry::getInstance().getOrCreate("HologramLib")->info(
+            HLIB_LOG_INFO(
                 "[PlayerNpc] PlayerList submitted: protocol={} action={} bytes={} bodyPrefix=[{}] skinId='{}' fullId='{}'",
                 SCULK_NETWORK_PROTOCOL_VERSION, action, bodyBuffer.size(), bodyPrefixHex(bodyBuffer),
                 skin.mId, skin.mFullId
