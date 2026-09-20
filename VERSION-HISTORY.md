@@ -33,8 +33,8 @@
 
 | 插件发布版本 | API 版本 | `HOLOGLIB_API_VERSION` | 该版本新增的能力域 |
 |---|---|---|---|
-| `26.40.4` | 1.22.0 | `0x011C00` | **交易菜单改为纯展示**（撤回 `TradeClickEvent` / `TradeActionCallback` / `TradeRawAction` 与 `ITradeMenu` 的全部监听方法；`TradeMenuSpec` 去掉 `displayOnly` / `acceptPaymentPlacement`），新增 `ITradeMenu::addOffer` / `setTier`（就地重发交易表）；四个新域补齐 **LSE 导出**（`trade*` / `container*` / `npcDialog*` / `sensing*`，容器与对话的点击走轮询队列），`entity*` 补逐客户端渲染导出（`entitySetPlayerNametag` / `entitySetPlayerScale` / `entitySetPlayerEquipmentSlot` / `entityClearPlayerAppearance`）|
-| `26.40.3` | 1.21.0 | `0x011B00` | 新增 `ITradeMenu`（村民交易菜单：协议层交易界面、隐身载体实体、点击回传、展示模式）、`INpcDialogue`（NPC 对话界面：场景/正文/按钮 JSON、点击与关闭回传、合成 NPC 载体）、`IContainerMenu`（虚拟容器/列表：复刻 GMLIB ChestUI —— 客户端侧箱子方块 + 方块实体 NBT + 绑方块坐标的 ContainerOpen；小容器 27 格、大容器 54 格配对；点击回传槽位号）与 `IPlayerSensing`（感知域：AuthInput InputMode 逐包捕获客户端设备）；`ICustomEntity` / `IHologramText` 追加逐客户端渲染（按观看者覆盖名字牌/缩放/装备、含 `{var}` 的文本按观看者解析）；移除逐客户端音效与短命飘字 |
+| `26.40.4` | 1.22.0 | `0x011C00` | **交易菜单改为纯展示**（暂无有效监听方法），新增 `ITradeMenu::addOffer` / `setTier`（就地重发交易表）；四个新域补齐 **LSE 导出**（`trade*` / `container*` / `npcDialog*` / `sensing*`，容器与对话的点击走轮询队列），`entity*` 补逐客户端渲染导出（`entitySetPlayerNametag` / `entitySetPlayerScale` / `entitySetPlayerEquipmentSlot` / `entityClearPlayerAppearance`）|
+| `26.40.3` | 1.21.0 | `0x011B00` | 新增 `ITradeMenu`（村民交易菜单：协议层交易界面）、`INpcDialogue`（NPC 对话界面：场景/正文/按钮 JSON、点击与关闭回传、合成 NPC 载体）、`IContainerMenu`（虚拟容器/列表：复刻 GMLIB ChestUI —— 客户端侧箱子方块 + 方块实体 NBT + 绑方块坐标的 ContainerOpen；小容器 27 格、大容器 54 格配对；点击回传槽位号）与 `IPlayerSensing`（感知域：AuthInput InputMode 逐包捕获客户端设备）；`ICustomEntity` / `IHologramText` 追加逐客户端渲染（按观看者覆盖名字牌/缩放/装备、含 `{var}` 的文本按观看者解析）；移除逐客户端音效与短命飘字 |
 | `26.40.2` | 1.20.0 | `0x011A00` | 修复 NPC 皮肤不渲染（`Id`/`FullId` 补全、PlayerList 2168 帧格式）|
 | `26.40.1` | 1.20.0 | `0x011A00` | 适配 LeviLamina 26.40 / BDS 1.26.40（协议 2168）；逐客户端朝向（`setPlayerRotation` 等）|
 | `26.10.7` | 1.19.0 | `0x011900` | 皮肤内存导出/目录导入、`geometryData` 自定义模型、NPC 缩放；1.19.1 追加 ghost 交互多播监听 |
