@@ -97,6 +97,8 @@ xmake -y
 # 打包: bin/HologramLib/HologramLib.dll
 ```
 
+在**普通 Windows shell（cmd / PowerShell）**里跑 xmake：Git Bash / MSYS 下 xmake 会把 host 认成 msys，按 msys 的工具链与包目录去解析依赖，于是找不到 MSVC、转而去重新编译 fmt/gsl 之类的基础包并失败（`cannot get program for cc`）。诊断日志选项 `--holo_diag` 见下文「正式产物不输出任何日志」。
+
 NPC 皮肤协议的离线回归检查（在 x64 Native Tools PowerShell 中运行，需要 Python；不启动或部署服务端）：
 
 ```powershell
