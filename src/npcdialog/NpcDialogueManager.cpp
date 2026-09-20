@@ -334,6 +334,14 @@ bool NpcDialogueManager::update(int64_t dialogId, hologramlib::NpcDialogSpec con
     return true;
 }
 
+bool NpcDialogueManager::getSpec(int64_t dialogId, hologramlib::NpcDialogSpec& out) const {
+    std::lock_guard lock(mMutex);
+    auto            it = mDialogs.find(dialogId);
+    if (it == mDialogs.end()) return false;
+    out = it->second.spec;
+    return true;
+}
+
 bool NpcDialogueManager::close(int64_t dialogId) {
     Dialog copy;
     {

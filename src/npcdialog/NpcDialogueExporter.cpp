@@ -105,7 +105,9 @@ void NpcDialogueExporter::exportAll() {
         NAMESPACE,
         "npcDialogUpdate",
         [&mgr](int64_t id, std::string const& dialogue, std::string const& buttonsSpec) -> bool {
+            // 先读出当前规格再改: update 是整体替换, 只传正文会把 npcName / sceneName / 载体类型冲掉
             hologramlib::NpcDialogSpec spec;
+            if (!mgr.getSpec(id, spec)) return false;
             spec.dialogue = dialogue;
             spec.buttons  = parseButtons(buttonsSpec);
             return mgr.update(id, spec);

@@ -923,7 +923,7 @@ for (const line of containerPollClicks()) { /* 切分 player= / menuId= / slot= 
 | 函数 | 签名 | 说明 |
 |------|------|------|
 | npcDialogOpen | `(playerName: s, npcName: s, sceneName: s, dialogue: s, buttonsSpec: s, carrierIdentifier: s) -> i` | 打开对话（同一玩家重复调用先关上一层）；按钮串格式见下 |
-| npcDialogUpdate | `(id: i, dialogue: s, buttonsSpec: s) -> b` | 就地换内容（**只适合界面仍开着时的微调**，见下方实测限制） |
+| npcDialogUpdate | `(id: i, dialogue: s, buttonsSpec: s) -> b` | 就地换正文与按钮（npcName / sceneName / 载体类型保留不变）；**只适合界面仍开着时的微调**，见下方实测限制 |
 | npcDialogClose / npcDialogCloseAll / npcDialogIsOpen / npcDialogGetIds | — | 生命周期与查询 |
 | npcDialogPollClicks | `() -> [s]` | 取走并清空；每条 `player=X dialogId=N scene=S button=I actionId=A closed=0\|1 commands=...` |
 | npcDialogClearClicks | `() -> void` | 丢弃队列 |

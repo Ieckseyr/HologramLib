@@ -39,6 +39,8 @@ public:
     bool    update(int64_t dialogId, hologramlib::NpcDialogSpec const& spec);
     void    closeAll();
     bool    isOpen(int64_t dialogId) const;
+    // 取当前规格的拷贝（就地改内容前先读出来, 避免把 npcName/sceneName/载体类型一起冲掉）
+    [[nodiscard]] bool getSpec(int64_t dialogId, hologramlib::NpcDialogSpec& out) const;
     std::vector<int64_t> getAllIds() const;
 
     uint64_t addClickListener(std::function<void(hologramlib::NpcDialogClickEvent const&)> listener);
