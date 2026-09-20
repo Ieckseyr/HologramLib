@@ -170,11 +170,11 @@ NPC 皮肤协议的离线回归检查（在 x64 Native Tools PowerShell 中运�
 | 实现 | 时序 | 打开耗时 |
 |---|---|---|
 | 参考实现 GMLIB `ChestUI::sendTo` | `updateBlock` + `updateBlockActor` → **`ticks(10)`** → `ContainerOpen` → **`ticks(4)`** → 逐格补玩家物品栏/光标 | **14 tick ≈ 700ms** |
-| 本库 `ContainerMenuManager` | 摆方块 + 方块实体 → **`ticks(openDelayTicks)`（默认 10）** → `ContainerOpen` | **10 tick ≈ 500ms** |
+| 本库 `ContainerMenuManager` | 摆方块 + 方块实体 → **`ticks(openDelayTicks)`（默认 7）** → `ContainerOpen` | **7 tick ≈ 350ms** |
 
 （GMLIB 的 `ChestForm` 只是 `ChestUI` 的薄壳：`ChestForm::sendTo` 直接调 `pImpl->mChestUI->sendTo(pl)`，没有更快的第二条路。）
 
-本库少 4 tick 是因为条目放在**方块实体 NBT** 里，不需要 GMLIB 那一步逐格补格。剩下的等待是方案固有：客户端要先把这个方块与它的方块实体应用上去，`ContainerOpen` 才绑得住这个位置（背靠背发实测打不开界面）。
+本库比参考实现少 7 tick：条目放在**方块实体 NBT** 里，不需要 GMLIB 那一步逐格补格（省 4 tick）；剩下的等待本身也压到实测下限（省 3 tick）。那段等待是方案固有：客户端要先把这个方块与它的方块实体应用上去，`ContainerOpen` 才绑得住这个位置（背靠背发实测打不开界面）。
 
 两个可调处：
 
