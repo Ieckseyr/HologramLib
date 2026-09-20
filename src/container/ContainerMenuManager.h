@@ -21,6 +21,7 @@
 #include <ll/api/io/Logger.h>
 
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <mutex>
 #include <string>
@@ -40,6 +41,8 @@ public:
     bool    update(int64_t menuId, hologramlib::ContainerMenuSpec const& spec);
     // 按槽刷新: 一条 InventorySlot 换掉一格（无延迟、无闪烁）
     bool    setItem(int64_t menuId, int slot, hologramlib::ContainerMenuItem const& item);
+    // 就地换标题（复用载体方块, 重发方块实体 NBT + ContainerOpen; 不重摆方块、不等延迟）
+    bool    setTitle(int64_t menuId, std::string const& title);
     bool    close(int64_t menuId);
     void    closeAll();
     [[nodiscard]] bool                 isOpen(int64_t menuId) const;
@@ -48,16 +51,23 @@ public:
     uint64_t addClickListener(std::function<void(hologramlib::ContainerClickEvent const&)> listener);
     bool     removeClickListener(uint64_t token);
 
-    // 147 动作派发（由唯一的 ItemStackRequest 钩子调用, 避免同址多挂）。
+    // ── LSE 轮询（脚本侧注册不了 C++ 监听器, 走队列）──
+    // 取走并清空待处理的点击/关闭事件（与 C++ 监听器拿到的是同一份事件）
+    std::vector<hologramlib::ContainerClickEvent> pollClicks();
+    void                                          clearClicks();
+    // 事件格式化为可解析字符串: "player=X menuId=N slot=S closed=0|1"
+    [[nodiscard]] static std::string formatClick(hologramlib::ContainerClickEvent const& event);
+
+    // 物品请求动作派发（由 container/ContainerInteractionHooks.cpp 的 147/AuthInput 钩子调用）。
     // 返回 true = 这个动作属于本域的某个容器（已回调）。
     bool handleSlotAction(std::string const& playerName, int containerEnum, int containerId, int slot);
 
     // 客户端关闭容器（由 ContainerClosePacket 钩子调用）
     bool handleContainerClose(std::string const& playerName, int containerId);
 
-    // 该玩家是否有打开中的容器菜单（147 钩子的入口条件: 两个域共用一个钩子, 谁开着都要进）
+    // 该玩家是否有打开中的容器菜单（物品请求钩子的入口条件）
     [[nodiscard]] bool hasMenuFor(std::string const& playerName) const;
-    // 该玩家打开中的容器 menuId（无则 -1）。原始动作诊断用: 交易域要拿它当"菜单已开"的依据。
+    // 该玩家打开中的容器 menuId（无则 -1）
     [[nodiscard]] int64_t menuIdFor(std::string const& playerName) const;
 
     void onPlayerLeave(std::string const& playerName);
@@ -107,6 +117,7 @@ private:
     std::unordered_map<int64_t, Menu>         mMenus;
     std::unordered_map<std::string, int64_t>  mByPlayer;
     std::unordered_map<uint64_t, std::function<void(hologramlib::ContainerClickEvent const&)>> mListeners;
+    std::deque<hologramlib::ContainerClickEvent> mClickQueue; // LSE 轮询队列
     int64_t  mNextMenuId{1};
     int      mNextContainerId{101}; // 显示区间: 避开真实容器的 1..100
     uint64_t mNextListenerToken{1};

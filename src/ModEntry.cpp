@@ -16,6 +16,10 @@
 #include "particles/ParticleShapeManager.h"
 #include "playernpc/PlayerNpcExporter.h"
 #include "playernpc/PlayerNpcManager.h"
+#include "trade/TradeMenuExporter.h"
+#include "container/ContainerMenuExporter.h"
+#include "npcdialog/NpcDialogueExporter.h"
+#include "sensing/PlayerSensingExporter.h"
 #include "lse/LseBridge.h"
 
 #include "hologramlib/HologramLib.h"
@@ -48,6 +52,10 @@ static void exportLseFunctions() {
     CustomEntityExporter::exportAll();
     ParticleShapeExporter::exportAll();
     PlayerNpcExporter::exportAll();
+    TradeMenuExporter::exportAll();
+    ContainerMenuExporter::exportAll();
+    NpcDialogueExporter::exportAll();
+    PlayerSensingExporter::exportAll();
 }
 
 bool ModEntry::load() {

@@ -25,12 +25,15 @@
 
 补丁位通常是 `00`，所以 `1.19.1` 与 `1.19.0` 共用 `0x011900` —— **只能门到次版本**。早期版本曾用最后一位区分补丁（`0x010701` = 1.7.1）。
 
-**只在正式发布新版本时才推高本宏。** 在同一条尚未发布的线上继续加能力域不改变它：消费方看到的"我能用的最低版本"没变，抬高宏只会让旧版消费方误判为不兼容。**`0x011B00` 随 `26.40.3` 正式发布**（此前已发布的最高值是 `26.40.2` 的 `0x011A00`）。
+**只在正式发布新版本时才推高本宏。** 在同一条尚未发布的线上继续加能力域不改变它：消费方看到的"我能用的最低版本"没变，抬高宏只会让旧版消费方误判为不兼容。**`0x011C00` 随 `26.40.4` 正式发布**（此前是 `26.40.3` 的 `0x011B00`）。
+
+> **一次例外（明记）**：`26.40.3` 发布过 1.21.0 的交易菜单点击回调，发布后随即按需求撤回 —— 交易菜单改为**纯展示**，`TradeClickEvent` / `TradeActionCallback` / `TradeRawAction` 与 `ITradeMenu` 的六个监听方法整体移除。这是**收缩而不是新增**，按本文档的约定本该走大版本（`2.0.0`）；这里抬到次版本 `1.22.0` 并在表中写明，是因为那条 API 的公开窗口只有一次发布、且没有消费方采用。若你已按 `1.21.0` 写了交易菜单的点击监听，升到 `26.40.4` 需要删掉那些调用（编译期就会报错，不会是静默的行为变化）。
 
 ## 完整对照
 
 | 插件发布版本 | API 版本 | `HOLOGLIB_API_VERSION` | 该版本新增的能力域 |
 |---|---|---|---|
+| `26.40.4` | 1.22.0 | `0x011C00` | **交易菜单改为纯展示**（撤回 `TradeClickEvent` / `TradeActionCallback` / `TradeRawAction` 与 `ITradeMenu` 的全部监听方法；`TradeMenuSpec` 去掉 `displayOnly` / `acceptPaymentPlacement`），新增 `ITradeMenu::addOffer` / `setTier`（就地重发交易表）；四个新域补齐 **LSE 导出**（`trade*` / `container*` / `npcDialog*` / `sensing*`，容器与对话的点击走轮询队列），`entity*` 补逐客户端渲染导出（`entitySetPlayerNametag` / `entitySetPlayerScale` / `entitySetPlayerEquipmentSlot` / `entityClearPlayerAppearance`）|
 | `26.40.3` | 1.21.0 | `0x011B00` | 新增 `ITradeMenu`（村民交易菜单：协议层交易界面、隐身载体实体、点击回传、展示模式）、`INpcDialogue`（NPC 对话界面：场景/正文/按钮 JSON、点击与关闭回传、合成 NPC 载体）、`IContainerMenu`（虚拟容器/列表：复刻 GMLIB ChestUI —— 客户端侧箱子方块 + 方块实体 NBT + 绑方块坐标的 ContainerOpen；小容器 27 格、大容器 54 格配对；点击回传槽位号）与 `IPlayerSensing`（感知域：AuthInput InputMode 逐包捕获客户端设备）；`ICustomEntity` / `IHologramText` 追加逐客户端渲染（按观看者覆盖名字牌/缩放/装备、含 `{var}` 的文本按观看者解析）；移除逐客户端音效与短命飘字 |
 | `26.40.2` | 1.20.0 | `0x011A00` | 修复 NPC 皮肤不渲染（`Id`/`FullId` 补全、PlayerList 2168 帧格式）|
 | `26.40.1` | 1.20.0 | `0x011A00` | 适配 LeviLamina 26.40 / BDS 1.26.40（协议 2168）；逐客户端朝向（`setPlayerRotation` 等）|

@@ -13,6 +13,9 @@
 #pragma once
 
 #include <cstdint>
+#include <deque>
+#include <format>
+
 #include <functional>
 #include <mutex>
 #include <string>
@@ -40,6 +43,13 @@ public:
 
     uint64_t addClickListener(std::function<void(hologramlib::NpcDialogClickEvent const&)> listener);
     bool     removeClickListener(uint64_t token);
+
+    // ── LSE 轮询（脚本侧注册不了 C++ 监听器, 走队列）──
+    // 取走并清空待处理的点击/关闭事件（与 C++ 监听器拿到的是同一份事件）
+    std::vector<hologramlib::NpcDialogClickEvent> pollClicks();
+    void                                          clearClicks();
+    // 事件格式化为可解析字符串: "player=X dialogId=N scene=S button=I actionId=A closed=0|1 commands=..."
+    [[nodiscard]] static std::string formatClick(hologramlib::NpcDialogClickEvent const& event);
 
     // NpcRequestPacket 钩子入口。npcId = 客户端回传的 ActorUniqueID。
     // 返回 true = 命中本域的对话（已回调）。
@@ -92,6 +102,7 @@ private:
     std::unordered_map<std::string, int64_t>  mByPlayer;   // 玩家名 → dialogId
     std::unordered_map<std::string, Carrier>  mCarriers;   // 玩家名 → 共用载体
     std::unordered_map<uint64_t, std::function<void(hologramlib::NpcDialogClickEvent const&)>> mListeners;
+    std::deque<hologramlib::NpcDialogClickEvent> mClickQueue; // LSE 轮询队列
     int64_t  mNextDialogId{1};
     uint64_t mNextListenerToken{1};
 };

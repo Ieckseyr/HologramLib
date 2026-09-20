@@ -20,6 +20,8 @@
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/level/Level.h>
 
+#include <format>
+
 #include <sculk/protocol/codec/actor/ActorDataIDs.hpp>
 #include <sculk/protocol/codec/actor/MetaData.hpp>
 #include <sculk/protocol/codec/math/Vec2.hpp>
@@ -403,12 +405,51 @@ void NpcDialogueManager::dispatch(hologramlib::NpcDialogClickEvent const& event)
     std::vector<std::function<void(hologramlib::NpcDialogClickEvent const&)>> snapshot;
     {
         std::lock_guard lock(mMutex);
+        // LSE 侧拿不到 C++ 监听器 → 同一份事件也进轮询队列（npcDialogPollClicks 取走并清空）
+        mClickQueue.push_back(event);
         snapshot.reserve(mListeners.size());
         for (auto const& [token, fn] : mListeners) snapshot.push_back(fn);
     }
     for (auto& fn : snapshot) {
         if (fn) fn(event);
     }
+}
+
+std::vector<hologramlib::NpcDialogClickEvent> NpcDialogueManager::pollClicks() {
+    std::vector<hologramlib::NpcDialogClickEvent> out;
+    std::lock_guard                               lock(mMutex);
+    out.reserve(mClickQueue.size());
+    while (!mClickQueue.empty()) {
+        out.push_back(std::move(mClickQueue.front()));
+        mClickQueue.pop_front();
+    }
+    return out;
+}
+
+void NpcDialogueManager::clearClicks() {
+    std::lock_guard lock(mMutex);
+    mClickQueue.clear();
+}
+
+// LSE 轮询条目格式（脚本按空格切即可）:
+//   "player=Steve dialogId=1 scene=main button=0 actionId=main#0 closed=0 commands=say+hi"
+// commands 用逗号分隔多条; 每条内部原本的空格与逗号替换成 '+'（命令里几乎不会出现, 但能看出来）
+std::string NpcDialogueManager::formatClick(hologramlib::NpcDialogClickEvent const& event) {
+    std::string commands;
+    for (std::size_t i = 0; i < event.commands.size(); ++i) {
+        if (i) commands += ',';
+        for (char const c : event.commands[i]) commands += (c == ',' || c == ' ') ? '+' : c;
+    }
+    return std::format(
+        "player={} dialogId={} scene={} button={} actionId={} closed={} commands={}",
+        event.playerName,
+        event.dialogId,
+        event.sceneName,
+        event.buttonIndex,
+        event.actionId,
+        event.closed ? 1 : 0,
+        commands
+    );
 }
 
 bool NpcDialogueManager::handleNpcRequest(

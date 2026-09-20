@@ -20,11 +20,14 @@
 
 // 库 API 版本（与 IHologramLib::version() 同值; 编码规律与完整对照见 VERSION-HISTORY.md）
 //   中间字节 = 次版本号, 按十六进制递增: 1.15.0 -> 0x011500, 1.19.0 -> 0x011900,
-//   1.20.0 -> 0x011A00, 1.21.0 -> 0x011B00（补丁位通常为 00）
+//   1.20.0 -> 0x011A00, 1.21.0 -> 0x011B00, 1.22.0 -> 0x011C00（补丁位通常为 00）
 // 消费方可用于编译期静态断言最低版本要求。
-// 注意: 只有**正式发布新版本**才推高本宏; 在同一条尚未发布的线上继续加能力域时不改变它 ——
-// 本值 0x011B00 随 26.40.3 正式发布（此前已发布的最高值是 26.40.2 的 0x011A00）。
-#define HOLOGLIB_API_VERSION 0x011B00
+// 注意: 只有**正式发布新版本**才推高本宏; 在同一条尚未发布的线上继续加能力域时不改变它。
+// 本值 0x011C00 随 26.40.4 发布: 交易菜单（1.21.0 引入）改为**纯展示**, 撤回了它在 26.40.3 里
+// 短暂存在的点击回调（TradeClickEvent / TradeActionCallback / TradeRawAction 与对应的
+// ITradeMenu 监听方法全部移除）—— 这是收缩而非新增, 所以抬到新的次版本, 消费方可以用
+// >= 0x011C00 门住『交易菜单没有点击回调、且带 addOffer / setTier』这一形态。
+#define HOLOGLIB_API_VERSION 0x011C00
 
 #ifdef HOLOGLIB_EXPORTS
 #define HOLOGLIB_API __declspec(dllexport)
@@ -616,7 +619,7 @@ public:
 };
 
 // ─────────────────────────────────────────────
-// 村民交易菜单（协议层; 1.21.0 追加）
+// 村民交易菜单（协议层; 1.21.0 追加, 1.22.0 起为纯展示）
 //
 // 界面完全由我们自己构造的 UpdateTradePacket 打开, 载荷与 BDS 26.40 原生交易逐字节一致
 // （整包对拍: tests/check-trade-packet.bat; Offers 单独对拍: tests/check-trade-offers.bat）。
@@ -628,10 +631,9 @@ public:
 //   · 经验条不在包内: 由载体实体的 TradeTier/MaxTradeTier/TradeExperience 元数据驱动
 //     （三项都是 Int, 与真实村民生成包实测一致; MaxTradeTier 恒为 4）
 //
-// 点击回传（"点了哪一条"）: 交易条目在新交易界面里就是配方, 客户端点它时会在
-// ItemStackRequest(147) 里带一个 CraftRecipe 动作, 其配方 id 被回填成
-// TradeClickEvent::recipeNetId / offerIndex（协议层路径下 netId 由本库分配, 映射精确）;
-// 付费/产物槽上的动作另外各回传一次（TradeClickEvent 的 slot/container）。
+// **本域是纯展示: 不做任何点击事件监听。** 打开界面、把交易表摆出来给人看, 就到此为止 ——
+// 客户端点了哪一条、往付费槽里放了什么, 本库一律不读、不拦、不回传。要"能点、点了有回调"的
+// 列表界面, 用虚拟容器（IContainerMenu）: 它的点击就是一次物品拾取, 任何输入设备都会发包。
 //
 // 载体实体: 交易界面需要 EntityUniqueId, 打开菜单时会自动在玩家身后 5 格生成一个
 // **隐身、仅该玩家可见**的假村民, 关闭菜单即删除（对该玩家以外完全不可见, 不占实体系统）。
@@ -671,111 +673,23 @@ struct TradeMenuSpec {
     // 村民显示栏值, 1 基: 1=新手 2=学徒 3=老手 4=专家 5=大师（超出会被夹紧）
     int                         tier{kTradeTierNovice};
     int                         experience{0};     // 经验条当前经验
-    bool                        displayOnly{true}; // true = 拦截成交（物品不消耗, 只回调点击）
     // 非 0 = 直接用该实体（真实村民的 uniqueId）作为交易对象, 且**不发自建 offers**:
     // 改为调用 BDS 自己的 Player::openTrading, 于是客户端看到的交易表就是服务端持有的那一份。
-    // 这是解决"物品放不进交易槽"的关键 —— 我们发的 UpdateTrade 只改客户端, 服务端持有的仍是
-    // 该实体自身的交易表, 两边不一致时客户端发来的放入请求会被 BDS 拒掉（实测症状）。
-    // 0 = 用自建载体 + 自建 offers（旧路径, 仅供对比）。
+    // 0 = 用自建载体 + 自建 offers（默认路径）。
     // true（默认）= 纯协议层: 只发我们自己构造的 UpdateTrade。界面完全由这个包打开, 服务端不放
-    // 交易表 —— 玩家放料/成交的请求会走 ItemStackRequest(147), 由本域回调上报后交给调用方决定,
-    // BDS 那边没有对应容器, 所以物品不会真的消耗（天然只读, 与参考实现 GMLIB ChestUI 同路）。
+    // 交易表 —— 天然只读（与参考实现 GMLIB ChestUI 同路）: 玩家往付费槽放东西的请求会被 BDS
+    // 拒掉、物品弹回, 界面也就停在"不可成交"。纯展示正合适。
     // false = 给载体装真实交易表 + 走 BDS 自己的 openTrading —— 客户端与服务端持有同一份交易表,
-    // 成交由 BDS 完成（物品真的消耗）。此时点击回调仍然可用。
+    // 玩家是**真的在交易**（物品真的消耗）。要"展示 + 真成交"就用它。
     bool                        usePacketOffers{true};
     std::int64_t                carrierUniqueIdOverride{0};
     std::vector<TradeMenuOffer> offers;
-    // 只对纯协议层路径（usePacketOffers = true）有意义: true（默认）= **由库自己接住"把付费
-    // 物品放进交易槽"的动作并回成功应答**。为什么必须这样: 纯协议层路径下服务端没有这个交易
-    // 容器, 放行让 BDS 处理会被它拒掉 → 客户端把物品弹回 → 交易界面永远进不到可成交状态,
-    // 触屏玩家因此点不出任何"点击条目"的信号（实测: 几十次点击只有拖动付费那一次产生了包）。
-    // 接住之后客户端会保留这次"放进去了"的预测, 界面得以走到成交那一步, 成交请求带回配方 id
-    // → offerIndex 精确。客户端侧这层预测只是显示, 关闭菜单时库会刷新该玩家背包清掉它
-    // （服务端物品从未真的移动）。false = 不接住（旧行为, 触屏走不通）。
-    // **追加在尾部**: 保持既有字段偏移不变。
-    bool                        acceptPaymentPlacement{true};
     // 载体实体类型(1.21.0 追加): "minecraft:villager_v2"(默认) 或
     // "minecraft:wandering_trader"(流浪商人 —— 界面外观与生物头图随类型变化)。
     // 两条路径都适用; 真实交易表路径下流浪商人同样持有 EconomyTradeableComponent, 装表方式相同。
     // **追加在尾部**: 保持既有字段偏移不变。
     std::string                 carrierIdentifier{"minecraft:villager_v2"};
 };
-
-struct TradeClickEvent {
-    std::string playerName;
-    int64_t     menuId{-1};
-    // 被点击的交易下标。三个来源按优先级回填:
-    //   ① 客户端点了配方列表里的某一条 → ItemStackRequest 里的 CraftRecipe 动作带该条的
-    //      recipeNetId, 减掉本域分配的基准值即得下标（最可靠, 纯协议层路径下由我们分配）
-    //   ② 配方列表条目挂在该实体的实体容器(LevelEntityContainer)上, 每条占 3 槽
-    //      （付费A/付费B/产物）→ offerIndex = slot / 3
-    //   ③ 命中"当前选中条目"的付费/产物槽（31/32/33/47/48/49）时无法定位条目 → -1,
-    //      这时用 recipeNetId + slot + container 自行判定
-    int         offerIndex{-1};
-    int         slot{-1};         // 命中的**交易侧**槽位（命中付费/产物槽时优先报交易侧, 其次背包侧）
-    bool        accepted{false};  // false = 被拦截（displayOnly）
-    // 定位用: 命中的容器枚举（ContainerEnumName: 7=LevelEntityContainer, 31/32=付费A/B,
-    // 33=产物, 47/48/49=双付费变体）与动态 id
-    int         container{0};
-    int         containerId{-1};
-    // 触发本次回调的配方网络 id（CraftRecipe 类动作携带）; 非 CraftRecipe 动作为 -1。
-    // 纯协议层路径下 = netIdBase + offerIndex（默认 netIdBase = 3676）。
-    // **追加在尾部**: 保持既有字段偏移不变（已编译的消费方不会错位）。
-    int         recipeNetId{-1};
-};
-
-// 槽位引用（对齐参考实现 GMLIB ChestUI 的 ChangingSlot）
-struct TradeSlotRef {
-    int slot{-1};      // 容器内槽位; -1 = 无（例如关闭事件、或该动作没有目标槽）
-    // 所属容器（ContainerEnumName）:
-    //   7=实体容器（配方列表条目 / 打开容器）, 31/32=当前条目的付费A/B, 33=当前条目的产物,
-    //   47/48/49=双付费变体, 12=玩家背包, 28/29=快捷栏 ...  0 = 无
-    int container{0};
-};
-
-// 逐动作回调（对齐参考实现 ChestUI 的 ChestUICallback 契约）:
-//   src      = 玩家取物的槽位（取/消耗动作用它）
-//   dst      = 玩家放物的槽位（放/丢弃动作用它）
-//   amount   = 数量
-// 关闭哨兵: 界面被客户端关闭时回调会以 { slot = -1 } + amount = -1 调用一次,
-// 表示"这次交易界面结束了"（与参考实现同一约定）, 随后菜单记录被清掉。
-using TradeActionCallback = std::function<void(
-    std::string const&  playerName,
-    int64_t             menuId,
-    TradeSlotRef const& src,
-    TradeSlotRef const& dst,
-    int                 amount
-)>;
-
-// 诊断用: 菜单打开期间收到的**每一个**动作（不论是否命中交易容器）。
-// 用途: 排查"客户端到底发了什么" —— 例如某个条目被点击时只发了一个不带槽位的 craft 动作,
-// 或压根什么包都没发, 靠 TradeActionCallback 是分辨不出来的。
-struct TradeRawAction {
-    // 包内动作变体下标 = BDS 的 ItemStackRequestAction 变体序（实测 26.40）:
-    //   0=Take 1=Place 2=Swap 3=Drop 4=Destroy 5=Consume 6=Create 7=LabTableCombine
-    //   8=BeaconPayment 9=MineBlock 10=CraftRecipe 11=CraftRecipeAuto 12=CraftCreative
-    //   13=CraftRecipeOptional 14=CraftRepairAndDisenchant 15=CraftLoom 16=CraftNonImplemented
-    //   17=CraftResults
-    int          actionIndex{-1};
-    TradeSlotRef src{};
-    TradeSlotRef dst{};
-    int          amount{1};
-    bool         hasSrc{false};
-    bool         hasDst{false};
-    bool         tradeRelated{false}; // src/dst 是否命中交易容器
-    // CraftRecipe 类动作携带的配方网络 id（"点了哪一条交易"的信号）; 其它动作 -1。
-    int          recipeNetId{-1};
-    // src/dst 侧的**动态容器 id**（FullContainerName.mDynamicId）: 交易界面是 1..100,
-    // 虚拟容器是 101..199。用来定位"客户端到底把它当成哪个容器"（追加在尾部, ABI 安全）。
-    int          srcContainerId{-1};
-    int          dstContainerId{-1};
-    // 这个动作来自哪条包通道: 147 = 独立的 ItemStackRequestPacket;
-    // 144 = 搭在 PlayerAuthInputPacket(AuthInput) 内嵌请求里（菜单界面的交互常走这条）。
-    int          sourcePacketId{147};
-};
-
-using TradeRawActionCallback =
-    std::function<void(std::string const& playerName, int64_t menuId, TradeRawAction const& action)>;
 
 class ITradeMenu {
 public:
@@ -790,17 +704,11 @@ public:
     [[nodiscard]] virtual bool                 isOpen(int64_t menuId) const = 0;
     [[nodiscard]] virtual std::vector<int64_t> getAllIds() const = 0;
 
-    // 点击回传（多播, 多个插件可同时注册）; 返回 token（0 = 失败）
-    virtual uint64_t addClickListener(std::function<void(TradeClickEvent const&)> listener) = 0;
-    virtual bool     removeClickListener(uint64_t token) = 0;
-
-    // 逐动作回传（含关闭哨兵; 语义见 TradeActionCallback）
-    virtual uint64_t addActionListener(TradeActionCallback listener) = 0;
-    virtual bool     removeActionListener(uint64_t token) = 0;
-
-    // 诊断用原始动作回传（见 TradeRawAction）
-    virtual uint64_t addRawActionListener(TradeRawActionCallback listener) = 0;
-    virtual bool     removeRawActionListener(uint64_t token) = 0;
+    // 追加一条交易并就地重发交易表（不必重开界面）; 返回 false = 菜单已不在
+    // （LSE 侧 tradeAddOffer 用的就是它）
+    virtual bool addOffer(int64_t menuId, TradeMenuOffer const& offer) = 0;
+    // 改显示栏值 / 经验条（同样就地重发）
+    virtual bool setTier(int64_t menuId, int tier, int experience) = 0;
 };
 
 // ─────────────────────────────────────────────
@@ -871,7 +779,7 @@ struct NpcDialogClickEvent {
 //   5. 关闭 → ContainerClosePacket → 恢复真方块 → 回调 closed
 //
 // 关键性质: **服务端根本没有这个容器** —— 物品只是"摆在那里", 玩家拿走/移动都不会真的改变任何
-// 东西（天然只读, 不需要 displayOnly 开关）。适合当任务列表、成就列表、商店预览这类
+// 东西（天然只读）。适合当任务列表、成就列表、商店预览这类"只展示 + 点击回调"的界面。
 // "只展示 + 点击回调"的界面。
 //
 // 大小容器都在这里: rows=3 → 单箱子 27 格; rows=6 → **大箱子 54 格**
@@ -1025,7 +933,7 @@ public:
     // LSE 兼容层是否可用（LegacyRemoteCall 运行时检测成功）
     virtual bool isLseAvailable() = 0;
 
-    // 库版本（BCD: 0x011B00 = 1.21.0, 与 HOLOGLIB_API_VERSION 同值）
+    // 库版本（BCD: 0x011C00 = 1.22.0, 与 HOLOGLIB_API_VERSION 同值）
     virtual uint32_t version() = 0;
 
     // ── 1.6.0 追加（冻结契约: 只在尾部追加）──
@@ -1057,7 +965,7 @@ public:
     virtual uint64_t addGhostInteractListener(std::function<void(GhostInteractEvent const&)> listener) = 0;
     virtual bool removeGhostInteractListener(uint64_t token) = 0;
 
-    // ── 1.21.0 追加（冻结契约: 只在尾部追加）──
+    // ── 1.21.0 追加, 1.22.0 起为纯展示（冻结契约: 只在尾部追加）──
     virtual ITradeMenu& tradeMenus() = 0;
 
     // ── 1.21.0 追加（冻结契约: 只在尾部追加）──

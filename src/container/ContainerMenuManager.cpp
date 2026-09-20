@@ -473,6 +473,23 @@ bool ContainerMenuManager::setItem(int64_t menuId, int slot, hologramlib::Contai
     return true;
 }
 
+bool ContainerMenuManager::setTitle(int64_t menuId, std::string const& title) {
+    hologramlib::ContainerMenuSpec spec;
+    std::string                  playerName;
+    {
+        std::lock_guard lock(mMutex);
+        auto            it = mMenus.find(menuId);
+        if (it == mMenus.end()) return false;
+        it->second.spec.title = title;
+        spec                  = it->second.spec;
+        playerName            = it->second.playerName;
+    }
+    auto* player = findPlayerByName(playerName);
+    if (player == nullptr) return false;
+    // 复用 update(): 重发方块实体 NBT（新标题 + 现有条目）+ ContainerOpen 让客户端重读
+    return update(menuId, spec);
+}
+
 bool ContainerMenuManager::close(int64_t menuId) {
     Menu copy;
     {
@@ -542,12 +559,42 @@ void ContainerMenuManager::dispatch(hologramlib::ContainerClickEvent const& even
     std::vector<std::function<void(hologramlib::ContainerClickEvent const&)>> snapshot;
     {
         std::lock_guard lock(mMutex);
+        // LSE 侧拿不到 C++ 监听器 → 同一份事件也进轮询队列（containerPollClicks 取走并清空）
+        mClickQueue.push_back(event);
         snapshot.reserve(mListeners.size());
         for (auto const& [token, fn] : mListeners) snapshot.push_back(fn);
     }
     for (auto& fn : snapshot) {
         if (fn) fn(event);
     }
+}
+
+std::vector<hologramlib::ContainerClickEvent> ContainerMenuManager::pollClicks() {
+    std::vector<hologramlib::ContainerClickEvent> out;
+    std::lock_guard                               lock(mMutex);
+    out.reserve(mClickQueue.size());
+    while (!mClickQueue.empty()) {
+        out.push_back(std::move(mClickQueue.front()));
+        mClickQueue.pop_front();
+    }
+    return out;
+}
+
+void ContainerMenuManager::clearClicks() {
+    std::lock_guard lock(mMutex);
+    mClickQueue.clear();
+}
+
+// LSE 轮询条目格式（脚本按空格切即可）:
+//   "player=Steve menuId=2 slot=31 closed=0"
+std::string ContainerMenuManager::formatClick(hologramlib::ContainerClickEvent const& event) {
+    return std::format(
+        "player={} menuId={} slot={} closed={}",
+        event.playerName,
+        event.menuId,
+        event.slot,
+        event.closed ? 1 : 0
+    );
 }
 
 bool ContainerMenuManager::hasMenuFor(std::string const& playerName) const {

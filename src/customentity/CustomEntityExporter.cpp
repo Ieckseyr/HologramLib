@@ -192,6 +192,42 @@ void CustomEntityExporter::exportAll() {
         "entityPlayAnimation",
         [&mgr](int64_t id, std::string const& animation, std::string const& stopExpression, int durationTicks)
             -> bool { return mgr.playAnimation(id, animation, stopExpression, durationTicks); });
+
+    // ── 千人千面（逐客户端渲染; 按观看者覆盖外观）──
+    // entitySetPlayerNametag(id, playerName, text) -> bool（text 空 = 清除该玩家的名字牌覆盖）
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "entitySetPlayerNametag",
+        [&mgr](int64_t id, std::string const& playerName, std::string const& text) -> bool {
+            return mgr.setPlayerNametag(id, playerName, text);
+        });
+    // entitySetPlayerScale(id, playerName, scale) -> bool（scale<=0 = 清除覆盖; 有效域 0.0625~10）
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "entitySetPlayerScale",
+        [&mgr](int64_t id, std::string const& playerName, float scale) -> bool {
+            return mgr.setPlayerScale(id, playerName, scale);
+        });
+    // entitySetPlayerEquipmentSlot(id, playerName, slot, name, aux, nbt) -> bool
+    //   slot: 0=主手 1=副手 2=头 3=胸 4=腿 5=脚; name 空 = 该槽回退 config
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "entitySetPlayerEquipmentSlot",
+        [&mgr](
+            int64_t            id,
+            std::string const& playerName,
+            int                slot,
+            std::string const& name,
+            int                aux,
+            std::string const& nbt
+        ) -> bool { return mgr.setPlayerEquipmentSlot(id, playerName, slot, name, aux, nbt); });
+    // entityClearPlayerAppearance(id, playerName) -> bool（清除该玩家的名字/缩放/装备覆盖）
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "entityClearPlayerAppearance",
+        [&mgr](int64_t id, std::string const& playerName) -> bool {
+            return mgr.clearPlayerAppearance(id, playerName);
+        });
 }
 
 } // namespace debugshape_export
