@@ -20,6 +20,8 @@
 #include "container/ContainerMenuExporter.h"
 #include "npcdialog/NpcDialogueExporter.h"
 #include "sensing/PlayerSensingExporter.h"
+#include "fakeinv/FakeInventoryExporter.h"
+#include "sulfur/SulfurDisplayExporter.h"
 #include "lse/LseBridge.h"
 
 #include "hologramlib/HologramLib.h"
@@ -56,6 +58,8 @@ static void exportLseFunctions() {
     ContainerMenuExporter::exportAll();
     NpcDialogueExporter::exportAll();
     PlayerSensingExporter::exportAll();
+    FakeInventoryExporter::exportAll();
+    SulfurDisplayExporter::exportAll();
 }
 
 bool ModEntry::load() {

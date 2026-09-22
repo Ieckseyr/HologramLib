@@ -1,18 +1,21 @@
-// ContainerInteractionHooks.cpp - 物品请求 / 容器关闭 的协议层路由（虚拟容器域）
+// PlayerInteractionHooks.cpp - 物品请求 / 容器关闭 的协议层路由（虚拟容器 + 背包虚容器）
 //
-// 三个钩子集中在这里, 全部服务于**虚拟容器（列表）**的点击与生命周期:
-//   · ItemStackRequestPacket(147)          —— 点击的主通道（实测: 容器点击走这条）
-//   · PlayerAuthInputPacket(144) 内嵌请求  —— 菜单交互的第二条通道（触屏常走这条）
-//   · ContainerClosePacket                 —— 客户端关掉界面 → 拆菜单 + 恢复真方块
+// 三个钩子集中在这里:
+//   · ItemStackRequestPacket(147)          —— 点击的主通道（实测: 槽位操作都走这条）
+//   · PlayerAuthInputPacket(144) 内嵌请求  —— 第二条通道（菜单交互、触屏常走这条）
+//   · ContainerClosePacket                 —— 客户端关掉界面 → 容器域拆菜单 + 恢复真方块
 //
-// **只观察、不拦**: 虚拟容器在服务端并不存在, 放行后 BDS 自己就会失败并让客户端把预测撤回
-// （物品在界面上闪一下回到原位）, 回调照常收到 —— 与参考实现 GMLIB 完全一致。实测教训: 若这里
-// 自己代答一条失败应答（ItemStackNetResult 3）, 客户端会**弹一个错误提示**; 交给 BDS 走它自己的
-// 失败路径反而是安静的, 所以别"自作聪明"地代答。
+// 派发目标（各域自己判命中, 互不抢）:
+//   ContainerMenuManager  ← 容器枚举 LevelEntityContainer(7) 或动态 id 101..199（虚拟容器）
+//   FakeInventoryManager  ← 容器枚举 12 / 28 / 29（玩家自己的背包 = 背包虚容器）
+//   交易菜单（TradeMenuManager）是纯展示, 不读任何请求, 不在这里。
 //
-// 交易菜单（TradeMenuManager）是**纯展示**, 不参与本文件的任何解析: 它不读客户端的点击/物品请求。
-// 容器关闭那一条会顺带结束交易菜单（交易界面同样由 ContainerClose 收起）, 故两个域都出现在那里。
+// **只观察、不拦**: 虚拟容器/伪造背包里的物品在服务端并不存在, 放行后 BDS 自己就会失败并让客户端
+// 把预测撤回（物品在界面上闪一下回到原位）, 回调照常收到 —— 与参考实现 GMLIB 完全一致。实测教训:
+// 若这里自己代答一条失败应答（ItemStackNetResult 3）, 客户端会**弹一个错误提示**; 交给 BDS 走它
+// 自己的失败路径反而是安静的, 所以别"自作聪明"地代答。
 #include "container/ContainerMenuManager.h"
+#include "fakeinv/FakeInventoryManager.h"
 
 #include "DiagLog.h"
 #include "trade/TradeMenuManager.h"
@@ -79,21 +82,22 @@ struct SlotRef {
     };
 }
 
-// 把一个槽位交给虚拟容器域。取物时槽位在 src, 往容器里放物时在 dst —— 都算"点了这个格子"。
-// 命中与否由容器域自己按容器枚举 + 动态 id 区间判定; 返回 true = 这个动作属于本域的容器。
+// 把槽位交给两个域; 返回 true = 有域认下了（已回调）
 bool dispatchSlot(Player& player, ::ItemStackRequestCereal::SlotInfoData const& slotInfo) {
     auto const ref = readSlot(slotInfo);
-    if (ref.container != static_cast<int>(ContainerEnumName::LevelEntityContainer)) return false;
-    return ContainerMenuManager::getInstance().handleSlotAction(
-        player.getRealName(),
-        ref.container,
-        ref.containerId,
-        ref.slot
-    );
+    if (ContainerMenuManager::getInstance().handleSlotAction(
+            player.getRealName(),
+            ref.container,
+            ref.containerId,
+            ref.slot
+        )) {
+        return true;
+    }
+    return FakeInventoryManager::getInstance().handleInventoryAction(player.getRealName(), ref.container, ref.slot);
 }
 
 template <typename ActionDataT>
-void dispatchContainerAction(Player& player, ActionDataT const& data) {
+void dispatchAction(Player& player, ActionDataT const& data) {
     // src 认下了就不再试 dst —— 免得同一个动作回传两次
     if constexpr (requires { data.mSource; }) {
         if (dispatchSlot(player, data.mSource.get())) return;
@@ -103,12 +107,18 @@ void dispatchContainerAction(Player& player, ActionDataT const& data) {
     }
 }
 
+// 玩家是否开着任一交互界面 / 有伪造背包（钩子入口条件; 都没开就整包放行, 一个字节都不解析）
+bool playerHasInteraction(Player& player) {
+    auto const& name = player.getRealName();
+    return ContainerMenuManager::getInstance().hasMenuFor(name)
+        || FakeInventoryManager::getInstance().isActive(name);
+}
+
 } // namespace
 
-// ── ItemStackRequestPacket(147): 虚拟容器的点击主通道 ──
-// 实测: 客户端对容器槽位的操作全部走这条包（从不经过 ComplexInventoryTransaction(30)）。
+// ── ItemStackRequestPacket(147): 点击主通道 ──
 LL_TYPE_INSTANCE_HOOK(
-    ContainerItemStackRequestHook,
+    PlayerInteractionItemStackRequestHook,
     ll::memory::HookPriority::Normal,
     ServerNetworkHandler,
     &ServerNetworkHandler::$handle,
@@ -121,29 +131,27 @@ LL_TYPE_INSTANCE_HOOK(
         origin(source, packet);
         return;
     }
-    // 入口条件: 该玩家开着容器菜单。没开就整包放行, 一个字节都不解析（147 很吵）。
-    if (!ContainerMenuManager::getInstance().hasMenuFor(player->getRealName())) {
+    if (!playerHasInteraction(*player)) {
         origin(source, packet);
         return;
     }
 
     for (auto const& request : packet.mRequests.get()) {
         for (auto const& action : request.mActions.get()) {
-            std::visit([&](auto const& data) { dispatchContainerAction(*player, data); }, action);
+            std::visit([&](auto const& data) { dispatchAction(*player, data); }, action);
         }
     }
     origin(source, packet); // 只回传、不拦, 理由见文件头
 }
 
-static ll::memory::HookRegistrar<ContainerItemStackRequestHook> gContainerItemStackRequestHookRegistrar;
+static ll::memory::HookRegistrar<PlayerInteractionItemStackRequestHook> gPlayerInteractionItemStackRequestHook;
 
-// ── PlayerAuthInputPacket(144, AuthInput): 菜单交互的第二条通道 ──
-// 客户端把物品请求发上来有两条路: 独立的 147, 以及搭在 AuthInput 里内嵌的 mItemStackRequest
-// （PlayerAuthInputPacketPayload::mItemStackRequest, 输入标志 PerformItemStackRequest = 36）。
-// BDS 的 ItemStackRequestCereal::toActionData() 能把它的解析态动作转成与 147 相同的 cereal 形态。
-// **只观察、不拦**: 这个包同时承载玩家移动, 拦下它会把移动一起吞掉; 内嵌请求由 BDS 自己处理。
+// ── PlayerAuthInputPacket(144, AuthInput): 第二条通道 ──
+// 内嵌的 mItemStackRequest（输入标志 PerformItemStackRequest = 36）; 用 BDS 自己的
+// ItemStackRequestCereal::toActionData() 把解析态动作转成与 147 相同的 cereal 形态。
+// **只观察、不拦**: 这个包同时承载玩家移动, 拦下会把移动一起吞掉; 内嵌请求由 BDS 自己处理。
 LL_TYPE_INSTANCE_HOOK(
-    ContainerAuthInputHook,
+    PlayerInteractionAuthInputHook,
     ll::memory::HookPriority::Normal,
     ServerNetworkHandler,
     &ServerNetworkHandler::$handle,
@@ -153,30 +161,30 @@ LL_TYPE_INSTANCE_HOOK(
 ) {
     origin(source, packet); // 移动照常处理
 
-    // 绝大多数 AuthInput 不带物品请求 —— 先做这个指针判断, 免得每 tick 都去查菜单
+    // 绝大多数 AuthInput 不带物品请求 —— 先做这个指针判断, 免得每 tick 都去查状态
     if (packet.mItemStackRequest == nullptr) return;
 
     auto* player = findPlayerByNetworkId(source);
     if (player == nullptr) return;
-    if (!ContainerMenuManager::getInstance().hasMenuFor(player->getRealName())) return;
+    if (!playerHasInteraction(*player)) return;
 
     for (auto const& actionPtr : packet.mItemStackRequest->mActions.get()) {
         if (actionPtr != nullptr) {
             std::visit(
-                [&](auto const& data) { dispatchContainerAction(*player, data); },
+                [&](auto const& data) { dispatchAction(*player, data); },
                 ::ItemStackRequestCereal::toActionData(*actionPtr)
             );
         }
     }
 }
 
-static ll::memory::HookRegistrar<ContainerAuthInputHook> gContainerAuthInputHookRegistrar;
+static ll::memory::HookRegistrar<PlayerInteractionAuthInputHook> gPlayerInteractionAuthInputHook;
 
 // ── ContainerClosePacket: 客户端关掉界面 ──
 // 先问虚拟容器域（它要恢复真方块 + 回传 closed）; 不是它的容器再看交易域（交易界面同样由
 // ContainerClose 结束, 那边只做"删载体 + 清记录"）。
 LL_TYPE_INSTANCE_HOOK(
-    ContainerCloseRouterHook,
+    PlayerInteractionContainerCloseHook,
     ll::memory::HookPriority::Normal,
     ServerNetworkHandler,
     &ServerNetworkHandler::$handle,
@@ -197,6 +205,6 @@ LL_TYPE_INSTANCE_HOOK(
     trade.handleContainerClose(player->getRealName(), containerId);
 }
 
-static ll::memory::HookRegistrar<ContainerCloseRouterHook> gContainerCloseRouterHookRegistrar;
+static ll::memory::HookRegistrar<PlayerInteractionContainerCloseHook> gPlayerInteractionContainerCloseHook;
 
 } // namespace debugshape_export

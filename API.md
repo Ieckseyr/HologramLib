@@ -1,6 +1,6 @@
 # HologramLib API 参考
 
-- API 版本：1.22.0（`HOLOGLIB_API_VERSION 0x011C00`）
+- API 版本：1.23.0（`HOLOGLIB_API_VERSION 0x011D00`）
 - 唯一公开头：`include/hologramlib/HologramLib.h`
 
 ## API 稳定性契约
@@ -10,7 +10,7 @@
 | C++ 接口 | 全部纯虚方法签名与语义（实现对象在 DLL 内创建，消费者只持引用） | 只在接口尾部追加；永不修改/删除 |
 | C++ 宏 | `HOLOGLIB_API_VERSION`、`HOLOGLIB_API`、`hologramlib` 命名空间、枚举值 | 只追加枚举值 |
 | LSE 命名空间 | 单一命名空间 `HologramLib` 全部函数名、参数顺序、返回值类型 | 只增不改不删 |
-| 版本协商 | `IHologramLib::version()`（BCD：0x011C00 = 1.22.0） | 随发布递增 |
+| 版本协商 | `IHologramLib::version()`（BCD：0x011D00 = 1.23.0） | 随发布递增 |
 
 破坏兼容仅允许发生在大版本（2.0.0）。`src/` 目录一切内容均为内部实现，不属于 API。
 
@@ -496,6 +496,102 @@ struct ContainerClickEvent {
 
 ---
 
+### 1.14 IFakeInventory（背包虚容器，1.23.0）
+
+`IHologramLib::fakeInventories()`。**协议层改写客户端看到的玩家背包**：一条 `InventoryContentPacket(49)`
+（`ContainerId = Inventory(0)`、0..35 号槽位）把整份内容换成调用方给的那一份；单格改动走 `InventorySlotPacket(50)`。
+服务端背包一个字都不动 —— 物品是"看起来有"。
+
+> **物品序列化交给 BDS**：物品描述符的 User Data 用的是 u16 名字长度 / 4 字节整数的那套 NBT 方言，
+> 与 sculk `CompoundTag` 的 varint 方言不同；手写会写错（实测把客户端卡死）。所以本域用 BDS 的
+> `InventoryContentPacket` / `InventorySlotPacket` 构造包体（容器名字节 0 + storage 空描述符, 与抓包一致）。
+
+参考实现 GMLIB 的 `ChestUI` 填玩家物品栏用的就是同一条路（它逐格写 `InventorySlot`，容器 id 同样是
+`Inventory(0)` + `InventoryContainer(29)`）；本域的整份下发用一条 `InventoryContent` 搞定。
+
+**功能项与虚拟容器一致**：玩家点自己背包里的伪造物品 → 回调报槽位号，物品不会真的被拿走 ——
+客户端按伪造内容发出请求，服务端真实槽位对不上 → BDS 判失败 → 客户端把预测撤回（与虚拟容器同一套
+表现，库不需要代答）；库随后把那一格重发一次，让伪造内容不被这次回滚冲掉。
+
+**与交易菜单 / 虚拟容器共存**：打开交易界面或箱子界面时 BDS 会重发玩家背包内容（伪造内容被覆盖），
+所以本域默认按 `refreshIntervalTicks` 周期重发（默认 20 tick = 1s），也可随时 `refresh()`。
+界面上看到的背包区域因此始终是伪造内容，点击照常回调。
+
+| 分类 | 方法 | 签名 | 说明 |
+|------|------|------|------|
+| 下发 | apply | `(std::string const& playerName, FakeInventorySpec const&) -> bool` | 整份伪造内容（覆盖该玩家此前的）; 玩家不在线 false |
+| | setSlot | `(std::string const& playerName, int slot, ContainerMenuItem const&) -> bool` | 单格改动（一条 `InventorySlot`，无延迟）; 未 apply 过返回 false |
+| | refresh | `(std::string const& playerName) -> bool` | 立即重发当前伪造内容 |
+| | clear / clearAll | `(std::string const& playerName) -> bool` / `() -> void` | 撤销伪造 + 停周期重发，并把**真实**背包重发一遍 |
+| 查询 | isActive / getActivePlayers | `(std::string const&) -> bool` / `() -> std::vector<std::string>` | |
+| 回传 | addClickListener / removeClickListener | `(std::function<void(FakeInventoryClickEvent const&)>) -> uint64_t` | 多播；点伪造成非空的格子才回调 |
+
+```cpp
+inline constexpr int kFakeInventorySlots = 36; // 0..8 快捷栏, 9..35 主背包
+
+struct FakeInventorySpec {
+    std::vector<ContainerMenuItem> items;   // 下标即槽位; type 空 = 该格留空
+    int refreshIntervalTicks{20};           // 0 = 不周期重发
+};
+
+struct FakeInventoryClickEvent {
+    std::string playerName;
+    int         slot{-1};                   // 被点击的伪造槽位
+};
+```
+
+**边界（实测前先写清楚，免得误用）**：
+
+- 伪造只影响客户端显示。玩家"真正能用/能吃"的仍是服务端真实物品。
+- 若某格真实物品与伪造物品恰好一致，那一次操作会被服务端当真执行 —— 想让某格纯展示，别把它伪造成与真实物品相同的东西。
+- 该格真实物品因为别的原因改变（捡东西 / 用物品 / 别的插件改背包）时，周期重发会把伪造内容重新盖回去。
+- 护甲（`ArmorContainer` 6）/ 副手（`OffhandContainer` 34）不在本域范围内，它们各有独立的容器枚举。
+
+### 1.15 ISulfurDisplay（硫磺立方体展示，1.23.0）
+
+`IHologramLib::sulfurDisplays()`。第二种摆放方式（与 `IItemDisplay` 的"狐狸 + 物品"并列）：
+生成一只 `minecraft:sulfur_cube`，把要展示的方块/物品**装进它的主手** —— 行为包里立方体就是靠
+`slot.weapon.mainhand` + `behavior.equip_item` 拿着"吞下去"的方块（客户端按装备渲染）。
+
+外观档位 `minecraft:sulfur_cube_archetype` 是行为包里 `client_sync: true` 的 enum 属性，走**手写的
+`ChangeMobProperty`(182)** 下发（26.40 线格式: Actor Id(int64 压缩) → Property Name(string) → Bool →
+String → Int32(压缩) → Float）。`AddActor` 的 `PropertySyncData` 只装得下按索引的 int/float，装不下 enum，
+所以属性必须在实体已被客户端认识之后发 —— 库里在 spawn 后自动补发，respawn 后重放。
+
+本域**完全委托给 `ICustomEntity`**（立方体就是一只自定义实体），缩放 / 视距 / 可见玩家白名单 / 逐客户端
+朝向等能力直接继承；新增的协议内容只有 `ChangeMobProperty`。
+
+| 分类 | 方法 | 签名 | 说明 |
+|------|------|------|------|
+| 生成 | create | `(SulfurDisplaySpec const&) -> int64_t` | 返回展示 id（<0 = 失败） |
+| **吞方块** | setBlock | `(int64_t id, ContainerMenuItem const&) -> bool` | 换"吞下去"的方块（改主手装备 → 重建一次实体） |
+| 外观 | setArchetype | `(int64_t id, std::string const&) -> bool` | 换外观档位（`ChangeMobProperty`；空串 = 清掉属性；**不重建实体**） |
+| **隐身** | setInvisible | `(int64_t id, bool) -> bool` | 隐身开关（spec 上的 `invisible` 参数同义） |
+| | setScale | `(int64_t id, float) -> bool` | 缩放（0.0625~10） |
+| 生命周期 | destroy / destroyAll / exists / getAllIds / entityIdOf | — | `entityIdOf` 返回背后的自定义实体 id（诊断用） |
+
+```cpp
+struct SulfurDisplaySpec {
+    float       x{0}, y{64}, z{0};
+    int         dim{0};
+    ContainerMenuItem block;                    // **吞下去的方块**（核心参数; 走主手装备）
+    std::string archetype{"regular"};           // none/regular/bouncy/sticky/hot/explosive/light/...
+    int         variant{2};                     // 1=小 / 2=中（含方块那一档）
+    bool        invisible{false};               // **隐身参数**（默认关: 见下）
+    float       scale{1.0f};
+    double      viewDistance{0.0};
+    std::vector<std::string> visiblePlayers;    // 空 = 全员可见
+};
+```
+
+**"吞生物"没有做**：协议层实体没有 AI，真正吞并/消化做不到；试过让另一个实体骑在立方体上做近似，
+骑乘位置与碰撞都调不出"被吞进去"的观感（实测不成立），已整体移除 —— 本域只做方块与隐身。
+`invisible` 默认关是因为 NPC 头像那次的教训（隐身标志位会把附属渲染一起抹掉）; 实机确认
+"隐身时吞下去的方块仍然渲染"之后可以把它设成默认。
+
+**另外**: `ICustomEntity::setMobProperty(id, name, value)` / `clearMobProperties(id)` 同批开放 ——
+凡是 `client_sync` 的实体属性都能按名下发（硫磺立方体的档位就是这么实现的）。
+
 ## 2. LSE 接口（ll.import 统一命名空间）
 
 LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib`**，前缀区分能力域：
@@ -953,6 +1049,44 @@ const id = npcDialogOpen("Steve", "§e村长", "main", "要来点任务吗？", 
 ```js
 const sensingIsTouch = ll.import("HologramLib", "sensingIsTouch");
 if (sensingIsTouch("Steve")) { /* 触屏: 用容器列表 */ } else { /* 键鼠: 用交易菜单 */ }
+```
+
+### 2.14 fakeInv*（背包虚容器，1.23.0）
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| fakeInvApply | `(playerName: s, itemsSpec: s, refreshIntervalTicks: i) -> b` | 整份下发。`itemsSpec` 每条 `槽位\|物品id\|数量\|名字\|描述行~描述行`，条目之间用 `;` 或换行分隔；`refreshIntervalTicks` 0 = 关周期重发 |
+| fakeInvSetSlot | `(playerName: s, slot: i, type: s, count: i, damage: i, name: s, loreCsv: s) -> b` | 单格改动（`type` 空 = 清空该格） |
+| fakeInvRefresh | `(playerName: s) -> b` | 立即重发伪造内容（打开界面后 / 发现被覆盖时用） |
+| fakeInvClear / fakeInvClearAll | `(playerName: s) -> b` / `() -> void` | 撤销伪造并恢复真实背包 |
+| fakeInvIsActive / fakeInvGetPlayers | `(playerName: s) -> b` / `() -> [s]` | 查询 |
+| fakeInvPollClicks | `() -> [s]` | 取走并清空；每条 `player=X slot=S` |
+| fakeInvClearClicks | `() -> void` | 丢弃队列 |
+
+```js
+const fakeInvApply = ll.import("HologramLib", "fakeInvApply");
+const fakeInvPollClicks = ll.import("HologramLib", "fakeInvPollClicks");
+// 快捷栏 0 号一把剑、1 号 64 个钻石；槽位 9 = 主背包第一格
+fakeInvApply("Steve", "0|minecraft:diamond_sword|1|§c虚容之剑|§7攻击力 +7;1|minecraft:diamond|64|§b虚容钻石", 20);
+for (const line of fakeInvPollClicks()) { /* "player=Steve slot=0" */ }
+```
+
+### 2.15 sulfur*（硫磺立方体展示，1.23.0）
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| sulfurCreate | `(x: f, y: f, z: f, dim: i, blockType: s, blockCount: i, blockDamage: i, blockName: s, archetype: s) -> i` | 生成一只"吞着方块"的立方体; `archetype` 空串 = 不下发属性 |
+| sulfurSetBlock | `(id: i, type: s, count: i, damage: i, name: s) -> b` | 换吞下去的方块/物品（会重建一次实体） |
+| sulfurSetArchetype | `(id: i, archetype: s) -> b` | 换外观档位（空串 = 清掉属性; 不重建实体） |
+| sulfurSetInvisible / sulfurSetScale | `(id: i, on: b) / (id: i, scale: f) -> b` | 隐身 / 缩放 |
+| sulfurDestroy / sulfurDestroyAll | — | 销毁（`sulfurDestroy` 单个 / `sulfurDestroyAll` 全部） |
+| sulfurExists / sulfurGetIds / sulfurGetEntityId | — | 查询（`sulfurGetEntityId` 是背后的自定义实体 id） |
+
+```js
+const sulfurCreate      = ll.import("HologramLib", "sulfurCreate");
+const sulfurSetArchetype = ll.import("HologramLib", "sulfurSetArchetype");
+const id = sulfurCreate(100.5, 65, -200.5, 0, "minecraft:bookshelf", 1, 0, "§6书架", "regular");
+sulfurSetArchetype(id, "sticky");   // 换外观档位（不重建实体）
 ```
 
 ## 3. 消费者版本协商示例

@@ -72,6 +72,9 @@ public:
     bool setPose(int64_t id, int pose);         // PoseIndex 0..13（盔甲架坐姿/睡姿/跳舞等）
     // 装备槽位: 0=mainhand 1=offhand 2=head 3=chest 4=legs 5=feet；name 空清空
     bool setEquipmentSlot(int64_t id, int slot, std::string const& name, int aux, std::string const& nbt);
+    // 实体属性同步（1.23.0; ChangeMobProperty）: 按属性名下发字符串取值
+    bool setMobProperty(int64_t id, std::string const& name, std::string const& value);
+    bool clearMobProperties(int64_t id);
 
     // ── 1.12.0 追加 ──
     bool scaleBy(int64_t id, double factor);    // 相对缩放（结果钳制 0.0625~10）

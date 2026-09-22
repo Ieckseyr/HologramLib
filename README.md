@@ -1,6 +1,6 @@
 # HologramLib
 
-Bedrock 协议层统一悬浮显示库（LeviLamina 26.40 / BDS 1.26.40 / 协议 2168）。把 **15 个能力域**（其中 13 个另有 LSE 导出）合并为**单一插件**，同时提供**冻结的 C++ 虚接口**与 **LSE（ll.import）兼容层**：
+Bedrock 协议层统一悬浮显示库（LeviLamina 26.40 / BDS 1.26.40 / 协议 2168）。把 **17 个能力域**（其中 15 个另有 LSE 导出）合并为**单一插件**，同时提供**冻结的 C++ 虚接口**与 **LSE（ll.import）兼容层**：
 
 | 能力域 | C++ 接口 | LSE 前缀 | 说明 |
 |--------|----------|----------|------|
@@ -19,6 +19,8 @@ Bedrock 协议层统一悬浮显示库（LeviLamina 26.40 / BDS 1.26.40 / 协议
 | 村民交易菜单 | `ITradeMenu`（1.21.0） | `trade*`（7 函数, 1.22.0 补） | 协议层 `UpdateTrade` 开界面（与 BDS 抓包逐字节一致）；**纯展示, 不做点击回调**（1.22.0 起） |
 | NPC 对话框 | `INpcDialogue`（1.21.0） | `npcDialog*`（7 函数, 1.22.0 补） | `NpcDialoguePacket` + 合成 `minecraft:npc` 载体；按钮/关闭回传（LSE 走轮询）；多层级对话按场景名路由 |
 | 虚拟容器（列表） | `IContainerMenu`（1.21.0） | `container*`（9 函数, 1.22.0 补） | 复刻 GMLIB ChestUI：客户端侧箱子方块 + 方块实体 NBT + `ContainerOpen`；小容器 27 格 / 大容器 54 格；点击回传槽位号（LSE 走轮询） |
+| 背包虚容器 | `IFakeInventory`（1.23.0） | `fakeInv*`（9 函数） | 协议层改写客户端看到的**玩家背包内容**（服务端背包不动）；点伪造物品回传槽位号（与虚容同一语义）；与交易菜单/虚拟容器共存（周期重发盖回去） |
+| 硫磺立方体展示 | `ISulfurDisplay`（1.23.0） | `sulfur*`（10 函数） | 第二种摆放方式：生成 `minecraft:sulfur_cube`，**把方块"吞"在主手**（行为包原生机制, 客户端按装备渲染）；**隐身是一个参数**；外观档位走 `sulfur_cube_archetype` 属性 |
 
 > **假玩家 NPC 皮肤已可正常渲染（26.40.2 修复）**：`playerNpc*` 的创建/移动/朝向/缩放/视距/显隐，以及皮肤注册表（PNG 注册、在线采集、目录导入、`getSkinBlob` 导出 / `registerSkinFromBlob` 恢复）均正常工作。此前的症状是客户端不渲染所设置的皮肤、外观回退为默认模型，原因在 PlayerList 皮肤条目的 `Id` / `FullId` 为空或残留了原玩家的缓存键。
 
@@ -26,12 +28,39 @@ PlayerList 现在只做包体前缀校验、不回读 BDS：发送前检查单�
 
 除 FMBE / 自定义实体 / 交易菜单 / NPC 对话走"假实体（部分隐身、仅目标玩家可见）+ 发包"外，其余渲染都不产生真实实体、不写存档、零服务器开销。交易菜单与 NPC 对话的载体实体在界面关闭时立即删除，不落存档；虚拟容器只在**客户端侧**摆箱子方块（服务端世界与存档里都没有这个方块）。粒子发送走 vanilla `SpawnParticleEffectPacket` 批量通道（BDS tick flush 自动聚合压缩为单 Batch 数据报）。
 
-- API 版本：**1.22.0**（`HOLOGLIB_API_VERSION 0x011C00`）
-- 插件发布版本：`26.40.4`
+- API 版本：**1.23.0**（`HOLOGLIB_API_VERSION 0x011D00`）
+- 插件发布版本：`26.40.5`
 - 版本 / API 版本 / 宏 对照：见 [`VERSION-HISTORY.md`](./VERSION-HISTORY.md)
 
 ## 更新日志
 
+- `26.40.5`（API 1.23.0）：**新增背包虚容器 `IFakeInventory` 与硫磺立方体展示 `ISulfurDisplay`**。
+  - **协议层改写客户端看到的玩家背包**：一条 `InventoryContentPacket`（`ContainerId = Inventory(0)` +
+    `FullContainerName = InventoryContainer(29)` + 0..35 号描述符）把整份内容换成调用方给的那份，
+    单格改动走 `InventorySlotPacket`；服务端背包一个字都不动。方案取自参考实现 GMLIB 的 `ChestUI`
+    （它逐格写 `InventorySlot`, 容器 id 同样是 `Inventory(0)` + `InventoryContainer(29)`）。
+  - **功能项与虚拟容器一致**：点自己背包里的伪造物品 → 回调报槽位号；物品不会真的被拿走
+    （客户端按伪造内容发请求, 服务端真实槽位对不上 → BDS 判失败 → 客户端撤回预测）。库随后把那一格
+    重发一次, 让伪造内容不被这次回滚冲掉。
+  - **与交易菜单 / 虚拟容器共存**：打开界面时 BDS 会重发背包内容把伪造内容覆盖，所以本域按
+    `refreshIntervalTicks` 周期重发（默认 20 tick = 1s），也可 `refresh()` 手动补。
+  - **LSE**: `fakeInvApply` / `fakeInvSetSlot` / `fakeInvRefresh` / `fakeInvClear` / `fakeInvClearAll` /
+    `fakeInvIsActive` / `fakeInvGetPlayers` / `fakeInvPollClicks` / `fakeInvClearClicks`。
+  - **离线检查** `tests/check-fake-inventory.bat`（本地工具）：拿 **BDS 真实抓包**核对线格式（帧落在包尾、容器 id 0 /
+    36 格 / 容器名字节 0 / storage 空描述符、以及物品 UserData 的方言指纹：`06 00 "Damage"` 而不是 `06 "Damage"`），
+    10 项全过。物品本身由 BDS 序列化, 所以不再有"逐字节自造"的检查, 改为钉住布局事实。
+  - 物品请求钩子（147 + AuthInput 内嵌）现在由两个域共用，从 `container/` 移到了
+    `src/interaction/PlayerInteractionHooks.cpp`：容器域认 `LevelEntityContainer(7)` 与 dyn 101..199，
+    背包域认 `CombinedHotbarAndInventory(12)` / `Hotbar(28)` / `Inventory(29)`，互不抢。
+  - **修复（实测事故）**：第一版手写物品描述符写错了 User Data 的 NBT 方言 → 客户端卡死；且会话没随掉线清理，
+    重连时 tick 驱动又重发一遍 → "进不去服务器"。现在物品交给 BDS 序列化，并注册了 `PlayerDisconnectEvent`
+    清理会话（`FakeInventoryManager::onPlayerLeave`），周期重发间隔也钳了下限（最快 5 tick）。
+  - **新增硫磺立方体展示 `ISulfurDisplay`（第二种摆放方式）**：生成 `minecraft:sulfur_cube`，把方块**装在它的主手**
+    （行为包里立方体就是靠 `slot.weapon.mainhand` 拿"吞下去"的方块, 客户端按装备渲染）—— `SulfurDisplaySpec::block`
+    与 `setBlock` 是本域的核心 API；**隐身是 spec 上的一个参数**（`invisible`, 默认关）。外观档位用**手写的
+    `ChangeMobProperty`(182)** 下发 `minecraft:sulfur_cube_archetype`。本域全部委托给 `ICustomEntity`，所以
+    缩放/视距/白名单/逐客户端朝向直接继承；`ICustomEntity::setMobProperty` 同时开放给其它实体的 `client_sync` 属性。
+    **"吞生物"不做**：协议层实体没有 AI，试过"让实体骑在立方体上"的近似，实测观感不成立，已整体移除。
 - `26.40.4`（API 1.22.0）：**交易菜单改为纯展示 + 新域补齐 LSE 导出**。
   - **交易菜单不再有任何点击监听**：`TradeClickEvent` / `TradeActionCallback` / `TradeRawAction` 与 `ITradeMenu` 的六个监听方法整体删除，`TradeMenuSpec` 去掉 `displayOnly` / `acceptPaymentPlacement` —— 本域从此只负责"打开界面 + 摆出交易表"。原来的 147/AuthInput 钩子与放料接住逻辑随之移除（**留在 `src/container/ContainerInteractionHooks.cpp`**：那两个钩子如今只服务虚拟容器的点击）。要"能点、点了有回调"的列表界面用虚拟容器（`IContainerMenu`）。
   - `ITradeMenu` 新增 `addOffer` / `setTier`：追加一条交易或改档位/经验条时**就地重发**交易表，不必关掉重开。
@@ -79,7 +108,7 @@ HologramLib/
 │   ├── lse/                            #   LSE 兼容层（运行时挂载 lrca）
 │   ├── MemoryOperators.cpp             #   跨 DLL 内存配对
 │   └── ModEntry.*                      #   生命周期 + LSE 双时机挂载
-├── tests/                              # 离线字节级回归检查（独立于服务端, 产物进 work/）
+├── tests/                              # 离线字节级回归检查（**本地工具, 不随库发布**; 产物进 work/）
 ├── xmake.lua
 ├── manifest.json
 ├── README.md
@@ -104,6 +133,8 @@ xmake -y
 ```
 
 在**普通 Windows shell（cmd / PowerShell）**里跑 xmake：Git Bash / MSYS 下 xmake 会把 host 认成 msys，按 msys 的工具链与包目录去解析依赖，于是找不到 MSVC、转而去重新编译 fmt/gsl 之类的基础包并失败（`cannot get program for cc`）。诊断日志选项 `--holo_diag` 见下文「正式产物不输出任何日志」。
+
+> **这些检查脚本是本地工作副本里的工具，不随库发布**（部分需要本机 `logs/fullpkts/` 下的真实抓包，见下）。它们负责把协议层的字节格式钉死 —— 下面逐项说明各自在验什么。
 
 NPC 皮肤协议的离线回归检查（在 x64 Native Tools PowerShell 中运行，需要 Python；不启动或部署服务端）：
 
@@ -178,6 +209,79 @@ NPC 皮肤协议的离线回归检查（在 x64 Native Tools PowerShell 中运�
 库**两条都挂**（`src/container/ContainerInteractionHooks.cpp`）: AuthInput 那条用 BDS 自己的 `ItemStackRequestCereal::toActionData()` 把解析态动作转成与 147 相同的 cereal 形态, 再喂进同一个派发函数。AuthInput 只观察、不拦 —— 它同时承载玩家移动, 拦下会把移动一起吞掉, 而内嵌请求由 BDS 自己处理。
 
 **命中容器的动作只回传、不拦**（与参考实现 GMLIB 完全一致）：虚拟容器在服务端并不存在, 放行后 BDS 自己就会失败并让客户端把预测撤回（物品在界面上闪一下回到原位），回调照常收到。实测教训：若这里自己代答一条失败应答（`ItemStackNetResult` 3），客户端会**弹一个错误提示**；交给 BDS 走它自己的失败路径反而是安静的。交易菜单不参与这两个钩子 —— 它不读任何客户端请求。
+
+### 硫磺立方体展示：把方块"吞"在立方体上（1.23.0）
+
+第二种摆放方式（与 `IItemDisplay` 的"狐狸 + 物品"并列）：生成一只 `minecraft:sulfur_cube`（硫磺立方体），
+把要展示的方块/物品**装进它的主手**。这不是我们发明的花招 —— 行为包里 `entities/sulfur_cube.json` 就是靠
+`slot.weapon.mainhand` + `behavior.equip_item` 拿"吞下去"的方块，客户端按装备渲染，所以看起来就是方块被吞在它身上。
+
+外观档位由 `minecraft:sulfur_cube_archetype` 属性控制（行为包里 `client_sync: true` 的 enum, 13 档：
+`none` / `regular` / `bouncy` / `slow_bouncy` / `slow_flat` / `fast_flat` / `light` / `fast_sliding` /
+`slow_sliding` / `sticky` / `high_resistance` / `explosive` / `hot`），走**手写的 `ChangeMobProperty`(182)**
+下发（该属性是 enum, `AddActor` 的 `PropertySyncData` 只装得下按索引的 int/float, 所以属性必须在实体
+已被客户端认识之后再发 —— 与装备同一时机，库里会在 spawn 之后自动补发并在 respawn 后重放）。
+
+- **吞方块是本域的核心 API**：`SulfurDisplaySpec::block`（或 `sulfurSetBlock` / `setBlock`）就是"它吞下去的东西"，
+  走主手装备（改它会让实体重建一次）。放方块类物品观感最正。
+- **隐身是一个参数**：`SulfurDisplaySpec::invisible`（或 `sulfurSetInvisible` / `setInvisible`）。默认 **false** ——
+  NPC 头像那次的教训是隐身标志位会把附属渲染一起抹掉，所以默认关，要"只留吞下去的东西"就自己打开试；
+  实机确认可行后可以把它设成默认。
+- **"吞生物"没有做**：协议层实体没有 AI，真正的吞并/消化做不到；试过让另一个实体骑在立方体上做近似，
+  骑乘位置与碰撞都调不出"被吞进去"的观感（实测不成立），已整体移除 —— 本域只做方块与隐身。
+
+本域**完全委托给 `ICustomEntity`** 实现（立方体就是一只自定义实体），所以缩放 / 视距 / 可见玩家白名单 /
+逐客户端朝向等能力它全都直接继承；新增的协议内容只有 `ChangeMobProperty`（`ICustomEntity::setMobProperty`
+也一并开放，其它实体的 `client_sync` 属性同样能用）。
+
+**怎么测**（探针插件 MeowTradeTest）：
+
+```
+/tradetest sulfur minecraft:bookshelf     # 生成一只"吞着书架"的立方体（在朝向前方 3 格）
+/tradetest sulfur minecraft:diamond       # 也能放普通物品（观感以实机为准）
+/tradetest sulfurarch sticky              # 换外观档位（看外观变化, 不重建实体）
+/tradetest sulfurhide 1                   # 隐身: 看"吞下去的方块"还在不在
+/tradetest sulfurdestroy                  # 销毁
+```
+
+### 背包虚容器：伪造玩家背包（1.23.0）
+
+一条 `InventoryContentPacket(49)`（`ContainerId = Inventory(0)`、0..35 号槽位）就把**客户端看到的玩家背包**
+换成调用方给的那份；单格改动走 `InventorySlotPacket(50)`。服务端背包一个字都不动 —— 物品只是"看起来有"。
+方案取自参考实现 GMLIB 的 `ChestUI`（它填玩家物品栏时逐格写 `InventorySlot`, 容器 id 同样是 `Inventory(0)`）。
+
+> **物品的序列化必须交给 BDS（血的教训）**：物品描述符里的 User Data 用的是**另一套 NBT 方言**
+> （名字长度 u16 小端 / 整数与计数 4 字节小端），而 sculk 的 `CompoundTag` 写的是 varint 那套
+> （`UpdateTrade` 的 Offers 与方块实体 NBT 才是那套，两者都逐字节对拍过）。第一版手写描述符因此写错了方言，
+> **客户端解析越界直接卡死，并且重连时又被重发一遍（会话没随掉线清理）→ 表现为"进不去服务器"**。
+> 现在本域的包体用 BDS 自己的 `InventoryContentPacket` / `InventorySlotPacket` 构造
+> （`src/fakeinv/FakeInventoryPackets.h`），容器名与 storage item 的取值也以抓包为准（BDS 写的是容器名字节 0、
+> storage 空描述符）。其余域（交易菜单 / 虚拟容器 / NPC 对话）仍然全部手写包体。
+
+**功能项与虚拟容器一致**：点自己背包里的伪造物品 → 回调报槽位号。物品不会被真的拿走 ——
+客户端按伪造内容发请求, 服务端那格的真实物品对不上 → BDS 判失败 → 客户端撤回预测（与虚拟容器同一套
+表现, 库不代答）；库随后把那一格重发一次, 让伪造内容不被这次回滚冲掉。
+
+**与交易菜单 / 虚拟容器共存**：打开交易界面或箱子界面时 BDS 会重发背包内容（伪造内容被覆盖），
+所以本域默认每 `refreshIntervalTicks`（默认 20 tick = 1s）重发一次, 也可以用 `refresh()` 手动补 ——
+界面上看到的背包区域因此始终是伪造内容, 点击照常回调。
+
+物品请求钩子现在是**两个域共用**（`src/interaction/PlayerInteractionHooks.cpp`）: 容器域认
+`LevelEntityContainer(7)` 与动态 id 101..199, 背包域认 `CombinedHotbarAndInventory(12)` / `Hotbar(28)` /
+`Inventory(29)`, 两侧互不抢。
+
+**边界（先写清楚, 免得误用）**：
+
+- 伪造只影响客户端显示；玩家真正能用/能吃的是服务端真实物品。
+- 某格真实物品与伪造物品恰好一致时, 那一次操作会被服务端当真执行 —— 想让某格纯展示, 别把它伪造成与真实物品相同的东西。
+- 该格真实物品因别的原因改变（捡东西 / 用物品 / 别的插件改背包）时, 周期重发会把伪造内容盖回去。
+- 护甲（6）/ 副手（34）不在本域范围内, 它们各有独立的容器枚举。
+
+**怎么测**（探针插件 MeowTradeTest）: `/tradetest fakeinv` 下发样例伪造背包（快捷栏 0/1/2/3 + 主背包 9/10,
+带自定义名与描述）, 点那些物品看日志/聊天框的 `[FAKEINV] 点击: player=... slot=N`;
+`/tradetest fakeinvclear` 撤销并恢复真实背包; `/tradetest fakeinvrefresh` 手动重发。
+**共存验证**: 下发后分别打开 §b/tradetest list§r（虚拟容器）与 §b/tradetest open§r（交易菜单）,
+看背包区域里伪造物品是否仍在、点击是否仍回调。
 
 ### NPC 对话框：按钮回传与一个实测限制
 
@@ -291,6 +395,19 @@ dlg.buttons.push_back({"§a接受", {}, "main#0", 0});
 dlg.buttons.push_back({"§c离开", {}, "main#1", 1});
 auto dialogId = lib.npcDialogs().open("Steve", dlg);
 
+// 背包虚容器：让客户端"看到"自己拥有这些物品（服务端背包不动, 点击回传槽位号）
+hologramlib::FakeInventorySpec bag;
+bag.items.resize(hologramlib::kFakeInventorySlots);       // 36 格: 0..8 快捷栏, 9..35 主背包
+bag.items[0].type = "minecraft:diamond_sword";
+bag.items[0].name = "§c虚容之剑";
+bag.items[1] = {"minecraft:diamond", 64, 0, "§b虚容钻石", {"§7点它看回调"}};
+bag.refreshIntervalTicks = 20;                            // 周期重发（打开界面后被覆盖时盖回去）
+lib.fakeInventories().apply("Steve", bag);
+lib.fakeInventories().addClickListener([](hologramlib::FakeInventoryClickEvent const& e) {
+    // e.slot = 被点的伪造槽位
+});
+lib.fakeInventories().clear("Steve");                     // 撤销并恢复真实背包
+
 // 感知域：按客户端设备分流（触屏 / 手柄 / 键鼠）
 if (lib.playerSensing().isTouch("Steve")) {
     lib.containerMenus().open("Steve", menu);    // 触屏: 用虚拟容器, 点击必然发包
@@ -308,10 +425,10 @@ add_links("HologramLib")
 ### LSE 脚本
 
 ```js
-// 统一命名空间 "HologramLib", 十三个 LSE 前缀（其余能力域只有 C++ 接口）:
+// 统一命名空间 "HologramLib", 十五个 LSE 前缀（其余能力域只有 C++ 接口）:
 //   shape* / holo* / gradient* / itemDetail* / itemDisplay*
 //   entity* / ghost* / particle* / playerNpc* / trade*
-//   container* / npcDialog* / sensing*
+//   container* / npcDialog* / sensing* / fakeInv* / sulfur*
 const shapeCreateLine = ll.import("HologramLib", "shapeCreateLine");
 const holoCreate      = ll.import("HologramLib", "holoCreate");
 const itemDisplayCreateBeacon = ll.import("HologramLib", "itemDisplayCreateBeacon");
@@ -338,6 +455,12 @@ if (!sensingIsTouch("Steve")) {
     const tid = tradeOpen("Steve", "entity.villager.butcher", 1, 0, false, "");
     tradeAddOffer(tid, "minecraft:emerald", 3, "", 1, "minecraft:diamond", 1, "§b钻石", 1, false);
 }
+
+// 背包虚容器: 让客户端"看到"自己拥有这些物品（条目格式 槽位|物品id|数量|名字|描述）
+const fakeInvApply      = ll.import("HologramLib", "fakeInvApply");
+const fakeInvPollClicks = ll.import("HologramLib", "fakeInvPollClicks");
+fakeInvApply("Steve", "0|minecraft:diamond_sword|1|§c虚容之剑|§7攻击力 +7;1|minecraft:diamond|64|§b虚容钻石", 20);
+for (const line of fakeInvPollClicks()) { /* "player=Steve slot=0" */ }
 
 // NPC 对话: 按钮串 = label|actionId|mode|命令1,命令2（按钮之间用 ; 分隔）
 npcDialogOpen("Steve", "§e村长", "main", "要来点任务吗？", "§a接受|main#0|0|;;§c离开|main#1|1|", "");

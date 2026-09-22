@@ -8,6 +8,7 @@
 // 差别: GMLIB 走 BDS 的 updateClientBlock/updateClientBlockActor（内部就是这两个包）, 这里直接
 // 手写包; 块信息从 BDS 只读查询（方块的网络 id / 该位置的真实方块）, 不调用任何发送型 API。
 #include "container/ContainerMenuManager.h"
+#include "item/MenuItemStack.h"
 
 #include "DiagLog.h"
 
@@ -144,59 +145,6 @@ void pickCarrierPos(Player& player, int& x, int& y, int& z) {
 }
 
 // SNBT 字符串转义（只转义引号与反斜杠）。反斜杠用字符码 92 写, 源码里不出现转义层。
-std::string snbtEscapeForItem(std::string const& s) {
-    std::string out;
-    out.reserve(s.size() + 8);
-    for (char const c : s) {
-        if (c == '"' || c == static_cast<char>(92)) out.push_back(static_cast<char>(92));
-        out.push_back(c);
-    }
-    return out;
-}
-
-// 条目 -> ItemStack（按槽刷新用; 物品那一格交给 BDS 的 InventorySlot 序列化, 线上是数字 id + NBT）
-//
-// 拼装格式与库内"逐字节对拍过的物品 NBT 方言"（src/trade/TradeOfferNbt.h 的 itemToNbt）保持一致:
-//   {Name: String, Count: Byte, Damage: Short, WasPickedUp: Byte, tag:{display:{Name, Lore}}}
-// 修复记录: 原来这里手写的 SNBT 把引号写成了双份（""Count""）且 Count 用了 Short —— SNBT 非法,
-// fromSnbt 返回 nullopt, 于是本函数返回空栈, 按槽刷新(setItem)会把整页刷成空气（实测现象）。
-ItemStack makeItemStack(hologramlib::ContainerMenuItem const& entry) {
-    if (entry.type.empty()) return ItemStack{};
-
-    int count = entry.count; // Count 是 Byte 域（与 itemToNbt 一致）
-    if (count < 1) count = 1;
-    if (count > 127) count = 127;
-
-    std::string snbt = std::format(
-        R"x({{Count:{}b,Damage:{}s,Name:"{}",WasPickedUp:0b)x",
-        count,
-        entry.damage,
-        snbtEscapeForItem(entry.type)
-    );
-    if (!entry.name.empty() || !entry.lore.empty()) {
-        snbt += R"x(,tag:{display:{)x";
-        bool first = true;
-        if (!entry.name.empty()) {
-            snbt += std::format(R"x(Name:"{}")x", snbtEscapeForItem(entry.name));
-            first = false;
-        }
-        if (!entry.lore.empty()) {
-            if (!first) snbt += ',';
-            snbt += R"x(Lore:[)x";
-            for (std::size_t i = 0; i < entry.lore.size(); ++i) {
-                if (i) snbt += ',';
-                snbt += std::format(R"x("{}")x", snbtEscapeForItem(entry.lore[i]));
-            }
-            snbt += ']';
-        }
-        snbt += '}'; // display
-        snbt += '}'; // tag
-    }
-    snbt += '}';     // 根
-    auto tag = CompoundTag::fromSnbt(snbt);
-    if (!tag.has_value()) return ItemStack{};
-    return ItemStack::fromTag(tag.value());
-}
 // ── 旧路径（useMinecart=true）专用: 合成一只只发给该玩家的箱子矿车 ──
 std::atomic<std::int64_t>  gNextCarrierUid{-860000000000LL};
 std::atomic<std::uint64_t> gNextCarrierRid{0x6E300000ULL};
@@ -462,7 +410,7 @@ bool ContainerMenuManager::setItem(int64_t menuId, int slot, hologramlib::Contai
     auto* player = findPlayerByName(copy.playerName);
     if (player == nullptr) return false;
 
-    auto stack = makeItemStack(item);
+    auto stack = item::makeMenuItemStack(item);
     ::InventorySlotPacket packet{::InventorySlotPacketPayload(
         static_cast<::ContainerID>(copy.containerId),
         static_cast<uint>(slot),

@@ -44,6 +44,7 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include "sulfur/SulfurDisplayPackets.h" // ChangeMobProperty（实体属性同步）
 
 namespace debugshape_export {
 
@@ -226,6 +227,17 @@ void sendEffectiveEquipment(::Player& player, CustomEntityConfig const& data, Cu
     }
 }
 
+// 把配置里的实体属性发给一个玩家（ChangeMobProperty; spawn 之后调用 —— AddActor 装不下 enum 属性）
+void sendMobProperties(::Player& player, CustomEntityConfig const& data, CustomEntityManager::Runtime const& rt) {
+    for (auto const& prop : data.mobProperties) {
+        if (prop.name.empty()) continue;
+        sendSculkPacketToPlayer(
+            player,
+            sulfur::makeMobProperty(static_cast<std::int64_t>(rt.uniqueId), prop.name, prop.value)
+        );
+    }
+}
+
 // ── 发包原语 ──
 
 void sendCustomActor(
@@ -319,6 +331,9 @@ void sendCustomActor(
 
     // ── AddActor 之后立即下发装备(按该观看者的生效值; 空手/空槽跳过) ──
     sendEffectiveEquipment(player, data, rt);
+
+    // ── 实体属性（ChangeMobProperty）: 必须在实体已被客户端认识之后 ──
+    sendMobProperties(player, data, rt);
 
     // ── 骑乘链接（1.12.0）: AddActor 之后重放 SetActorLinkPacket ──
     // 载具 = 玩家或另一自定义实体; ghost 恒为乘客（B 端）
@@ -804,6 +819,47 @@ bool CustomEntityManager::setEquipmentSlot(int64_t id, int slot, std::string con
         it->second.equipment[slot].nbt  = nbt;
     }
     mDirtyIds.insert(id);
+    return true;
+}
+
+bool CustomEntityManager::setMobProperty(int64_t id, std::string const& name, std::string const& value) {
+    if (name.empty()) return false;
+    CustomEntityConfig data;
+    CustomEntityManager::Runtime rt{};
+    {
+        std::lock_guard lock(mMutex);
+        auto            it = mConfigs.find(id);
+        if (it == mConfigs.end()) return false;
+        bool found = false;
+        for (auto& prop : it->second.mobProperties) {
+            if (prop.name == name) {
+                prop.value = value;
+                found      = true;
+                break;
+            }
+        }
+        if (!found) it->second.mobProperties.push_back(hologramlib::EntityMobProperty{name, value});
+        data = it->second;
+        if (auto rit = mRuntimes.find(id); rit != mRuntimes.end()) rt = rit->second;
+    }
+    // 已经发给过玩家的 → 立刻同步; 还没 spawn 的会在 spawn 之后由 sendMobProperties 补发
+    if (rt.uniqueId == 0) return true;
+    for (auto const& uuid : rt.shownPlayers) {
+        if (auto* player = findPlayerByUuid(uuid)) {
+            sendSculkPacketToPlayer(
+                *player,
+                sulfur::makeMobProperty(static_cast<std::int64_t>(rt.uniqueId), name, value)
+            );
+        }
+    }
+    return true;
+}
+
+bool CustomEntityManager::clearMobProperties(int64_t id) {
+    std::lock_guard lock(mMutex);
+    auto            it = mConfigs.find(id);
+    if (it == mConfigs.end()) return false;
+    it->second.mobProperties.clear();
     return true;
 }
 

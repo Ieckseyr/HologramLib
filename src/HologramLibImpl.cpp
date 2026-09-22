@@ -11,6 +11,8 @@
 #include "itemdisplay/ItemDisplayManager.h"
 #include "customentity/CustomEntityManager.h"
 #include "sensing/PlayerSensingManager.h"
+#include "fakeinv/FakeInventoryManager.h" // fakeInventoryAdapter()
+#include "sulfur/SulfurDisplayManager.h" // sulfurDisplayAdapter()
 #include "particles/ParticleShapeManager.h"
 #include "playernpc/PlayerNpcExporter.h" // playerNpcAdapter()
 #include "container/ContainerMenuManager.h" // containerMenuAdapter()
@@ -362,6 +364,12 @@ public:
     bool setPose(int64_t id, int pose) override {
         return debugshape_export::CustomEntityManager::getInstance().setPose(id, pose);
     }
+    bool setMobProperty(int64_t id, std::string const& name, std::string const& value) override {
+        return debugshape_export::CustomEntityManager::getInstance().setMobProperty(id, name, value);
+    }
+    bool clearMobProperties(int64_t id) override {
+        return debugshape_export::CustomEntityManager::getInstance().clearMobProperties(id);
+    }
     bool setEquipmentSlot(int64_t id, int slot, std::string const& name, int aux, std::string const& nbt) override {
         return debugshape_export::CustomEntityManager::getInstance().setEquipmentSlot(id, slot, name, aux, nbt);
     }
@@ -633,6 +641,12 @@ public:
 
     // ── 感知域(1.21.0 未发布线): 客户端设备判断 ──
     IPlayerSensing& playerSensing() override { return debugshape_export::playerSensingAdapter(); }
+
+    // ── 1.23.0 未发布线: 背包虚容器 ──
+    IFakeInventory& fakeInventories() override { return debugshape_export::fakeInventoryAdapter(); }
+
+    // ── 1.23.0: 硫磺立方体展示 ──
+    ISulfurDisplay& sulfurDisplays() override { return debugshape_export::sulfurDisplayAdapter(); }
 
 private:
     ShapeDrawerImpl  mShapes;

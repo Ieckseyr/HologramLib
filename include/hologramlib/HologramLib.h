@@ -20,14 +20,14 @@
 
 // 库 API 版本（与 IHologramLib::version() 同值; 编码规律与完整对照见 VERSION-HISTORY.md）
 //   中间字节 = 次版本号, 按十六进制递增: 1.15.0 -> 0x011500, 1.19.0 -> 0x011900,
-//   1.20.0 -> 0x011A00, 1.21.0 -> 0x011B00, 1.22.0 -> 0x011C00（补丁位通常为 00）
+//   1.20.0 -> 0x011A00, 1.21.0 -> 0x011B00, 1.22.0 -> 0x011C00, 1.23.0 -> 0x011D00（补丁位通常为 00）
 // 消费方可用于编译期静态断言最低版本要求。
 // 注意: 只有**正式发布新版本**才推高本宏; 在同一条尚未发布的线上继续加能力域时不改变它。
 // 本值 0x011C00 随 26.40.4 发布: 交易菜单（1.21.0 引入）改为**纯展示**, 撤回了它在 26.40.3 里
 // 短暂存在的点击回调（TradeClickEvent / TradeActionCallback / TradeRawAction 与对应的
 // ITradeMenu 监听方法全部移除）—— 这是收缩而非新增, 所以抬到新的次版本, 消费方可以用
 // >= 0x011C00 门住『交易菜单没有点击回调、且带 addOffer / setTier』这一形态。
-#define HOLOGLIB_API_VERSION 0x011C00
+#define HOLOGLIB_API_VERSION 0x011D00
 
 #ifdef HOLOGLIB_EXPORTS
 #define HOLOGLIB_API __declspec(dllexport)
@@ -301,6 +301,13 @@ struct CustomEntityEquipment {
     std::string nbt{};   // SNBT 形式, 空 = 无附加 NBT
 };
 
+// 实体属性（按名同步, ChangeMobProperty）: 目前用于 minecraft:sulfur_cube 的外观档位
+// minecraft:sulfur_cube_archetype; 其它实体的 client_sync 属性同样适用。
+struct EntityMobProperty {
+    std::string name;  // 完整属性名, 如 "minecraft:sulfur_cube_archetype"
+    std::string value; // 字符串取值, 如 "sticky"
+};
+
 struct CustomEntityConfig {
     std::string identifier{"minecraft:armor_stand"}; // 实体类型标识符（短名自动补 minecraft:）
     float       x{0}, y{64}, z{0};                   // 世界坐标
@@ -323,6 +330,9 @@ struct CustomEntityConfig {
     // 骑乘链接目标（SetActorLinkPacket; 两者互斥, 后设置者生效; 空名/0 = 无链接）
     std::string ridePlayerName{};   // 实体骑到指定玩家头上（玩家为载具; 须在线）
     int64_t     rideEntityId{0};    // 实体骑到另一自定义实体上（对方库内 id 为载具）
+    // ── 1.23.0 追加（冻结契约: 结构尾部追加）──
+    // 实体属性（ChangeMobProperty, 按名同步的 client_sync 属性; 目前用于硫磺立方体的外观档位）
+    std::vector<EntityMobProperty> mobProperties;
 };
 
 class ICustomEntity {
@@ -357,6 +367,12 @@ public:
     virtual bool setPose(int64_t id, int pose)              = 0;
     // 装备槽位: 0=mainhand 1=offhand 2=head 3=chest 4=legs 5=feet；name 空清空槽位
     virtual bool setEquipmentSlot(int64_t id, int slot, std::string const& name, int aux, std::string const& nbt) = 0;
+
+    // ── 1.23.0 追加: 实体属性同步（ChangeMobProperty）──
+    // 按属性名下发一个字符串取值（enum 型 client_sync 属性, 如硫磺立方体的外观档位）。
+    // 实体尚未送到客户端时会记下来, spawn 之后自动补发; respawn 后也会重放。
+    virtual bool setMobProperty(int64_t id, std::string const& name, std::string const& value) = 0;
+    virtual bool clearMobProperties(int64_t id) = 0;
 
     virtual int64_t findNearest(float x, float y, float z, int dim, double maxDist) const = 0; // 无匹配 -1
 
@@ -918,6 +934,126 @@ public:
 };
 
 // ─────────────────────────────────────────────
+// 背包虚容器（协议层伪造玩家背包内容; 1.23.0）
+//
+// 机制: 直接改写**客户端**看到的玩家背包 —— 一条 InventoryContentPacket
+// （ContainerId = Inventory(0)、FullContainerName = InventoryContainer(29)、Slots = 0..35 号槽位）
+// 把整份内容换成调用方给的那一份; 单格改动走 InventorySlotPacket。服务端背包一个字都不动,
+// 物品是"看起来有"。参考实现 GMLIB 的 ChestUI 填玩家物品栏用的就是同一条路（它逐格写
+// InventorySlot, 容器 id 同样是 Inventory(0) + InventoryContainer(29)）。
+//
+// 功能项与虚拟容器（IContainerMenu）一致: 玩家点自己背包里的伪造物品 → 回调报槽位号,
+// 物品不会真的被拿走 —— 客户端按伪造内容发出请求, 服务端真实槽位对不上 → BDS 判失败 →
+// 客户端把预测撤回（与虚拟容器同一套表现, 不需要库代答）; 库随后把那一格重发一次,
+// 让伪造内容不会被这次回滚冲掉。
+//
+// 与交易菜单 / 虚拟容器**共存**: 打开交易界面或箱子界面时 BDS 会重发玩家背包内容
+// （伪造内容被覆盖）, 所以本域默认按 refreshIntervalTicks 周期重发（默认 20 tick = 1s）,
+// 也可随时调 refresh() —— 界面上看到的背包区域因此始终是伪造内容, 点击照常回调。
+//
+// 边界（实测前先写清楚, 免得误用）:
+//   · 伪造只影响客户端显示。玩家"真正能用/能吃"的仍是服务端真实物品。
+//   · 若某格真实物品与伪造物品恰好一致, 那一次操作会被服务端当真执行 —— 想让某格纯展示,
+//     别把它伪造成与真实物品相同的东西。
+//   · 该格真实物品被别的原因改变（捡东西/用物品/别的插件）时, 周期重发会把伪造内容重新盖回去。
+//
+// 槽位编号与原生背包容器一致: 0..8 = 快捷栏, 9..35 = 主背包（共 36 格）。
+// 护甲(6)/副手(34)不在本域范围内 —— 它们各有独立的容器枚举, 需要的话后续再扩。
+// ─────────────────────────────────────────────
+
+inline constexpr int kFakeInventorySlots = 36;
+
+struct FakeInventorySpec {
+    std::vector<ContainerMenuItem> items; // 下标即槽位（0..35）; type 空 = 该格留空
+    // 周期重发间隔（tick）。0 = 不周期重发（只在下发、单格更新、显式 refresh 时发）。
+    // 为什么要周期重发: 任何一次真实背包变动都会让 BDS 重发受影响的槽位, 打开箱子/交易界面时
+    // 更是整包重发, 伪造内容会被覆盖; 周期重发把它盖回去。**追加在尾部**: 保持字段偏移不变。
+    int refreshIntervalTicks{20};
+};
+
+struct FakeInventoryClickEvent {
+    std::string playerName;
+    int         slot{-1}; // 被点击的伪造槽位（0..8 快捷栏, 9..35 主背包）
+};
+
+class IFakeInventory {
+public:
+    virtual ~IFakeInventory() = default;
+
+    // 下发整份伪造背包（覆盖该玩家此前的伪造内容）; 玩家不在线返回 false
+    virtual bool apply(std::string const& playerName, FakeInventorySpec const& spec) = 0;
+    // 单格改动（一条 InventorySlot, 无延迟）; 该玩家尚未 apply 过则返回 false
+    virtual bool setSlot(std::string const& playerName, int slot, ContainerMenuItem const& item) = 0;
+    // 立即重发当前伪造内容（打开界面后、或发现被覆盖时用）
+    virtual bool refresh(std::string const& playerName) = 0;
+    // 撤销伪造: 停掉周期重发, 并把**真实**背包内容重发一遍（恢复真相）
+    virtual bool clear(std::string const& playerName) = 0;
+    virtual void clearAll() = 0;
+
+    [[nodiscard]] virtual bool                     isActive(std::string const& playerName) const = 0;
+    [[nodiscard]] virtual std::vector<std::string> getActivePlayers() const = 0;
+
+    // 点击回传（多播, 多个插件可同时注册）; 返回 token（0 = 失败）
+    virtual uint64_t addClickListener(std::function<void(FakeInventoryClickEvent const&)> listener) = 0;
+    virtual bool     removeClickListener(uint64_t token) = 0;
+};
+
+// ─────────────────────────────────────────────
+// 硫磺立方体展示（1.23.0 追加）
+//
+// 第二种"把东西摆到世界上"的做法: 生成一只 `minecraft:sulfur_cube`（硫磺立方体）, 把要展示的方块/
+// 物品**装进它的主手** —— 行为包里立方体就是靠 `slot.weapon.mainhand` 拿着"吞下去"的方块, 客户端按
+// 装备渲染, 看起来就是方块被吞在它身上; 外观档位用 `minecraft:sulfur_cube_archetype` 属性同步
+// （ChangeMobProperty, 13 档: none/regular/bouncy/slow_bouncy/slow_flat/fast_flat/light/fast_sliding/
+// slow_sliding/sticky/high_resistance/explosive/hot）。
+//
+// **吞方块是本域的核心 API**: `SulfurDisplaySpec::block`（或 `setBlock`）就是"它吞下去的东西" ——
+// 任何物品都能放, 建议放方块类物品（观感即"方块被吞在它身上"）。
+// **隐身是一个参数**: `SulfurDisplaySpec::invisible`（或 `setInvisible`）默认 false —— NPC 头像那次的
+// 教训是隐身标志位会把附属渲染一起抹掉, 所以默认关, 要"只留吞下去的东西"就自己打开试。
+//
+// **"吞生物"没有做**: 协议层实体没有 AI, 真正吞并/消化做不到; 试过让另一个实体骑在立方体上做近似
+// （骑乘位置/碰撞都调不出"被吞进去"的观感）, 已按实测结论整体移除 —— 本域只做方块与隐身。
+// ─────────────────────────────────────────────
+
+struct SulfurDisplaySpec {
+    float       x{0.0f};
+    float       y{64.0f};
+    float       z{0.0f};
+    int         dim{0};
+    // **吞下去的方块**（走主手装备; 这是本域的核心参数）。type 空 = 空手
+    ContainerMenuItem block;
+    // 外观档位（minecraft:sulfur_cube_archetype）; 空串 = 不下发, 保持客户端默认
+    std::string archetype{"regular"};
+    int         variant{2};       // 1=小 / 2=中（中 = 含方块那一档）
+    bool        invisible{false}; // 立方体隐身（默认关: 见上面关于隐身抹掉附属渲染的说明）
+    float       scale{1.0f};
+    double      viewDistance{0.0};            // <=0 = 不限
+    std::vector<std::string> visiblePlayers;  // 空 = 全员可见
+};
+
+class ISulfurDisplay {
+public:
+    virtual ~ISulfurDisplay() = default;
+
+    // 生成一只硫磺立方体展示; 返回展示 id（<0 = 失败）
+    virtual int64_t create(SulfurDisplaySpec const& spec) = 0;
+    // 换"吞下去"的方块/物品（改主手装备, 会重建实体: 有一次 respawn）
+    virtual bool    setBlock(int64_t id, ContainerMenuItem const& item) = 0;
+    // 换外观档位（ChangeMobProperty; 不需要重建实体）
+    virtual bool    setArchetype(int64_t id, std::string const& archetype) = 0;
+    virtual bool    setInvisible(int64_t id, bool on) = 0;
+    virtual bool    setScale(int64_t id, float scale) = 0;
+    virtual bool    destroy(int64_t id) = 0;
+    virtual void    destroyAll() = 0;
+
+    [[nodiscard]] virtual bool                 exists(int64_t id) const = 0;
+    [[nodiscard]] virtual std::vector<int64_t> getAllIds() const = 0;
+    // 诊断: 背后的自定义实体 id（-1 = 不存在）
+    [[nodiscard]] virtual int64_t entityIdOf(int64_t id) const = 0;
+};
+
+// ─────────────────────────────────────────────
 // 库入口单例
 // ─────────────────────────────────────────────
 class IHologramLib {
@@ -933,7 +1069,7 @@ public:
     // LSE 兼容层是否可用（LegacyRemoteCall 运行时检测成功）
     virtual bool isLseAvailable() = 0;
 
-    // 库版本（BCD: 0x011C00 = 1.22.0, 与 HOLOGLIB_API_VERSION 同值）
+    // 库版本（BCD: 0x011D00 = 1.23.0, 与 HOLOGLIB_API_VERSION 同值）
     virtual uint32_t version() = 0;
 
     // ── 1.6.0 追加（冻结契约: 只在尾部追加）──
@@ -976,6 +1112,12 @@ public:
 
     // ── 感知域(1.21.0 追加): 客户端设备判断 ──
     virtual IPlayerSensing& playerSensing() = 0;
+
+    // ── 背包虚容器（1.23.0 追加, 尾部追加保持 ABI 兼容）──
+    virtual IFakeInventory& fakeInventories() = 0;
+
+    // ── 硫磺立方体展示（1.23.0 追加, 尾部追加保持 ABI 兼容）──
+    virtual ISulfurDisplay& sulfurDisplays() = 0;
 };
 
 } // namespace hologramlib
