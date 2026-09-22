@@ -1009,8 +1009,10 @@ public:
 //
 // **吞方块是本域的核心 API**: `SulfurDisplaySpec::block`（或 `setBlock`）就是"它吞下去的东西" ——
 // 任何物品都能放, 建议放方块类物品（观感即"方块被吞在它身上"）。
-// **隐身是一个参数**: `SulfurDisplaySpec::invisible`（或 `setInvisible`）默认 false —— NPC 头像那次的
-// 教训是隐身标志位会把附属渲染一起抹掉, 所以默认关, 要"只留吞下去的东西"就自己打开试。
+// **隐身是一个参数, 而且默认就是开**: `SulfurDisplaySpec::invisible`（或 `setInvisible`）。
+// **实测（26.40 本机客户端）: 立方体隐身时, 主手里"吞下去的方块"照常渲染** —— 于是默认 true =
+// 只看到被吞的那个方块（这就是本域作为"第二种展示方式"的默认观感）; 想看立方体本体就设 false。
+// （对比: NPC 头像那次隐身会把头像一起抹掉, 所以那里的载体不能隐身 —— 两个实体不一样, 别套用。）
 //
 // **"吞生物"没有做**: 协议层实体没有 AI, 真正吞并/消化做不到; 试过让另一个实体骑在立方体上做近似
 // （骑乘位置/碰撞都调不出"被吞进去"的观感）, 已按实测结论整体移除 —— 本域只做方块与隐身。
@@ -1026,7 +1028,7 @@ struct SulfurDisplaySpec {
     // 外观档位（minecraft:sulfur_cube_archetype）; 空串 = 不下发, 保持客户端默认
     std::string archetype{"regular"};
     int         variant{2};       // 1=小 / 2=中（中 = 含方块那一档）
-    bool        invisible{false}; // 立方体隐身（默认关: 见上面关于隐身抹掉附属渲染的说明）
+    bool        invisible{true};  // 立方体隐身（**默认开**: 实测隐身时"吞下去的方块"照常渲染 → 只留内容）
     float       scale{1.0f};
     double      viewDistance{0.0};            // <=0 = 不限
     std::vector<std::string> visiblePlayers;  // 空 = 全员可见

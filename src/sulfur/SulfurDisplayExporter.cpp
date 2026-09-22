@@ -1,7 +1,7 @@
 // SulfurDisplayExporter.cpp - 硫磺立方体展示 LSE 导出实现
 //
 // 脚本侧用法:
-//   const id = sulfurCreate(100.5, 65, -200.5, 0, "minecraft:bookshelf", 1, 0, "§6书架", "regular");
+//   const id = sulfurCreate(100.5, 65, -200.5, 0, "minecraft:bookshelf", 1, 0, "§6书架", "regular", true);
 //   sulfurSetArchetype(id, "sticky");                       // 换外观档位（不用重建）
 //   sulfurSetBlock(id, "minecraft:gold_block", 1, 0, "");   // 换吞下去的方块
 //   sulfurDestroy(id);
@@ -20,8 +20,9 @@ static constexpr const char* NAMESPACE = "HologramLib";
 void SulfurDisplayExporter::exportAll() {
     auto& mgr = SulfurDisplayManager::getInstance();
 
-    // sulfurCreate(x, y, z, dim, blockType, blockCount, blockDamage, blockName, archetype) -> id
+    // sulfurCreate(x, y, z, dim, blockType, blockCount, blockDamage, blockName, archetype, invisible) -> id
     //   archetype: 外观档位 minecraft:sulfur_cube_archetype（"regular"/"sticky"/"hot"/... ; 空串 = 不下发）
+    //   invisible: 立方体本体是否隐身（默认 true —— 实测隐身时"吞下去的方块"照常渲染, 于是只看到那个方块）
     hologramlib::lse::exportAs(
         NAMESPACE,
         "sulfurCreate",
@@ -34,7 +35,8 @@ void SulfurDisplayExporter::exportAll() {
             int                blockCount,
             int                blockDamage,
             std::string const& blockName,
-            std::string const& archetype
+            std::string const& archetype,
+            bool               invisible
         ) -> int64_t {
             hologramlib::SulfurDisplaySpec spec;
             spec.x         = x;
@@ -46,6 +48,7 @@ void SulfurDisplayExporter::exportAll() {
             spec.block.damage = blockDamage;
             spec.block.name   = blockName;
             spec.archetype = archetype;
+            spec.invisible = invisible;
             return mgr.create(spec);
         });
 

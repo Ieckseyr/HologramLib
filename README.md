@@ -20,7 +20,7 @@ Bedrock 协议层统一悬浮显示库（LeviLamina 26.40 / BDS 1.26.40 / 协议
 | NPC 对话框 | `INpcDialogue`（1.21.0） | `npcDialog*`（7 函数, 1.22.0 补） | `NpcDialoguePacket` + 合成 `minecraft:npc` 载体；按钮/关闭回传（LSE 走轮询）；多层级对话按场景名路由 |
 | 虚拟容器（列表） | `IContainerMenu`（1.21.0） | `container*`（9 函数, 1.22.0 补） | 复刻 GMLIB ChestUI：客户端侧箱子方块 + 方块实体 NBT + `ContainerOpen`；小容器 27 格 / 大容器 54 格；点击回传槽位号（LSE 走轮询） |
 | 背包虚容器 | `IFakeInventory`（1.23.0） | `fakeInv*`（9 函数） | 协议层改写客户端看到的**玩家背包内容**（服务端背包不动）；点伪造物品回传槽位号（与虚容同一语义）；与交易菜单/虚拟容器共存（周期重发盖回去） |
-| 硫磺立方体展示 | `ISulfurDisplay`（1.23.0） | `sulfur*`（10 函数） | 第二种摆放方式：生成 `minecraft:sulfur_cube`，**把方块"吞"在主手**（行为包原生机制, 客户端按装备渲染）；**隐身是一个参数**；外观档位走 `sulfur_cube_archetype` 属性 |
+| 硫磺立方体展示 | `ISulfurDisplay`（1.23.0） | `sulfur*`（10 函数） | 第二种摆放方式：生成 `minecraft:sulfur_cube`，**把方块"吞"在主手**（行为包原生机制, 客户端按装备渲染）；**立方体默认隐身**（实测方块照常渲染 → 只留内容）；外观档位走 `sulfur_cube_archetype` 属性 |
 
 > **假玩家 NPC 皮肤已可正常渲染（26.40.2 修复）**：`playerNpc*` 的创建/移动/朝向/缩放/视距/显隐，以及皮肤注册表（PNG 注册、在线采集、目录导入、`getSkinBlob` 导出 / `registerSkinFromBlob` 恢复）均正常工作。此前的症状是客户端不渲染所设置的皮肤、外观回退为默认模型，原因在 PlayerList 皮肤条目的 `Id` / `FullId` 为空或残留了原玩家的缓存键。
 
@@ -224,9 +224,10 @@ NPC 皮肤协议的离线回归检查（在 x64 Native Tools PowerShell 中运�
 
 - **吞方块是本域的核心 API**：`SulfurDisplaySpec::block`（或 `sulfurSetBlock` / `setBlock`）就是"它吞下去的东西"，
   走主手装备（改它会让实体重建一次）。放方块类物品观感最正。
-- **隐身是一个参数**：`SulfurDisplaySpec::invisible`（或 `sulfurSetInvisible` / `setInvisible`）。默认 **false** ——
-  NPC 头像那次的教训是隐身标志位会把附属渲染一起抹掉，所以默认关，要"只留吞下去的东西"就自己打开试；
-  实机确认可行后可以把它设成默认。
+- **隐身是一个参数，而且默认就是开**：`SulfurDisplaySpec::invisible`（或 `sulfurSetInvisible` / `setInvisible`）。
+  **实测（26.40 本机客户端）：立方体隐身时，主手里"吞下去的方块"照常渲染** —— 所以默认 `true` 的观感就是
+  一个方块浮在那里（立方体本体看不见），要连立方体一起看就设 `false`。
+  （对比 NPC 载体的头像是会被隐身一起抹掉的 —— 两个实体行为不同，别套用。）
 - **"吞生物"没有做**：协议层实体没有 AI，真正的吞并/消化做不到；试过让另一个实体骑在立方体上做近似，
   骑乘位置与碰撞都调不出"被吞进去"的观感（实测不成立），已整体移除 —— 本域只做方块与隐身。
 
@@ -237,10 +238,10 @@ NPC 皮肤协议的离线回归检查（在 x64 Native Tools PowerShell 中运�
 **怎么测**（探针插件 MeowTradeTest）：
 
 ```
-/tradetest sulfur minecraft:bookshelf     # 生成一只"吞着书架"的立方体（在朝向前方 3 格）
-/tradetest sulfur minecraft:diamond       # 也能放普通物品（观感以实机为准）
-/tradetest sulfurarch sticky              # 换外观档位（看外观变化, 不重建实体）
-/tradetest sulfurhide 1                   # 隐身: 看"吞下去的方块"还在不在
+/tradetest sulfur minecraft:bookshelf     # 生成一只"吞着书架"的立方体（朝向前方 3 格; 默认隐身 → 只看到书架）
+/tradetest sulfurhide 0                   # 关掉隐身就能看到立方体本体
+/tradetest sulfur minecraft:diamond       # 也能放普通物品
+/tradetest sulfurarch sticky              # 换外观档位（不重建实体）
 /tradetest sulfurdestroy                  # 销毁
 ```
 

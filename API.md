@@ -577,17 +577,19 @@ struct SulfurDisplaySpec {
     ContainerMenuItem block;                    // **吞下去的方块**（核心参数; 走主手装备）
     std::string archetype{"regular"};           // none/regular/bouncy/sticky/hot/explosive/light/...
     int         variant{2};                     // 1=小 / 2=中（含方块那一档）
-    bool        invisible{false};               // **隐身参数**（默认关: 见下）
+    bool        invisible{true};                // **隐身参数**（**默认开**: 实测隐身时方块照常渲染 → 只留内容）
     float       scale{1.0f};
     double      viewDistance{0.0};
     std::vector<std::string> visiblePlayers;    // 空 = 全员可见
 };
 ```
 
+**隐身默认开（实测）**：26.40 本机客户端上确认 —— 立方体隐身时，主手里"吞下去的方块"照常渲染，
+所以 `invisible` 默认 `true`，默认观感就是"一个方块浮在那里"（立方体本体不可见）；要看立方体本体就设 `false`。
+（NPC 载体的头像是会被隐身一起抹掉的，两个实体行为不同，不要套用。）
+
 **"吞生物"没有做**：协议层实体没有 AI，真正吞并/消化做不到；试过让另一个实体骑在立方体上做近似，
 骑乘位置与碰撞都调不出"被吞进去"的观感（实测不成立），已整体移除 —— 本域只做方块与隐身。
-`invisible` 默认关是因为 NPC 头像那次的教训（隐身标志位会把附属渲染一起抹掉）; 实机确认
-"隐身时吞下去的方块仍然渲染"之后可以把它设成默认。
 
 **另外**: `ICustomEntity::setMobProperty(id, name, value)` / `clearMobProperties(id)` 同批开放 ——
 凡是 `client_sync` 的实体属性都能按名下发（硫磺立方体的档位就是这么实现的）。
@@ -1075,7 +1077,7 @@ for (const line of fakeInvPollClicks()) { /* "player=Steve slot=0" */ }
 
 | 函数 | 签名 | 说明 |
 |------|------|------|
-| sulfurCreate | `(x: f, y: f, z: f, dim: i, blockType: s, blockCount: i, blockDamage: i, blockName: s, archetype: s) -> i` | 生成一只"吞着方块"的立方体; `archetype` 空串 = 不下发属性 |
+| sulfurCreate | `(x: f, y: f, z: f, dim: i, blockType: s, blockCount: i, blockDamage: i, blockName: s, archetype: s, invisible: b) -> i` | 生成一只"吞着方块"的立方体; `archetype` 空串 = 不下发属性; `invisible` = 立方体本体是否隐身（默认 true → 只看到被吞的方块） |
 | sulfurSetBlock | `(id: i, type: s, count: i, damage: i, name: s) -> b` | 换吞下去的方块/物品（会重建一次实体） |
 | sulfurSetArchetype | `(id: i, archetype: s) -> b` | 换外观档位（空串 = 清掉属性; 不重建实体） |
 | sulfurSetInvisible / sulfurSetScale | `(id: i, on: b) / (id: i, scale: f) -> b` | 隐身 / 缩放 |
