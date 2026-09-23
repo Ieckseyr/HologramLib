@@ -834,6 +834,12 @@ struct ContainerMenuSpec {
     // ≈700ms)。下限与客户端/机器有关, 换设备或负载高时可能要回调大, 所以留成可调。
     // **追加在尾部**: 保持既有字段偏移不变。
     int                           openDelayTicks{7};
+    // **可交互模式**（1.23.0 追加）: true = 客户端在本容器**内部**拖动/交换物品时, 库自己接住这条
+    // 请求并回成功, 同时把改动记进条目表 —— 物品真的留在新格子（不会再被 BDS 打回）。
+    // 只接"整条请求都落在本容器"的动作（容器内移动/交换/拆分）; 涉及玩家背包的动作照旧放行给 BDS
+    // （服务端没有这个容器 → 客户端回滚, 与 false 时一致 —— 那是服务端背包真实性的固有边界）。
+    // **追加在尾部**: 保持既有字段偏移不变。
+    bool                          interactive{false};
 };
 
 struct ContainerClickEvent {
@@ -872,6 +878,11 @@ public:
     // 适合"任务完成打勾/数量变化/价格变化"这类单格改动; 换整页用 update()。
     // item.type 为空 = 把该槽清空。返回 false = 该菜单已不在或槽位越界。
     virtual bool setItem(int64_t menuId, int slot, ContainerMenuItem const& item) = 0;
+
+    // ── 可交互模式开关（1.23.0 追加）──
+    // 打开后客户端在容器内部的拖动/交换会被库接住并生效（见 ContainerMenuSpec::interactive）;
+    // 关掉就回到"只回传点击、物品放不住"的默认行为。返回 false = 菜单已不在。
+    virtual bool setInteractive(int64_t menuId, bool on) = 0;
 };
 
 class INpcDialogue {

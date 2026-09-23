@@ -999,6 +999,7 @@ tradeAddOffer(id, "minecraft:emerald", 3, "", 1, "minecraft:diamond", 1, "§b钻
 | containerOpen | `(playerName: s, title: s, rows: i) -> i` | 打开一个空容器（`rows` 3 = 27 格, 6 = 54 格）。打开有固有延迟（默认 7 tick）, 之后才能填格 |
 | containerSetItem | `(id: i, slot: i, type: s, count: i, damage: i, name: s, loreCsv: s) -> b` | 单格刷新（一条 `InventorySlot`, 无延迟无闪烁）；`type` 空 = 清空该槽；`loreCsv` 用 `\n` 或 `\|` 分行, 空 = 无描述行 |
 | containerSetTitle | `(id: i, title: s) -> b` | 就地换标题（重发方块实体 + ContainerOpen, 不重摆方块） |
+| containerSetInteractive | `(id: i, on: b) -> b` | **可交互模式**: 打开后客户端在容器**内部**拖动/交换物品会被库接住并回成功（物品真的留在新格子）; 默认关（只回传点击, 物品被服务端打回） |
 | containerClose / containerCloseAll / containerIsOpen / containerGetIds | — | 生命周期与查询 |
 | containerPollClicks | `() -> [s]` | **取走并清空**待处理的点击/关闭；每条 `player=X menuId=N slot=S closed=0\|1` |
 | containerClearClicks | `() -> void` | 丢弃队列里全部待处理点击 |

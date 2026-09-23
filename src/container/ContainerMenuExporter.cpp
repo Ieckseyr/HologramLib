@@ -86,6 +86,13 @@ void ContainerMenuExporter::exportAll() {
         "containerSetTitle",
         [&mgr](int64_t id, std::string const& title) -> bool { return mgr.setTitle(id, title); });
 
+    // containerSetInteractive(id, on) -> bool（可交互模式: 客户端在容器内部拖动/交换会被接住并保留;
+    //   默认只回传点击、物品会被服务端打回。见 ContainerMenuSpec::interactive）
+    hologramlib::lse::exportAs(
+        NAMESPACE, "containerSetInteractive", [&mgr](int64_t id, bool on) -> bool {
+            return mgr.setInteractive(id, on);
+        });
+
     // containerClose(id) -> bool
     hologramlib::lse::exportAs(NAMESPACE, "containerClose", [&mgr](int64_t id) -> bool { return mgr.close(id); });
 

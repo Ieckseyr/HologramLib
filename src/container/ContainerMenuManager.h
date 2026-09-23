@@ -41,6 +41,8 @@ public:
     bool    update(int64_t menuId, hologramlib::ContainerMenuSpec const& spec);
     // 按槽刷新: 一条 InventorySlot 换掉一格（无延迟、无闪烁）
     bool    setItem(int64_t menuId, int slot, hologramlib::ContainerMenuItem const& item);
+    // 可交互模式开关（见 ContainerMenuSpec::interactive）
+    bool    setInteractive(int64_t menuId, bool on);
     // 就地换标题（复用载体方块, 重发方块实体 NBT + ContainerOpen; 不重摆方块、不等延迟）
     bool    setTitle(int64_t menuId, std::string const& title);
     bool    close(int64_t menuId);
@@ -58,9 +60,23 @@ public:
     // 事件格式化为可解析字符串: "player=X menuId=N slot=S closed=0|1"
     [[nodiscard]] static std::string formatClick(hologramlib::ContainerClickEvent const& event);
 
-    // 物品请求动作派发（由 container/ContainerInteractionHooks.cpp 的 147/AuthInput 钩子调用）。
+    // 物品请求动作派发（由 interaction/PlayerInteractionHooks.cpp 的 147/AuthInput 钩子调用）。
     // 返回 true = 这个动作属于本域的某个容器（已回调）。
     bool handleSlotAction(std::string const& playerName, int containerEnum, int containerId, int slot);
+
+    // 一条请求里的"一侧槽位"（src 或 dst）
+    struct RequestSlot {
+        int container{0};   // ContainerEnumName
+        int containerId{-1};
+        int slot{-1};
+    };
+
+    // **可交互模式**: 把一条请求涉及的全部槽位交进来。只有当
+    //   ① 该玩家开着 interactive 的菜单, 且
+    //   ② 所有槽位都落在本容器内（没有玩家背包/光标等外部槽位）
+    // 时, 才把改动应用到条目表、回传点击, 并返回 true（调用方据此回成功应答、且不再交给 BDS）。
+    // 其它情况返回 false（调用方走默认路径: 只回传 + 放行）。
+    bool handleInteractiveRequest(std::string const& playerName, std::vector<RequestSlot> const& slots, int amount);
 
     // 客户端关闭容器（由 ContainerClosePacket 钩子调用）
     bool handleContainerClose(std::string const& playerName, int containerId);
@@ -89,6 +105,8 @@ private:
         std::uint64_t                          carrierUniqueId{0};
         std::uint64_t                          carrierRuntimeId{0};
         hologramlib::ContainerMenuSpec         spec;
+        // 可交互模式下的"光标物品"（客户端手持的那一份; 只在容器内部移动时维护）
+        hologramlib::ContainerMenuItem         cursor;
 
         [[nodiscard]] bool isBig() const { return spec.rows >= 6; }
         [[nodiscard]] int  slotCount() const { return isBig() ? 54 : 27; }
@@ -97,6 +115,8 @@ private:
     int allocateContainerId();
 
     void dispatch(hologramlib::ContainerClickEvent const& event);
+    // 可交互: 把一条请求的槽位序列应用到条目表（transfer 语义按动作顺序推演光标与槽位）
+    void applyInteractiveSlots(Menu& menu, std::vector<RequestSlot> const& slots, int amount);
     // GMLIB 方案的三个发送步骤（全部手写包）
     void sendChestBlocks(::Player& player, Menu const& menu);
     void sendChestBlockActor(::Player& player, Menu const& menu);

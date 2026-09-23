@@ -18,7 +18,7 @@ Bedrock 协议层统一悬浮显示库（LeviLamina 26.40 / BDS 1.26.40 / 协议
 | 逐玩家变量全息 | `IHologramText` + `{var}`（1.21.0） | — | 文本含 `{var}` 时按观看者解析（每人看到自己的 `{player}`） |
 | 村民交易菜单 | `ITradeMenu`（1.21.0） | `trade*`（7 函数, 1.22.0 补） | 协议层 `UpdateTrade` 开界面（与 BDS 抓包逐字节一致）；**纯展示, 不做点击回调**（1.22.0 起） |
 | NPC 对话框 | `INpcDialogue`（1.21.0） | `npcDialog*`（7 函数, 1.22.0 补） | `NpcDialoguePacket` + 合成 `minecraft:npc` 载体；按钮/关闭回传（LSE 走轮询）；多层级对话按场景名路由 |
-| 虚拟容器（列表） | `IContainerMenu`（1.21.0） | `container*`（9 函数, 1.22.0 补） | 复刻 GMLIB ChestUI：客户端侧箱子方块 + 方块实体 NBT + `ContainerOpen`；小容器 27 格 / 大容器 54 格；点击回传槽位号（LSE 走轮询） |
+| 虚拟容器（列表） | `IContainerMenu`（1.21.0） | `container*`（10 函数, 1.22.0 补） | 复刻 GMLIB ChestUI：客户端侧箱子方块 + 方块实体 NBT + `ContainerOpen`；小容器 27 格 / 大容器 54 格；点击回传槽位号（LSE 走轮询）；**可交互模式**（`interactive` / `containerSetInteractive`）能真的在容器内拖动/交换物品 |
 | 背包虚容器 | `IFakeInventory`（1.23.0） | `fakeInv*`（9 函数） | 协议层改写客户端看到的**玩家背包内容**（服务端背包不动）；点伪造物品回传槽位号（与虚容同一语义）；与交易菜单/虚拟容器共存（周期重发盖回去） |
 | 硫磺立方体展示 | `ISulfurDisplay`（1.23.0） | `sulfur*`（10 函数） | 第二种摆放方式：生成 `minecraft:sulfur_cube`，**把方块"吞"在主手**（行为包原生机制, 客户端按装备渲染）；**立方体默认隐身**（实测方块照常渲染 → 只留内容）；外观档位走 `sulfur_cube_archetype` 属性 |
 
@@ -194,6 +194,12 @@ NPC 皮肤协议的离线回归检查（在 x64 Native Tools PowerShell 中运�
 - `ContainerMenuSpec::openDelayTicks`（默认 **7**）——**只在"打开"那一次生效**。**实测（26.40 本机客户端）：7 能正常开界面、6 打不开**，所以默认取 7（≈350ms，是 GMLIB 等效 14 tick 的一半）。下限与客户端/机器/负载有关，换环境可能要回调大，故保留为可调项。
 - `IContainerMenu::update(menuId, spec)`——翻页/换整页内容：复用同一个载体方块，**不拆界面、不重摆方块、不等待**，只重发方块实体 NBT（新条目/标题）+ `ContainerOpen` 让客户端重读。走 `open()` 重开则每次都要付一次打开延迟（它会先关旧菜单、恢复真方块）。
 - `IContainerMenu::setItem(menuId, slot, item)`——**按槽动态刷新**：只发一条 `InventorySlotPacket`（与真实箱子同步内容用的是同一种包），客户端就地换掉那一格，**不重发方块实体、不重发 ContainerOpen**，所以无延迟也无闪烁。适合"任务完成打勾 / 数量变化 / 价格变化"这类单格改动；`item.type` 为空即清空该槽。只改标题用 `setTitle(menuId, title)`（内部就是"改完 spec 再 update"）。
+
+**可交互模式**（`ContainerMenuSpec::interactive` / `setInteractive` / `containerSetInteractive`，默认关）：打开后客户端在容器
+**内部**拖动、交换、拆分物品时，库会**接住这条请求并回成功**（自己回 `ItemStackResponse` Success），同时把改动记进条目表 ——
+物品真的留在新格子上，不会再被 BDS 打回（默认关时的行为就是"点击只回传、物品弹回原位"）。
+只接"整条请求都落在本容器"的动作；涉及玩家背包的动作照旧放行给 BDS —— 服务端没有这个容器，那是真实背包的固有边界
+（真要连背包一起改，配合 `IFakeInventory` 那条路）。
 
 脚本侧（LSE）用 `containerOpen` / `containerSetItem` / `containerSetTitle` 打开与填格，点击则在**轮询队列**里取：`containerPollClicks()` 返回并清空待处理点击，每条是 `player=X menuId=N slot=S closed=0|1`（`closed=1` 时 `slot=-1`）。队列与 C++ 监听器收到的是同一份事件。
 

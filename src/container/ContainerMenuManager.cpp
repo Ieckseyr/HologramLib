@@ -438,6 +438,109 @@ bool ContainerMenuManager::setTitle(int64_t menuId, std::string const& title) {
     return update(menuId, spec);
 }
 
+bool ContainerMenuManager::setInteractive(int64_t menuId, bool on) {
+    std::lock_guard lock(mMutex);
+    auto            it = mMenus.find(menuId);
+    if (it == mMenus.end()) return false;
+    it->second.spec.interactive = on;
+    return true;
+}
+
+// 可交互模式: 一条请求的槽位序列 → 条目表。
+// 语义按"动作顺序推演"来: 每个槽位要么是"取走"(take), 要么是"放入"(place) ——
+// 客户端在容器内部拖动/交换/拆分时发的就是这些转移动作, 我们只要维护
+//   items[slot] 与 cursor(光标/手持那份)
+// 两个状态, 让它和客户端的预测一致（之后 update()/refresh 重发才不会跳回去）。
+void ContainerMenuManager::applyInteractiveSlots(
+    Menu&                            menu,
+    std::vector<RequestSlot> const&  slots,
+    int                              amount
+) {
+    auto isEmpty = [](hologramlib::ContainerMenuItem const& item) { return item.type.empty(); };
+    int  move    = amount < 1 ? 1 : amount;
+
+    for (std::size_t i = 0; i < slots.size(); ++i) {
+        auto const& ref = slots[i];
+        if (ref.slot < 0 || ref.slot >= menu.slotCount()) continue;
+        auto& slotItem = menu.spec.items[static_cast<std::size_t>(ref.slot)];
+
+        // 偶数下标 = 取走的源, 奇数下标 = 放入的目标（请求里动作成对出现）
+        bool const isSource = (i % 2 == 0);
+        if (isSource) {
+            if (isEmpty(slotItem)) continue;
+            int const taken = std::min(move, slotItem.count < 1 ? 1 : slotItem.count);
+            menu.cursor     = slotItem;
+            menu.cursor.count = taken;
+            slotItem.count -= taken;
+            if (slotItem.count <= 0) slotItem = hologramlib::ContainerMenuItem{};
+        } else {
+            if (isEmpty(menu.cursor)) continue;
+            if (isEmpty(slotItem) || slotItem.type == menu.cursor.type) {
+                // 空格或同类: 叠加（不追求与客户端逐分不差, 数量以光标那份为准）
+                int const putCount = std::min(move, menu.cursor.count < 1 ? 1 : menu.cursor.count);
+                if (isEmpty(slotItem)) {
+                    slotItem = menu.cursor;
+                    slotItem.count = putCount;
+                } else {
+                    slotItem.count += putCount;
+                }
+                menu.cursor.count -= putCount;
+                if (menu.cursor.count <= 0) menu.cursor = hologramlib::ContainerMenuItem{};
+            } else {
+                // 异类: 交换
+                std::swap(slotItem, menu.cursor);
+            }
+        }
+    }
+}
+
+// 可交互请求: 认下 ⇒ 应用到条目表 + 回传点击（返回 true 由调用方回成功应答并拦下）
+bool ContainerMenuManager::handleInteractiveRequest(
+    std::string const&              playerName,
+    std::vector<RequestSlot> const& slots,
+    int                             amount
+) {
+    if (slots.empty()) return false;
+
+    std::vector<hologramlib::ContainerClickEvent> events;
+    {
+        std::lock_guard lock(mMutex);
+        auto            byPlayer = mByPlayer.find(playerName);
+        if (byPlayer == mByPlayer.end()) return false;
+        auto menuIt = mMenus.find(byPlayer->second);
+        if (menuIt == mMenus.end()) return false;
+        auto& menu = menuIt->second;
+        if (!menu.spec.interactive) return false; // 默认只回传, 不接
+
+        // 每个槽位都必须落在本容器内（外部槽位 = 玩家背包/光标等, 一律不接）
+        int const slotCount = menu.slotCount();
+        for (auto const& ref : slots) {
+            bool const inContainer = (ref.container == static_cast<int>(ContainerEnumName::LevelEntityContainer))
+                                  || (ref.containerId >= 101 && ref.containerId <= 199);
+            if (!inContainer) return false;
+            if (ref.slot < 0 || ref.slot >= slotCount) return false;
+        }
+
+        applyInteractiveSlots(menu, slots, amount);
+
+        for (std::size_t i = 0; i < slots.size(); ++i) {
+            hologramlib::ContainerClickEvent event;
+            event.playerName = playerName;
+            event.menuId     = menu.menuId;
+            event.slot       = slots[i].slot;
+            events.push_back(event);
+        }
+    }
+    for (auto const& event : events) dispatch(event);
+    HLIB_LOG_INFO(
+        "[ContainerMenu] 可交互模式接住请求: player={} 槽位数={} amount={}",
+        playerName,
+        slots.size(),
+        amount
+    );
+    return true;
+}
+
 bool ContainerMenuManager::close(int64_t menuId) {
     Menu copy;
     {
@@ -647,6 +750,9 @@ public:
     }
     bool update(int64_t menuId, hologramlib::ContainerMenuSpec const& spec) override {
         return ContainerMenuManager::getInstance().update(menuId, spec);
+    }
+    bool setInteractive(int64_t menuId, bool on) override {
+        return ContainerMenuManager::getInstance().setInteractive(menuId, on);
     }
     bool setItem(int64_t menuId, int slot, hologramlib::ContainerMenuItem const& item) override {
         return ContainerMenuManager::getInstance().setItem(menuId, slot, item);

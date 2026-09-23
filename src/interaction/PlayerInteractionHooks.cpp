@@ -15,6 +15,7 @@
 // 若这里自己代答一条失败应答（ItemStackNetResult 3）, 客户端会**弹一个错误提示**; 交给 BDS 走它
 // 自己的失败路径反而是安静的, 所以别"自作聪明"地代答。
 #include "container/ContainerMenuManager.h"
+#include "container/ContainerResponse.h"
 #include "fakeinv/FakeInventoryManager.h"
 
 #include "DiagLog.h"
@@ -107,6 +108,25 @@ void dispatchAction(Player& player, ActionDataT const& data) {
     }
 }
 
+// 一条请求里的槽位收集（src 优先, 无 src 取 dst）—— 可交互模式要"整条请求"才判断
+struct RequestCollector {
+    std::vector<ContainerMenuManager::RequestSlot> slots;
+    int                                            amount{1};
+
+    void add(::ItemStackRequestCereal::SlotInfoData const& slotInfo, bool isSource) {
+        auto const ref = readSlot(slotInfo);
+        slots.push_back(ContainerMenuManager::RequestSlot{ref.container, ref.containerId, ref.slot});
+        (void)isSource;
+    }
+
+    template <typename ActionDataT>
+    void operator()(ActionDataT const& data) {
+        if constexpr (requires { data.mSource; }) add(data.mSource.get(), true);
+        if constexpr (requires { data.mDestination; }) add(data.mDestination.get(), false);
+        if constexpr (requires { data.mAmount; }) amount = static_cast<int>(data.mAmount);
+    }
+};
+
 // 玩家是否开着任一交互界面 / 有伪造背包（钩子入口条件; 都没开就整包放行, 一个字节都不解析）
 bool playerHasInteraction(Player& player) {
     auto const& name = player.getRealName();
@@ -136,10 +156,28 @@ LL_TYPE_INSTANCE_HOOK(
         return;
     }
 
+    std::vector<std::int32_t> claimed; // 被可交互模式接住的请求 id
     for (auto const& request : packet.mRequests.get()) {
+        // 先把整条请求的槽位收齐: 可交互模式要"整条请求都落在本容器"才敢接
+        RequestCollector collector;
+        for (auto const& action : request.mActions.get()) std::visit(collector, action);
+        if (ContainerMenuManager::getInstance().handleInteractiveRequest(
+                player->getRealName(),
+                collector.slots,
+                collector.amount
+            )) {
+            claimed.push_back(request.mClientRequestId.get().mRawId);
+            continue; // 这条我们接管了: 不回传(已回)、也不交给 BDS
+        }
         for (auto const& action : request.mActions.get()) {
             std::visit([&](auto const& data) { dispatchAction(*player, data); }, action);
         }
+    }
+    if (!claimed.empty()) {
+        // 自己回成功应答（不回客户端会卡在预测态）; 这一包不再交给 BDS ——
+        // 服务端没有这个容器, 交过去只会被它拒掉并把客户端预测撤回
+        container::sendRequestSuccess(*player, claimed);
+        return;
     }
     origin(source, packet); // 只回传、不拦, 理由见文件头
 }
@@ -168,6 +206,19 @@ LL_TYPE_INSTANCE_HOOK(
     if (player == nullptr) return;
     if (!playerHasInteraction(*player)) return;
 
+    RequestCollector collector;
+    for (auto const& actionPtr : packet.mItemStackRequest->mActions.get()) {
+        if (actionPtr != nullptr) std::visit(collector, ::ItemStackRequestCereal::toActionData(*actionPtr));
+    }
+    if (ContainerMenuManager::getInstance().handleInteractiveRequest(
+            player->getRealName(),
+            collector.slots,
+            collector.amount
+        )) {
+        // 认下: 回成功让客户端保留预测。**包本身照旧 origin** —— 它同时承载玩家移动, 拦下会把移动吞掉
+        container::sendRequestSuccess(*player, {packet.mItemStackRequest->mClientRequestId.get().mRawId});
+        return;
+    }
     for (auto const& actionPtr : packet.mItemStackRequest->mActions.get()) {
         if (actionPtr != nullptr) {
             std::visit(
