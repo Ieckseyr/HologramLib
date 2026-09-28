@@ -12,6 +12,10 @@
 //              v2168 Line=0/Box=1/Sphere=2/Circle=3/Text=4/Arrow=5
 //   新增原生 Line 载荷（v944 用 Arrow 模拟线段, v2168 直接用 LineDataPayload）
 //   新增 Sphere segments 载荷（v944 用 monostate）
+// v2168 → 2193 (MC 1.26.50/51) 迁移说明:
+//   TextDataPayload 在 BackgroundColor 与 DepthTest 之间新增 LineGapHeight(float)。
+//   线上的字段错位会让 26.51 客户端把后面几个 bool 读成垃圾, 必须显式发出该字段
+//   （见下方 kTextLineGapHeight）。
 #pragma once
 
 #include <algorithm>
@@ -111,12 +115,21 @@ inline ProtoShape makeRemoveShape(std::uint64_t networkId) {
     return shape;
 }
 
+// 2193 新增的文本行距（行与行之间的间距）。26.40 线上没有这个字段, 行距由客户端固定;
+// 26.51 起由它决定。0.0f 与协议库的字段默认值一致, 即"不额外加行距"。
+// 全库只有本函数构造文本形状（悬浮字把多行用 \n 合并成同一个形状走这里）, 所以多行
+// 悬浮字若在 26.51 客户端上显得贴行, 要调的就是这一个值。
+constexpr float kTextLineGapHeight = 0.0f;
+
 inline ProtoShape makeTextShape(std::uint64_t networkId, Vec3 const& pos, std::string const& text) {
     ProtoShape shape;
     shape.mNetworkId = networkId;
     shape.mType      = ProtoShapeType::Text;
     shape.mLocation  = pos;
-    shape.mShape     = ProtoTextPayload{.mText = text};
+    shape.mShape     = ProtoTextPayload{
+        .mText          = text,
+        .mLineGapHeight = kTextLineGapHeight,
+    };
     return shape;
 }
 

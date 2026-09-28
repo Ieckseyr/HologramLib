@@ -5,8 +5,9 @@
 // 预测撤回 —— 物品闪回原位, 与参考实现 GMLIB 一致）。
 //
 // 但 `ContainerMenuSpec::interactive = true` 时我们要**真的接受**客户端在容器内部的移动/交换:
-// 那就得自己回一条 **Success**。Success 的线上形态比失败多一段 containers 数组（sculk
-// ItemStackResponseInfo::write 会写它）; 这里给空数组 = "没有槽位更正", 客户端保留自己的预测
+// 那就得自己回一条 **Success**。26.51(2193) 起 Success 的容器数组前多一个 presence 字节, 只有
+// 为 true 时才跟容器数组（sculk ItemStackResponseInfo::write 处理）; 这里容器为空 = presence
+// false = "没有槽位更正", 客户端保留自己的预测
 // —— 正是我们要的: 物品留在新格子, 而库这边也把同样的改动记进条目表。
 #pragma once
 

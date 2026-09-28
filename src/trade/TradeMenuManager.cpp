@@ -210,8 +210,10 @@ std::string snbtEscape(std::string const& in) {
     return out;
 }
 
+// 26.51 起 ItemInstance 的默认构造与 $ctor thunk 只在客户端平台导出（ItemInstance.h 里被
+// #ifdef LL_PLAT_C 圈住），服务端改用静态 EMPTY_ITEM() 拷贝出空实例。
 ::ItemInstance makeItemInstance(hologramlib::TradeMenuItem const& item) {
-    if (item.type.empty()) return ::ItemInstance{};
+    if (item.type.empty()) return ::ItemInstance::EMPTY_ITEM();
     std::string snbt = std::format(
         "{{\"Count\":{}s,\"Damage\":{}s,\"Name\":\"{}\",\"WasPickedUp\":0b",
         item.count,
@@ -238,7 +240,7 @@ std::string snbtEscape(std::string const& in) {
     }
     snbt += '}';
     auto tag = CompoundTag::fromSnbt(snbt);
-    if (!tag.has_value()) return ::ItemInstance{};
+    if (!tag.has_value()) return ::ItemInstance::EMPTY_ITEM();
     return ::ItemInstance::fromTag(tag.value());
 }
 

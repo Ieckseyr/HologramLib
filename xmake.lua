@@ -1,16 +1,20 @@
 add_rules("mode.debug", "mode.release")
 
--- 优先使用本地缓存的 liteldev-repo（含 bedrockdata server.17 登记以匹配全局包缓存），回退远程
+-- 优先使用本地缓存的 liteldev-repo（含 26.51.0 登记以匹配全局包缓存），回退远程
 local function find_local_repo()
     local candidates = {
         path.join(os.projectdir(), ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"),
         path.join(os.projectdir(), "..", "MeowMenu", ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"),
         path.join(os.projectdir(), "..", "MeowKb", ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"),
         path.join(os.projectdir(), "..", "MeowPAPI", ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"),
+        path.join(os.projectdir(), "..", "MeowSidebar", ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"),
         path.join(os.projectdir(), "..", "ItemPhys-main", ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"),
     }
+    -- 必须含 levilamina 26.51.0 版本登记, 防止捡到旧版缓存 repo 导致解析回退到旧版本
     for _, p in ipairs(candidates) do
-        if os.exists(p) then return p end
+        if os.exists(path.join(p, "packages", "l", "levilamina", "versions", "26_51_0.lua")) then
+            return p
+        end
     end
     return nil
 end
@@ -21,11 +25,11 @@ else
     add_repositories("liteldev-repo https://github.com/LiteLDev/xmake-repo.git")
 end
 
--- 与服务端(26.40 / BDS 1.26.40)匹配的 levilamina 版本（bedrockdata v26.40.8-server.2）
+-- 与服务端(26.51 / BDS 1.26.51)匹配的 levilamina 版本（bedrockdata v26.51.1-server.2）
 if is_config("target_type", "server") then
-    add_requires("levilamina 26.40.0", {configs = {target_type = "server"}})
+    add_requires("levilamina 26.51.0", {configs = {target_type = "server"}})
 else
-    add_requires("levilamina 26.40.0", {configs = {target_type = "client"}})
+    add_requires("levilamina 26.51.0", {configs = {target_type = "client"}})
 end
 
 add_requires("levibuildscript")
@@ -63,7 +67,8 @@ target("HologramLib")
     set_kind("shared")
     set_languages("c++23")
 
-    -- BedrockProtocol-main 静态库 v2168（CMake 构建后安装到本地, 协议2168/MC 26.40+）
+    -- BedrockProtocol-main 静态库（CMake 构建后安装到本地, 26.51 补丁: TextDataPayload.LineGapHeight
+    -- 插在 BackgroundColor 与 DepthTest 之间, ItemStackResponseInfo.Containers 改 optional 编码）
     add_includedirs("../BedrockProtocol-main/install/include")
     add_linkdirs("../BedrockProtocol-main/install/lib")
     add_links("Protocol")

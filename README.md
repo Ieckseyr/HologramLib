@@ -1,6 +1,6 @@
 # HologramLib
 
-Bedrock 协议层统一悬浮显示库（LeviLamina 26.40 / BDS 1.26.40 / 协议 2168）。把 **17 个能力域**（其中 15 个另有 LSE 导出）合并为**单一插件**，同时提供**冻结的 C++ 虚接口**与 **LSE（ll.import）兼容层**：
+Bedrock 协议层统一悬浮显示库（LeviLamina 26.51 / BDS 1.26.51 / 协议 2193）。把 **17 个能力域**（其中 15 个另有 LSE 导出）合并为**单一插件**，同时提供**冻结的 C++ 虚接口**与 **LSE（ll.import）兼容层**：
 
 | 能力域 | C++ 接口 | LSE 前缀 | 说明 |
 |--------|----------|----------|------|
@@ -29,11 +29,16 @@ PlayerList 现在只做包体前缀校验、不回读 BDS：发送前检查单�
 除 FMBE / 自定义实体 / 交易菜单 / NPC 对话走"假实体（部分隐身、仅目标玩家可见）+ 发包"外，其余渲染都不产生真实实体、不写存档、零服务器开销。交易菜单与 NPC 对话的载体实体在界面关闭时立即删除，不落存档；虚拟容器只在**客户端侧**摆箱子方块（服务端世界与存档里都没有这个方块）。粒子发送走 vanilla `SpawnParticleEffectPacket` 批量通道（BDS tick flush 自动聚合压缩为单 Batch 数据报）。
 
 - API 版本：**1.23.0**（`HOLOGLIB_API_VERSION 0x011D00`）
-- 插件发布版本：`26.40.5`
+- 插件发布版本：`26.51.0`
 - 版本 / API 版本 / 宏 对照：见 [`VERSION-HISTORY.md`](./VERSION-HISTORY.md)
 
 ## 更新日志
 
+- `26.51.0`（API 1.23.0）：**适配 LeviLamina 26.51 / BDS 1.26.51（协议 2193）**。这一版只做移植，不加能力域，所以 API 宏仍是 `0x011D00`。
+  - **形状文本新增 `LineGapHeight(float)`**（插在 `BackgroundColor` 与 `DepthTest` 之间）：这是本次唯一会"静默"破坏渲染的协议改动 —— 少发这个 float，客户端会把后面三个 bool 连同后续字段一起读错位，**所有文本形状都会花**。库在唯一的文本形状构造点（`src/ProtocolShape.h` 的 `makeTextShape`）显式发出该字段，取值 `kTextLineGapHeight`，默认 `0.0f`（= 不额外加行距，与协议库字段默认值一致）。悬浮字把多行用 `\n` 合并成同一个形状，行距由客户端渲染 —— **若多行悬浮字在 26.51 客户端上显得贴行，要调的就是这一个常量**。
+  - **`ItemInstance` 的默认构造在本版只对客户端平台导出**（`ItemInstance.h` 里被 `#ifdef LL_PLAT_C` 圈住，服务端只剩一个"防止默认构造"的声明），服务端插件不能再 `ItemInstance{}`。交易菜单的空槽位条目改用静态 `EMPTY_ITEM()` 拷贝出空实例（`src/trade/TradeMenuManager.cpp`）；`fromTag` / 拷贝构造 / `EMPTY_ITEM` 仍照旧导出。
+  - **`ItemStackResponseInfo` 的 containers 改为可选编码**：线上恒写一个 presence 字节，为 true 才跟容器数组。虚拟容器"可交互"模式回的成功应答（无槽位更正）因此变成 `presence=false`，客户端保留自己的预测 —— 语义与 26.40 一致，代码侧无需改动。
+  - **包 ID 表未变**：26.51 只在 351 / 352 追加了两个新包，`PrimitiveShapes`(328) 等既有 ID 全部保持原位，所以除上述两处外没有别的线上差异。
 - `26.40.5`（API 1.23.0）：**新增背包虚容器 `IFakeInventory` 与硫磺立方体展示 `ISulfurDisplay`**。
   - **协议层改写客户端看到的玩家背包**：一条 `InventoryContentPacket`（`ContainerId = Inventory(0)` +
     `FullContainerName = InventoryContainer(29)` + 0..35 号描述符）把整份内容换成调用方给的那份，
@@ -122,8 +127,8 @@ HologramLib/
 
 - Visual Studio 2022（MSVC x64）
 - [xmake](https://xmake.io)
-- LeviLamina 26.40.0（xmake 自动拉取）
-- [SculkCatalystMC/Protocol](https://github.com/SculkCatalystMC/Protocol) v2168 静态库（自行 CMake 构建并安装到 `../BedrockProtocol-main/install`）
+- LeviLamina 26.51.0（xmake 自动拉取）
+- [SculkCatalystMC/Protocol](https://github.com/SculkCatalystMC/Protocol) 静态库（自行 CMake 构建并安装到 `../BedrockProtocol-main/install`）。**26.51 线格式需要两处补丁**：`TextDataPayload` 补 `LineGapHeight`、`ItemStackResponseInfo` 的 containers 改可选编码；上游库的 namespace 仍是 `abi_v2168`，包 ID 表与 2168 相同
 
 ```bash
 xmake f -c -y
