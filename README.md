@@ -16,7 +16,7 @@ Bedrock 协议层统一悬浮显示库（LeviLamina 26.40 / BDS 1.26.40 / 协议
 | 感知域 | `IPlayerSensing`（1.21.0） | `sensing*`（3 函数, 1.22.0 补） | 客户端设备判断（AuthInput InputMode 逐包捕获）：触屏/手柄/键鼠 |
 | 千人千面 | `ICustomEntity` per-viewer 覆盖（1.21.0） | `entity*` 尾部 4 函数（1.22.0 补） | 同一实体按观看者覆盖名字牌/缩放/装备槽 |
 | 逐玩家变量全息 | `IHologramText` + `{var}`（1.21.0） | — | 文本含 `{var}` 时按观看者解析（每人看到自己的 `{player}`） |
-| 村民交易菜单 | `ITradeMenu`（1.21.0） | `trade*`（7 函数, 1.22.0 补） | 协议层 `UpdateTrade` 开界面（与 BDS 抓包逐字节一致）；**纯展示, 不做点击回调**（1.22.0 起） |
+| 村民交易菜单 | `ITradeMenu`（1.21.0） | `trade*`（10 函数, 1.24.0 补真结算） | 协议层 `UpdateTrade` 开界面（与 BDS 抓包逐字节一致）；默认纯展示, `settleLocally=true` 时库自己扣付费/发产物（**客户端确认未打通, 见下**） |
 | NPC 对话框 | `INpcDialogue`（1.21.0） | `npcDialog*`（7 函数, 1.22.0 补） | `NpcDialoguePacket` + 合成 `minecraft:npc` 载体；按钮/关闭回传（LSE 走轮询）；多层级对话按场景名路由 |
 | 虚拟容器（列表） | `IContainerMenu`（1.21.0） | `container*`（10 函数, 1.22.0 补） | 复刻 GMLIB ChestUI：客户端侧箱子方块 + 方块实体 NBT + `ContainerOpen`；小容器 27 格 / 大容器 54 格；点击回传槽位号（LSE 走轮询）；**可交互模式**（`interactive` / `containerSetInteractive`）能真的在容器内拖动/交换物品 |
 | 背包虚容器 | `IFakeInventory`（1.23.0） | `fakeInv*`（9 函数） | 协议层改写客户端看到的**玩家背包内容**（服务端背包不动）；点伪造物品回传槽位号（与虚容同一语义）；与交易菜单/虚拟容器共存（周期重发盖回去） |
@@ -162,15 +162,32 @@ NPC 皮肤协议的离线回归检查（在 x64 Native Tools PowerShell 中运�
 
 `check-npc-carrier.bat` 用 `src/npcdialog/NpcCarrierPacket.h` 产出真实字节，再由 Python 按 26.40 schema 解回字段：校验 AddActor 的字段顺序与尾部完全消费、位置 `y=-66`（世界下方 → 客户端看不到实体但 NPC 界面头像照常渲染）、ActorData 五项标记 `Name(4)` / `HasNpc(39)=1` / `NpcData(40)` / `Actions(41)` / `InteractText(100)` 的 id 与类型，并交叉核对真实 BDS NPC 生成包（`logs/fullpkts/pkt13_*.bin`）确实含同一组标记项与同一份 `NpcData` 字段集。**改动 `NpcCarrierPacket.h` 后必须重跑。**
 
+`check-trade-settlement.bat` 不需要任何抓包样本（纯逻辑自检）：它编的是库内同一份 `src/trade/TradeSettlementLogic.h`，覆盖动作分类（付费进/出、产物出槽、成交、无关动作）与暂存账本的覆盖判定（正好/分次/不够/错种类/放多了/零成本），32 项断言。**改动那份头文件后必须重跑。**
+
 `check-container-packets.bat` 用库内同一份 `src/container/ContainerPackets.h` 编出虚拟容器的四个包：`ContainerOpen` 与真实抓包 `logs/fullpkts/pkt46_165803_011.bin` **整包逐字节对拍**（该抓包的取值就是 fixture 的输入），`UpdateBlock` / `BlockActorData` / `ContainerClose` 按 26.40 线格式解回字段核对——含单箱子 27 格（不带配对键）与大箱子 54 格（`pairx`/`pairz`/`pairlead` 配对、两半各自 `Slot` 0..26）。**改动 `ContainerPackets.h` 后必须重跑。**
 
 这些检查里的"逐字节对拍"都要**真实抓包样本**（`logs/fullpkts/`，BDS 自己产出的真值）。样本不随库发布：没有样本时脚本会打印 `no captured ... found` 并以非零码退出——要么把自己的抓包路径作为参数传进去，要么只跑不需要样本的检查（`check-no-diagnostics.bat` 就不需要）。
 
-**交易菜单是纯展示：不做任何点击事件监听。** 打开界面、把交易表摆出来给人看，就到此为止 —— 客户端点了哪一条、往付费槽里放了什么，库一律不读、不拦、不回传。`26.40.3` 里短暂存在过的三套回调（`addClickListener` / `addActionListener` / `addRawActionListener` 与 `TradeClickEvent`、`TradeRawAction`）已在 `26.40.4` 整体删除；需要"能点、点了有回调"的列表界面请用虚拟容器（`IContainerMenu`）——它的点击就是一次物品拾取，任何输入设备都会发包。
+**默认是纯展示**（不读任何点击）；`settleLocally = true` 时走**纯协议层真结算**（1.24.0）。
+
+真结算的意思是：界面仍是我们自建 `UpdateTrade` 开的（服务端**不放**交易表），但库把客户端的**付费放置 / 取回 / 成交**请求接住并自己落地 —— 真的从玩家背包扣付费、真的把产物写进背包，关界面时把暂存但没花掉的付费退还。判定逻辑独立在 `src/trade/TradeSettlementLogic.h`（不碰 BDS 类型，离线自检 `tests/check-trade-settlement.bat`，43 项），动背包那层在 `TradeMenuManager`。结果通过 `TradeSettlementEvent` 回传（C++ 监听器 / LSE `tradePollSettlements`）。
+
+> **⚠ 已知限制（实测, 未打通）**：客户端要求服务端在物品应答里回带交易槽的**槽位更正**（按客户端分配的物品网络 id）。该段在本协议版本与协议库 `sculk` 的线格式**不一致**（协议库多写一个字符串字段、`DurabilityCorrection` 按 varint 写，而客户端要定长 `short`）—— 照着协议库手写会**直接把客户端打崩**（已踩过）。所以：放料虽然被服务端受理（扣款、暂存、关界面退还是真的），客户端界面仍可能把这次放料撤回（表现为"放进交易槽又弹回背包"、成交按钮点不动）。**要稳定成交请用 `usePacketOffers = false`（真实交易表路径: BDS 自己结算, 触屏也能走完整流程）或容器 UI（`IContainerMenu`, 点击即物品拾取, 任何输入设备都发包）。**
+
+实测边界（原型阶段写明）：
+  · **触屏到不了成交** —— 纯协议层下付费拖不进交易槽（客户端反复弹回），触屏请用真实交易表路径或容器 UI；键鼠/手柄正常。
+  · 客户端**买不起就不发包**（没有付费物品时客户端一个请求都不发），这是客户端的判定，不是库拦的。
+  · 账本按"类型 + 数量"扣，不按交易槽位细分；同一付费类型的多条交易共用料槽时，扣的是先放进去的那些。
+  · 包里带的 `numCrafts`（一次点几下）不展开，一次成交发一份产物。
+
+不开结算时本域依旧不读任何点击；要"点条目就有回调"的列表界面请用虚拟容器（`IContainerMenu`）——它的点击就是一次物品拾取，任何输入设备都会发包。`26.40.3` 里短暂存在过的三套点击回调（`addClickListener` / `addActionListener` / `addRawActionListener` 与 `TradeClickEvent`、`TradeRawAction`）已在 `26.40.4` 整体删除。
 
 交易接口的显示栏值用 **1 基**（1=新手 … 5=大师，wire 上是 0..4，由库换算并夹紧）；`TradeMenuOffer::locked = true` 可强制某条显示为未解锁。经验条由载体实体的 `TradeTier` / `MaxTradeTier` / `TradeExperience` 元数据驱动 —— 三项都是 `Int`，与真实村民生成包（`logs/fullpkts/pkt13_*_002.bin`，`minecraft:villager_v2`）实测一致，其中 `MaxTradeTier` 恒为 4（大师）。
 
-交易菜单两条路径由 `TradeMenuSpec::usePacketOffers` 选，**默认是纯协议层展示**：只发我们自己构造的 `UpdateTrade`，服务端不放交易表 —— 天然只读（玩家往付费槽放东西的请求会被 BDS 拒掉、物品弹回，界面停在"不可成交"，这正是纯展示要的）。置 `false` 则给载体装真实交易表并走 BDS 的 `openTrading`，**玩家是真的在交易**（物品真的消耗）。两条路径下 `UpdateTrade` 都会在几 tick 后发送：载体实体是异步送达客户端的，背靠背发时客户端还不认识那个实体，界面绑不上去。
+交易菜单三条路径由 `usePacketOffers` × `settleLocally` 选：
+  · `usePacketOffers = true`（默认）+ `settleLocally = false`：**纯展示** —— 只发自建 `UpdateTrade`，服务端不放交易表，付费放不进槽、点了不成交（天然只读）。
+  · `usePacketOffers = true` + `settleLocally = true`：**纯协议层真结算**，见上一段。
+  · `usePacketOffers = false`：给载体装**真实交易表**并走 BDS `openTrading`，成交由 BDS 执行（物品真的消耗；触屏也能走完整流程）。`settleLocally` 在这条路上无效。两条路径下 `UpdateTrade` 都会在几 tick 后发送：载体实体是异步送达客户端的，背靠背发时客户端还不认识那个实体，界面绑不上去。
 
 容器条目内容是**动态可刷**的：`ITradeMenu::addOffer(menuId, offer)` 追加一条、`setTier(menuId, tier, experience)` 改档位/经验条，两者都**就地重发交易表**（复用同一个界面与载体，不重开、不等延迟）。
 

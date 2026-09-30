@@ -27,7 +27,7 @@
 // 短暂存在的点击回调（TradeClickEvent / TradeActionCallback / TradeRawAction 与对应的
 // ITradeMenu 监听方法全部移除）—— 这是收缩而非新增, 所以抬到新的次版本, 消费方可以用
 // >= 0x011C00 门住『交易菜单没有点击回调、且带 addOffer / setTier』这一形态。
-#define HOLOGLIB_API_VERSION 0x011D00
+#define HOLOGLIB_API_VERSION 0x011E00
 
 #ifdef HOLOGLIB_EXPORTS
 #define HOLOGLIB_API __declspec(dllexport)
@@ -647,9 +647,21 @@ public:
 //   · 经验条不在包内: 由载体实体的 TradeTier/MaxTradeTier/TradeExperience 元数据驱动
 //     （三项都是 Int, 与真实村民生成包实测一致; MaxTradeTier 恒为 4）
 //
-// **本域是纯展示: 不做任何点击事件监听。** 打开界面、把交易表摆出来给人看, 就到此为止 ——
-// 客户端点了哪一条、往付费槽里放了什么, 本库一律不读、不拦、不回传。要"能点、点了有回调"的
-// 列表界面, 用虚拟容器（IContainerMenu）: 它的点击就是一次物品拾取, 任何输入设备都会发包。
+// 三条路径（`usePacketOffers` × `settleLocally`）:
+//   · 纯展示（默认: usePacketOffers=true, settleLocally=false）: 只发 UpdateTrade, 服务端没有
+//     交易表 —— 付费放不进交易槽、点了不成交（天然只读）。
+//   · 真结算（1.24.0 追加: usePacketOffers=true, settleLocally=true）: 界面仍是我们自建的,
+//     但库把客户端的**付费放置 / 取回 / 成交**请求接住并自己结算 —— 真的从玩家背包扣付费、
+//     真的把产物发进背包; 结果走 `TradeSettlementEvent` 回传（LSE 侧 `tradePollSettlements`）。
+//     **已知限制（实测, 未打通）**: 客户端要求服务端在物品应答里回带交易槽的**槽位更正**
+//     （按客户端分配的物品网络 id）, 而该段在本协议版本与协议库的线格式不一致（协议库多写一个
+//     字符串、时长按 varint; 客户端要定长 short）—— 手写会直接把客户端打崩。因此放料虽然被服务端
+//     受理（扣款/暂存/退还都是真的）, 客户端界面仍可能把这次放料撤回（表现为"放进槽里又弹回"、
+//     成交点不动）。**要稳定成交请走 `usePacketOffers=false`（真实交易表, BDS 结算）或容器 UI。**
+//   · 真实交易表（usePacketOffers=false）: 给载体装真实交易表 + BDS `openTrading`, 成交由 BDS 完成。
+//
+// 不开结算时本域不读任何点击; 开了结算只读"落在交易槽上的物品动作"与带自建配方 id 的
+// CraftRecipe 动作, 其余一律放行。要"点条目就有回调"的列表界面仍推荐虚拟容器（IContainerMenu）。
 //
 // 载体实体: 交易界面需要 EntityUniqueId, 打开菜单时会自动在玩家身后 5 格生成一个
 // **隐身、仅该玩家可见**的假村民, 关闭菜单即删除（对该玩家以外完全不可见, 不占实体系统）。
@@ -705,7 +717,28 @@ struct TradeMenuSpec {
     // 两条路径都适用; 真实交易表路径下流浪商人同样持有 EconomyTradeableComponent, 装表方式相同。
     // **追加在尾部**: 保持既有字段偏移不变。
     std::string                 carrierIdentifier{"minecraft:villager_v2"};
+    // **1.24.0 追加**: 纯协议层路径下的"真结算"（usePacketOffers 必须为 true 才有意义）。
+    //   false（默认）= 纯展示: 付费放不进交易槽、点了不成交;
+    //   true = 库接住客户端的付费放置/取回/成交请求并**自己结算** —— 真的从玩家背包扣付费、
+    //          真的把产物写进背包（不依赖服务端交易表）。结果走 TradeSettlementEvent 回传。
+    //   **已知限制**: 客户端要求服务端回带交易槽的槽位更正, 而该段的线格式在本协议版本与协议库
+    //   不一致（手写会把客户端打崩）, 所以客户端可能把放料撤回 —— 稳定成交请用
+    //   `usePacketOffers = false`（真实交易表, BDS 结算）或容器 UI。详见域注释。
+    //   开着的菜单也可用 ITradeMenu::setSettleLocally 随时切换。
+    bool                        settleLocally{false};
 };
+
+// 真结算的回传（成功/失败各一条; 失败时 reason 给原因）
+struct TradeSettlementEvent {
+    std::string playerName;
+    int64_t     menuId{-1};
+    int         offerIndex{-1}; // 成交的是第几条（-1 = 定位不到）
+    bool        ok{false};      // true = 已真结算（付费已扣、产物已发）
+    std::string reason;         // ok=false: "not-owner" / "payment-missing" / "inventory-full" ...
+};
+
+// 结算回传的格式化（LSE 轮询条目, 与 containerPollClicks 同款: 一行可切分）
+//   "player=Steve menuId=3 offer=1 ok=1 reason="
 
 class ITradeMenu {
 public:
@@ -725,6 +758,16 @@ public:
     virtual bool addOffer(int64_t menuId, TradeMenuOffer const& offer) = 0;
     // 改显示栏值 / 经验条（同样就地重发）
     virtual bool setTier(int64_t menuId, int tier, int experience) = 0;
+
+    // ── 1.24.0 追加: 纯协议层真结算 ──
+    // 结算开关（打开前用 TradeMenuSpec::settleLocally 定初值; 这里可随时切）
+    virtual bool setSettleLocally(int64_t menuId, bool on) = 0;
+    [[nodiscard]] virtual bool isSettleLocally(int64_t menuId) const = 0;
+    // 结算回传: C++ 监听器
+    virtual uint64_t addSettlementListener(std::function<void(TradeSettlementEvent const&)> listener) = 0;
+    virtual bool     removeSettlementListener(uint64_t token) = 0;
+    // LSE 轮询: 取走并清空（条目 = 上面 formatSettlement 的一行格式）
+    virtual std::vector<std::string> pollSettlements() = 0;
 };
 
 // ─────────────────────────────────────────────
@@ -1066,7 +1109,7 @@ public:
     [[nodiscard]] virtual int64_t entityIdOf(int64_t id) const = 0;
 };
 
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
 // 库入口单例
 // ─────────────────────────────────────────────
 class IHologramLib {
@@ -1082,7 +1125,7 @@ public:
     // LSE 兼容层是否可用（LegacyRemoteCall 运行时检测成功）
     virtual bool isLseAvailable() = 0;
 
-    // 库版本（BCD: 0x011D00 = 1.23.0, 与 HOLOGLIB_API_VERSION 同值）
+    // 库版本（BCD: 0x011E00 = 1.24.0, 与 HOLOGLIB_API_VERSION 同值）
     virtual uint32_t version() = 0;
 
     // ── 1.6.0 追加（冻结契约: 只在尾部追加）──

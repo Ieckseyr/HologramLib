@@ -17,6 +17,7 @@
 #include "playernpc/PlayerNpcExporter.h"
 #include "playernpc/PlayerNpcManager.h"
 #include "trade/TradeMenuExporter.h"
+#include "trade/TradeMenuManager.h"
 #include "container/ContainerMenuExporter.h"
 #include "npcdialog/NpcDialogueExporter.h"
 #include "sensing/PlayerSensingExporter.h"
@@ -75,6 +76,8 @@ bool ModEntry::enable() {
     CustomEntityManager::getInstance().init();
     ParticleShapeManager::getInstance().init();
     PlayerNpcManager::getInstance().init();
+    // 交易菜单: 挂掉线清理（关菜单 + 把真结算账本里暂存的付费还给玩家 —— 掉线瞬间玩家对象还在）
+    TradeMenuManager::getInstance().init();
     // 玩家进服后重发全部可见形状(悬浮字/形状客户端不落盘, 重连必须补发)
     // 含周期兜底: 每 15s 全量重发, 与 PlayerJoinEvent 1s/5s 双保险
     PacketDebugRenderer::getInstance().init();
@@ -117,6 +120,7 @@ bool ModEntry::disable() {
     CustomEntityManager::getInstance().shutdown();
     ParticleShapeManager::getInstance().shutdown();
     PlayerNpcManager::getInstance().shutdown();
+    TradeMenuManager::getInstance().shutdown();
 
     HLIB_LOG_INFO("HologramLib disabled.");
     return true;
