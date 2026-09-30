@@ -92,6 +92,23 @@ void TradeMenuExporter::exportAll() {
     // tradeGetIds() -> [i]
     hologramlib::lse::exportAs(
         NAMESPACE, "tradeGetIds", [&mgr]() -> std::vector<int64_t> { return mgr.getAllIds(); });
+
+    // ── 1.24.0: 纯协议层真结算 ──
+    // tradeSetSettle(id, on) -> bool
+    //   打开后随时切换: true = 库接住付费放置/取回/成交并**真的**动背包（只有纯协议层路径有效;
+    //   真实交易表路径归 BDS 结算）。也可以打开前用 TradeMenuSpec::settleLocally 定初值。
+    hologramlib::lse::exportAs(
+        NAMESPACE, "tradeSetSettle", [&mgr](int64_t id, bool on) -> bool { return mgr.setSettleLocally(id, on); });
+
+    // tradeIsSettle(id) -> bool
+    hologramlib::lse::exportAs(
+        NAMESPACE, "tradeIsSettle", [&mgr](int64_t id) -> bool { return mgr.isSettleLocally(id); });
+
+    // tradePollSettlements() -> [s]（取走并清空; 条目格式 "player=Steve menuId=3 offer=1 ok=1 reason="）
+    hologramlib::lse::exportAs(
+        NAMESPACE, "tradePollSettlements", []() -> std::vector<std::string> {
+            return TradeMenuManager::getInstance().pollSettlements();
+        });
 }
 
 } // namespace debugshape_export
