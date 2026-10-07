@@ -1,5 +1,11 @@
 add_rules("mode.debug", "mode.release")
 
+-- 【临时】release 也产 PDB: 崩溃栈符号化用（排查完可移除）
+if is_mode("release") then
+    add_cxflags("/Zi", "/FS", {force = true})
+    add_ldflags("/DEBUG:FULL", {force = true})
+end
+
 -- 优先使用本地缓存的 liteldev-repo（含 bedrockdata server.17 登记以匹配全局包缓存），回退远程
 local function find_local_repo()
     local candidates = {
@@ -154,9 +160,12 @@ target("HologramLib")
     add_files("src/playernpc/NpcSkinRegistry.cpp")
     add_files("src/playernpc/PlayerNpcManager.cpp")
     add_files("src/playernpc/PlayerNpcExporter.cpp")
+    add_files("src/view/ViewOverrideManager.cpp")
+    add_files("src/view/OutboundViewHook.cpp")
+    add_files("src/view/ViewOverrideExporter.cpp")
     add_files("src/HologramLibImpl.cpp")
     add_includedirs("src", "include")
-    set_symbols("hidden")
+    set_symbols("debug") -- 【临时】崩溃栈符号化; 原值 hidden
     add_ldflags("/OPT:REF", "/OPT:ICF")
 
     if is_config("target_type", "server") then

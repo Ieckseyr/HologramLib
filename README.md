@@ -1,6 +1,6 @@
 # HologramLib
 
-Bedrock 协议层统一悬浮显示库（LeviLamina 26.40 / BDS 1.26.40 / 协议 2168）。把 **17 个能力域**（其中 15 个另有 LSE 导出）合并为**单一插件**，同时提供**冻结的 C++ 虚接口**与 **LSE（ll.import）兼容层**：
+Bedrock 协议层统一悬浮显示库（LeviLamina 26.40 / BDS 1.26.40 / 协议 2168）。把 **18 个能力域**（其中 16 个另有 LSE 导出）合并为**单一插件**，同时提供**冻结的 C++ 虚接口**与 **LSE（ll.import）兼容层**：
 
 | 能力域 | C++ 接口 | LSE 前缀 | 说明 |
 |--------|----------|----------|------|
@@ -21,6 +21,7 @@ Bedrock 协议层统一悬浮显示库（LeviLamina 26.40 / BDS 1.26.40 / 协议
 | 虚拟容器（列表） | `IContainerMenu`（1.21.0） | `container*`（10 函数, 1.22.0 补） | 复刻 GMLIB ChestUI：客户端侧箱子方块 + 方块实体 NBT + `ContainerOpen`；小容器 27 格 / 大容器 54 格；点击回传槽位号（LSE 走轮询）；**可交互模式**（`interactive` / `containerSetInteractive`）能真的在容器内拖动/交换物品 |
 | 背包虚容器 | `IFakeInventory`（1.23.0） | `fakeInv*`（9 函数） | 协议层改写客户端看到的**玩家背包内容**（服务端背包不动）；点伪造物品回传槽位号（与虚容同一语义）；与交易菜单/虚拟容器共存（周期重发盖回去） |
 | 硫磺立方体展示 | `ISulfurDisplay`（1.23.0） | `sulfur*`（10 函数） | 第二种摆放方式：生成 `minecraft:sulfur_cube`，**把方块"吞"在主手**（行为包原生机制, 客户端按装备渲染）；**立方体默认隐身**（实测方块照常渲染 → 只留内容）；外观档位走 `sulfur_cube_archetype` 属性 |
+| 客户端视图覆盖 | `IViewOverride`（1.25.0） | `view*`（6 函数） | 协议层拦截**按玩家发包**并原地改写：实体换类型 / 换名字牌 / 对该玩家隐藏（阻断该实体的出生与更新包），方块显示成另一种方块。只改**客户端视图**（服务端世界/存档/碰撞不动），其余玩家看到原样 |
 
 > **假玩家 NPC 皮肤已可正常渲染（26.40.2 修复）**：`playerNpc*` 的创建/移动/朝向/缩放/视距/显隐，以及皮肤注册表（PNG 注册、在线采集、目录导入、`getSkinBlob` 导出 / `registerSkinFromBlob` 恢复）均正常工作。此前的症状是客户端不渲染所设置的皮肤、外观回退为默认模型，原因在 PlayerList 皮肤条目的 `Id` / `FullId` 为空或残留了原玩家的缓存键。
 
@@ -28,11 +29,64 @@ PlayerList 现在只做包体前缀校验、不回读 BDS：发送前检查单�
 
 除 FMBE / 自定义实体 / 交易菜单 / NPC 对话走"假实体（部分隐身、仅目标玩家可见）+ 发包"外，其余渲染都不产生真实实体、不写存档、零服务器开销。交易菜单与 NPC 对话的载体实体在界面关闭时立即删除，不落存档；虚拟容器只在**客户端侧**摆箱子方块（服务端世界与存档里都没有这个方块）。粒子发送走 vanilla `SpawnParticleEffectPacket` 批量通道（BDS tick flush 自动聚合压缩为单 Batch 数据报）。
 
-- API 版本：**1.23.0**（`HOLOGLIB_API_VERSION 0x011D00`）
-- 插件发布版本：`26.40.5`
+- API 版本：**1.25.0**（`HOLOGLIB_API_VERSION 0x011F00`）
+- 插件发布版本：`26.40.7`
 - 版本 / API 版本 / 宏 对照：见 [`VERSION-HISTORY.md`](./VERSION-HISTORY.md)
 
 ## 更新日志
+
+- `26.40.7`（API 1.25.0）：**新增客户端视图覆盖 `IViewOverride`**（协议层拦截改写）。
+  - **改写的是"服务端本来要发给这名玩家的包"**：库挂在 BDS 的按收件人发包汇合点
+    （`NetworkSystem::send` / `sendToMultiple`）—— 它自己负责序列化，所以结构化包在这一层还没变成
+    字节：直接改包对象里的字段，**序列化仍由 BDS 自己做**（调用方不需要懂包结构，库也不手拼字节）。
+    反编译实测实体出生包不走 `LoopbackPacketSender`（原先挂在那里 → 换类型不生效），故改挂这里。
+  - **心跳兜底**：服务器每 tick 自查一次 —— 实体"重新进入视野"、玩家换区块时把覆盖重新推一遍。
+    出生包拦漏 / 方块覆盖被区块重发冲掉都靠它恢复；没用到这个功能时只是一次原子读。
+  - **能做**：实体换类型（`AddActor` 的 `mActorType`）、换名字牌（元数据 `Name(4)` /
+    `NametagAlwaysShow(81)`，出生包内改 + 服务端后续改名不覆盖我们的视图）、**对该玩家隐藏**
+    （直接不发出生包与更新包，已在客户端上的补一条 `RemoveActor`）、方块显示成另一种方块
+    （`UpdateBlock` / `UpdateBlockSynced` 的 `mRuntimeId` 换成目标方块的网络 id）。
+  - **逐玩家隔离**：覆盖表按玩家名 + 一份全局表；多收件人路径（`sendToClients` / 广播）展开成逐收件人套用，
+    改完立刻把原值放回去，后一个收件人不会看到前一个的覆盖。**幂等**：同一条包被多条路径各套用一次，
+    结果与套用一次相同（"记录真实方块 id"这一步只在当前值还不是覆盖值时才做）。
+  - **零开销**：库内没有任何覆盖时，钩子一条分支直接放行（不查玩家、不读包）；命中判定也只看
+    目标玩家有没有覆盖，没命中一个字段都不碰。**fail-safe**：不认识的包、认不出来的实体一律原样放行。
+  - **26.40 做不到的（所以没进 API）**：逐玩家的**缩放 / 发光 / 隐身** —— 元数据表里没有 `scale`，
+    也没有 `glowing` / `invisible` 旗标（基岩版隐身是效果，走 `MobEffectPacket`）。
+    自定义实体的逐客户端缩放/装备槽仍归 `ICustomEntity` 的 per-viewer 覆盖（1.21.0）。
+  - **实体类改动都是立刻生效**（换类型 / 隐藏 / 撤销）: 库里对那只实体做一次"移除 + 按目标状态
+    重发一只"（同一个 `runtimeId` 与 `uniqueId`，服务端后续的移动/状态更新照常作用在它身上）。
+    代价是客户端那只实体会被重建 —— 只随出生包来过一次的细节（变体、装备初始态）要等服务端下次同步。
+    撤销时离得太远（>64 格）或已消失的实体不重建；玩家实体无法重建（`AddPlayer` 没有类型字段）。
+  - 方块覆盖在区块重发后由库自动补发（收到区块时）。
+  - 判定逻辑独立在 `src/view/ViewOverrideLogic.h`（坐标打包 / 区块归属 / 幂等判断 / 名字牌计划 / 类型名清洗），
+    离线可测：`tests\check-view-override.bat`（**54 项**）。
+  - **玩家实体也能覆盖**（同一版内）：`EntityView::asPlayer = "<在线玩家名>"` → 只给该观看者重发一条
+    `PlayerList(Add)`（该实体自己的 UUID + 源玩家皮肤），与原版"皮肤更新"同机制、可立刻撤销;
+    `identifier = "<生物>"` → 玩家模型渲染不了生物 → 库走**替换**: 吃掉他的出生包, 用**同一个
+    runtimeId/uniqueId** 发一只该类型的实体, 位置/朝向按他发来的输入包用 `MoveActorAbsolute` 推。
+    **id 没变 → 服务端那边仍是那个真玩家, 打它就是打他本人。** 撤销时把替代实体移走。
+  - **出生包配方对齐 customentity 域**（线上验证过的那一套）: 必带 flags 元数据项 + `minecraft:health` /
+    `minecraft:scale` 属性, 且**后面紧跟一条 `UpdateAttributesPacket`**（客户端对出生包里的属性只初始化
+    不生效）—— 之前缺这几项, 玩家进服时心跳一发重发就会让客户端报错（"第一次进出错"）。
+    另修正 `NametagAlwaysShow` 的**协议值反转**（0 = 常显）, 并给刚进服的玩家约 2 秒宽限期（客户端还在
+    收区块时不塞实体包）。
+  - **输入操作 → 代理（协议层执行）**：入站 `PlayerAuthInput` 当真相 —— 位置/朝向/头顶朝向、66 位输入位
+    （跳跃/潜行/疾跑/游泳/爬行/飞行…）、`ClientPlayMode`（界面状态）与物品操作字段；代理按它复现 A 的动作
+    （1 秒内无新输入才退回服务端状态）。**动作类包**（挥臂/攻击/受伤/死亡）从服务端的 `Animate` /
+    `ActorEvent` 照搬到代理（runtimeId 换成代理的，100ms 去重防重复播放）。手持物品/快捷栏持续镜像。
+  - **代理落点修正**：玩家在协议层上报的 y 在**眼睛**处（Bedrock 特有）—— 代理改用碰撞箱下沿取真实脚位，
+    输入包的 y 用"眼到脚"差值换算（站/潜行/游泳都对）。
+  - **操控另一名玩家（A 的输入驱动 B 的真实移动）**：`startControl(A, B, follow)` / `stopControl(A)`。
+    每 tick 取 A 输入包里的位移量施加到 B（`Actor::moveTo`, 服务端位移 —— B 自己客户端与别的玩家都看得到,
+    被操控期间 B 自身输入不生效）; `follow = true` 时把 A 的位置锁到 B 上（附身观感: 推摇杆 B 走、自己被带着走）,
+    `follow = false` 则 A 自由行走、位移量遥控 B。单拍位移 > 8 格（传送/死亡）忽略; 任一方下线自动断开。
+    LSE: `viewControl` / `viewControlStop`。
+  - **两条纪律**: 出站钩子**只决定拦不拦**（放行 / 丢弃）, **从不修改引擎包字段** —— 需要"改"的一律
+    丢原包 + 库**自己手写协议包**补发; **数据来源只有协议包**（入站 `PlayerAuthInput` / 出生包载荷 /
+    `Animate`·`ActorEvent`），不读服务端实体状态。
+  - **不进库的东西**: 背包镜像（读玩家背包 + 开容器 + 按 tick 刷新）已摘除 —— 消费方用容器域的协议能力自己拼。
+  - LSE 导出：`viewEntity` / `viewBlock` / `viewClearEntity` / `viewClearBlock` / `viewClearAll` / `viewDescribe`。
 
 - `26.40.5`（API 1.23.0）：**新增背包虚容器 `IFakeInventory` 与硫磺立方体展示 `ISulfurDisplay`**。
   - **协议层改写客户端看到的玩家背包**：一条 `InventoryContentPacket`（`ContainerId = Inventory(0)` +
@@ -449,10 +503,10 @@ add_links("HologramLib")
 ### LSE 脚本
 
 ```js
-// 统一命名空间 "HologramLib", 十五个 LSE 前缀（其余能力域只有 C++ 接口）:
+// 统一命名空间 "HologramLib", 十六个 LSE 前缀（其余能力域只有 C++ 接口）:
 //   shape* / holo* / gradient* / itemDetail* / itemDisplay*
 //   entity* / ghost* / particle* / playerNpc* / trade*
-//   container* / npcDialog* / sensing* / fakeInv* / sulfur*
+//   container* / npcDialog* / sensing* / fakeInv* / sulfur* / view*
 const shapeCreateLine = ll.import("HologramLib", "shapeCreateLine");
 const holoCreate      = ll.import("HologramLib", "holoCreate");
 const itemDisplayCreateBeacon = ll.import("HologramLib", "itemDisplayCreateBeacon");

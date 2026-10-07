@@ -25,7 +25,7 @@
 
 补丁位通常是 `00`，所以 `1.19.1` 与 `1.19.0` 共用 `0x011900` —— **只能门到次版本**。早期版本曾用最后一位区分补丁（`0x010701` = 1.7.1）。
 
-**只在正式发布新版本时才推高本宏。** 在同一条尚未发布的线上继续加能力域不改变它：消费方看到的"我能用的最低版本"没变，抬高宏只会让旧版消费方误判为不兼容。**`0x011D00` 随 `26.40.5` 正式发布**（背包虚容器 `IFakeInventory` + 硫磺立方体展示 `ISulfurDisplay`）—— 此前是 `26.40.4` 的 `0x011C00`。
+**只在正式发布新版本时才推高本宏。** 在同一条尚未发布的线上继续加能力域不改变它：消费方看到的"我能用的最低版本"没变，抬高宏只会让旧版消费方误判为不兼容。**`0x011F00` 随 `26.40.7` 正式发布**（客户端视图覆盖 `IViewOverride`）—— 此前是 `26.40.5` 的 `0x011D00`（背包虚容器 + 硫磺立方体展示）。
 
 > **一次例外（明记）**：`26.40.3` 发布过 1.21.0 的交易菜单点击回调，发布后随即按需求撤回 —— 交易菜单改为**纯展示**，`TradeClickEvent` / `TradeActionCallback` / `TradeRawAction` 与 `ITradeMenu` 的六个监听方法整体移除。这是**收缩而不是新增**，按本文档的约定本该走大版本（`2.0.0`）；这里抬到次版本 `1.22.0` 并在表中写明，是因为那条 API 的公开窗口只有一次发布、且没有消费方采用。若你已按 `1.21.0` 写了交易菜单的点击监听，升到 `26.40.4` 需要删掉那些调用（编译期就会报错，不会是静默的行为变化）。
 
@@ -33,6 +33,7 @@
 
 | 插件发布版本 | API 版本 | `HOLOGLIB_API_VERSION` | 该版本新增的能力域 |
 |---|---|---|---|
+| `26.40.7` | 1.25.0 | `0x011F00` | **新增客户端视图覆盖 `IViewOverride`**（协议层拦截）。两条纪律: **只拦不发** —— 出站钩子挂在 `NetworkSystem::send` / `sendToMultiple`, 只决定「放行 / 丢弃」, **从不修改引擎包字段**; 需要改的一律丢原包 + 库**自己手写协议包**补发（sculk 构造 → 回读校验 → 原始字节发送）。**数据来源只有协议包**（入站 `PlayerAuthInput` 的位置/朝向/输入位、出生包载荷、`Animate`·`ActorEvent`），不读服务端实体状态（例外: 身份识别）。能做: 生物换类型、**玩家变生物 = 替换**（吃掉 `AddPlayer`、用**同一 runtimeId/uniqueId** 发一只该类型实体, `MovePlayer` 对该观看者吃掉、位置由 `MoveActorAbsolute` 推 → **服务端仍认他是真玩家, 打他就是打他本人**）、玩家换皮肤（重发 `PlayerList`, 可立刻撤销）、换名字牌、隐藏、方块换外观; **外加每 tick 心跳**（实体重新进入视野 / 玩家换区块时重推覆盖）。**不进库**: 背包镜像等"读引擎状态的功能项"（消费方用容器域协议能力自己拼）。LSE 导出 `view*`（6 函数）。判定逻辑独立在 `src/view/ViewOverrideLogic.h`, 离线可测（`tests/check-view-override.bat`, 54 项）。**没做的**: 逐玩家缩放/发光/隐身（26.40 元数据表里没有这些项）。|
 | `26.40.6` | 1.24.0 | `0x011E00` | **交易菜单新增"纯协议层真结算"**：`TradeMenuSpec::settleLocally` + `ITradeMenu::setSettleLocally` / `isSettleLocally` / 结算回传（`TradeSettlementEvent` 监听 + `tradePollSettlements`）。界面仍是自建 `UpdateTrade`（服务端不放交易表），但库接住客户端的付费放置 / 取回 / 成交请求并**真的**从玩家背包扣付费、把产物写进背包（关界面退还暂存付费）；光标（"点一下拿起 / 再点一下放进槽"）由库托管。判定逻辑独立在 `src/trade/TradeSettlementLogic.h`，离线可测（`tests/check-trade-settlement.bat`，43 项）。**已知限制**：客户端要求的"交易槽槽位更正"在本协议版本与协议库线格式不一致（手写会打崩客户端），客户端可能把放料撤回 —— 稳定成交请用 `usePacketOffers=false`（真实交易表）或容器 UI |
 | `26.40.5` | 1.23.0 | `0x011D00` | 新增 `IFakeInventory`（背包虚容器：协议层改写客户端看到的玩家背包内容、点伪造物品回传槽位号、与交易菜单/虚拟容器共存）与 `ISulfurDisplay`（硫磺立方体展示：把方块"吞"在主手 + 隐身默认开 + 外观档位属性），两者都带 LSE 导出；虚拟容器新增**可交互模式**（容器内拖动/交换物品会被库接住并保留）；`ICustomEntity::setMobProperty` 开放实体属性同步 |
 | `26.40.4` | 1.22.0 | `0x011C00` | **交易菜单改为纯展示**（暂无有效监听方法），新增 `ITradeMenu::addOffer` / `setTier`（就地重发交易表）；四个新域补齐 **LSE 导出**（`trade*` / `container*` / `npcDialog*` / `sensing*`，容器与对话的点击走轮询队列），`entity*` 补逐客户端渲染导出（`entitySetPlayerNametag` / `entitySetPlayerScale` / `entitySetPlayerEquipmentSlot` / `entityClearPlayerAppearance`）|

@@ -1,6 +1,6 @@
 # HologramLib API 参考
 
-- API 版本：1.23.0（`HOLOGLIB_API_VERSION 0x011D00`）
+- API 版本：1.25.0（`HOLOGLIB_API_VERSION 0x011F00`）
 - 唯一公开头：`include/hologramlib/HologramLib.h`
 
 ## API 稳定性契约
@@ -10,7 +10,7 @@
 | C++ 接口 | 全部纯虚方法签名与语义（实现对象在 DLL 内创建，消费者只持引用） | 只在接口尾部追加；永不修改/删除 |
 | C++ 宏 | `HOLOGLIB_API_VERSION`、`HOLOGLIB_API`、`hologramlib` 命名空间、枚举值 | 只追加枚举值 |
 | LSE 命名空间 | 单一命名空间 `HologramLib` 全部函数名、参数顺序、返回值类型 | 只增不改不删 |
-| 版本协商 | `IHologramLib::version()`（BCD：0x011D00 = 1.23.0） | 随发布递增 |
+| 版本协商 | `IHologramLib::version()`（BCD：0x011F00 = 1.25.0） | 随发布递增 |
 
 破坏兼容仅允许发生在大版本（2.0.0）。`src/` 目录一切内容均为内部实现，不属于 API。
 
@@ -602,6 +602,94 @@ struct SulfurDisplaySpec {
 **另外**: `ICustomEntity::setMobProperty(id, name, value)` / `clearMobProperties(id)` 同批开放 ——
 凡是 `client_sync` 的实体属性都能按名下发（硫磺立方体的档位就是这么实现的）。
 
+### 1.16 IViewOverride（客户端视图覆盖，1.25.0）
+
+```cpp
+auto& view = lib.viewOverrides();
+
+// 实体: 换类型 / 换名字牌 / 对该玩家隐藏（playerName 空串 = 所有玩家）
+hologramlib::EntityView cow;
+cow.identifier = "minecraft:cow";   // 短名会自动补 minecraft: 前缀
+cow.hasNametag = true;
+cow.nametag    = "§c奶牛";          // 出现 hasNametag 才改名字牌（值给空串 = 清空名字）
+cow.nametagAlwaysShow = true;
+view.overrideEntity("Steve", uniqueId, cow);
+
+hologramlib::EntityView gone;
+gone.hidden = true;                 // 让 Steve 看不到这只实体（阻断它的出生与更新包）
+view.overrideEntity("Steve", uniqueId, gone);
+
+// 玩家实体专用的两种"千人千面"（由 Steve 一个人看到）
+hologramlib::EntityView skin;
+skin.asPlayer = "Alex";             // 让 Steve 看到这只玩家变成 Alex 的样子（皮肤）
+view.overrideEntity("Steve", playerUniqueId, skin);
+
+hologramlib::EntityView asMob;
+asMob.identifier = "minecraft:cow"; // 玩家模型渲染不了生物 → 库走"替换": 同一 runtimeId/uniqueId 发一只牛
+view.overrideEntity("Steve", playerUniqueId, asMob);
+
+// 方块: 把 (100,64,100) 在他客户端显示成钻石块
+hologramlib::BlockView block;
+block.type = "minecraft:diamond_block";
+view.overrideBlock("Steve", 100, 64, 100, block);
+
+view.clearEntity("Steve", uniqueId);   // 撤销
+view.clearBlock("Steve", 100, 64, 100);
+view.clearAll("Steve");                // 撤销这名玩家的全部覆盖（空串 = 全部玩家）
+std::string s = view.describeFor("Steve"); // "entities=1 blocks=2"
+```
+
+| 方法 | 返回值 | 说明 |
+|------|--------|------|
+| `overrideEntity(playerName, entityUniqueId, view)` | bool | false = 玩家不在线。实体还没出生也能先设（库在它出生时套用）。三项（`identifier` / `hidden` / `hasNametag`）都没设 = 当作撤销 |
+| `overrideBlock(playerName, x, y, z, view)` | bool | false = 玩家不在线 / 类型名不在方块注册表里。type 给空串 = 撤销 |
+| `clearEntity(playerName, entityUniqueId)` | bool | 撤销单个实体（返回是否原来有覆盖） |
+| `clearBlock(playerName, x, y, z)` | bool | 撤销单个方块，并把**真实方块**推给该玩家 |
+| `clearAll(playerName)` | void | 清掉该玩家（空串 = 全部）的覆盖表 |
+| `describeFor(playerName)` | string | 该玩家当前生效的覆盖条数摘要（含全局那一份）；带拦截钩子计数与 `sendFail` |
+| `startControl(controllerName, targetName, follow)` | bool | 让 controller 的移动/转向输入**驱动 target 的真实移动**（服务端位移）; `follow=true` 时 controller 被锁到 target 上一起走（附身观感） |
+| `stopControl(controllerName)` | bool | 停止操控（任一方下线也会自动停） |
+
+**改的是什么**：服务端**本来要发给这名玩家的包**里的字段 —— 实体出生包的实体类型字符串、
+元数据表里的 `Name(4)` / `NametagAlwaysShow(81)`、方块包的方块网络 id。**序列化仍由 BDS 自己做**，
+所以调用方不需要了解包结构，库也不手拼字节。服务端世界 / 存档 / 碰撞 / 其他插件看到的都是真实内容。
+拦截挂在 `NetworkSystem::send` / `sendToMultiple`（BDS 按收件人发结构化包的汇合点；实体出生包不走
+`LoopbackPacketSender`，那是原先失效的原因），**外加一层心跳**：服务器每 tick 自查，实体"重新进入
+视野"、玩家换区块时把覆盖重新推一遍 —— 拦截漏掉的场合由它兜住。
+
+**逐玩家隔离与幂等**：覆盖表按玩家名 + 一份全局表；`sendToClients` / 广播这类"同一包发给多人"的路径
+会展开成逐收件人套用，改完立刻把原值放回去（后一个收件人不会看到前一个的覆盖）；同一条包被多条
+发包路径各套用一次，结果与套用一次相同。库内没有任何覆盖时，钩子不做任何解析就直接放行。
+
+**玩家实体（1.25.0 支持）**：
+- `asPlayer = "<在线玩家名>"` → 给该观看者重发一条 `PlayerList(Add)`（用该实体自己的 UUID + 源玩家的皮肤）
+  —— 与原版"皮肤更新"同机制，**只发给该观看者**；撤销 = 用他自己的皮肤再发一次，立刻恢复。
+  对*任何*实体只有玩家实体有效（皮肤按 UUID 认）。
+- `identifier = "<生物>"` → 玩家模型渲染不了生物，所以库走**替换**（不是代理）：吃掉他的 `AddPlayer`，用**同一个 `runtimeId`/`uniqueId`** 发一只 `AddActor`；他的 `MovePlayer` 对这名观看者也吃掉，位置/朝向由库按他的输入包用 `MoveActorAbsolute` 推。**id 没变 → 服务端仍认他是那个真玩家，打他就是打他本人。** 撤销时把替代实体移走。
+  （自定义实体，只对该观看者可见），并把真身从他视野里移除。代价：**代理身上打不到真身**
+  （代理的交互走 ghost 事件）；撤销后该观看者要等**重进 / 换维度**才会再看到真身。
+
+**26.40 做不到的**：逐玩家的**缩放 / 发光 / 隐身**没进 API —— 元数据表里没有 `scale`，
+也没有 `glowing` / `invisible` 旗标（基岩版隐身是效果，走 `MobEffectPacket`）。
+自定义实体的逐客户端缩放 / 装备槽请用 `ICustomEntity` 的 per-viewer 覆盖（1.21.0）。
+
+**限制（写清楚免得误用）**：
+- **换类型**只对非玩家生物生效（玩家出生包 `AddPlayer` 里没有类型字段；玩家实体的名字牌 / 隐藏照常可覆盖）。
+- **换类型 / 隐藏 / 撤销全部立刻生效**：库里对这只实体做一次"移除 + 按目标状态重发一只"（同一个
+  `runtimeId` 与 `uniqueId`，所以服务端后续的移动/状态更新照常作用在它身上）。代价是客户端那只实体
+  会被重建 —— 只随出生包来过一次的细节（变体、装备初始态）要等服务端下次同步才回来。
+- 撤销时离得太远（> 64 格）或已消失的实体不重建（客户端上本来也没有它）。玩家实体无法重建（见上）。
+- 方块覆盖在区块重发后由库自动补发。
+- 覆盖只存在内存里（重启服务器即失效）；按玩家名的覆盖在该玩家重进后仍然有效。
+- 名字牌常显状态没有读口：撤销名字牌覆盖时按"不常显"推回真实名字，服务端下次因别的原因重发元数据会带回真实值。
+
+**诊断**：`describeFor()` 的字符串里带拦截钩子的计数（`hooks(calls=… spawn=… meta=… block=… chunk=…)`）
+与 sculk 发送失败数（`sendFail=`）——现象是"设了没反应"时先看它：`calls` 一直是 0 说明汇合点没被走到
+（功能此时由心跳兜底，仍然生效，只是不即时）；`sendFail` 大于 0 说明有包构造不合法（应上报）。
+
+判定逻辑（坐标打包 / 区块归属 / 幂等判断 / 名字牌计划 / 类型名清洗）独立在
+`src/view/ViewOverrideLogic.h`，离线可测：`tests\check-view-override.bat`（54 项）。
+
 ## 2. LSE 接口（ll.import 统一命名空间）
 
 LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib`**，前缀区分能力域：
@@ -617,6 +705,7 @@ LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib
 | `ghost*` | 交互事件轮询 | IHologramLib | 2 |
 | `particle*` | 通用粒子形状系统 | ParticleShapeManager | 22 |
 | `playerNpc*` | 假玩家 NPC（含皮肤注册/采集/目录导入） | IPlayerNpc | 25 |
+| `view*` | 客户端视图覆盖（1.25.0） | IViewOverride | 6 |
 
 缺席时安全降级（`ll.import` 得 null）。
 
@@ -1098,6 +1187,42 @@ const sulfurCreate      = ll.import("HologramLib", "sulfurCreate");
 const sulfurSetArchetype = ll.import("HologramLib", "sulfurSetArchetype");
 const id = sulfurCreate(100.5, 65, -200.5, 0, "minecraft:bookshelf", 1, 0, "§6书架", "regular");
 sulfurSetArchetype(id, "sticky");   // 换外观档位（不重建实体）
+```
+
+### 2.16 view*（客户端视图覆盖，1.25.0）
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| viewEntity | `(playerName: s, entityUniqueId: i, spec: s) -> b` | 覆盖该玩家看到的这只实体; `spec` 见下; 玩家名空串 = 所有玩家; false = 玩家不在线 |
+| viewBlock | `(playerName: s, x: i, y: i, z: i, type: s) -> b` | 把 (x,y,z) 在该玩家客户端显示成 `type` 那种方块; type 空串 = 撤销; false = 玩家不在线 / 类型名无效 |
+| viewClearEntity | `(playerName: s, entityUniqueId: i) -> b` | 撤销单个实体 |
+| viewClearBlock | `(playerName: s, x: i, y: i, z: i) -> b` | 撤销单个方块（并把真实方块推回去） |
+| viewClearAll | `(playerName: s) -> void` | 撤销该玩家（空串 = 全部玩家）的全部覆盖 |
+| viewDescribe | `(playerName: s) -> s` | 当前覆盖条数摘要, 如 `"entities=1 blocks=2"` |
+| viewControl | `(controller: s, target: s, follow: b) -> b` | 我的移动/转向驱动对方真实移动; follow = 我是否跟着一起动 |
+| viewControlStop | `(controller: s) -> b` | 停止操控 |
+
+`spec` 串（分号分隔，每项 `键=值`，键不分大小写；值两边的空白会被去掉）：
+
+| 键 | 值 | 说明 |
+|----|----|------|
+| `type` | 实体类型名 | 换类型（`cow` 自动补成 `minecraft:cow`）；玩家实体不支持 |
+| `hidden` | `1` / `true` / `yes` / `on` | 对该玩家隐藏这只实体（阻断它的出生与更新包） |
+| `name` | 名字牌文字 | 出现 `name` 才改名字牌；值给空串 = 清空名字 |
+| `always` | `1` / `true` / `yes` / `on` | 名字牌一直显示 |
+
+```js
+const viewEntity  = ll.import("HologramLib", "viewEntity");
+const viewBlock   = ll.import("HologramLib", "viewBlock");
+const viewClearAll = ll.import("HologramLib", "viewClearAll");
+
+// Steve 看到的这只僵尸变成一头牛, 名字牌"§c奶牛"并常显
+viewEntity("Steve", 12345, "type=minecraft:cow;name=§c奶牛;always=1");
+// 让 Steve 看不到它（服务端世界里它照常存在、照常打人）
+viewEntity("Steve", 12345, "hidden=1");
+// Steve 客户端的 (100,64,100) 显示成钻石块
+viewBlock("Steve", 100, 64, 100, "minecraft:diamond_block");
+viewClearAll("Steve");   // 收工
 ```
 
 ## 3. 消费者版本协商示例
