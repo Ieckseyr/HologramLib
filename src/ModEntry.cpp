@@ -23,6 +23,8 @@
 #include "sensing/PlayerSensingExporter.h"
 #include "fakeinv/FakeInventoryExporter.h"
 #include "sulfur/SulfurDisplayExporter.h"
+#include "view/ViewOverrideExporter.h"
+#include "view/ViewOverrideManager.h"
 #include "lse/LseBridge.h"
 
 #include "hologramlib/HologramLib.h"
@@ -61,6 +63,7 @@ static void exportLseFunctions() {
     PlayerSensingExporter::exportAll();
     FakeInventoryExporter::exportAll();
     SulfurDisplayExporter::exportAll();
+    ViewOverrideExporter::exportAll();
 }
 
 bool ModEntry::load() {
@@ -78,6 +81,8 @@ bool ModEntry::enable() {
     PlayerNpcManager::getInstance().init();
     // 交易菜单: 挂掉线清理（关菜单 + 把真结算账本里暂存的付费还给玩家 —— 掉线瞬间玩家对象还在）
     TradeMenuManager::getInstance().init();
+    // 客户端视图覆盖: 掉线时清掉运行时 id 索引（出站钩子在 OutboundViewHook.cpp 自注册）
+    view::initViewOverrideEvents();
     // 玩家进服后重发全部可见形状(悬浮字/形状客户端不落盘, 重连必须补发)
     // 含周期兜底: 每 15s 全量重发, 与 PlayerJoinEvent 1s/5s 双保险
     PacketDebugRenderer::getInstance().init();
@@ -121,6 +126,7 @@ bool ModEntry::disable() {
     ParticleShapeManager::getInstance().shutdown();
     PlayerNpcManager::getInstance().shutdown();
     TradeMenuManager::getInstance().shutdown();
+    view::ViewOverrideManager::getInstance().shutdown();
 
     HLIB_LOG_INFO("HologramLib disabled.");
     return true;

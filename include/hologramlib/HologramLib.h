@@ -27,7 +27,7 @@
 // 短暂存在的点击回调（TradeClickEvent / TradeActionCallback / TradeRawAction 与对应的
 // ITradeMenu 监听方法全部移除）—— 这是收缩而非新增, 所以抬到新的次版本, 消费方可以用
 // >= 0x011C00 门住『交易菜单没有点击回调、且带 addOffer / setTier』这一形态。
-#define HOLOGLIB_API_VERSION 0x011E00
+#define HOLOGLIB_API_VERSION 0x011F00
 
 #ifdef HOLOGLIB_EXPORTS
 #define HOLOGLIB_API __declspec(dllexport)
@@ -1110,6 +1110,130 @@ public:
 };
 
 // ─────────────────────────────────────────────
+// 客户端视图覆盖（协议层拦截改写; 1.25.0 新增）
+//
+// 让服务端在**不改动真实世界**的前提下，改变**某个玩家客户端上看到的东西**：
+//   · 实体（含玩家）: 换成另一种生物来显示 / 换名字牌 / 对这名玩家隐藏
+//   · 方块: 把某坐标的方块显示成另一种方块
+//
+// 机制（两条, 各司其职）:
+//   ① **只拦不发**: 出站钩子挂在 BDS 的按收件人发包汇合点（NetworkSystem::send / sendToMultiple）,
+//      它**只决定"这一包发给这名玩家吗"**（放行 / 丢弃）—— **从不修改引擎包对象里的字段**。
+//      需要"改"的地方一律: 丢掉原包 + 由库**自己手写协议包**补发（sculk 构造 → 回读校验 →
+//      原始字节发送, 见 src/SculkPacketSend.h）。
+//   ② **心跳**: 服务器每 tick 自查 —— 实体重新进入视野 / 玩家换区块时把覆盖重新推一遍。
+//      出生包拦漏时靠它恢复; 方块覆盖被区块重发冲掉也靠它。没用到时只是一次原子读。
+//
+// 数据来源**只有协议包**: 位置/朝向/输入位来自入站 PlayerAuthInput; 出生包类型/位置/名字来自
+// 出生包载荷; 动作来自 Animate / ActorEvent —— **不读服务端实体状态**（唯一例外是"认人":
+// 网络标识 → 玩家、AddPlayer 里反查 uniqueId）。
+//
+// 关键性质: **服务端根本没有这个容器** —— 物品只是"摆在那里", 玩家拿走/移动都不会真的改变任何
+// 东西（天然只读）。适合当任务列表、成就列表、商店预览这类"只展示 + 点击回调"的界面。
+// "只展示 + 点击回调"的界面。
+//
+// 大小容器都在这里: rows=3 → 单箱子 27 格; rows=6 → **大箱子 54 格**
+// （大箱子 = 相邻两个箱子方块 + 方块实体的 pairx/pairz/pairlead 配对键, 前 27 格进 lead 那半,
+//  后 27 格进副半, 槽位号在各自 NBT 里是 0..26 —— 与 GMLIB 的 updateBlockActor 一致）。
+//
+// 载体位置: 玩家脚上方 5 格（GMLIB 同款; 超出世界高度则下移 4 格）, 并优先挑选空气位, 避免
+// 覆盖真实方块/方块实体。关闭时会用真方块的网络 id 把那一格改回来。
+//
+// 容器 id 用 101..199 显示区间, 与 BDS 真实容器（含交易）的 1..100 不冲突。
+// ─────────────────────────────────────────────
+
+
+// ─────────────────────────────────────────────
+// 客户端视图覆盖（协议层拦截改写; 1.25.0 新增）
+//
+// 让服务端在**不改动真实世界**的前提下，改变**某个玩家客户端上看到的东西**：
+//   · 实体（含玩家）: 换成另一种生物来显示 / 换名字牌 / 对这名玩家隐藏
+//   · 方块: 把某坐标的方块显示成另一种方块
+//
+// 机制（两层, 互为保险）:
+//   ① **拦截**: 挂钩 BDS 的按收件人发包汇合点（NetworkSystem::send / sendToMultiple）。它自己
+//      负责序列化（拼包头 + Packet::writeWithSerializationMode）, 所以结构化包在这一层还没变成
+//      字节 —— 直接改包对象里的字段（实体类型字符串 / 元数据表 / 方块网络 id），**序列化仍由
+//      BDS 自己做**: 调用方不需要了解任何包结构，库也不手拼字节。
+//      注: 反编译实测, 实体出生包**不走** LoopbackPacketSender（原先挂在那里, 所以换类型不生效）。
+//   ② **心跳**: 服务器每 tick 自查一次 —— 实体"重新进入视野"、玩家换区块时把覆盖重新推一遍。
+//      出生包拦不到（或拦漏）时, 覆盖靠这层自己恢复; 方块覆盖被区块重发冲掉也靠它。
+//      没用到这个功能时, 这一层只是一次原子读, 不遍历玩家、不查世界。
+//
+// 关键性质:
+//   · **逐玩家**: 覆盖只对指定玩家生效（playerName 传空串 = 所有玩家），其他玩家看到原样
+//   · **只改客户端视图**: 服务端世界 / 存档 / 碰撞 / 其他插件看到的都是真实内容
+//   · **可阻断**: hidden = true 时该实体的出生包与后续更新包不再发给这名玩家
+//   · 实体按 uniqueId 认（稳定 id）; 库自动记录它与运行时 id（runtimeId）的对应关系
+//   · **不认识 / 解析不出的包一律原样放行**（fail-safe: 宁可没效果，也不给客户端送可疑字节）
+//   · 覆盖只存在内存里（重启服务器即失效）; 按玩家名的覆盖在该玩家重进后仍然有效 ——
+//     实体重新出生时自动套用, 方块随区块送达自动补发
+//
+// 第一版的边界（写清楚免得误用）:
+//   · **换实体类型**: 非玩家生物直接换; **玩家实体走"替换"**（见下）; 换玩家皮肤用 asPlayer。
+//   · **玩家变生物 = 替换（不是代理）**: 吃掉他的出生包, 用**同一个 runtimeId/uniqueId** 发一只
+//     该类型的实体; 他的 MovePlayer 对这名观看者也吃掉, 位置/朝向由库按他发来的输入包用
+//     MoveActorAbsolute 推。**因为 id 没变, 服务端那边仍然是那个真玩家 —— 打到它身上的攻击由
+//     服务端按真身结算**。撤销时把替代实体移走（真身要等重进/换维度才重新出现）。
+//   · **缩放 / 发光 / 隐身做不成逐玩家**: 26.40 的元数据表里没有 scale，也没有 glowing /
+//     invisible 旗标（基岩版的隐身是效果, 走 MobEffectPacket）。这三项没有进本版 API。
+//   · **方块覆盖**在区块重发后会丢，库会自动补发（该玩家收到覆盖范围内的区块时）。
+//   · 撤销时离得太远（>64 格）或已经消失的实体不重建 —— 客户端上本来也没有它，等它下次出生即可。
+//   · 不是资源包意义上的自定义外观: 实体类型与方块都必须在客户端已知的注册表里（原版即可）。
+//   · 覆盖的是"包里本来要发给该玩家的内容": 若某实体/方块本来就不发给该玩家（例如视野外），
+//     覆盖不会凭空让客户端看见它。
+// ─────────────────────────────────────────────
+
+// 实体的客户端视图覆盖（空字段 / false = 该项不改）
+struct EntityView {
+    // 换成该实体类型（如 "minecraft:cow"）; 空 = 不改类型。
+    //   · 非玩家实体: 库移除客户端那只 + 用同一个 runtimeId/uniqueId 重发一只该类型的;
+    //   · **玩家实体**: 玩家模型渲染不了生物 → 库给这名观看者造一只**跟随真身的代理生物**
+    //     （自定义实体, 只对他可见）并把真身从他视野里移除。代理身上打不到真身（代理的交互
+    //     会走 ghost 事件, 见 GhostInteractEvents）; 撤销后该观看者要等重进/换维度才再看到真身。
+    std::string identifier;
+    // 换成**另一名在线玩家**的样子（皮肤取自那名玩家）; 空 = 不改。只对玩家实体有效。
+    //   机制与原版"皮肤更新"一致: 用该实体自己的 UUID 再发一条 PlayerList(Add) 就地更新,
+    //   且只发给这名观看者（撤销 = 用他自己的皮肤再发一次, 立刻恢复）。
+    std::string asPlayer;
+    // true = 对这名玩家隐藏这只实体（出生包与后续更新包都不再发; 已经在客户端上的会立刻移除）
+    bool        hidden{false};
+    // 名字牌: hasNametag = true 才动名字牌（用它区分"清空名字"与"不改"）
+    bool        hasNametag{false};
+    std::string nametag;
+    bool        nametagAlwaysShow{false};
+};
+
+// 方块的客户端视图覆盖（type 空 = 不改）
+struct BlockView {
+    std::string type;     // 换成该方块（如 "minecraft:diamond_block", 取默认状态）
+};
+
+class IViewOverride {
+public:
+    virtual ~IViewOverride() = default;
+
+    // 让 playerName（空串 = 所有玩家）在客户端把 entityUniqueId 这只实体看成 view 描述的样子。
+    // 实体还没出生（客户端还没见到它）也能先设 —— 库在它出生时套用。
+    // 返回 false = 玩家不在线。
+    virtual bool overrideEntity(std::string const& playerName, std::int64_t entityUniqueId, EntityView const& view) = 0;
+    // 让 playerName（空串 = 所有玩家）在客户端把 (x,y,z) 看成 view.type 那种方块。
+    // 返回 false = 玩家不在线 / 类型名无效（不在注册表里）。
+    virtual bool overrideBlock(std::string const& playerName, int x, int y, int z, BlockView const& view) = 0;
+
+    // 撤销单个实体的覆盖
+    virtual bool clearEntity(std::string const& playerName, std::int64_t entityUniqueId) = 0;
+    // 撤销单个方块的覆盖（立刻把真实方块推给该玩家）
+    virtual bool clearBlock(std::string const& playerName, int x, int y, int z) = 0;
+    // 撤销某玩家的全部覆盖（下线 / 切场景时调用; 空串 = 全部玩家）
+    virtual void clearAll(std::string const& playerName) = 0;
+
+    // 诊断: 某玩家当前的覆盖条数摘要, 形如 "entities=2 blocks=5"
+    [[nodiscard]] virtual std::string describeFor(std::string const& playerName) const = 0;
+
+};
+
+// ─────────────────────────────────────────────
 // 库入口单例
 // ─────────────────────────────────────────────
 class IHologramLib {
@@ -1125,7 +1249,7 @@ public:
     // LSE 兼容层是否可用（LegacyRemoteCall 运行时检测成功）
     virtual bool isLseAvailable() = 0;
 
-    // 库版本（BCD: 0x011E00 = 1.24.0, 与 HOLOGLIB_API_VERSION 同值）
+    // 库版本（BCD: 0x011F00 = 1.25.0, 与 HOLOGLIB_API_VERSION 同值）
     virtual uint32_t version() = 0;
 
     // ── 1.6.0 追加（冻结契约: 只在尾部追加）──
@@ -1174,6 +1298,10 @@ public:
 
     // ── 硫磺立方体展示（1.23.0 追加, 尾部追加保持 ABI 兼容）──
     virtual ISulfurDisplay& sulfurDisplays() = 0;
+
+    // ── 客户端视图覆盖（1.25.0 追加, 尾部追加保持 ABI 兼容）──
+    // 拦截 BDS 发给玩家的原始包并改写**客户端看到的内容**（实体类型/方块/元数据）。
+    virtual IViewOverride& viewOverrides() = 0;
 };
 
 } // namespace hologramlib

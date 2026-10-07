@@ -18,6 +18,7 @@
 #include "container/ContainerMenuManager.h" // containerMenuAdapter()
 #include "trade/TradeMenuManager.h" // tradeMenuAdapter()
 #include "npcdialog/NpcDialogueManager.h" // npcDialogueAdapter()
+#include "view/ViewOverrideManager.h" // viewOverrideAdapter()
 #include "ghost/GhostInteractRouter.h"
 // 单元合并：ghost/GhostInteractRouter.cpp 并入本编译单元
 // （沙箱内无法重配置 xmake.lua 注册新源文件；脱离沙箱后可拆回 add_files("src/ghost/GhostInteractRouter.cpp")）
@@ -647,6 +648,9 @@ public:
 
     // ── 1.23.0: 硫磺立方体展示 ──
     ISulfurDisplay& sulfurDisplays() override { return debugshape_export::sulfurDisplayAdapter(); }
+
+    // ── 1.25.0: 客户端视图覆盖（协议层拦截改写）──
+    IViewOverride& viewOverrides() override { return debugshape_export::viewOverrideAdapter(); }
 
 private:
     ShapeDrawerImpl  mShapes;

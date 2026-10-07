@@ -17,10 +17,20 @@
 #include <sculk/protocol/codec/packet/IPacket.hpp>
 #include <sculk/protocol/utility/BinaryStream.hpp>
 
+#include <atomic>
+#include <cstdint>
 #include <string>
 #include <vector>
 
 namespace debugshape_export {
+
+// 回读校验失败的计数: 失败会静默丢弃（只告警, 不抛）, 静默失败最难查 —— 计数出来,
+// 由视图覆盖域带进 describeFor 的输出（见 ViewOverrideManager.cpp）。
+// 这个计数是全库共享的（所有域用同一份发送原语）。
+inline std::atomic<std::uint64_t>& sculkSendFailureCount() {
+    static std::atomic<std::uint64_t> count{0};
+    return count;
+}
 
 // 发送 sculk 构造的协议包到指定玩家（验证失败仅告警丢弃, 不抛出）
 template <typename PacketT>
@@ -33,6 +43,7 @@ void sendSculkPacketToPlayer(::Player& player, PacketT const& packet) {
     ReadOnlyBinaryStream checkStream(checkBuffer, true);
     auto                 checkPacket = MinecraftPackets::createPacket(static_cast<MinecraftPacketIds>(packet.getId()));
     if (!checkPacket || !checkPacket->read(checkStream)) {
+        sculkSendFailureCount().fetch_add(1, std::memory_order_relaxed);
         extern void logSculkPacketSendFailure(char const* name);
         logSculkPacketSendFailure(std::string(packet.getName()).c_str());
         return;

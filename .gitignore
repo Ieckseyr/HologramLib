@@ -31,3 +31,5 @@ tests/
 # 本地工具与文档(不随库发布; tests/ = 离线回归检查脚本, 需要本机抓包/编译环境)
 /架构约定.md
 /ROADMAP.md
+# 搁置的功能（不进仓库；见 shelf/player-control/README.md）
+shelf/
