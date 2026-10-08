@@ -77,18 +77,9 @@ PlayerList 现在只做包体前缀校验、不回读 BDS：发送前检查单�
     `ActorEvent` 照搬到代理（runtimeId 换成代理的，100ms 去重防重复播放）。手持物品/快捷栏持续镜像。
   - **代理落点修正**：玩家在协议层上报的 y 在**眼睛**处（Bedrock 特有）—— 代理改用碰撞箱下沿取真实脚位，
     输入包的 y 用"眼到脚"差值换算（站/潜行/游泳都对）。
-  - **操控另一名玩家（A 的输入驱动 B 的真实移动）**：`startControl(A, B, follow)` / `stopControl(A)`。
-    每 tick 取 A 输入包里的位移量施加到 B（`Actor::moveTo`, 服务端位移 —— B 自己客户端与别的玩家都看得到,
-    被操控期间 B 自身输入不生效）; `follow = true` 时把 A 的位置锁到 B 上（附身观感: 推摇杆 B 走、自己被带着走）,
-    `follow = false` 则 A 自由行走、位移量遥控 B。单拍位移 > 8 格（传送/死亡）忽略; 任一方下线自动断开。
-    LSE: `viewControl` / `viewControlStop`。
   - **两条纪律**: 出站钩子**只决定拦不拦**（放行 / 丢弃）, **从不修改引擎包字段** —— 需要"改"的一律
     丢原包 + 库**自己手写协议包**补发; **数据来源只有协议包**（入站 `PlayerAuthInput` / 出生包载荷 /
     `Animate`·`ActorEvent`），不读服务端实体状态。
-  - **不进库的东西**: 背包镜像（读玩家背包 + 开容器 + 按 tick 刷新）已摘除 —— 消费方用容器域的协议能力自己拼。
-  - LSE 导出：`viewEntity` / `viewBlock` / `viewClearEntity` / `viewClearBlock` / `viewClearAll` / `viewDescribe`,
-    自伪装一组 `viewSelf` / `viewSelfClear` / `viewSelfType` / `viewSelfSkin` / `viewSelfName` / `viewSelfHide`,
-    按 id 一组 `viewTargetType` / `viewClearId` / `viewUniqueIdOf`（`-1` = 不在线, uniqueId 本身可为负数）。
 
 - `26.40.5`（API 1.23.0）：**新增背包虚容器 `IFakeInventory` 与硫磺立方体展示 `ISulfurDisplay`**。
   - **协议层改写客户端看到的玩家背包**：一条 `InventoryContentPacket`（`ContainerId = Inventory(0)` +
