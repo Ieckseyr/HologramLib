@@ -114,7 +114,10 @@ private:
 
     std::unordered_map<int64_t, std::unique_ptr<ShapeData>> mShapes;
     int64_t  mNextId{1};
-    uint64_t mNextNetworkId{UINT64_MAX};
+    // v2168 起 NetworkId 是 uint64 varint; 种子用 UINT64_MAX 会写成 9 个字节(ff*8 01),
+    // 客户端按协议上限只读 5 字节 → 其后所有字段错位 → 客户端判定包体非法并断线(实测 1.26.40)。
+    // 取一个 4 字节量级的起始值, 往下递减同样不会与客户端自用的小 id 冲突。
+    uint64_t mNextNetworkId{0x00FFFFFF};
     std::mutex mMutex;
 
     ll::event::ListenerPtr mJoinListener{nullptr};
