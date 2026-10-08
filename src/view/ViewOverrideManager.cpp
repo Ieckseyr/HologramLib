@@ -594,6 +594,15 @@ bool ViewOverrideManager::inputSnapshotOf(std::int64_t uniqueId, InputSnapshot& 
     return false;
 }
 
+bool ViewOverrideManager::uniqueIdOfPlayer(std::string const& playerName, std::int64_t& uniqueId) const {
+    bool found = false;
+    forEachTargetPlayer(playerName, [&](::Player& p) {
+        uniqueId = p.getOrCreateUniqueID().rawID;
+        found    = true;
+    });
+    return found;
+}
+
 void ViewOverrideManager::noteAuthInput(std::string const& playerName, InputSnapshot const& snapshot) {
     // **必须打时间戳**: 驱动逻辑靠"1 秒内的新鲜输入"判断这份快照还能不能用。
     // 首版忘了这一步 → tick 恒为 0 → 每拍都判定过期 → 操控一次都没生效。

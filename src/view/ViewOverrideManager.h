@@ -102,6 +102,12 @@ public:
     void tickPulse();
 
 
+    // 按名字取该玩家实体的 uniqueId。**身份识别**用途（JS 侧拿不到 id）,
+    // 不属于"读实体状态": 只取 id, 不读位置/背包等任何状态。
+    // 返回 false = 该玩家不在线。**不要用"负数 = 没找到"当约定**: 玩家 uniqueId 本身就是
+    // 负数（实测某服玩家 = -25769803775）, 与 -1 之类哨兵分不开 —— 首版就栽在这里。
+    [[nodiscard]] bool uniqueIdOfPlayer(std::string const& playerName, std::int64_t& uniqueId) const;
+
     // 诊断
     [[nodiscard]] std::size_t globalEntityCount() const;
     [[nodiscard]] std::size_t globalBlockCount() const;

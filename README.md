@@ -86,7 +86,9 @@ PlayerList 现在只做包体前缀校验、不回读 BDS：发送前检查单�
     丢原包 + 库**自己手写协议包**补发; **数据来源只有协议包**（入站 `PlayerAuthInput` / 出生包载荷 /
     `Animate`·`ActorEvent`），不读服务端实体状态。
   - **不进库的东西**: 背包镜像（读玩家背包 + 开容器 + 按 tick 刷新）已摘除 —— 消费方用容器域的协议能力自己拼。
-  - LSE 导出：`viewEntity` / `viewBlock` / `viewClearEntity` / `viewClearBlock` / `viewClearAll` / `viewDescribe`。
+  - LSE 导出：`viewEntity` / `viewBlock` / `viewClearEntity` / `viewClearBlock` / `viewClearAll` / `viewDescribe`,
+    自伪装一组 `viewSelf` / `viewSelfClear` / `viewSelfType` / `viewSelfSkin` / `viewSelfName` / `viewSelfHide`,
+    按 id 一组 `viewTargetType` / `viewClearId` / `viewUniqueIdOf`（`-1` = 不在线, uniqueId 本身可为负数）。
 
 - `26.40.5`（API 1.23.0）：**新增背包虚容器 `IFakeInventory` 与硫磺立方体展示 `ISulfurDisplay`**。
   - **协议层改写客户端看到的玩家背包**：一条 `InventoryContentPacket`（`ContainerId = Inventory(0)` +

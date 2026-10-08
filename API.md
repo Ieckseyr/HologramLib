@@ -1191,30 +1191,64 @@ sulfurSetArchetype(id, "sticky");   // 换外观档位（不重建实体）
 
 ### 2.16 view*（客户端视图覆盖，1.25.0）
 
+只拦不发: 库拦下**本来就该发**的包, 需要改内容时丢掉原包 + 手写协议包补发; 不改引擎对象、
+不新增实体、不改服务端状态。数据只来自协议包本身（唯一例外: 玩家名字与快照, 见架构约定）。
+
 | 函数 | 签名 | 说明 |
 |------|------|------|
-| viewEntity | `(playerName: s, entityUniqueId: i, spec: s) -> b` | 覆盖该玩家看到的这只实体; `spec` 见下; 玩家名空串 = 所有玩家; false = 玩家不在线 |
+| viewEntity | `(playerName: s, entityUniqueId: i, spec: s) -> b` | 按 spec 覆盖该玩家看到的这只实体; 玩家名空串 = 所有玩家; false = 该玩家不在线 / spec 没解析出内容 |
 | viewBlock | `(playerName: s, x: i, y: i, z: i, type: s) -> b` | 把 (x,y,z) 在该玩家客户端显示成 `type` 那种方块; type 空串 = 撤销; false = 玩家不在线 / 类型名无效 |
 | viewClearEntity | `(playerName: s, entityUniqueId: i) -> b` | 撤销单个实体 |
 | viewClearBlock | `(playerName: s, x: i, y: i, z: i) -> b` | 撤销单个方块（并把真实方块推回去） |
 | viewClearAll | `(playerName: s) -> void` | 撤销该玩家（空串 = 全部玩家）的全部覆盖 |
 | viewDescribe | `(playerName: s) -> s` | 当前覆盖条数摘要, 如 `"entities=1 blocks=2"` |
-| viewControl | `(controller: s, target: s, follow: b) -> b` | 我的移动/转向驱动对方真实移动; follow = 我是否跟着一起动 |
-| viewControlStop | `(controller: s) -> b` | 停止操控 |
+| viewUniqueIdOf | `(playerName: s) -> i` | 按名字取该玩家实体的 uniqueId; **`-1` = 不在线**（脚本拿不到 id, 用这个） |
+| viewEcho | `(text: s) -> s` | 原样回显（附长度与前 16 字节十六进制）; 排查"字符串到底传进来没有" |
+
+给"自己"套覆盖（写成所有玩家都看得见, 管理员自我伪装用）:
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| viewSelf | `(playerName: s, spec: s) -> b` | 等价 `viewEntity("", viewUniqueIdOf(playerName), spec)` |
+| viewSelfClear | `(playerName: s) -> b` | 撤销自己的覆盖 |
+
+**逐字段版**（一个字段一个参数, 不用拼 spec 串; 脚本侧推荐用这一组, 免去拼串与转义）:
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| viewSelfType | `(playerName: s, type: s) -> b` | 自己变成该生物类型（玩家/生物都行） |
+| viewSelfSkin | `(playerName: s, skinOfPlayer: s) -> b` | 自己显示成另一名在线玩家的样子（借皮肤） |
+| viewSelfName | `(playerName: s, nametag: s, alwaysShow: b) -> b` | 改自己头顶名字牌 |
+| viewSelfHide | `(playerName: s, hidden: b) -> b` | 对所有人隐藏自己 |
+| viewTargetType | `(entityUniqueId: i, type: s) -> b` | 让**所有**玩家看到这只实体是该类型（不限于玩家实体; JS 侧拿不到别人 id 时的主力） |
+| viewClearId | `(entityUniqueId: i) -> b` | 撤销这只实体的覆盖（所有玩家） |
+
+**uniqueId 是负数, 判在线只认 -1**:
+
+> 实体 uniqueId 是 int64, 玩家与部分实体本身**就是负数**（实测某服玩家 = `-25769803775` = `-0x5FFFFFFFF`）。
+> 所以判"在不在线"必须写 `viewUniqueIdOf(name) === -1`（`-1` 是库对外的"不在线"约定, 也是 BDS 的
+> INVALID 常量, 真实在线实体不会是它）, **不要写 `< 0`** —— 1.25.0 首版内部就用 `-1` 当哨兵, 玩家明明
+> 在线也直接返回 false, 而 C++ 结构体直传那条路不经过这个判断, 于是只有脚本侧翻车。
+>
+> LSE 的 `Entity` 对象上: `.id` 是**运行时 id**（不同东西）, 取唯一 id 要用 `.uniqueId`（**字符串**,
+> 因为 int64 可能超出 JS 精确整数范围）, 用 `Number(e.uniqueId)` 转换。
 
 `spec` 串（分号分隔，每项 `键=值`，键不分大小写；值两边的空白会被去掉）：
 
 | 键 | 值 | 说明 |
 |----|----|------|
-| `type` | 实体类型名 | 换类型（`cow` 自动补成 `minecraft:cow`）；玩家实体不支持 |
+| `type` | 实体类型名 | 换类型（`cow` 自动补成 `minecraft:cow`）; 对玩家实体 = 给他造代理生物（同一个 runtimeId/uniqueId） |
+| `as` | 在线玩家名 | 换成那名玩家的样子（皮肤走原版皮肤更新那条路, 只对玩家实体有效） |
 | `hidden` | `1` / `true` / `yes` / `on` | 对该玩家隐藏这只实体（阻断它的出生与更新包） |
 | `name` | 名字牌文字 | 出现 `name` 才改名字牌；值给空串 = 清空名字 |
-| `always` | `1` / `true` / `yes` / `on` | 名字牌一直显示 |
+| `always` | `1` / `true` / `yes` / `on` | 名字牌一直显示（协议值本身是反的, 库内已处理） |
 
 ```js
 const viewEntity  = ll.import("HologramLib", "viewEntity");
 const viewBlock   = ll.import("HologramLib", "viewBlock");
 const viewClearAll = ll.import("HologramLib", "viewClearAll");
+const viewSelfType = ll.import("HologramLib", "viewSelfType");
+const viewUniqueIdOf = ll.import("HologramLib", "viewUniqueIdOf");
 
 // Steve 看到的这只僵尸变成一头牛, 名字牌"§c奶牛"并常显
 viewEntity("Steve", 12345, "type=minecraft:cow;name=§c奶牛;always=1");
@@ -1222,6 +1256,11 @@ viewEntity("Steve", 12345, "type=minecraft:cow;name=§c奶牛;always=1");
 viewEntity("Steve", 12345, "hidden=1");
 // Steve 客户端的 (100,64,100) 显示成钻石块
 viewBlock("Steve", 100, 64, 100, "minecraft:diamond_block");
+// 自己变成僵尸（所有人可见）, 再卸下
+viewSelfType("Steve", "minecraft:zombie");
+// 判在线: 只认 -1（uniqueId 本身是负数, 别写 < 0）
+const id = viewUniqueIdOf("Alex");
+if (id !== -1) viewEntity("", id, "type=minecraft:cow");
 viewClearAll("Steve");   // 收工
 ```
 
