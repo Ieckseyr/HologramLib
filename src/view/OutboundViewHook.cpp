@@ -211,12 +211,15 @@ LL_TYPE_INSTANCE_HOOK(
     auto const& rawPos  = unwrap(payload.mPos);
     auto const& rawRot  = unwrap(payload.mRot);
 
-    // bitset<66> → 低 64 位。不用 to_ullong(): 高位(64/65)置位时它会抛。
+    // 输入位 → 低 64 位掩码。26.51: mInputData 由 std::bitset<66> 换成 Bedrock::EnumSet<InputData, 66>
+    // （没有 operator[]），改用 contains() 逐位查询 —— 枚举值从 0 起连续且与线上位序一致，等价。
     std::uint64_t bits = 0;
     {
         auto const& bs = unwrap(payload.mInputData);
         for (int i = 0; i < 64; ++i) {
-            if (bs[static_cast<std::size_t>(i)]) bits |= (std::uint64_t(1) << i);
+            if (bs.contains(static_cast<::PlayerAuthInputPacketPayload::InputData>(i))) {
+                bits |= (std::uint64_t(1) << i);
+            }
         }
     }
 
