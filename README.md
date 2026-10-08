@@ -86,7 +86,9 @@ PlayerList 现在只做包体前缀校验、不回读 BDS：发送前检查单�
     丢原包 + 库**自己手写协议包**补发; **数据来源只有协议包**（入站 `PlayerAuthInput` / 出生包载荷 /
     `Animate`·`ActorEvent`），不读服务端实体状态。
   - **不进库的东西**: 背包镜像（读玩家背包 + 开容器 + 按 tick 刷新）已摘除 —— 消费方用容器域的协议能力自己拼。
-  - LSE 导出：`viewEntity` / `viewBlock` / `viewClearEntity` / `viewClearBlock` / `viewClearAll` / `viewDescribe`。
+  - LSE 导出：`viewEntity` / `viewBlock` / `viewClearEntity` / `viewClearBlock` / `viewClearAll` / `viewDescribe`,
+    自伪装一组 `viewSelf` / `viewSelfClear` / `viewSelfType` / `viewSelfSkin` / `viewSelfName` / `viewSelfHide`,
+    按 id 一组 `viewTargetType` / `viewClearId` / `viewUniqueIdOf`（`-1` = 不在线, uniqueId 本身可为负数）。
 
 - `26.51.1`（API 1.24.0）：**交易菜单新增"纯协议层真结算"（`TradeMenuSpec::settleLocally`，默认关）**。界面仍是自建 `UpdateTrade`（服务端**不放**交易表），置 `settleLocally = true` 后库接住客户端的付费放置 / 取回 / 成交请求并自己落地：真的从玩家背包扣付费、真的把产物写进背包，关界面 / 掉线 / 成交失败时把暂存的付费退还；光标上"点一下拿起"的物品也由库托管。结果走 `TradeSettlementEvent`（C++ 监听器 / LSE `tradePollSettlements`）回传。判定逻辑独立在 `src/trade/TradeSettlementLogic.h`（不碰 BDS 类型），`tests/check-trade-settlement.bat` 离线自检 43 项。
   - **已知限制（实测，未打通）**：客户端要求服务端在物品应答里回带交易槽的**槽位更正**（按客户端分配的物品网络 id），而该段在本协议版本与协议库 `sculk` 的线格式不一致（协议库多写一个字符串字段、`DurabilityCorrection` 按 varint 写，客户端要定长 `short`）—— 手写会直接把客户端打崩（已踩过）。放料虽然被服务端受理（扣款 / 暂存 / 退还都是真的），客户端界面仍可能把它撤回（表现为"放进槽又弹回"、成交点不动）。**要稳定成交请用 `usePacketOffers = false`（真实交易表，BDS 结算）或容器 UI（`IContainerMenu`）。**

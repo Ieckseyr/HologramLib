@@ -21,6 +21,7 @@
 #include "lse/LseBridge.h"
 
 #include <algorithm>
+#include <format>
 #include <cctype>
 #include <string>
 
@@ -86,6 +87,16 @@ hologramlib::EntityView parseEntitySpec(std::string const& spec) {
 
 } // namespace
 
+// 玩家名 → 实体 uniqueId。**不在线统一返回 -1 只作为对 JS 的约定**（-1 是 BDS 的
+// INVALID 常量, 真实在线玩家不会是它）; 库内部一律走返回值判断, 不做"负数 = 没找到"。
+//
+// 这一条是实测踩出来的: 玩家 uniqueId 本身是负数（某服玩家 = -25769803775 = -0x5FFFFFFFF）,
+// 首版用 `id < 0` 当"没找到" → 玩家明明在线却直接返回 false, C++ 结构体直传那条路不经过
+// 这个判断, 所以只有 LSE 字符串那条路翻车。
+static bool playerIdOf(std::string const& playerName, std::int64_t& uniqueId) {
+    return view::ViewOverrideManager::getInstance().uniqueIdOfPlayer(playerName, uniqueId);
+}
+
 void ViewOverrideExporter::exportAll() {
     auto& manager = view::ViewOverrideManager::getInstance();
 
@@ -122,6 +133,86 @@ void ViewOverrideExporter::exportAll() {
     hologramlib::lse::exportAs(NAMESPACE, "viewClearAll",
         [&manager](std::string const& playerName) -> void {
             manager.clearAll(playerName);
+        });
+
+    // 按名字取该玩家实体的 uniqueId（-1 = 不在线）—— JS 侧拿不到 id, 用这个
+    hologramlib::lse::exportAs(NAMESPACE, "viewUniqueIdOf",
+        [](std::string const& playerName) -> int64_t {
+            std::int64_t id = 0;
+            if (!playerIdOf(playerName, id)) return -1; // 不在线（-1 只作为对 JS 的约定）
+            return id;
+        });
+
+    // 给"自己"套覆盖（对所有玩家生效; spec 同 viewEntity）—— 管理员自我伪装用
+    hologramlib::lse::exportAs(NAMESPACE, "viewSelf",
+        [&manager](std::string const& playerName, std::string const& spec) -> bool {
+            std::int64_t id = 0;
+            if (!playerIdOf(playerName, id)) return false;
+            return manager.overrideEntity({}, id, parseEntitySpec(spec)); // 空玩家名 = 所有玩家都看得见
+        });
+    hologramlib::lse::exportAs(NAMESPACE, "viewSelfClear",
+        [](std::string const& playerName) -> bool {
+            std::int64_t id = 0;
+            if (!playerIdOf(playerName, id)) return false;
+            return view::ViewOverrideManager::getInstance().clearEntity({}, id);
+        });
+
+    // 逐字段版本（不解析 spec 字符串）—— JS 侧专用, 绕开"字符串 spec 解析"这条路。
+    // 每个函数只收一个字段, 与 C++ 结构体直传等价: 类型 / 皮肤 / 隐藏 / 名字牌 / 给别人 / 撤销。
+    hologramlib::lse::exportAs(NAMESPACE, "viewSelfType",
+        [&manager](std::string const& playerName, std::string const& type) -> bool {
+            std::int64_t id = 0;
+            if (!playerIdOf(playerName, id)) return false;
+            hologramlib::EntityView view;
+            view.identifier = type;
+            return manager.overrideEntity({}, id, view);
+        });
+    hologramlib::lse::exportAs(NAMESPACE, "viewSelfSkin",
+        [&manager](std::string const& playerName, std::string const& skinOfPlayer) -> bool {
+            std::int64_t id = 0;
+            if (!playerIdOf(playerName, id)) return false;
+            hologramlib::EntityView view;
+            view.asPlayer = skinOfPlayer;
+            return manager.overrideEntity({}, id, view);
+        });
+    hologramlib::lse::exportAs(NAMESPACE, "viewSelfName",
+        [&manager](std::string const& playerName, std::string const& nametag, bool alwaysShow) -> bool {
+            std::int64_t id = 0;
+            if (!playerIdOf(playerName, id)) return false;
+            hologramlib::EntityView view;
+            view.hasNametag        = true;
+            view.nametag           = nametag;
+            view.nametagAlwaysShow = alwaysShow;
+            return manager.overrideEntity({}, id, view);
+        });
+    hologramlib::lse::exportAs(NAMESPACE, "viewSelfHide",
+        [&manager](std::string const& playerName, bool hidden) -> bool {
+            std::int64_t id = 0;
+            if (!playerIdOf(playerName, id)) return false;
+            hologramlib::EntityView view;
+            view.hidden = hidden;
+            return manager.overrideEntity({}, id, view);
+        });
+    hologramlib::lse::exportAs(NAMESPACE, "viewTargetType",
+        [&manager](std::int64_t uniqueId, std::string const& type) -> bool {
+            hologramlib::EntityView view;
+            view.identifier = type;
+            return manager.overrideEntity({}, uniqueId, view); // 空玩家名 = 所有玩家
+        });
+    hologramlib::lse::exportAs(NAMESPACE, "viewClearId",
+        [](std::int64_t uniqueId) -> bool {
+            return view::ViewOverrideManager::getInstance().clearEntity({}, uniqueId);
+        });
+
+    // 诊断: 把收到的字符串原样回传（带上长度与每个字节的十六进制前 16 个）——
+    // 用来判断 LSE 传进来的字符串有没有被串码/截断（spec 解析失败时先看它）。
+    hologramlib::lse::exportAs(NAMESPACE, "viewEcho",
+        [](std::string const& text) -> std::string {
+            std::string hex;
+            for (std::size_t i = 0; i < text.size() && i < 16; ++i) {
+                hex += std::format("{:02x}", static_cast<unsigned char>(text[i]));
+            }
+            return std::format("len={} hex={} text=[{}]", text.size(), hex, text);
         });
 
     hologramlib::lse::exportAs(NAMESPACE, "viewDescribe",
