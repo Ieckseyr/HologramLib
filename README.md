@@ -36,6 +36,7 @@ PlayerList 现在只做包体前缀校验、不回读 BDS：发送前检查单�
 ## 更新日志
 
 - `26.40.9`（API 1.27.0）：**`EntityView::skinId`（+ `scale` / `yOffset`）—— 非玩家实体"换成我们的模型"**（拦下的出生包 + 库自己的包替换, **同一个 runtimeId/uniqueId**）: 客户端看到已注册皮肤（可自定义几何）的玩家模型, 服务端那边还是那只生物 —— **点它/打它/瞄准都是它本人**。配套吃掉该实体的 `MoveActor*`(18/111) 并每 tick 用 `MoveActorAbsolute` 推位置/朝向、`PlayerList` 条目 20 tick 后摘掉、撤销时重发真实出生包；`scale` 等比碰撞箱（元数据 53/54）、`yOffset` 把模型原点对齐到脚位。消费方示例: MSkinventory 的"同 id 换皮"。
+  - **（批次内追加，未发布）修复：NPC 对话框的头像载体换成玩家模型时不显示**。`avatarViewSpec` 的 `skin=` 分支此前沿用 NPC 载体的**负巨值 id 段**（-8.5e11）—— 实测（MeowMenu 头像演示：僵尸/鸡正常、玩家皮肤/模型空白）player 实体在这个 id 段上客户端建不出 actor。现改为**正段**（uniqueId `0x1F610000`、runtimeId `0x6F200000` 起, 与 playernpc 的"客户端能稳定处理的量级"约定一致并错开一档防撞 id）；同时修正载体生成的实际 id **必须回传**给对话（`sendCarrierSpawn` 返回实际使用的一对 id —— 否则对话包的 `mNpcId` 指向不存在的实体, 头像直接空白）。**ABI 不变**（无虚表/结构体改动, 消费方无需重编译）。
   - **真实实体交互事件**：`addActorInteractListener` / `removeActorInteractListener`（类尾追加）—— 玩家右键 / 攻击**服务端真实实体**时回调；复用库已有的收包钩子（不新增 detour 层），多播互不覆盖，返回 token 用于移除。
   - **ABI 布局戳**：头文件携带虚表布局描述符 + 消费方编译期自检（库侧运行期拦截"布局不一致的消费方"）—— 把 2026-10-09 / 10-10 两次"中段挪槽"启动崩溃固化成机制；详见 [VERSION-HISTORY.md](VERSION-HISTORY.md)「ABI 事故（明记）」。
   - LSE：`viewEntity` 的 spec 串新增 **`skin=<皮肤id>`**（等价 `EntityView::skinId`；皮肤取自 `IPlayerNpc` 注册表）。

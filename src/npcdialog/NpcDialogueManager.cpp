@@ -150,10 +150,21 @@ bool sendPacket(Player& player, PacketT const& packet) {
     return true;
 }
 
+// 玩家模型载体（对话框头像换成自定义皮肤）的 id 段:
+//   **正段**, 与 playernpc 的实测约定一致（fake player 的 uniqueId 从 0x1F600000 起,
+//   runtimeId 走 0x6F 段 —— "客户端能稳定处理的量级"）; 这里各错开一档, 避免与 playernpc
+//   的活体 NPC 撞 id（同一个进程里两张表, 撞了就是"两只实体共用一个 id"）。
+std::atomic<std::uint64_t> gNextPlayerModelUid{0x1F610000ULL};
+std::atomic<std::uint64_t> gNextPlayerModelRid{0x6F200000ULL};
+
 // 合成载体 NPC 的生成包（纯协议实体, 不进 BDS 实体系统 —— BDS 侧没有它, 所以 NpcRequest 钩子恒调 origin）。
 // 包结构见 NpcCarrierPacket.h（离线对拍: tests/check-npc-carrier.py）。
 // 位置 = 玩家身后 5 格 + 世界下方 y=kCarrierY: 客户端看不到实体本身, 但界面里的头像照常渲染。
-void sendCarrierSpawn(
+//
+// 返回**实际使用**的 (uniqueId, runtimeId): 常规载体就是传入的那一对; 玩家模型载体自己分配
+// （见下方 skin 分支）。调用方（ensureCarrier / open）必须用返回值 ——否则对话包的 mNpcId
+// 会指向一只不存在的实体, 头像直接空白。
+std::pair<std::uint64_t, std::uint64_t> sendCarrierSpawn(
     Player&                            player,
     std::uint64_t                      uniqueId,
     std::uint64_t                      runtimeId,
@@ -195,13 +206,19 @@ void sendCarrierSpawn(
         if (!NpcSkinRegistry::getInstance().getSkin(skinId, skin)) {
             HLIB_LOG_ERROR("[NpcDialog] avatarViewSpec 的皮肤未注册, 回退默认 NPC 载体: {}", skinId);
         } else {
-            auto const id = static_cast<std::int64_t>(uniqueId);
-            npc_protocol::spawnPlayerList(player, id, uniqueId, title, skin);
+            // 玩家模型载体用**自己的正段 id**（见文件上方计数器注释）:
+            // 之前沿用 NPC 载体的负巨值（-8.5e11）—— 实测 player 实体在这个 id 段上客户端建不出
+            // actor, 对话框头像空白（僵尸/鸡这类 NPC 家族载体则正常）。对齐 playernpc 的约定后修正。
+            auto const skinUid = gNextPlayerModelUid.fetch_add(1);
+            auto const skinRid = gNextPlayerModelRid.fetch_add(1);
+            auto const id      = static_cast<std::int64_t>(skinUid);
+
+            npc_protocol::spawnPlayerList(player, id, skinUid, title, skin);
             npc_protocol::spawnPlayerBody(
                 player,
                 id,
-                runtimeId,
-                uniqueId,
+                skinRid,
+                skinUid,
                 ::Vec3{position.mX, position.mY, position.mZ}, // sculk Vec3(mX..) → 全局 mc Vec3(x..)
                 yaw,
                 title,
@@ -218,8 +235,14 @@ void sendCarrierSpawn(
                 },
                 std::chrono::milliseconds(1000)
             );
-            HLIB_LOG_INFO("[NpcDialog] 玩家模型载体: player={} skin={}", playerNameCopy, skinId);
-            return;
+            HLIB_LOG_INFO(
+                "[NpcDialog] 玩家模型载体: player={} skin={} uid={:#x} rid={:#x}",
+                playerNameCopy,
+                skinId,
+                skinUid,
+                skinRid
+            );
+            return {skinUid, skinRid};
         }
     }
 
@@ -236,6 +259,7 @@ void sendCarrierSpawn(
             spec.avatarSkinVariant
         )
     );
+    return {uniqueId, runtimeId};
 }
 
 } // namespace
@@ -282,14 +306,20 @@ std::uint64_t NpcDialogueManager::ensureCarrier(
 
     auto const uid = nextCarrierUniqueId();
     auto const rid = nextCarrierRuntimeId();
-    sendCarrierSpawn(player, uid, rid, spec, actionJson);
+    // 实际 id 以返回值为准: 玩家模型载体自己分配正段 id（对话包的 mNpcId 必须指向它）
+    auto const actual = sendCarrierSpawn(player, uid, rid, spec, actionJson);
 
     {
         std::lock_guard lock(mMutex);
-        mCarriers[playerName] = Carrier{uid, rid};
+        mCarriers[playerName] = Carrier{actual.first, actual.second};
     }
-    HLIB_LOG_INFO("[NpcDialog] 载体已生成: player={} uid={} rid={} (合成 NPC, y=-66)", playerName, uid, rid);
-    return uid;
+    HLIB_LOG_INFO(
+        "[NpcDialog] 载体已生成: player={} uid={} rid={} (合成载体, y=-66)",
+        playerName,
+        actual.first,
+        actual.second
+    );
+    return actual.first;
 }
 
 void NpcDialogueManager::sendDialog(Player& player, Dialog const& dialog, bool open) {
