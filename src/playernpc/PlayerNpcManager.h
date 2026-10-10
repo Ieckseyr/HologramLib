@@ -11,6 +11,8 @@
 #include <cstdint>
 #include <mutex>
 #include <string>
+#include <functional>
+#include <map>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -87,6 +89,27 @@ public:
     bool clearPlayerRotation(int64_t id, std::string const& playerName);
     bool clearPlayerRotations(int64_t id);
 
+    // ── 1.26.0 追加: 轻量位置更新 + 玩家皮肤注入 ──
+    // 只发 MoveActorAbsolute（与 setRotationLight 同一轻脏通道, 同 tick 合并）
+    // dim 与当前不同返回 false（跨维度走 setPosition 重建）
+    bool setPositionLight(int64_t id, float x, float y, float z, int dim);
+    // 皮肤注入: viewerName 空 = 全体在线玩家（含本人）; targetName = 在线玩家 realName
+    bool injectSkin(std::string const& viewerName, std::string const& targetName, std::string const& skinId);
+    bool injectSkinAll(std::string const& targetName, std::string const& skinId);
+
+    // ── 1.26.0: 动画（AnimateEntityPacket; 队列 +2 tick 发出, 与 customentity 域同节奏）──
+    bool playAnimation(int64_t id, std::string const& animation, std::string const& stopExpression, int durationTicks);
+    bool playAnimationTo(
+        int64_t id,
+        std::string const& playerName,
+        std::string const& animation,
+        std::string const& stopExpression,
+        int durationTicks
+    );
+    void setEntitySpawnCallback(std::function<void(int64_t, std::string const&)> callback);
+    // 出生完成通知（内部: 可见性同步里调用; 公开是为了不依赖后置定义的 TickHookAccess）
+    void notifySpawn(int64_t id, std::string const& playerName) const;
+
 private:
     PlayerNpcManager()  = default;
     ~PlayerNpcManager() = default;
@@ -114,6 +137,7 @@ private:
     void    refreshLightLocked(int64_t id);      // 轻脏: 只发 MoveActorAbsolute（朝向/坐标增量）
     void    syncVisibilityLocked();              // 可见性重算（含滞回）
     void    processDirtyLocked();                 // tick 内合并脏刷新
+    void    flushAnimsLocked();                   // 到期的动画包发出（AnimateEntityPacket）
     int64_t createLocked(PlayerNpcConfig const& config, int64_t id);
     bool    skinReferencedLocked(std::string const& skinId) const; // 是否有 NPC 在用
 
@@ -128,6 +152,18 @@ private:
     std::unordered_map<int64_t, std::vector<TabRemoval>>        mTabRemovals;
     std::unordered_map<int64_t, std::unordered_set<std::string>> mVisibleFilter;
     std::unordered_set<std::string>                              mWarnedMissingSkins; // 皮肤缺失告警去重
+
+    // 动画队列: dueTick → 条目（与 customentity 域同构）
+    struct AnimEntry {
+        mce::UUID     playerUuid;
+        std::uint64_t runtimeId{0};
+        int64_t       npcId{0};
+        std::string   animation;
+        std::string   controller;
+        std::string   stopExpression;
+    };
+    std::multimap<std::uint64_t, AnimEntry>                mAnimQueue;
+    std::function<void(int64_t, std::string const&)>       mSpawnCallback;
 
     // Actor ID 段：
     //   actorUniqueId 取 0x1F600000 起（约 5 亿）：客户端能稳定处理的量级

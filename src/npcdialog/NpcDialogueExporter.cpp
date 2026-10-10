@@ -113,6 +113,17 @@ void NpcDialogueExporter::exportAll() {
             return mgr.update(id, spec);
         });
 
+    // npcDialogSetAvatar(id, skinVariant, avatarViewSpec) -> bool（26.40.8）
+    //   聊天框内显示的头像/模型: NPC 内置皮肤变体（0..59, -1 = 默认 = 不加 SkinId 项）+
+    //   叠加一层 IViewOverride（spec 语法同 viewEntity, 如 "name=§6酒保;always=1"）。
+    //   就地更新并重开该对话（0 闪烁路径）; false = 该对话已不在。
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "npcDialogSetAvatar",
+        [&mgr](int64_t id, int skinVariant, std::string const& avatarViewSpec) -> bool {
+            return mgr.setAvatar(id, skinVariant, avatarViewSpec);
+        });
+
     // npcDialogClose(id) -> bool
     hologramlib::lse::exportAs(
         NAMESPACE, "npcDialogClose", [&mgr](int64_t id) -> bool { return mgr.close(id); });

@@ -19,6 +19,9 @@ inline constexpr int kRemoveActor       = 14;
 inline constexpr int kUpdateBlock       = 21;
 inline constexpr int kSetActorData      = 39;
 inline constexpr int kMovePlayer       = 19; // 玩家专属位移包（被替换成生物的玩家, 这条要吃掉）
+inline constexpr int kMoveAbsoluteActor = 18; // 生物位移/朝向（换成我们的模型后这些包对该观看者吃掉, 改由库推）
+inline constexpr int kMoveDeltaActor    = 111; // 生物小位移增量（同上）
+inline constexpr int kSetActorMotion    = 40;  // 击退/速度（换成玩家模型后不能让它带走 —— 客户端会按物理把它摔下去）
 inline constexpr int kLevelChunk        = 58;
 inline constexpr int kUpdateBlockSynced = 110;
 
@@ -80,6 +83,32 @@ inline MetaPlan metaPlanOf(bool hasNametag, std::string_view nametag, bool namet
     plan.setAlwaysShow  = true;
     plan.alwaysShow     = nametagAlwaysShow;
     return plan;
+}
+
+// ── "这一条视图改了什么" ──
+// 五项全空 = 撤销。**每一项都必须算进来**: 早期版本漏了 asPlayer, 结果"伪装成某个玩家"被当成撤销
+// （清掉旧覆盖还报失败; 2026-10-09 实测）。往后加字段时先改这里。
+inline constexpr bool viewHasEffect(
+    bool hasIdentifier,
+    bool hasAsPlayer,
+    bool hasSkin,
+    bool hasHidden,
+    bool hasNametag
+) {
+    return hasIdentifier || hasAsPlayer || hasSkin || hasHidden || hasNametag;
+}
+
+// 前后空白去掉（皮肤 id / 类型名这类从脚本传来的字符串先洗一遍）
+inline std::string trimText(std::string_view raw) {
+    // 用十六进制转义: 空白字符别写字面量（复制粘贴/编码转换很容易把字面量弄坏）
+    auto const isSpace = [](char c) {
+        return c == ' ' || c == '\x09' || c == '\x0D' || c == '\x0A';
+    };
+    std::size_t begin = 0;
+    std::size_t end   = raw.size();
+    while (begin < end && isSpace(raw[begin])) ++begin;
+    while (end > begin && isSpace(raw[end - 1])) --end;
+    return std::string{raw.substr(begin, end - begin)};
 }
 
 // ── 类型名清洗 ──

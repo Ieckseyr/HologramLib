@@ -1,16 +1,17 @@
-// ViewOverrideManager.h - 客户端视图覆盖: 覆盖表 + 包改写（协议层拦截, 1.25.0）
+// ViewOverrideManager.h - 客户端视图覆盖: 覆盖表 + 出站拦截判定（协议层, 1.25.0）
 //
-// 挂钩点在 OutboundViewHook.cpp（LoopbackPacketSender 的按玩家发包函数）。这里只做两件事:
+// 挂钩点在 OutboundViewHook.cpp（NetworkSystem::send / sendToMultiple + Level::tick 心跳）。
+// 这里只做两件事:
 //   1. 存"某玩家该看到什么"（覆盖表: 按玩家 + 一份全局的）
-//   2. 给它一条出站包, 决定改哪些字段（能原包改的就原包改, 改不了的交 runPostActions 补发）
+//   2. 给它一条出站包, **只决定放行 / 丢弃** —— 从不修改包内容; 需要"改"的一律由
+//      库自己手写协议包补发（runPostActions / ViewPackets.h）
 //
 // 设计要点:
 //   · **零开销快路径**: 全库没有任何覆盖时 (active() == false), 钩子里一条分支就走完, 不读包
 //   · **命中才碰包**: 目标玩家没有覆盖时 applyToOutbound 立刻返回 false, 一个字段都不读
-//   · **只改字段不拼字节**: 所有包仍由 BDS 自己序列化 —— 我们只改载荷里的值
-//   · **幂等**: 同一条包可能经过多条发包路径, 覆盖要能被重复套用而不出错
-//   · **可还原**: 广播时同一条包要发给多个玩家, 逐收件人改完必须放回原值（restoreOutbound）,
-//     否则后一个收件人会看到前一个的覆盖
+//   · **只拦不发**: 读包只为识别实体/方块身份, 不做任何字段改写 —— 补发内容完全由库自控
+//   · **幂等**: 同一条包可能经过多条发包路径, 判定要能被重复套用而不出错
+//   · **多收件人隔离**: 广播展开成逐收件人, 让放行/丢弃逐人生效（不改字段 ⇒ 无需还原原值）
 #pragma once
 
 #include "ViewOverrideLogic.h"
@@ -71,7 +72,7 @@ public:
     };
 
     // 命中才碰包; 返回 false = 这名玩家没有任何覆盖（一个字段都没读）
-    bool applyToOutbound(::Player& target, ::Packet& packet, Applied& applied);
+    bool applyToOutbound(::Player& target, ::Packet const& packet, Applied& applied);
     // 原包已经发出去之后调用: 补发需要补的方块
     void runPostActions(::Player& target, Applied const& applied);
 
@@ -92,8 +93,16 @@ public:
     };
     // 收到 A 的 PlayerAuthInput 时更新（输入操作 → 代理）
     void noteAuthInput(std::string const& playerName, InputSnapshot const& snapshot);
+    // 被替换成生物的玩家: **位移推送**（他的 MovePlayer 对观看者已被吃掉, 位置改由这里推）。
+    // 每次收到他的输入包时调; 跳过本人（自己的客户端不参与自己实体的覆盖）。
+    void pushSubstitutedMovement(::Player& player, InputSnapshot const& snapshot);
     // 按 uniqueId 取快照（替换成生物的玩家用; 不依赖"见过他的出生包"）
     [[nodiscard]] bool inputSnapshotOf(std::int64_t uniqueId, InputSnapshot& out) const;
+
+    // Tab 条目延迟清理: PlayerList(Add) 之后 ~20 tick 把条目移除（实体保留 —— PlayerNpc 域同款时序;
+    // 不移除的话玩家列表里会一直挂着一个假名字）。同 (玩家, 实体) 只排一次, 幂等。
+    void scheduleTabRemoval(std::string const& playerName, std::int64_t uniqueId);
+    void flushTabRemovals();
 
     // 心跳（服务器每 tick 调一次）: 实体"重新进入视野" / 玩家换区块时把覆盖重新推一遍。
     // 为什么需要它: 实体出生包不走按玩家发包函数（实测), 所以"走出视野再回来"客户端会重新
@@ -105,7 +114,7 @@ public:
     // 按名字取该玩家实体的 uniqueId。**身份识别**用途（JS 侧拿不到 id）,
     // 不属于"读实体状态": 只取 id, 不读位置/背包等任何状态。
     // 返回 false = 该玩家不在线。**不要用"负数 = 没找到"当约定**: 玩家 uniqueId 本身就是
-    // 负数（实测某服玩家 = -25769803775）, 与 -1 之类哨兵分不开 —— 首版就栽在这里。
+    // 负数（实测玩家 uniqueId = -25769803775）, 与 -1 之类哨兵分不开 —— 首版就栽在这里。
     [[nodiscard]] bool uniqueIdOfPlayer(std::string const& playerName, std::int64_t& uniqueId) const;
 
     // 诊断
@@ -154,11 +163,17 @@ private:
 
     // 心跳用的每玩家状态（"上次看到它在视野里吗" / "上次在哪个区块"）
     struct PulseState {
+        // 换成"我们的模型"的实体: 上次推给这名玩家的位置/朝向（没变就不推 —— 静止生物零流量）
+        struct SkinnedPush {
+            float x{0}, y{0}, z{0}, yaw{0};
+            bool  valid{false};
+        };
         std::uint32_t                                    ticks{0};   // 进服后的心跳拍数（宽限期用）
         int                                              chunkX{0};
         int                                              chunkZ{0};
         bool                                             hasChunk{false};
         std::unordered_map<std::int64_t, bool>           visible;   // uniqueId → 上一拍在不在视野
+        std::unordered_map<std::int64_t, SkinnedPush>    pushed;    // uniqueId → 上次推的位置/朝向
     };
 
     // 下列 Locked 结尾的都在持锁状态下调用
@@ -169,6 +184,8 @@ private:
     EntityRecord* findEntityByRuntimeLocked(std::string const& playerName, std::uint64_t runtimeId);
     BlockRecord*  findBlockLocked(std::string const& playerName, std::int64_t posKey);
     void          refreshActiveLocked();
+    // 与 inputSnapshotOf 同语义, 只是不再加锁 —— 持锁上下文（如 applyToOutbound）必须走这条
+    [[nodiscard]] bool inputSnapshotOfLocked(std::int64_t uniqueId, InputSnapshot& out) const;
 
 
     // 表操作（不持锁）: 设/撤覆盖之后要补发的包在这里发
@@ -196,6 +213,8 @@ private:
     );
 
     mutable std::mutex                     mMutex;
+    // (到期 tick, (玩家名, uniqueId)) —— 只有换皮肤的实体用它做 Tab 清理
+    std::vector<std::pair<std::uint64_t, std::pair<std::string, std::int64_t>>> mPendingTabRemoval;
     Table                                  mGlobal;    // 对所有玩家生效的那一份
     std::unordered_map<std::string, Table> mPlayers;
     std::unordered_map<std::string, PulseState>    mPulse;  // 心跳状态（按玩家名）
@@ -212,6 +231,7 @@ private:
     std::atomic<std::uint64_t> mBlockSeen{0};
     std::atomic<std::uint64_t> mChunkSeen{0};
     std::atomic<std::uint64_t> mControlSteps{0}; // 操控驱动的实际推动次数（诊断）
+    std::atomic<std::uint64_t> mSkinnedSpawn{0}; // "换成我们的模型"实际发出的包数（诊断）
 };
 
 // 注册"玩家下线清运行时 id 索引"的监听（事件总线一次; 重复调用无副作用）

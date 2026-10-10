@@ -1,6 +1,6 @@
 add_rules("mode.debug", "mode.release")
 
--- 【临时】release 也产 PDB: 崩溃栈符号化用（排查完可移除）
+-- release 产 PDB（部署链已含 PDB; 崩溃栈符号化必需）
 if is_mode("release") then
     add_cxflags("/Zi", "/FS", {force = true})
     add_ldflags("/DEBUG:FULL", {force = true})
@@ -126,6 +126,7 @@ target("HologramLib")
     add_headerfiles("src/playernpc/PlayerNpcManager.h")
     add_headerfiles("src/playernpc/PlayerNpcExporter.h")
     add_files("src/PacketDebugRenderer.cpp")
+    add_files("src/AbiGuard.cpp")
     add_files("src/RemoteCallExporter.cpp")
     add_files("src/ModEntry.cpp")
     add_files("src/ProtocolPackets.cpp")
@@ -165,7 +166,7 @@ target("HologramLib")
     add_files("src/view/ViewOverrideExporter.cpp")
     add_files("src/HologramLibImpl.cpp")
     add_includedirs("src", "include")
-    set_symbols("debug") -- 【临时】崩溃栈符号化; 原值 hidden
+    set_symbols("debug") -- 崩溃栈符号化（部署链已含 PDB; 原值 hidden）
     add_ldflags("/OPT:REF", "/OPT:ICF")
 
     if is_config("target_type", "server") then

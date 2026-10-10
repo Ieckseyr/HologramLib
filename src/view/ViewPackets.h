@@ -11,12 +11,15 @@
 
 #include "SculkPacketSend.h"
 
+#include "DiagLog.h"
+
 #include "ViewOverrideLogic.h"
 
 #include "hologramlib/HologramLib.h"
 #include "playernpc/NpcProtocol.h"     // playerListEntry / sendToPlayer（原版皮肤更新同款）
 #include "playernpc/NpcSkinRegistry.h" // 采集/注册表（finalizeSkin 已处理 2168 的 Id/FullId）
 
+#include <atomic>
 #include <cstdint>
 #include <string>
 
@@ -245,6 +248,96 @@ inline void sendMoveActorAbsolute(::Player& viewer, std::uint64_t runtimeId, flo
     packet.mRotationY      = npc_protocol::rotationByte(yaw);
     packet.mRotationYHead  = npc_protocol::rotationByte(headYaw);
     sendSculkPacketToPlayer(viewer, packet);
+}
+
+// 诊断计数（describeFor 会读）
+inline std::atomic<std::uint64_t> mSkinnedSpawnCounter{0};
+
+// ── 换成"我们的模型"（1.27.0）: 非玩家实体 → 玩家模型 + 已注册皮肤, **同一个 runtimeId/uniqueId** ──
+// 复用的是 PlayerNpc 域那套**线上验证过能渲染**的包与原语（PlayerList(Add) 携带皮肤 → AddPlayer）,
+// 只把 id 换成真身的 id —— 所以服务端后续的位置/状态包仍然作用在同一只实体上, 攻击也仍然结算在真身上。
+// 返回 false = 皮肤没注册 / 发包失败（调用方要按 fail-safe 放行原包, 不要静默什么都不发）。
+inline bool sendSkinnedSpawn(
+    ::Player&          viewer,
+    std::uint64_t      runtimeId,
+    std::int64_t       uniqueId,
+    float              x,
+    float              y,
+    float              z,
+    float              yaw,
+    std::string const& skinId,
+    bool               hasNametag,
+    std::string const& nametag,
+    float              scale,
+    float              yOffset
+) {
+    sculk::protocol::SerializedSkin skin;
+    if (!NpcSkinRegistry::getInstance().getSkin(skinId, skin)) return false;
+
+    // 皮肤身份**按库的 API 重建**（npc_protocol::finalizeSkinIds）:
+    // 不能沿用皮肤来源的 Id/FullId —— 客户端按 Id 查皮肤缓存, 残留了"原玩家/旧 NPC 的缓存键"
+    // 时会**不渲染所设皮肤、外观回退默认模型**（26.40.2 修过同款, 库 README 有记录）。
+    // 这里按"替换目标实体"生成专属 Id, 每只实体一份, 缓存互不串。
+    // 皮肤身份按**库自己的规则**给每只实体一份（npc_protocol::finalizeSkinIds —— PlayerNpc 域同款）:
+    // 皮肤条目身份若沿用来源（原玩家 UUID / 旧 NPC 的 hl_npc_*）, 客户端会命中那份缓存 ——
+    // 库 README 26.40.2 记过同款现象: "客户端不渲染所设皮肤、外观回退默认模型"（= 丢皮肤）。
+    // 这里先清来源身份, 再生成 mskin_<实体uniqueId> 专属 id: 每只实体一份、重复套用幂等、缓存互不串。
+    {
+        std::string const perEntity = "mskin_" + std::to_string(static_cast<unsigned long long>(uniqueId));
+        skin.mId                  = "HoloLibNpcSkin_" + perEntity;
+        skin.mFullId              = skin.mId;
+    }
+
+    // 自证日志: 皮肤数据到底有多少字节进了包（抓包里模型 0kb 时先看这一行）
+    if (skin.mSkinImageBytes.empty() || skin.mGeometryData.empty()) {
+        HLIB_LOG_WARN(
+            "[视图] 皮肤数据不完整: 皮肤={} 贴图={} 字节 几何={} 字节 资源补丁={} 字节 id='{}' —— 客户端会显示默认模型",
+            skinId,
+            skin.mSkinImageBytes.size(),
+            skin.mGeometryData.size(),
+            skin.mResourcePatch.size(),
+            skin.mId
+        );
+    }
+
+    // 名字: 名字牌常显/内容由 EntityView 决定; 没给名字就用一个空格 —— PlayerList 条目名空串
+    // 在客户端上是不确定行为, 而这条目 20 tick 后就删掉了（真正的名字由引擎的 SetActorData 推）。
+    std::string const name = hasNametag ? nametag : std::string{" "};
+
+    // PlayerList 条目的 UUID 用 npcUuid(uniqueId) —— 与真身一一对应且稳定, 重复套用是幂等的
+    // （Tab 清理也用同一个 id, 见 ViewOverrideManager::scheduleTabRemoval）。
+    if (!npc_protocol::spawnPlayerList(viewer, uniqueId, static_cast<std::uint64_t>(uniqueId), name, skin)) {
+        return false;
+    }
+    float const s = scale > 0.0f ? std::clamp(scale, 0.0625f, 10.0f) : 1.0f;
+    bool const bodyOk = npc_protocol::spawnPlayerBody(
+        viewer,
+        uniqueId,
+        runtimeId,
+        static_cast<std::uint64_t>(uniqueId),
+        Vec3{x, y + yOffset, z}, // 模型垂直微调（脚位锚点 + 皮肤自己的 yOffset）
+        yaw,
+        name,
+        s
+    );
+    // 诊断（排查"看不到模型"必看）: 这条日志说明"让客户端把这只实体当玩家的包"已经发出去了。
+    // 看不到这条 = 覆盖没命中这只实体的出生包（看 describeFor 的 spawn= 计数）;
+    // 有这条但客户端没变 = 客户端侧不接受（皮肤/身份字段问题）。
+    HLIB_LOG_INFO(
+        "[视图] 换皮包已发: 观看者={} 实体 uniqueId={} runtimeId={} 皮肤={} 缩放={:.2f} 身体包={} "
+        "（贴图={} B 几何={} B 皮肤id='{}'）",
+        viewer.getRealName(),
+        uniqueId,
+        runtimeId,
+        skinId,
+        s,
+        bodyOk,
+        skin.mSkinImageBytes.size(),
+        skin.mGeometryData.size(),
+        skin.mId
+    );
+    ++mSkinnedSpawnCounter;
+    return bodyOk;
 }
 
 // 出生包（**按输入快照发**: 目标是个玩家 —— 位置/朝向全来自他发来的 PlayerAuthInput,

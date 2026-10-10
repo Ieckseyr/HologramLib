@@ -1,6 +1,7 @@
 # HologramLib API 参考
 
-- API 版本：1.25.0（`HOLOGLIB_API_VERSION 0x011F00`）
+- API 版本：1.27.0（`HOLOGLIB_API_VERSION 0x012100`）
+- 插件发布版本：`26.40.9`
 - 唯一公开头：`include/hologramlib/HologramLib.h`
 
 ## API 稳定性契约
@@ -10,7 +11,8 @@
 | C++ 接口 | 全部纯虚方法签名与语义（实现对象在 DLL 内创建，消费者只持引用） | 只在接口尾部追加；永不修改/删除 |
 | C++ 宏 | `HOLOGLIB_API_VERSION`、`HOLOGLIB_API`、`hologramlib` 命名空间、枚举值 | 只追加枚举值 |
 | LSE 命名空间 | 单一命名空间 `HologramLib` 全部函数名、参数顺序、返回值类型 | 只增不改不删 |
-| 版本协商 | `IHologramLib::version()`（BCD：0x011F00 = 1.25.0） | 随发布递增 |
+| 版本协商 | `IHologramLib::version()`（BCD：0x012100 = 1.27.0） | 随发布递增 |
+| ABI 布局戳 | 虚表布局描述符 + 消费方编译期自检 | 只在**破坏槽位**的改动时 +1（尾部追加不动） |
 
 破坏兼容仅允许发生在大版本（2.0.0）。`src/` 目录一切内容均为内部实现，不属于 API。
 
@@ -33,13 +35,15 @@ namespace hologramlib {
         IParticleShape& particleShapes();  // 通用粒子形状（1.14.0）
         IPlayerNpc&     playerNpcs();      // 假玩家 NPC（1.16.0）
         bool     isLseAvailable();        // LSE 兼容层是否已挂载
-        uint32_t version();               // 0x011700
+        uint32_t version();               // 0x012100 = 1.27.0
         int64_t  findNearestItemDisplay(float x, float y, float z, int dim, double maxDist); // 1.6.0
         void     setGhostInteractListener(std::function<void(GhostInteractEvent const&)> listener); // 1.12.0
         void     clearGhostInteractListener();                                             // 1.12.0
         std::vector<std::string> pollGhostInteractions();                                  // 1.12.0 LSE 轮询版
         uint64_t addGhostInteractListener(std::function<void(GhostInteractEvent const&)> listener); // 1.19.1 多播
         bool     removeGhostInteractListener(uint64_t token);                               // 1.19.1
+        uint64_t addActorInteractListener(std::function<void(ActorInteractEvent const&)> listener); // 1.27.0 真实实体交互（多播）
+        bool     removeActorInteractListener(uint64_t token);                               // 1.27.0
     };
 }
 ```
@@ -66,8 +70,8 @@ namespace hologramlib {
 | setDimension | `(int64_t id, int dimId) -> bool` | 维度 |
 | setLocation | `(int64_t id, float x, float y, float z) -> bool` | 位置 |
 | setText | `(int64_t id, std::string const& text) -> bool` | 文本内容 |
-| setRotation | `(int64_t id, float pitch, float yaw, float roll) -> bool` | 旋转（弧度） |
-| clearRotation | `(int64_t id) -> bool` | 清除旋转 |
+| setRotation | `(int64_t id, float pitch, float yaw, float roll) -> bool` | 三轴旋转（度; 文本形状自动启用 useRotation + 双面渲染） |
+| clearRotation | `(int64_t id) -> bool` | 清除旋转（恢复面向相机） |
 | draw | `(int64_t id) -> bool` | 全维度可见者绘制 |
 | drawToPlayer | `(int64_t id, std::string const& playerName) -> bool` | 指定玩家 |
 | drawToDimension | `(int64_t id, int dimId) -> bool` | 指定维度 |
@@ -77,6 +81,9 @@ namespace hologramlib {
 | destroyAll | `() -> void` | 全部销毁 |
 | exists | `(int64_t id) -> bool` | 存在性 |
 | type | `(int64_t id) -> ShapeType` | 形状类型 |
+| setBackgroundColor | `(int64_t id, float r, float g, float b, float a) -> bool` | 背景框颜色（1.26.0; 仅文本形状, 不设 = 客户端默认色） |
+| clearBackgroundColor | `(int64_t id) -> bool` | 回客户端默认背景色（1.26.0） |
+| setDepthTest | `(int64_t id, bool enabled) -> bool` | 穿墙可见性（1.26.0; true = 被方块/实体遮挡, false = 始终渲染） |
 
 ```cpp
 enum class ShapeType : int { Text=0, Line=1, Box=2, Circle=3, Sphere=4, Arrow=5 };
@@ -85,6 +92,7 @@ enum class ShapeType : int { Text=0, Line=1, Box=2, Circle=3, Sphere=4, Arrow=5 
 ### 1.3 IHologramText（悬浮字全息）
 
 整块多行文本单一背景框渲染（`\n` 合并所有行）；变更后调用 `refresh` 原地重绘（同 networkId 覆盖，无闪烁）。行索引 0 起。
+**1.26.0 收缩后口径**：行只负责文本；颜色/缩放/背景框/穿墙/旋转都是**整块**属性 —— 行级样式差异请在文本内嵌 § 颜色代码。
 
 | 分类 | 方法 | 签名 | 说明 |
 |------|------|------|------|
@@ -93,24 +101,38 @@ enum class ShapeType : int { Text=0, Line=1, Box=2, Circle=3, Sphere=4, Arrow=5 
 | | destroyAll | `() -> void` | 全部销毁 |
 | 行管理 | addLine | `(int64_t id, std::string const& text) -> bool` | 追加行 |
 | | setLineText | `(int64_t id, int line, std::string const& text) -> bool` | 行文本 |
-| | setLineScale | `(int64_t id, int line, float scale) -> bool` | 行缩放 |
+| | setLinePool | `(int64_t id, int line, std::vector<std::string> const& content, int intervalMs) -> bool` | 动态行（1.26.0）: 内容池按 `intervalMs` **时间取模轮播**（无状态, 多个浮字同池同相）; 池 ≤1 项 / 间隔≤0 = 不轮播; 空 = 清除池 |
+| | setLineParseVariables | `(int64_t id, int line, bool enabled) -> bool` | 该行是否解析变量（默认 true; 关 = `{}` 按字面量显示）（1.26.0） |
 | | removeLine | `(int64_t id, int line) -> bool` | 移除行 |
 | | clearLines | `(int64_t id) -> bool` | 清空行 |
 | | getLineCount | `(int64_t id) -> int` | 行数 |
-| 颜色 | setColor | `(int64_t id, r, g, b, a: float) -> bool` | 整体纯色 |
-| | setLineColor | `(int64_t id, int line, r, g, b, a: float) -> bool` | 行纯色 |
-| | setLineGradient | `(int64_t id, int line, r1,g1,b1, r2,g2,b2: float) -> bool` | 行双色渐变 |
-| | setLineRainbow | `(int64_t id, int line, float speed) -> bool` | 行彩虹 |
-| 动画 | setLineScroll | `(int64_t id, int line, int direction, float speed) -> bool` | 滚动：0=无 1=左 2=右 |
-| | setVerticalAnimation | `(int64_t id, int type, float speed, float range) -> bool` | 垂直：0=无 1=弹跳 2=滚动 |
-| | setLineSpacing | `(int64_t id, float spacing) -> bool` | 行距 |
+| 颜色 | setColor | `(int64_t id, r, g, b, a: float) -> bool` | 整块文字颜色 |
+| | setBackgroundColor | `(int64_t id, r, g, b, a: float) -> bool` | 背景框颜色（不设 = 客户端默认色; 1.26.0） |
+| | clearBackgroundColor | `(int64_t id) -> bool` | 清除背景框颜色（1.26.0） |
+| 样式 | setScale | `(int64_t id, float scale) -> bool` | 整块缩放（1.26.0; 替代原行级 setLineScale） |
+| | setDepthTest | `(int64_t id, bool enabled) -> bool` | 穿墙可见性（1.26.0; true = 被方块/实体遮挡） |
+| | setRotation | `(int64_t id, pitch, yaw, roll: float) -> bool` | 三轴固定朝向（度; 不再面向相机; 1.26.0） |
+| | clearRotation | `(int64_t id) -> bool` | 恢复面向相机（1.26.0） |
 | 位置 | setLocation | `(int64_t id, float x, float y, float z) -> bool` | 位置 |
-| | setFollowPlayer | `(int64_t id, std::string const& playerName, float offsetY) -> bool` | 跟随玩家 |
+| | setFollowPlayer | `(int64_t id, std::string const& playerName, float offsetY) -> bool` | 跟随玩家（位置在调用时就地解析, 无自驱） |
 | | clearFollowPlayer | `(int64_t id) -> bool` | 取消跟随 |
 | | setDimension | `(int64_t id, int dimId) -> bool` | 迁移维度：已绘制时同步底层形状维度并按原绘制目标原地重发（无闪烁） |
 | 显示 | draw / drawToDimension / drawToPlayer / remove | 同形状语义 | |
-| | refresh | `(int64_t id) -> bool` | 重解析变量并原地重发 |
-| 驱动 | tick | `(float deltaTime) -> void` | 动画推进（滚动/跟随） |
+| | refresh | `(int64_t id) -> bool` | 重解析变量/跟随坐标并原地重发 |
+
+> **1.26.0 收缩（明记）**：`setLineScale` / `setLineColor` / `setLineGradient` / `setLineRainbow` /
+> `setLineScroll` / `setVerticalAnimation` / `setLineSpacing` 与 `tick` 已移除 —— 这些在"整块单形状"
+> 模型下不可实现或空转。原因与替代（§ 颜色代码 / setScale）见 [README 更新日志](README.md#更新日志)
+> 与 [VERSION-HISTORY.md](VERSION-HISTORY.md)。
+> **C++ ABI**：它们保留为**废弃空槽**（非纯虚 + 内联空实现 + `[[deprecated]]`，调用返回 `false` / 无动作），
+> 虚表槽位与 1.25.0 一致 —— 未重编译的旧消费方二进制按旧槽位调用不会错位；LSE 侧导出照旧删除。
+
+> **动态行（1.26.0；重构自 [Phantom](https://github.com/GroupMountain/Phantom)，LGPL-3.0，已按其许可标注来源）**：`setLinePool` = 内容池按 `intervalMs` **时间取模轮播**
+> （无状态，多个浮字同池同相）；`setLineParseVariables` = 行级变量开关（默认开）。轮播/变量刷新由库内
+> **0.5s 节流**驱动、**内容变了才重发**（区别于本版移除的自驱"偏移"——那时每拍都在动、但驱出来的东西
+> 没有消费方）。变量集：`{player}` `{online}` `{time}` `{tps}` `{dimension}` `{x}` `{y}` `{z}` +
+> 经 MeowPAPI 的外部占位符。**含 `{var}` 的文本按观看者各一份形状**（逐玩家解析），其刷新会逐玩家
+> 原地重发（同 networkId，无闪烁）。
 
 内置变量（PAPI 翻译后兜底解析）：`{time}` `{online}` `{tps}` `{player}`。
 外部占位符 `%name%` / `{name}` 经 LseBridge 调 `MeowPAPI::translateString(WithPlayer)`（可选，缺席原样保留）。
@@ -314,7 +336,7 @@ if (id > 0) {
 
 ### 1.9 IPlayerNpc（假玩家 NPC，1.16.0）
 
-> **注意：NPC 皮肤暂无效（未解决）**。本节接口与数据链路均正常工作——皮肤注册（PNG / 在线采集 / 目录导入）、`getSkinBlob` / `registerSkinFromBlob` 导出恢复、NPC 创建/移动/朝向/缩放/视距/显隐、点击交互都可正常调用并生效；唯一失效的是最终显示：客户端不渲染所设置的皮肤，NPC 外观回退为默认模型。
+> **NPC 皮肤已可正常渲染（26.40.2 修复）**。本节全部接口可用且数据链路完整：皮肤注册（PNG / 在线采集 / 目录导入）、`getSkinBlob` / `registerSkinFromBlob` 导出恢复、NPC 创建/移动/朝向/缩放/视距/显隐、点击交互均正常。此前的症状（客户端不渲染皮肤、外观回退默认模型）根因在 PlayerList 皮肤条目的 `Id` / `FullId` 为空或残留原玩家缓存键，已修复。
 
 纯协议假玩家：`PlayerListPacket(Add, 携带皮肤) → AddPlayerPacket → [20 tick] PlayerListPacket(Remove)`（假玩家短暂出现在 Tab 后移除，实体因皮肤已缓存持续渲染）。不占服务端实体系统；点击交互经 ghost 管线 `domain="npc"` 派发（§1.7）。
 
@@ -336,6 +358,12 @@ if (id > 0) {
 | | setPlayerRotation | `(int64_t id, std::string const& playerName, float yaw) -> bool` | 覆盖指定玩家收到的朝向（出生包与增量包都按覆盖值）; 未覆盖玩家用 config 朝向 |
 | | clearPlayerRotation / clearPlayerRotations | `(int64_t[, std::string const&]) -> bool` | 清除单个 / 全部玩家的朝向覆盖 |
 | 可见性 | setVisiblePlayers / clearVisiblePlayers / setVisiblePlayer | — | 玩家名白名单（空 = 全员） |
+| 轻量位置（26.40.8） | setPositionLight | `(int64_t id, float x, float y, float z, int dim) -> bool` | **只发 `MoveActorAbsolute` 增量**（不重建实体/不重发皮肤, 无闪烁）; 与 setRotationLight 同一条轻脏通道, 同一 tick 合并一条包; `dim` 与当前维度不同返回 false（跨维度仍走 setPosition 重建） |
+| 皮肤注入（26.40.8; 仅 C++） | injectSkin | `(std::string const& viewerName, std::string const& targetName, std::string const& skinId) -> bool` | 用 **target 自己的 UUID / uniqueId** 发 `PlayerList(Add)` 就地更新皮肤条目（真实 xuid + trust 三态 + 皮肤对象 `OverridesPlayerAppearance=true`——覆盖客户端已装备皮肤的前提）; `viewerName` 空串 = 所有在线玩家（**含 target 本人**）; 条目按注册表原样下发; **不自动重发**（丢帧由消费方再调一次） |
+| | injectSkinAll | `(std::string const& targetName, std::string const& skinId) -> bool` | 全员版（等价 `injectSkin("", targetName, skinId)`） |
+| 动画（26.40.8; 仅 C++） | playAnimation | `(int64_t id, std::string const& animation, std::string const& stopExpression, int durationTicks) -> bool` | 对"已见过该 NPC 的玩家"发 `AnimateEntityPacket`（controller 名按 NPC id 内自动唯一化, 资源包无需同名控制器）; `stopExpression` 空 = 常驻, `query.any_animation` = 立刻停, `durationTicks>0` 到期自动补停止包; 动画名需客户端可解析（原版或随资源包下发）; 无观察者返回 false |
+| | playAnimationTo | `(int64_t id, std::string const& playerName, std::string const& animation, std::string const& stopExpression, int durationTicks) -> bool` | 同上, 只发给该玩家（补发用; 未见过该 NPC 返回 false） |
+| 出生回调（26.40.8; 仅 C++） | setEntitySpawnCallback | `(std::function<void(int64_t id, std::string const& playerName)>) -> void` | NPC 对某玩家**出生完成**回调（供补发动画/状态; EntitySpawnCallback 语义）; 与 customentity 域同款队列（+2 tick 发出） |
 | 诊断 | getDebugInfo | `(int64_t id) const -> std::string` | 运行态摘要 |
 
 ```cpp
@@ -422,6 +450,7 @@ spec.carrierIdentifier = "minecraft:wandering_trader";
 - 多层级对话 = 点击回传带回 `sceneName` + `buttonIndex` / `actionId`，调用方据此发送下一层。
 - 载体实体是**纯协议合成**的 `minecraft:npc`（不进 BDS 实体系统），位置在世界下方 `y=-66`——客户端看不到实体，但界面里的头像照常渲染（改用隐形标志位反而会让头像一起消失）。只发给该玩家；点按钮 / 关闭 / 离线时发 `RemoveActor` 删掉。
 - `NpcDialogSpec::rawActionJson` 非空时原样作为 `mActionJSON` 下发（原版按钮结构无公开文档，用于在游戏内实测字段格式）；`carrierIdentifier` 必须是 NPC 家族，换成村民等原版实体不行（实测要求）。
+- **聊天框内显示的头像/模型可自定义（26.40.8）**：`NpcDialogSpec::avatarSkinVariant`（NPC **内置皮肤变体** 0..59，即 `NpcData.skin_list` 的 variant 值）—— 写进载体 ActorData 的 `SkinId(104)`，界面里的头像/模型换内置皮肤；`-1`（默认）不加该项（旧行为逐字节一致）。`NpcDialogSpec::avatarViewSpec` —— **在载体上叠一层 IViewOverride 语义**（spec 语法同 `viewEntity`）：`type=` 换载体类型（僵尸/鸡可试；非 NPC 家族能否照常弹界面需实机验证）、`skin=` 用 playernpc 注册表里的皮肤（MHR/MeowSkin 注册/采集的都在这张表）→ 载体改为**玩家模型**（PlayerList+AddPlayer 同 id；Tab 条目 1s 后摘掉）、`name=` 换界面标题/交互文字。要"整只模型完全自定义"也可用 `npcUniqueIdOverride` 路线：视图域 / 自定义实体生成展示实体、对话挂在它 id 上（1.27.0 的 `EntityView::skinId` 同-id 换模型也可用于那只展示实体）。LSE 侧就地修改用 `npcDialogSetAvatar`。
 
 ```cpp
 struct NpcDialogButton {
@@ -607,7 +636,7 @@ struct SulfurDisplaySpec {
 ```cpp
 auto& view = lib.viewOverrides();
 
-// 实体: 换类型 / 换名字牌 / 对该玩家隐藏（playerName 空串 = 所有玩家）
+// 实体: 换类型 / 换皮肤（我们的模型）/ 换名字牌 / 对该玩家隐藏（playerName 空串 = 所有玩家）
 hologramlib::EntityView cow;
 cow.identifier = "minecraft:cow";   // 短名会自动补 minecraft: 前缀
 cow.hasNametag = true;
@@ -618,6 +647,14 @@ view.overrideEntity("Steve", uniqueId, cow);
 hologramlib::EntityView gone;
 gone.hidden = true;                 // 让 Steve 看不到这只实体（阻断它的出生与更新包）
 view.overrideEntity("Steve", uniqueId, gone);
+
+// 非玩家实体: 换成"我们的模型"（已注册皮肤, 含自定义几何）—— **同一个 runtimeId/uniqueId**
+hologramlib::EntityView skinned;
+skinned.skinId = "ms_demo";         // IPlayerNpc 注册表里的皮肤 id
+skinned.scale  = 0.8f;              // 可选: 模型缩放（客户端碰撞箱等比; 0 = 不缩放）
+view.overrideEntity("", mobUniqueId, skinned);
+// 客户端看到的是我们的模型; 服务端那边还是那只生物 —— 点它/打它/瞄准都是它本人。
+// 撤销: view.clearEntity("", mobUniqueId);（库会重发真实生物的出生包, 立刻恢复原样）
 
 // 玩家实体专用的两种"千人千面"（由 Steve 一个人看到）
 hologramlib::EntityView skin;
@@ -641,7 +678,7 @@ std::string s = view.describeFor("Steve"); // "entities=1 blocks=2"
 
 | 方法 | 返回值 | 说明 |
 |------|--------|------|
-| `overrideEntity(playerName, entityUniqueId, view)` | bool | false = 玩家不在线。实体还没出生也能先设（库在它出生时套用）。三项（`identifier` / `hidden` / `hasNametag`）都没设 = 当作撤销 |
+| `overrideEntity(playerName, entityUniqueId, view)` | bool | false = 玩家不在线。实体还没出生也能先设（库在它出生时套用）。五项（`identifier` / `asPlayer` / `skinId` / `hidden` / `hasNametag`）都没设 = 当作撤销 |
 | `overrideBlock(playerName, x, y, z, view)` | bool | false = 玩家不在线 / 类型名不在方块注册表里。type 给空串 = 撤销 |
 | `clearEntity(playerName, entityUniqueId)` | bool | 撤销单个实体（返回是否原来有覆盖） |
 | `clearBlock(playerName, x, y, z)` | bool | 撤销单个方块，并把**真实方块**推给该玩家 |
@@ -650,24 +687,39 @@ std::string s = view.describeFor("Steve"); // "entities=1 blocks=2"
 | `startControl(controllerName, targetName, follow)` | bool | 让 controller 的移动/转向输入**驱动 target 的真实移动**（服务端位移）; `follow=true` 时 controller 被锁到 target 上一起走（附身观感） |
 | `stopControl(controllerName)` | bool | 停止操控（任一方下线也会自动停） |
 
-**改的是什么**：服务端**本来要发给这名玩家的包**里的字段 —— 实体出生包的实体类型字符串、
-元数据表里的 `Name(4)` / `NametagAlwaysShow(81)`、方块包的方块网络 id。**序列化仍由 BDS 自己做**，
-所以调用方不需要了解包结构，库也不手拼字节。服务端世界 / 存档 / 碰撞 / 其他插件看到的都是真实内容。
-拦截挂在 `NetworkSystem::send` / `sendToMultiple`（BDS 按收件人发结构化包的汇合点；实体出生包不走
-`LoopbackPacketSender`，那是原先失效的原因），**外加一层心跳**：服务器每 tick 自查，实体"重新进入
-视野"、玩家换区块时把覆盖重新推一遍 —— 拦截漏掉的场合由它兜住。
+**机制（只拦不发）**：库拦截服务端**本来要发给这名玩家的包**，但**只决定放行 / 丢弃** ——
+**从不修改引擎包字段**。需要"改"的内容一律：**丢掉原包 + 库自己手写协议包**补发
+（sculk 构造 → 回读校验 → 原始字节发送）。换类型 = 丢掉原出生包、用同一 `runtimeId`/`uniqueId`
+自己发一只（其余字段照抄原包）; 名字牌 = 原包照发、库自己的 `SetActorData` 紧随其后压过去;
+方块覆盖 = 丢掉原 `UpdateBlock`、库自己发一条带覆盖网络 id 的。服务端世界 / 存档 / 碰撞 /
+其他插件看到的都是真实内容。拦截挂在 `NetworkSystem::send` / `sendToMultiple`（BDS 按收件人发结构化包的
+汇合点；实体出生包不走 `LoopbackPacketSender`，那是原先失效的原因），**外加一层心跳**：服务器每 tick
+自查，实体"重新进入视野"、玩家换区块时把覆盖重新推一遍 —— 拦截漏掉的场合由它兜住。
+
+**换"我们的模型"（`skinId`, 1.27.0; 只对非玩家实体）**：库吃掉这只实体的出生包, 用**同一个
+`runtimeId`/`uniqueId`** 发 `PlayerList(Add)`（携带该皮肤）+ `AddPlayer` —— 客户端把它当玩家实体渲染
+（自定义几何/贴图都走玩家皮肤通道, 不需要资源包）; 因为 **id 没变**, 服务端仍认它是那只生物,
+**点它 / 打它 / 瞄准都是它本人**（伤害、掉落、其他插件看到的全是真身）。配套两件事: ①该实体的
+`MoveActor*`(18/111) 对这些观看者被吃掉, 位置/朝向由库每 tick 用 `MoveActorAbsolute` 推（与
+`IPlayerNpc::setPositionLight` 同一条轻推通道, 只在动了才发）; ②`PlayerList` 条目 ~20 tick 后摘掉
+（不会一直挂在 Tab 里, 实体保留）。撤销 = `clearEntity`（重发真实生物的出生包）。
+皮肤必须先在 `IPlayerNpc` 注册表里（`registerSkin` / `captureSkin` / `registerSkinFromBlob`）。
+
+**自己不看自己**：覆盖目标是玩家时，**该玩家本人的客户端不参与覆盖**——不发/不吃关于他自己实体的包
+（`RemoveActor` / 同 runtimeId 的 `AddActor` / 位移打回本地玩家会让客户端错乱甚至卡死，2026-10-09 实证）。
+**例外：换肤类（`asPlayer`）含本人**——`PlayerList(Add)` 发给本人是"自己看自己被换肤"的正路
+（第三人称/第一人称自视都变；同 `IPlayerNpc::injectSkin` 的约定）。
 
 **逐玩家隔离与幂等**：覆盖表按玩家名 + 一份全局表；`sendToClients` / 广播这类"同一包发给多人"的路径
-会展开成逐收件人套用，改完立刻把原值放回去（后一个收件人不会看到前一个的覆盖）；同一条包被多条
-发包路径各套用一次，结果与套用一次相同。库内没有任何覆盖时，钩子不做任何解析就直接放行。
+会展开成逐收件人判定 —— 只为让"放行 / 丢弃"逐人生效；因为从不改字段，不存在"后一个收件人看到前一个
+覆盖"的串味。同一条包被多条发包路径各判一次，结果与判一次相同。库内没有任何覆盖时，钩子不做任何解析
+就直接放行。
 
 **玩家实体（1.25.0 支持）**：
 - `asPlayer = "<在线玩家名>"` → 给该观看者重发一条 `PlayerList(Add)`（用该实体自己的 UUID + 源玩家的皮肤）
   —— 与原版"皮肤更新"同机制，**只发给该观看者**；撤销 = 用他自己的皮肤再发一次，立刻恢复。
   对*任何*实体只有玩家实体有效（皮肤按 UUID 认）。
-- `identifier = "<生物>"` → 玩家模型渲染不了生物，所以库走**替换**（不是代理）：吃掉他的 `AddPlayer`，用**同一个 `runtimeId`/`uniqueId`** 发一只 `AddActor`；他的 `MovePlayer` 对这名观看者也吃掉，位置/朝向由库按他的输入包用 `MoveActorAbsolute` 推。**id 没变 → 服务端仍认他是那个真玩家，打他就是打他本人。** 撤销时把替代实体移走。
-  （自定义实体，只对该观看者可见），并把真身从他视野里移除。代价：**代理身上打不到真身**
-  （代理的交互走 ghost 事件）；撤销后该观看者要等**重进 / 换维度**才会再看到真身。
+- `identifier = "<生物>"` → 玩家模型渲染不了生物，所以库走**替换**（不是代理）：吃掉他的 `AddPlayer`，用**同一个 `runtimeId`/`uniqueId`** 发一只 `AddActor`；他的 `MovePlayer` 对这名观看者也吃掉，位置/朝向由库按他的输入包用 `MoveActorAbsolute` 推。**id 没变 → 服务端仍认他是那个真玩家，打他就是打他本人。** 撤销时把替代实体移走；该观看者要等**重进 / 换维度**才会再看到真身。
 
 **26.40 做不到的**：逐玩家的**缩放 / 发光 / 隐身**没进 API —— 元数据表里没有 `scale`，
 也没有 `glowing` / `invisible` 旗标（基岩版隐身是效果，走 `MobEffectPacket`）。
@@ -696,22 +748,28 @@ LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib
 
 | 前缀域 | 能力 | 对应 C++ 接口 | 函数数 |
 |--------|------|---------------|--------|
-| `shape*` | 形状渲染 | IShapeDrawer | 36 |
+| `shape*` | 形状渲染 | IShapeDrawer | 39 |
 | `holo*` | 悬浮字全息 | IHologramText | 26 |
 | `gradient*` | 渐变线 | GradientLineManager | 11 |
 | `itemDetail*` | 物品详情 | IItemDetail | 2 |
 | `itemDisplay*` | FMBE 物品悬浮 | IItemDisplay | 33 |
-| `entity*` | 自定义实体 | ICustomEntity | 33 |
+| `entity*` | 自定义实体 | ICustomEntity | 37 |
 | `ghost*` | 交互事件轮询 | IHologramLib | 2 |
 | `particle*` | 通用粒子形状系统 | ParticleShapeManager | 22 |
-| `playerNpc*` | 假玩家 NPC（含皮肤注册/采集/目录导入） | IPlayerNpc | 25 |
-| `view*` | 客户端视图覆盖（1.25.0） | IViewOverride | 6 |
+| `playerNpc*` | 假玩家 NPC（含皮肤注册/采集/目录导入/注入/blob 持久化） | IPlayerNpc | 29 |
+| `fakeInv*` | 背包虚容器（1.23.0） | IFakeInventory | 9 |
+| `sulfur*` | 硫磺立方体展示（1.23.0） | ISulfurDisplay | 10 |
+| `trade*` | 村民交易菜单 | ITradeMenu | 10 |
+| `container*` | 虚拟容器 / 列表界面 | IContainerMenu | 10 |
+| `npcDialog*` | NPC 对话框 | INpcDialogue | 9 |
+| `sensing*` | 感知域（客户端设备） | IPlayerSensing | 3 |
+| `view*` | 客户端视图覆盖（1.25.0） | IViewOverride | 16 |
 
 缺席时安全降级（`ll.import` 得 null）。
 
 类型记法：`f`=浮点 `i`=整数 `s`=字符串 `b`=布尔 `[i]`=int64 数组。除注明外 id 均为 int64。
 
-### 2.1 shape*（形状，36 函数）
+### 2.1 shape*（形状，39 函数）
 
 **创建**
 
@@ -741,6 +799,9 @@ LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib
 | shapeClearRotation | `(id) -> b` |
 | shapeGetRotation | `(id) -> [f,f,f]` |
 | shapeGetShapeType | `(id) -> i`（0..5，见 ShapeType） |
+| shapeSetBackgroundColor | `(id, r: f, g: f, b: f, a: f) -> b`（1.26.0; 仅文本形状, 背景框颜色） |
+| shapeClearBackgroundColor | `(id) -> b`（1.26.0; 回客户端默认背景色） |
+| shapeSetDepthTest | `(id, enabled: b) -> b`（1.26.0; 仅文本形状, true = 被方块/实体遮挡） |
 
 **显示**
 
@@ -778,27 +839,31 @@ LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib
 | holoDestroyAll | `() -> nil` |
 | holoAddLine | `(id, text: s) -> b` |
 | holoSetLineText | `(id, lineIndex: i, text: s) -> b` |
-| holoSetLineScale | `(id, lineIndex: i, scale: f) -> b` |
+| holoSetLinePool | `(id, lineIndex: i, content: [s], intervalMs: i) -> b`（1.26.0; 动态行: 内容池按间隔**时间取模轮播**; 池 ≤1 项 / 间隔≤0 = 不轮播; 空数组 = 清除池） |
+| holoSetLineParseVariables | `(id, lineIndex: i, enabled: b) -> b`（1.26.0; 该行是否解析变量, 默认开; 关 = `{}` 按字面量显示） |
 | holoRemoveLine | `(id, lineIndex: i) -> b` |
 | holoClearLines | `(id) -> b` |
 | holoGetLineCount | `(id) -> i` |
-| holoSetColor | `(id, r,g,b,a: f) -> b` |
-| holoSetLineColor | `(id, lineIndex: i, r,g,b,a: f) -> b` |
-| holoSetLineGradient | `(id, lineIndex: i, r1,g1,b1,r2,g2,b2: f) -> b` |
-| holoSetLineRainbow | `(id, lineIndex: i, speed: f) -> b` |
-| holoSetLineScroll | `(id, lineIndex: i, direction: i, speed: f) -> b`（方向 0=无 1=左 2=右） |
-| holoSetVerticalAnimation | `(id, type: i, speed: f, range: f) -> b`（0=无 1=弹跳 2=滚动） |
-| holoSetLineSpacing | `(id, spacing: f) -> b` |
+| holoSetColor | `(id, r,g,b,a: f) -> b`（整块文字颜色） |
+| holoSetScale | `(id, scale: f) -> b`（整块缩放; 替代原 holoSetLineScale） |
+| holoSetBackgroundColor | `(id, r,g,b,a: f) -> b`（背景框颜色; 不设 = 客户端默认色） |
+| holoClearBackgroundColor | `(id) -> b`（回客户端默认背景色） |
+| holoSetDepthTest | `(id, enabled: b) -> b`（true = 被方块/实体遮挡; false = 始终渲染/穿墙可见, 默认） |
+| holoSetRotation | `(id, pitch: f, yaw: f, roll: f) -> b`（三轴 Euler, **单位 = 度**; 设置后不再面向相机） |
+| holoClearRotation | `(id) -> b`（恢复面向相机） |
 | holoSetLocation | `(id, x: f, y: f, z: f) -> b` |
 | holoSetDimension | `(id, dimId: i) -> b`（迁移维度; 已绘制时原地重发, 无闪烁） |
-| holoSetFollowPlayer | `(id, playerName: s, offsetY: f) -> b` |
+| holoSetFollowPlayer | `(id, playerName: s, offsetY: f) -> b`（位置在 setFollowPlayer/draw/refresh 时就地解析） |
 | holoClearFollowPlayer | `(id) -> b` |
-| holoTick | `(deltaTime: f) -> nil`（动画驱动） |
 | holoDraw | `(id) -> b` |
 | holoDrawToDimension | `(id, dimId: i) -> b` |
 | holoDrawToPlayer | `(id, playerName: s) -> b` |
 | holoRemove | `(id) -> b` |
-| holoRefresh | `(id) -> b`（重解析变量并原地重发） |
+| holoRefresh | `(id) -> b`（重解析变量/跟随坐标并原地重发） |
+
+> **1.26.0 收缩**：原 `holoSetLineScale` / `holoSetLineColor` / `holoSetLineGradient` / `holoSetLineRainbow` /
+> `holoSetLineScroll` / `holoSetVerticalAnimation` / `holoSetLineSpacing` / `holoTick` 已移除（这些在"整块
+> 单形状"模型下不可实现或空转）。行级颜色请改用文本内嵌 § 颜色代码; 行级缩放改 `holoSetScale`。
 
 ### 2.3 gradient*（渐变线，11 函数）
 
@@ -867,7 +932,7 @@ FMBE（狐狸+发包）技术：隐形狐狸手持物品渲染任意物品/方�
 
 渲染模式：`auto`（默认）按物品 3D/2D 自动选择；`item` 平面物品渲染（rotY 内部自动 +205 补偿狐狸头朝向）；`block` 3D 方块渲染（完整旋转矩阵路径 + 二段扩展变换）。可见性由库内 Level tick hook 自动同步。
 
-### 2.6 entity*（自定义实体，33 函数）
+### 2.6 entity*（自定义实体，37 函数）
 
 AddActorPacket 直发客户端生成纯视觉实体（NPC 壳/装饰生物/盔甲架布景; 无碰撞、不可真实交互——点击经 `ghost*` 路由）。属性变更经 tick 脏刷新合并为单次 respawn（无闪烁）。
 
@@ -1013,11 +1078,14 @@ follow(halo, player.uuid, 0, 0.3, 0); // 锚点 = 玩家位置 + 偏移, 每 tic
 rot(box, 45, 0, 0);
 ```
 
-### 2.9 playerNpc*（假玩家 NPC，25 函数）
+### 2.9 playerNpc*（假玩家 NPC，29 函数）
 
-> **注意：NPC 皮肤暂无效（未解决）**。下列函数全部可正常调用（注册/采集/导入/换肤/导出都返回正常结果），NPC 也能正常创建、移动、朝向、缩放、视距与显隐控制；但客户端不会渲染所设置的皮肤，外观回退为默认模型。
+> **NPC 皮肤已可正常渲染（26.40.2 修复）**。下列函数全部可用（注册/采集/导入/换肤/导出均正常），NPC 创建、移动、朝向、缩放、视距与显隐控制均正常渲染。
 
 纯协议假玩家（不占服务端实体系统）：`PlayerList(Add, 皮肤) → AddPlayer → [20t] PlayerList(Remove)`；点击交互经 ghost 管线 `domain="npc"`（§2.7 轮询）。皮肤三来源：PNG 文件注册 / 目录批量导入（一个子文件夹 = PNG + 可选 `.json` 模型）/ 从在线玩家采集（全字段运行时快照，玩家之后换肤不影响）。库不落盘，LSE 侧如需跨重启保留请重新注册/采集。
+
+`setPositionLight` / `playAnimation(To)` / `setEntitySpawnCallback` 为 **C++ 接口，暂无 LSE 导出**（同 `setRotationLight`）。
+皮肤一族（26.40.8 补导出）：`playerNpcInjectSkin` / `playerNpcInjectSkinAll` / `playerNpcGetSkinBlobB64` / `playerNpcRegisterSkinFromBlobB64`（见下表）。
 
 | 函数 | 签名 |
 |------|------|
@@ -1039,12 +1107,17 @@ rot(box, 45, 0, 0);
 | playerNpcSetRotation | `(id: i64, yaw: f) -> b` |
 | playerNpcSetNametag | `(id: i64, text: s) -> b`（空串清除） |
 | playerNpcSetSkin | `(id: i64, skinId: s) -> b`（换肤 = respawn） |
+| playerNpcSetScale | `(id: i64, scale: f) -> b`（模型缩放; 客户端硬限 0.0625~10, 碰撞箱等比; 变更经 tick 脏刷新合并为单次 respawn） |
 | playerNpcSetViewDistance | `(id: i64, dist: f) -> b`（<=0 无限制） |
 | playerNpcSetEnabled | `(id: i64, enabled: b) -> b` |
 | playerNpcSetVisiblePlayers | `(id: i64, players: [s]) -> b`（空列表 = 全员可见） |
 | playerNpcClearVisiblePlayers | `(id: i64) -> b` |
 | playerNpcSetVisiblePlayer | `(id: i64, playerName: s) -> b` |
 | playerNpcGetDebugInfo | `(id: i64) -> s`（诊断探针） |
+| playerNpcInjectSkin | `(viewerName: s, targetName: s, skinId: s) -> b`（1.26.0; 把注册表的皮肤发给观看者 —— viewerName 空串 = 所有在线玩家**含被换肤者本人**（"自己看自己被换肤"），非空 = 只发给该玩家; target 必须在线且 skinId 已注册; **不自动重发**） |
+| playerNpcInjectSkinAll | `(targetName: s, skinId: s) -> b`（1.26.0; 便捷: 等价 viewerName 空串） |
+| playerNpcGetSkinBlobB64 | `(skinId: s) -> s`（1.26.0; 全字段二进制快照的 **base64**（LSE 字符串编组对二进制不安全）; 空串 = 未注册） |
+| playerNpcRegisterSkinFromBlobB64 | `(b64: s) -> b`（1.26.0; 与上一条配对 —— 消费方落盘后重启恢复, 源玩家不在线也能用） |
 
 LSE 示例（采集玩家皮肤并创建 NPC）：
 
@@ -1114,7 +1187,7 @@ for (const line of containerPollClicks()) { /* 切分 player= / menuId= / slot= 
 点击语义：点击就是一次物品拾取 —— 任何输入设备都会发包（实测 27 格与大容器第二半区都正常）。
 服务端并没有这个容器，所以物品不会被真的拿走，库只回传槽位号（`slot` = 条目下标，`closed=1` 时 `slot=-1`）。
 
-### 2.12 npcDialog*（NPC 对话框，1.21.0；1.22.0 补 LSE）
+### 2.12 npcDialog*（NPC 对话框，1.21.0；1.22.0 补 LSE；26.40.8 补头像 1 个 → 9 函数）
 
 | 函数 | 签名 | 说明 |
 |------|------|------|

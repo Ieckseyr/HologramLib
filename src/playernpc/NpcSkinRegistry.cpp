@@ -422,8 +422,10 @@ bool NpcSkinRegistry::registerSkinFromPng(hologramlib::PlayerNpcSkin const& skin
     }
     auto width  = bitmap.GetWidth();
     auto height = bitmap.GetHeight();
-    if ((width != 64 && width != 128) || (height != 64 && height != 128)) {
-        error = std::format("unsupported skin size: {}x{}", width, height);
+    // 方形, 边长是 2 的幂且 >= 64（64/128 是原版默认; 256/512/1024 是原版 HD 皮肤支持）
+    auto const isPot = [](std::uint32_t v) { return v >= 64 && (v & (v - 1)) == 0; };
+    if (width != height || !isPot(width)) {
+        error = std::format("unsupported skin size: {}x{} (需要方形且边长是 64/128/256/512/1024)", width, height);
         return false;
     }
 

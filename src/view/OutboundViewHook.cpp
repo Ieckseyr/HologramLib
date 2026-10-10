@@ -1,23 +1,5 @@
 // OutboundViewHook.cpp - 客户端视图覆盖的挂钩点（1.25.0）
-//
-// 出站（改写发给观看者的包）: NetworkSystem::send / sendToMultiple + Level::tick 心跳
-//
-// 挂的是 BDS 的**按收件人发包汇合点**:
-//   NetworkSystem::send(id, packet, subId)        单收件人
-//   NetworkSystem::sendToMultiple(ids, packet)    多收件人
-//
-// 为什么挂这里而不是 LoopbackPacketSender —— 反编译 BDS 后确认:
-//   · NetworkSystem::send **自己负责序列化**（拼包头 + Packet::writeWithSerializationMode）,
-//     所以结构化包在这一层**还没变成字节** —— 改字段依然有效, 序列化仍由 BDS 做;
-//   · 它是 BDS 内部各条发包路径的共同落点（Level / ServerPlayer / 区块 / 实体出生 …）,
-//     而 LoopbackPacketSender 只覆盖"经它转发"的那一部分 —— 实测实体出生包就没走它
-//     （这正是"换类型不生效"的根因: 那一刻只有库自己补发的那几条包起了作用）。
-//
-// 三条纪律:
-//   · **零开销快路径**: 全库没有任何覆盖（active() == false）→ 一行分支直接 origin, 不碰包
-//   · **命中才动**: 目标玩家没有覆盖时 applyToOutbound 立刻返回 false, 一个字段都不读
-//   · **原值必须还原**: sendToMultiple 是同一条包发给多个人, 改完不还就会串味 ——
-//     多收件人变体展开成逐个 send（重入自身, 改写/还原/补发都在那一层完成）
+
 #include "ViewOverrideManager.h"
 
 #include "DiagLog.h"
@@ -49,6 +31,7 @@
 #include <mc/world/level/Level.h>
 
 #include <vector>
+#include <exception>
 
 namespace debugshape_export::view {
 
@@ -83,12 +66,6 @@ constexpr decltype(auto) unwrap(T const& value) {
     return found;
 }
 
-// 包的载荷（Packet& → Payload<T>&）: 先降到 PayloadPacket<T>, 再升到 T
-template <typename PayloadT>
-PayloadT const& payloadOfConst(::Packet const& packet) {
-    return static_cast<PayloadT const&>(static_cast<::ll::PayloadPacket<PayloadT> const&>(packet));
-}
-
 // 按 runtimeId 找实体（动作包只带 runtimeId）
 ::Actor* actorByRuntimeId(std::uint64_t runtimeId) {
     auto level = ::ll::service::getLevel();
@@ -112,6 +89,25 @@ bool anyRecipientHasOverrides(std::vector<::NetworkIdentifierWithSubId> const& i
         return true;
     });
     return any;
+}
+
+// ── 钩子体的异常护栏 ──
+// 这几个钩子都夹在 BDS 核心路径中间（发包汇合点 / 收包处理 / 世界 tick）。钩子体里抛出来的异常
+// 本地没人接, 一路穿到 noexcept 边界就是 std::terminate → abort: 整服崩, 而它换来的只是
+// "这一条包没改写对 / 这一拍心跳没做" —— 不划算, 所以全部兜底。
+// 实测过一次: 同线程重入 mMutex 抛 std::system_error（见 ViewOverrideManager.cpp 的
+// inputSnapshotOfLocked 注释）。返回 false = 改写没走完, 调用方按原路放行。
+template <typename Fn>
+bool runGuarded(char const* what, Fn&& fn) {
+    try {
+        fn();
+        return true;
+    } catch (std::exception const& e) {
+        HLIB_LOG_ERROR("HologramLib: {} 抛出异常, 本次按无覆盖处理: {}", what, e.what());
+    } catch (...) {
+        HLIB_LOG_ERROR("HologramLib: {} 抛出未知异常, 本次按无覆盖处理", what);
+    }
+    return false;
 }
 
 } // namespace
@@ -138,14 +134,21 @@ LL_TYPE_INSTANCE_HOOK(
         return;
     }
 
-    Manager::Applied applied;
-    auto&            mutablePacket = const_cast<::Packet&>(packet); // BDS 随后自己把它交给序列化器
-    if (!manager().applyToOutbound(*player, mutablePacket, applied)) {
-        origin(id, packet, recipientSubId);
-        return;
-    }
-    if (!applied.drop) origin(id, packet, recipientSubId);
-    manager().runPostActions(*player, applied);        // 原包之后才补发（顺序才对）
+    bool       forwarded = false; // 原包是否已经放行（决定异常兜底时要不要补发）
+    bool const ran       = runGuarded("ViewNetSendHook", [&] {
+        Manager::Applied applied;
+        if (!manager().applyToOutbound(*player, packet, applied)) { // 只读判定: 放行 / 丢弃
+            origin(id, packet, recipientSubId);
+            forwarded = true;
+            return;
+        }
+        if (!applied.drop) {
+            origin(id, packet, recipientSubId);
+            forwarded = true;
+        }
+        manager().runPostActions(*player, applied);        // 原包之后才补发（顺序才对）
+    });
+    if (!ran && !forwarded) origin(id, packet, recipientSubId); // 改写中途抛了 → 原包照发, 不丢包
 }
 
 static ll::memory::HookRegistrar<ViewNetSendHook> gViewNetSendHook;
@@ -161,14 +164,18 @@ LL_TYPE_INSTANCE_HOOK(
     ::Packet const&                                    packet
 ) {
     manager().noteHookCall();
-    if (!manager().active() || !anyRecipientHasOverrides(ids)) {
-        origin(ids, packet); // 没有任何收件人有覆盖 → 整条包原样走 BDS 自己的多播
-        return;
-    }
-    auto& mutablePacket = const_cast<::Packet&>(packet);
-    for (auto const& entry : ids) {
-        this->send(entry.id, mutablePacket, entry.subClientId); // 重入 ViewNetSendHook（逐收件人套用）
-    }
+    bool dispatched = false; // 已经展开成逐收件人发（决定了中途异常时不能再走整包多播: 会重复）
+    bool const ran  = runGuarded("ViewNetSendToMultipleHook", [&] {
+        if (!manager().active() || !anyRecipientHasOverrides(ids)) {
+            origin(ids, packet); // 没有任何收件人有覆盖 → 整条包原样走 BDS 自己的多播
+            return;
+        }
+        dispatched = true;
+        for (auto const& entry : ids) {
+            this->send(entry.id, packet, entry.subClientId); // 重入 ViewNetSendHook（逐收件人判定）
+        }
+    });
+    if (!ran && !dispatched) origin(ids, packet); // 展开前就抛了 → 按原样多播, 不丢包
 }
 
 static ll::memory::HookRegistrar<ViewNetSendToMultipleHook> gViewNetSendToMultipleHook;
@@ -185,7 +192,7 @@ LL_TYPE_INSTANCE_HOOK(
     void
 ) {
     origin();
-    manager().tickPulse();
+    runGuarded("ViewOverrideTickHook", [&] { manager().tickPulse(); });
 }
 
 static ll::memory::HookRegistrar<ViewOverrideTickHook> gViewOverrideTickHook;
@@ -203,35 +210,38 @@ LL_TYPE_INSTANCE_HOOK(
     ::PlayerAuthInputPacket const&  packet
 ) {
     origin(source, packet);
-    if (!manager().active()) return;
-    auto* player = findPlayerByNetworkId(source);
-    if (player == nullptr) return;
+    runGuarded("ViewAuthInputHook", [&] {
+        if (!manager().active()) return;
+        auto* player = findPlayerByNetworkId(source);
+        if (player == nullptr) return;
 
-    auto const& payload = static_cast<::PlayerAuthInputPacketPayload const&>(packet);
-    auto const& rawPos  = unwrap(payload.mPos);
-    auto const& rawRot  = unwrap(payload.mRot);
+        auto const& payload = static_cast<::PlayerAuthInputPacketPayload const&>(packet);
+        auto const& rawPos  = unwrap(payload.mPos);
+        auto const& rawRot  = unwrap(payload.mRot);
 
-    // bitset<66> → 低 64 位。不用 to_ullong(): 高位(64/65)置位时它会抛。
-    std::uint64_t bits = 0;
-    {
-        auto const& bs = unwrap(payload.mInputData);
-        for (int i = 0; i < 64; ++i) {
-            if (bs[static_cast<std::size_t>(i)]) bits |= (std::uint64_t(1) << i);
+        // bitset<66> → 低 64 位。不用 to_ullong(): 高位(64/65)置位时它会抛。
+        std::uint64_t bits = 0;
+        {
+            auto const& bs = unwrap(payload.mInputData);
+            for (int i = 0; i < 64; ++i) {
+                if (bs[static_cast<std::size_t>(i)]) bits |= (std::uint64_t(1) << i);
+            }
         }
-    }
 
-    Manager::InputSnapshot snapshot;
-    snapshot.uniqueId  = player->getOrCreateUniqueID().rawID; // 身份识别（不是读实体状态）
-    snapshot.runtimeId = static_cast<std::uint64_t>(player->getRuntimeID());
-    snapshot.x       = rawPos.x;
-    snapshot.y       = rawPos.y;
-    snapshot.z       = rawPos.z;
-    snapshot.pitch   = rawRot.x; // BDS: Vec2{pitch, yaw}
-    snapshot.yaw     = rawRot.y;
-    snapshot.headYaw = unwrap(payload.mYHeadRot);
-    snapshot.bits    = bits;
-    snapshot.playMode = static_cast<int>(unwrap(payload.mPlayMode));
-    manager().noteAuthInput(player->getRealName(), snapshot);
+        Manager::InputSnapshot snapshot;
+        snapshot.uniqueId  = player->getOrCreateUniqueID().rawID; // 身份识别（不是读实体状态）
+        snapshot.runtimeId = static_cast<std::uint64_t>(player->getRuntimeID());
+        snapshot.x       = rawPos.x;
+        snapshot.y       = rawPos.y;
+        snapshot.z       = rawPos.z;
+        snapshot.pitch   = rawRot.x; // BDS: Vec2{pitch, yaw}
+        snapshot.yaw     = rawRot.y;
+        snapshot.headYaw = unwrap(payload.mYHeadRot);
+        snapshot.bits    = bits;
+        snapshot.playMode = static_cast<int>(unwrap(payload.mPlayMode));
+        manager().noteAuthInput(player->getRealName(), snapshot);
+        manager().pushSubstitutedMovement(*player, snapshot); // 被替换玩家的位移推送（跳过本人）
+    });
 }
 
 static ll::memory::HookRegistrar<ViewAuthInputHook> gViewAuthInputHook;

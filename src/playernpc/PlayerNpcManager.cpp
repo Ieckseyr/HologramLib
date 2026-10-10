@@ -14,11 +14,15 @@
 #include <ll/api/memory/Hook.h>
 #include <mc/world/level/Level.h>
 
+#include <algorithm>
 #include <format>
 #include <random>
 
 #include "NpcProtocol.h"
 #include "NpcSkinRegistry.h"
+
+#include <sculk/protocol/codec/level/MolangVersion.hpp>
+#include <sculk/protocol/codec/packet/AnimateEntityPacket.hpp>
 
 #include "PlayerNpcManager.h"
 
@@ -235,6 +239,10 @@ bool PlayerNpcManager::destroy(int64_t id) {
     mTabRemovals.erase(id);
     mVisibleFilter.erase(id);
     mDirtyIds.erase(id);
+    for (auto it = mAnimQueue.begin(); it != mAnimQueue.end();) {
+        if (it->second.npcId == id) it = mAnimQueue.erase(it);
+        else ++it;
+    }
     return true;
 }
 
@@ -339,6 +347,164 @@ bool PlayerNpcManager::clearPlayerRotations(int64_t id) {
     rit->second.playerRot.clear();
     mLightDirtyIds.insert(id);
     return true;
+}
+
+// ── 1.26.0: 轻量位置更新 + 玩家皮肤注入 ──
+
+bool PlayerNpcManager::setPositionLight(int64_t id, float x, float y, float z, int dim) {
+    std::lock_guard lock(mMutex);
+    auto it = mConfigs.find(id);
+    if (it == mConfigs.end()) return false;
+    // 跨维度不走轻量通道: 客户端那边是另一张实体表, 必须重建（由调用方用 setPosition）
+    if (dim >= 0 && dim != it->second.dimension) return false;
+    it->second.x = x;
+    it->second.y = y;
+    it->second.z = z;
+    mLightDirtyIds.insert(id); // 只发 MoveActorAbsolute, 不重建实体、不重发皮肤
+    return true;
+}
+
+bool PlayerNpcManager::injectSkin(
+    std::string const& viewerName,
+    std::string const& targetName,
+    std::string const& skinId
+) {
+    // 皮肤条目: 取自注册表（Id/FullId/trust 三态/OverridesPlayerAppearance 都已就绪）
+    sculk::protocol::SerializedSkin skin;
+    if (!NpcSkinRegistry::getInstance().getSkin(skinId, skin)) return false;
+
+    Player* target = findPlayerByName(targetName);
+    if (target == nullptr) return false; // 目标必须在线（uuid/uniqueId/名字取自本人）
+
+    sculk::protocol::PlayerListPacket packet;
+    packet.mAction          = sculk::protocol::PlayerListPacket::ActionType::Add;
+    packet.mPlayerEntryList = {npc_protocol::playerListEntryForPlayer(*target, skin)};
+
+    // 单发（只给某个观看者; 常用于"我自己看我自己"）
+    if (!viewerName.empty()) {
+        Player* viewer = findPlayerByName(viewerName);
+        if (viewer == nullptr) return false;
+        return npc_protocol::sendToPlayer(*viewer, packet, NetworkPeer::Reliability::Reliable);
+    }
+
+    // 全体（含目标本人 —— 这正是"让玩家自己看到自己被换肤"的那一份）
+    auto level = ll::service::getLevel();
+    if (!level) return false;
+    bool any = false;
+    level->forEachPlayer([&](Player& p) {
+        if (npc_protocol::sendToPlayer(p, packet, NetworkPeer::Reliability::Reliable)) any = true;
+        return true;
+    });
+    return any;
+}
+
+bool PlayerNpcManager::injectSkinAll(std::string const& targetName, std::string const& skinId) {
+    return injectSkin(std::string{}, targetName, skinId);
+}
+
+// ── 1.26.0: 动画（AnimateEntityPacket）──
+
+static std::string npcAnimControllerName(int64_t id) { return "hololib.playernpc." + std::to_string(id); }
+
+bool PlayerNpcManager::playAnimation(
+    int64_t id,
+    std::string const& animation,
+    std::string const& stopExpression,
+    int durationTicks
+) {
+    std::lock_guard lock(mMutex);
+    auto it = mConfigs.find(id);
+    if (it == mConfigs.end() || animation.empty()) return false;
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end() || !it->second.enabled || rit->second.shownPlayers.empty()) return false;
+
+    auto const now  = currentTick();
+    auto const ctrl = npcAnimControllerName(id);
+    auto const rt   = rit->second.runtimeId;
+    for (auto const& uuid : rit->second.shownPlayers) {
+        mAnimQueue.emplace(now + 2, AnimEntry{uuid, rt, id, animation, ctrl, stopExpression});
+        if (durationTicks > 0) {
+            mAnimQueue.emplace(
+                now + 2 + static_cast<std::uint64_t>(durationTicks),
+                AnimEntry{uuid, rt, id, animation, ctrl, "query.any_animation"}
+            );
+        }
+    }
+    return true;
+}
+
+bool PlayerNpcManager::playAnimationTo(
+    int64_t id,
+    std::string const& playerName,
+    std::string const& animation,
+    std::string const& stopExpression,
+    int durationTicks
+) {
+    std::lock_guard lock(mMutex);
+    auto it = mConfigs.find(id);
+    if (it == mConfigs.end() || animation.empty()) return false;
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end() || !it->second.enabled) return false;
+
+    auto* player = findPlayerByName(playerName);
+    if (player == nullptr) return false;
+    auto const uuid = player->getUuid();
+    if (!rit->second.shownPlayers.contains(uuid)) return false;
+
+    auto const now  = currentTick();
+    auto const ctrl = npcAnimControllerName(id);
+    mAnimQueue.emplace(now + 2, AnimEntry{uuid, rit->second.runtimeId, id, animation, ctrl, stopExpression});
+    if (durationTicks > 0) {
+        mAnimQueue.emplace(
+            now + 2 + static_cast<std::uint64_t>(durationTicks),
+            AnimEntry{uuid, rit->second.runtimeId, id, animation, ctrl, "query.any_animation"}
+        );
+    }
+    return true;
+}
+
+void PlayerNpcManager::setEntitySpawnCallback(std::function<void(int64_t, std::string const&)> callback) {
+    std::lock_guard lock(mMutex);
+    mSpawnCallback = std::move(callback);
+}
+
+void PlayerNpcManager::notifySpawn(int64_t id, std::string const& playerName) const {
+    std::function<void(int64_t, std::string const&)> cb;
+    {
+        std::lock_guard lock(mMutex);
+        cb = mSpawnCallback;
+    }
+    if (cb) cb(id, playerName);
+}
+
+// 到期的动画包发出（与 customentity 域同款: 发包前校验实体仍对这名玩家可见 + runtimeId 未变）
+void PlayerNpcManager::flushAnimsLocked() {
+    if (mAnimQueue.empty()) return;
+    auto const now = currentTick();
+    for (auto it = mAnimQueue.begin(); it != mAnimQueue.end() && it->first <= now;) {
+        auto const& e  = it->second;
+        bool        ok = false;
+        auto        rit = mRuntimes.find(e.npcId);
+        if (rit != mRuntimes.end()) {
+            auto const cfgIt = mConfigs.find(e.npcId);
+            ok = rit->second.runtimeId == e.runtimeId && rit->second.shownPlayers.contains(e.playerUuid)
+              && cfgIt != mConfigs.end() && cfgIt->second.enabled;
+        }
+        if (ok) {
+            if (auto* player = findPlayerByUuid(e.playerUuid)) {
+                sculk::protocol::AnimateEntityPacket pkt;
+                pkt.mAnimation                   = e.animation;
+                pkt.mNextState                   = "none";
+                pkt.mStopExpression              = e.stopExpression;
+                pkt.mStopExpressionMolangVersion = sculk::protocol::MolangVersion::Initial;
+                pkt.mController                  = e.controller;
+                pkt.mBlendOutTime                = 0;
+                pkt.mRuntimeIds                  = {e.runtimeId};
+                npc_protocol::sendToPlayer(*player, pkt, NetworkPeer::Reliability::Reliable);
+            }
+        }
+        it = mAnimQueue.erase(it);
+    }
 }
 
 // 轻脏刷新: 只发朝向增量（MoveActorAbsolute; 逐玩家用各自覆盖朝向）, 不重建实体/不重发皮肤
@@ -519,6 +685,7 @@ void PlayerNpcManager::refreshLocked(int64_t id) {
             )) {
             rt.shownPlayers.insert(player->getUuid());
             mTabRemovals[id].push_back({player->getUuid(), currentTick() + 20});
+            notifySpawn(id, player->getRealName());
         }
     }
 }
@@ -591,6 +758,7 @@ void PlayerNpcManager::syncVisibilityLocked() {
                     rt.shownPlayers.insert(uuid);
                     ++spawnedThisTick;
                     mTabRemovals[id].push_back({uuid, currentTick() + 20});
+                    notifySpawn(id, player.getRealName());
                 }
             } else if (!visible && rt.shownPlayers.contains(uuid) && outOfHysteresis) {
                 npc_protocol::remove(player, id, rt.uniqueId);
@@ -631,6 +799,10 @@ struct PlayerNpcTickHookAccess {
             mgr.refreshLightLocked(id);
         }
     }
+    static void flushAnims(PlayerNpcManager& mgr) {
+        std::lock_guard lock(mgr.mMutex);
+        mgr.flushAnimsLocked();
+    }
     static void sync(PlayerNpcManager& mgr) {
         std::lock_guard lock(mgr.mMutex);
         mgr.syncVisibilityLocked();
@@ -658,6 +830,7 @@ LL_TYPE_INSTANCE_HOOK(PlayerNpcTickHook, HookPriority::Normal, Level, &Level::$t
 
     PlayerNpcTickHookAccess::processDirty(PlayerNpcManager::getInstance());
     PlayerNpcTickHookAccess::processLightDirty(PlayerNpcManager::getInstance());
+    PlayerNpcTickHookAccess::flushAnims(PlayerNpcManager::getInstance());
     PlayerNpcTickHookAccess::processTabRemovals(PlayerNpcManager::getInstance());
 
     static std::uint64_t lastSyncTick = 0;

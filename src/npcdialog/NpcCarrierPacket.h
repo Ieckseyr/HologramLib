@@ -33,6 +33,9 @@ inline std::string const& npcDataJson() {
 }
 
 // 合成载体的 AddActor。identifier 必须是 NPC 家族（客户端把对话界面与该实体类型绑定）。
+// skinVariant >= 0 时追加一条 `SkinId(104)`（26.40.8: NPC 内置皮肤变体, 0..59 —— 对话界面
+// 里的头像/模型按它选 skin_list 里的内置皮肤）; < 0 时**不加这一项**（与旧行为逐字节一致,
+// 离线对拍 tests/check-npc-carrier.py 不回归）。
 inline sculk::protocol::AddActorPacket buildCarrierAddActor(
     std::uint64_t               uniqueId,
     std::uint64_t               runtimeId,
@@ -40,7 +43,8 @@ inline sculk::protocol::AddActorPacket buildCarrierAddActor(
     std::string const&          npcName,
     std::string const&          actionJson,
     sculk::protocol::Vec3 const position,
-    float                       yaw
+    float                       yaw,
+    int                         skinVariant = -1
 ) {
     sculk::protocol::AddActorPacket packet;
     packet.mActorUniqueId  = static_cast<std::int64_t>(uniqueId);
@@ -54,13 +58,18 @@ inline sculk::protocol::AddActorPacket buildCarrierAddActor(
 
     // 5 条 ActorData = 参考实现的最小充分集合（真实 BDS NPC 有 73 条, 但客户端只靠这几条
     // 就能渲染 NPC 界面与按钮）。Actions 是客户端实际读取按钮的来源。
+    // （skinVariant >= 0 时再补第 6 条 `SkinId(104)` —— 26.40.8: NPC 内置皮肤变体 0..59,
+    //   对话界面里的头像/模型按它选 skin_list 里的内置皮肤; < 0 = 不加这一项, 与旧行为逐字节一致）
     auto& items = packet.mMetaData.mDataItems;
-    items.reserve(5);
+    items.reserve(6);
     items.push_back({sculk::protocol::ActorDataIDs::Name, std::string(npcName)});
     items.push_back({sculk::protocol::ActorDataIDs::HasNpc, static_cast<std::uint8_t>(1)});
     items.push_back({sculk::protocol::ActorDataIDs::NpcData, npcDataJson()});
     items.push_back({sculk::protocol::ActorDataIDs::Actions, actionJson});
     items.push_back({sculk::protocol::ActorDataIDs::InteractText, std::string(npcName)});
+    if (skinVariant >= 0) {
+        items.push_back({sculk::protocol::ActorDataIDs::SkinId, static_cast<std::int32_t>(skinVariant)});
+    }
     return packet;
 }
 

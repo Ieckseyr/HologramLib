@@ -69,10 +69,12 @@ using DebugArrow          = ProtoArrowPayload;
     return ProtoShapeType::Box;
 }
 
-// 颜色辅助：v2168 的 mColor 是 std::optional<std::int32_t>，
-// 按 ARGB 打包（A 在最高字节，B 在最低字节）。
-// 旧实现 writeColor 写入字节顺序为 r, g, b, a，
-// 对应 LE int32 = r | (g << 8) | (b << 16) | (a << 24)。
+// 颜色辅助：v2168 的 mColor / TextDataPayload 的 mBackgroundColor 都是 int32 颜色，
+// 按 **ARGB** 打包（A 在最高字节, R 次之, G 再次, B 在最低字节; 与 sculk 的
+// mMapWaterColorARGB 命名约定 / 官方协议口径一致）。
+// 注意: v944 时代的 writeColor 是逐字节 r, g, b, a（LE int32 = r | g<<8 | b<<16 | a<<24），
+// v2168 字段虽同为 int32 但字节序不同 —— 2026-10-09 实测: 填红显蓝（R/B 颠倒）,
+// 即旧字节序在 v2168 上是错的; 本函数已按 ARGB 修正。
 struct ProtoColor {
     std::uint8_t r{255}, g{255}, b{255}, a{255};
 
@@ -89,13 +91,13 @@ struct ProtoColor {
         };
     }
 
-    // 转换为 v2168 使用的 int32 打包颜色（保持与旧实现一致的字节顺序）
+    // 转换为 v2168 使用的 int32 打包颜色（ARGB: A 最高字节, B 最低字节）
     [[nodiscard]] std::int32_t toPacked() const {
         return static_cast<std::int32_t>(
-            static_cast<std::uint32_t>(r)
+            (static_cast<std::uint32_t>(a) << 24)
+            | (static_cast<std::uint32_t>(r) << 16)
             | (static_cast<std::uint32_t>(g) << 8)
-            | (static_cast<std::uint32_t>(b) << 16)
-            | (static_cast<std::uint32_t>(a) << 24)
+            | static_cast<std::uint32_t>(b)
         );
     }
 };

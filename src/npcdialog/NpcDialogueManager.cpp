@@ -5,10 +5,14 @@
 
 #include "customentity/CustomEntityManager.h"
 #include "npcdialog/NpcCarrierPacket.h"
+#include "playernpc/NpcProtocol.h"     // 玩家模型载体: spawnPlayerList/spawnPlayerBody/removePlayerList（26.40.8）
+#include "view/ViewOverrideExporter.h" // parseEntitySpec（avatarViewSpec 叠加, 26.40.8）
+#include "view/ViewOverrideLogic.h"    // normaliseType（短名补 minecraft: 前缀）
 
 #include <ll/api/io/LoggerRegistry.h>
 #include <ll/api/memory/Hook.h>
 #include <ll/api/service/Bedrock.h>
+#include <ll/api/thread/ServerThreadExecutor.h>
 
 #include <mc/deps/core/utility/BinaryStream.h>
 #include <mc/network/Compressibility.h>
@@ -165,16 +169,71 @@ void sendCarrierSpawn(
         pos.z - std::cos(rad) * 5.0f
     };
 
+    // 26.40.8: 聊天框头像/模型自定义 —— avatarViewSpec 按**视图覆盖语义**叠加到载体自身:
+    //   type → 换载体类型（⚠ 非 NPC 家族会破坏界面绑定, 与 carrierIdentifier 同边界; 测试: zombie/chicken）
+    //   skin → 用 playernpc 注册表里的皮肤 → 载体改为**玩家模型**（见下方分支; MHR/MeowSkin 注册的都能用）
+    //   name → 换界面标题/交互文字（写进 Name/InteractText 项）
+    // avatarSkinVariant → 载体 ActorData 的 SkinId(104)（内置皮肤变体 0..59; -1 = 不加项）
+    std::string identifier = spec.carrierIdentifier;
+    std::string title      = spec.npcName;
+    std::string skinId;
+    if (!spec.avatarViewSpec.empty()) {
+        auto const view = parseEntitySpec(spec.avatarViewSpec);
+        if (!view.identifier.empty()) {
+            auto const normalised = view::logic::normaliseType(view.identifier);
+            if (!normalised.empty()) identifier = normalised;
+        }
+        if (view.hasNametag && !view.nametag.empty()) title = view.nametag;
+        skinId = view.skinId;
+    }
+
+    // skin=<注册皮肤> → 载体改为**玩家模型**: PlayerList(Add) → AddPlayer（与 playernpc 合成的
+    // 时序一致, 皮肤自带 OverridesPlayerAppearance/trust 三态）。1s 后摘掉 Tab 条目（实体保留,
+    // 与 playernpc 的 20 tick 同款）。注册表里没有这张皮 → 记日志并回退默认 NPC 载体（不静默）。
+    if (!skinId.empty()) {
+        sculk::protocol::SerializedSkin skin;
+        if (!NpcSkinRegistry::getInstance().getSkin(skinId, skin)) {
+            HLIB_LOG_ERROR("[NpcDialog] avatarViewSpec 的皮肤未注册, 回退默认 NPC 载体: {}", skinId);
+        } else {
+            auto const id = static_cast<std::int64_t>(uniqueId);
+            npc_protocol::spawnPlayerList(player, id, uniqueId, title, skin);
+            npc_protocol::spawnPlayerBody(
+                player,
+                id,
+                runtimeId,
+                uniqueId,
+                ::Vec3{position.mX, position.mY, position.mZ}, // sculk Vec3(mX..) → 全局 mc Vec3(x..)
+                yaw,
+                title,
+                1.0f
+            );
+            std::string const playerNameCopy = player.getRealName();
+            ll::thread::ServerThreadExecutor::getDefault().executeAfter(
+                [playerNameCopy, id]() {
+                    auto level = ::ll::service::getLevel();
+                    if (!level.has_value()) return;
+                    if (auto* p = level->getPlayer(playerNameCopy); p != nullptr) {
+                        npc_protocol::removePlayerList(*p, id);
+                    }
+                },
+                std::chrono::milliseconds(1000)
+            );
+            HLIB_LOG_INFO("[NpcDialog] 玩家模型载体: player={} skin={}", playerNameCopy, skinId);
+            return;
+        }
+    }
+
     sendPacket(
         player,
         npcdialog::buildCarrierAddActor(
             uniqueId,
             runtimeId,
-            spec.carrierIdentifier,
-            spec.npcName,
+            identifier,
+            title,
             actionJson,
             position,
-            yaw
+            yaw,
+            spec.avatarSkinVariant
         )
     );
 }
@@ -308,6 +367,23 @@ int64_t NpcDialogueManager::open(std::string const& playerName, hologramlib::Npc
         spec.npcName
     );
     return dialogId;
+}
+
+// 26.40.8: 聊天框内显示的头像/模型自定义 —— 更新 avatarSkinVariant / avatarViewSpec 后就地重开
+// （删旧载体 → 建新载体 → 重发 Open, 与翻页/换层同一条 0 闪烁路径）。
+bool NpcDialogueManager::setAvatar(int64_t dialogId, int skinVariant, std::string const& avatarViewSpec) {
+    std::string                playerName;
+    hologramlib::NpcDialogSpec spec;
+    {
+        std::lock_guard lock(mMutex);
+        auto const      it = mDialogs.find(dialogId);
+        if (it == mDialogs.end()) return false;
+        playerName = it->second.playerName;
+        spec       = it->second.spec;
+    }
+    spec.avatarSkinVariant = skinVariant;
+    spec.avatarViewSpec    = avatarViewSpec;
+    return open(playerName, spec) >= 0; // 重开（同 tick 内无缝换内容）
 }
 
 bool NpcDialogueManager::update(int64_t dialogId, hologramlib::NpcDialogSpec const& spec) {

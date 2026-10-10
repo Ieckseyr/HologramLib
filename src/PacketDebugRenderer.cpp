@@ -159,6 +159,13 @@ bool PacketDebugRenderer::setRotation(int64_t id, float pitch, float yaw, float 
     auto* shape = getShape(id);
     if (!shape) return false;
     shape->proto.mRotation = Vec3{pitch, yaw, roll};
+    // 文本形状: 旋转要生效必须同时开 useRotation（否则客户端永远让它面向相机）,
+    // 并按官方脚本 API 的默认行为打开双面渲染（否则转到背面就看不见）
+    if (auto* textData = std::get_if<DebugText>(&shape->proto.mShape)) {
+        textData->mUseRotation = true;
+        textData->mShowBackface = true;
+        textData->mShowTextBackface = true;
+    }
     return true;
 }
 
@@ -167,6 +174,42 @@ bool PacketDebugRenderer::clearRotation(int64_t id) {
     auto* shape = getShape(id);
     if (!shape) return false;
     shape->proto.mRotation = std::nullopt;
+    if (auto* textData = std::get_if<DebugText>(&shape->proto.mShape)) {
+        textData->mUseRotation = false; // 回到面向相机（billboard）
+        textData->mShowBackface = false;
+        textData->mShowTextBackface = false;
+    }
+    return true;
+}
+
+// 文本专属: 背景框颜色 / 清除回默认 / 穿墙开关（其余形状没有这些字段）
+bool PacketDebugRenderer::setBackgroundColor(int64_t id, float r, float g, float b, float a) {
+    std::lock_guard<std::mutex> lock(mMutex);
+    auto* shape = getShape(id);
+    if (!shape) return false;
+    auto* textData = std::get_if<DebugText>(&shape->proto.mShape);
+    if (!textData) return false;
+    textData->mBackgroundColor = ProtoColor::fromFloat(r, g, b, a).toPacked();
+    return true;
+}
+
+bool PacketDebugRenderer::clearBackgroundColor(int64_t id) {
+    std::lock_guard<std::mutex> lock(mMutex);
+    auto* shape = getShape(id);
+    if (!shape) return false;
+    auto* textData = std::get_if<DebugText>(&shape->proto.mShape);
+    if (!textData) return false;
+    textData->mBackgroundColor = std::nullopt; // 不设 = 客户端默认背景色
+    return true;
+}
+
+bool PacketDebugRenderer::setDepthTest(int64_t id, bool enabled) {
+    std::lock_guard<std::mutex> lock(mMutex);
+    auto* shape = getShape(id);
+    if (!shape) return false;
+    auto* textData = std::get_if<DebugText>(&shape->proto.mShape);
+    if (!textData) return false;
+    textData->mDepthTest = enabled; // true = 被方块/实体遮挡; false = 始终渲染（穿墙可见）
     return true;
 }
 
@@ -192,11 +235,11 @@ std::vector<float> PacketDebugRenderer::getColor(int64_t id) {
     std::lock_guard<std::mutex> lock(mMutex);
     auto* shape = getShape(id);
     if (!shape || !shape->proto.mColor.has_value()) return {};
-    // 从 int32 打包颜色解包（与 ProtoColor::toPacked 对应）
+    // 从 int32 打包颜色解包（ARGB: A 最高字节, R 次之, G 再次, B 最低 —— 与 ProtoColor::toPacked 对应）
     std::uint32_t packed = static_cast<std::uint32_t>(*shape->proto.mColor);
-    float r = static_cast<std::uint8_t>(packed & 0xFF) / 255.0f;
+    float r = static_cast<std::uint8_t>((packed >> 16) & 0xFF) / 255.0f;
     float g = static_cast<std::uint8_t>((packed >> 8) & 0xFF) / 255.0f;
-    float b = static_cast<std::uint8_t>((packed >> 16) & 0xFF) / 255.0f;
+    float b = static_cast<std::uint8_t>(packed & 0xFF) / 255.0f;
     float a = static_cast<std::uint8_t>((packed >> 24) & 0xFF) / 255.0f;
     return {r, g, b, a};
 }
@@ -397,13 +440,30 @@ bool PacketDebugRenderer::destroy(int64_t id) {
 
 bool PacketDebugRenderer::destroyBatch(const std::vector<int64_t>& ids) {
     std::lock_guard<std::mutex> lock(mMutex);
-    for (int64_t id : ids) mShapes.erase(id);
-    return true;
+    std::vector<ProtoShape> removes;
+    removes.reserve(ids.size());
+    for (int64_t id : ids) {
+        auto it = mShapes.find(id);
+        if (it == mShapes.end()) continue;
+        removes.push_back(makeRemoveShape(it->second->proto.mNetworkId));
+        mShapes.erase(it);
+    }
+    if (removes.empty()) return true;
+    // 先发移除包再清内存 (与 destroy 一致; 未知 networkId 的移除包对客户端无副作用)
+    return ProtocolPacketWriter::sendToAll(removes);
 }
 
 void PacketDebugRenderer::destroyAll() {
     std::lock_guard<std::mutex> lock(mMutex);
+    if (mShapes.empty()) return;
+    std::vector<ProtoShape> removes;
+    removes.reserve(mShapes.size());
+    for (auto const& [id, shape] : mShapes) {
+        removes.push_back(makeRemoveShape(shape->proto.mNetworkId));
+    }
     mShapes.clear();
+    // 客户端与内存同批清理 (此前只清内存 → 客户端残留显示)
+    ProtocolPacketWriter::sendToAll(removes);
 }
 
 void PacketDebugRenderer::tick(float /*deltaTime*/) {

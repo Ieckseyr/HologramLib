@@ -29,8 +29,8 @@ namespace debugshape_export {
 
 static constexpr const char* NAMESPACE = "HologramLib";
 
-namespace {
-
+// 以下四个从匿名命名空间移出: parseEntitySpec 供其它域复用（如 npcDialog 的 avatarViewSpec）——
+// 声明见 ViewOverrideExporter.h, spec 语法与 viewEntity 保持同一份实现。
 std::string lower(std::string text) {
     std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
         return static_cast<char>(std::tolower(c));
@@ -70,6 +70,10 @@ hologramlib::EntityView parseEntitySpec(std::string const& spec) {
                 view.nametag    = value;
             } else if (key == "always") {
                 view.nametagAlwaysShow = truthy(value);
+            } else if (key == "skin") {
+                // 26.40.8/1.27.0: 换成**注册表里的那张皮肤**（非玩家实体 = 同 id 换模型;
+                // npcDialog 的头像载体 = 玩家模型载体）。皮肤来自 IPlayerNpc 注册表。
+                view.skinId = value;
             }
         }
         part.clear();
@@ -85,12 +89,10 @@ hologramlib::EntityView parseEntitySpec(std::string const& spec) {
     return view;
 }
 
-} // namespace
-
 // 玩家名 → 实体 uniqueId。**不在线统一返回 -1 只作为对 JS 的约定**（-1 是 BDS 的
 // INVALID 常量, 真实在线玩家不会是它）; 库内部一律走返回值判断, 不做"负数 = 没找到"。
 //
-// 这一条是实测踩出来的: 玩家 uniqueId 本身是负数（某服玩家 = -25769803775 = -0x5FFFFFFFF）,
+// 这一条是实测踩出来的: 玩家 uniqueId 本身是负数（实测 = -25769803775 = -0x5FFFFFFFF）,
 // 首版用 `id < 0` 当"没找到" → 玩家明明在线却直接返回 false, C++ 结构体直传那条路不经过
 // 这个判断, 所以只有 LSE 字符串那条路翻车。
 static bool playerIdOf(std::string const& playerName, std::int64_t& uniqueId) {

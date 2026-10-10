@@ -5,6 +5,13 @@
 // 消费插件经 HologramLib.lib 链接调用。
 #include "hologramlib/HologramLib.h"
 
+#include <intrin.h> // _ReturnAddress
+
+// 库侧"调用前检查消费方"（实现在 AbiGuard.cpp）: 传入**调用方**的返回地址
+namespace debugshape_export::abi {
+void checkCaller(void const* returnAddress) noexcept;
+}
+
 #include "FloatingTextManager.h"
 #include "PacketDebugRenderer.h"
 #include "itemdetail/ItemDetailManager.h"
@@ -77,6 +84,15 @@ public:
     bool clearRotation(int64_t id) override {
         return debugshape_export::PacketDebugRenderer::getInstance().clearRotation(id);
     }
+    bool setBackgroundColor(int64_t id, float r, float g, float b, float a) override {
+        return debugshape_export::PacketDebugRenderer::getInstance().setBackgroundColor(id, r, g, b, a);
+    }
+    bool clearBackgroundColor(int64_t id) override {
+        return debugshape_export::PacketDebugRenderer::getInstance().clearBackgroundColor(id);
+    }
+    bool setDepthTest(int64_t id, bool enabled) override {
+        return debugshape_export::PacketDebugRenderer::getInstance().setDepthTest(id, enabled);
+    }
 
     bool draw(int64_t id) override { return debugshape_export::PacketDebugRenderer::getInstance().draw(id); }
     bool drawToPlayer(int64_t id, std::string const& playerName) override {
@@ -114,9 +130,6 @@ public:
     bool setLineText(int64_t id, int lineIndex, std::string const& text) override {
         return debugshape_export::FloatingTextManager::getInstance().setLineText(id, lineIndex, text);
     }
-    bool setLineScale(int64_t id, int lineIndex, float scale) override {
-        return debugshape_export::FloatingTextManager::getInstance().setLineScale(id, lineIndex, scale);
-    }
     bool removeLine(int64_t id, int lineIndex) override {
         return debugshape_export::FloatingTextManager::getInstance().removeLine(id, lineIndex);
     }
@@ -130,42 +143,17 @@ public:
     bool setColor(int64_t id, float r, float g, float b, float a) override {
         return debugshape_export::FloatingTextManager::getInstance().setColor(id, r, g, b, a);
     }
-    bool setLineColor(int64_t id, int lineIndex, float r, float g, float b, float a) override {
-        return debugshape_export::FloatingTextManager::getInstance().setLineColor(id, lineIndex, r, g, b, a);
+    bool setScale(int64_t id, float scale) override {
+        return debugshape_export::FloatingTextManager::getInstance().setScale(id, scale);
     }
-    bool setLineGradient(
-        int64_t id,
-        int     lineIndex,
-        float   r1,
-        float   g1,
-        float   b1,
-        float   r2,
-        float   g2,
-        float   b2
-    ) override {
-        return debugshape_export::FloatingTextManager::getInstance().setLineGradient(
-            id,
-            lineIndex,
-            r1,
-            g1,
-            b1,
-            r2,
-            g2,
-            b2
-        );
+    bool setBackgroundColor(int64_t id, float r, float g, float b, float a) override {
+        return debugshape_export::FloatingTextManager::getInstance().setBackgroundColor(id, r, g, b, a);
     }
-    bool setLineRainbow(int64_t id, int lineIndex, float speed) override {
-        return debugshape_export::FloatingTextManager::getInstance().setLineRainbow(id, lineIndex, speed);
+    bool clearBackgroundColor(int64_t id) override {
+        return debugshape_export::FloatingTextManager::getInstance().clearBackgroundColor(id);
     }
-
-    bool setLineScroll(int64_t id, int lineIndex, int direction, float speed) override {
-        return debugshape_export::FloatingTextManager::getInstance().setLineScroll(id, lineIndex, direction, speed);
-    }
-    bool setVerticalAnimation(int64_t id, int type, float speed, float range) override {
-        return debugshape_export::FloatingTextManager::getInstance().setVerticalAnimation(id, type, speed, range);
-    }
-    bool setLineSpacing(int64_t id, float spacing) override {
-        return debugshape_export::FloatingTextManager::getInstance().setLineSpacing(id, spacing);
+    bool setDepthTest(int64_t id, bool enabled) override {
+        return debugshape_export::FloatingTextManager::getInstance().setDepthTest(id, enabled);
     }
 
     bool setLocation(int64_t id, float x, float y, float z) override {
@@ -188,12 +176,23 @@ public:
     bool remove(int64_t id) override { return debugshape_export::FloatingTextManager::getInstance().remove(id); }
     bool refresh(int64_t id) override { return debugshape_export::FloatingTextManager::getInstance().refresh(id); }
 
-    void tick(float deltaTime) override {
-        debugshape_export::FloatingTextManager::getInstance().tick(deltaTime);
-    }
-
     bool setDimension(int64_t id, int dimId) override {
         return debugshape_export::FloatingTextManager::getInstance().setDimension(id, dimId);
+    }
+
+    // ── 1.26.0 追加 ──
+    bool setRotation(int64_t id, float pitch, float yaw, float roll) override {
+        return debugshape_export::FloatingTextManager::getInstance().setRotation(id, pitch, yaw, roll);
+    }
+    bool clearRotation(int64_t id) override {
+        return debugshape_export::FloatingTextManager::getInstance().clearRotation(id);
+    }
+    // ── 1.26.0 追加: 动态行（重构自 Phantom, LGPL-3.0 —— 见 FloatingTextManager.h 文件头标注）──
+    bool setLinePool(int64_t id, int lineIndex, std::vector<std::string> const& content, int intervalMs) override {
+        return debugshape_export::FloatingTextManager::getInstance().setLinePool(id, lineIndex, content, intervalMs);
+    }
+    bool setLineParseVariables(int64_t id, int lineIndex, bool enabled) override {
+        return debugshape_export::FloatingTextManager::getInstance().setLineParseVariables(id, lineIndex, enabled);
     }
 
 };
@@ -620,6 +619,7 @@ public:
     bool removeGhostInteractListener(uint64_t token) override {
         return debugshape_export::GhostInteractRouter::getInstance().removeListener(token);
     }
+
     std::vector<std::string> pollGhostInteractions() override {
         auto events = debugshape_export::GhostInteractRouter::getInstance().poll();
         std::vector<std::string> out;
@@ -651,6 +651,13 @@ public:
 
     // ── 1.25.0: 客户端视图覆盖（协议层拦截改写）──
     IViewOverride& viewOverrides() override { return debugshape_export::viewOverrideAdapter(); }
+    // ── 1.27.0 ──
+    uint64_t addActorInteractListener(std::function<void(ActorInteractEvent const&)> listener) override {
+        return debugshape_export::GhostInteractRouter::getInstance().addActorListener(std::move(listener));
+    }
+    bool removeActorInteractListener(uint64_t token) override {
+        return debugshape_export::GhostInteractRouter::getInstance().removeActorListener(token);
+    }
 
 private:
     ShapeDrawerImpl  mShapes;
@@ -665,7 +672,17 @@ private:
 
 HOLOGLIB_API IHologramLib& IHologramLib::getInstance() {
     static HologramLibImpl instance;
+    // 调用前检查消费方: 认出发起这次调用的模块, 读它导出的布局描述, 与库自己的比对（结果缓存, 热路径只有原子读）。
+    // _ReturnAddress() 必须在这里取: 它给的是**调用方**的返回地址（在 checkCaller 里取会拿到库内部的地址）。
+    debugshape_export::abi::checkCaller(_ReturnAddress());
     return instance;
+}
+
+// 布局戳导出（纯 C, 消费方 GetProcAddress 自检用; 见头文件 HOLOGLIB_ABI_STAMP 的说明）。
+// 放在这里而不是接口里: 加虚函数槽会动虚表 —— 在"库与插件不是同批构建"时, 那个新槽本身
+// 也可能落到别的方法上; 纯 C 导出则取不到就是取不到（null）, 不会崩。
+extern "C" __declspec(dllexport) std::uint32_t __cdecl hologramlib_abiStamp() {
+    return HOLOGLIB_ABI_STAMP;
 }
 
 } // namespace hologramlib

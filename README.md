@@ -4,24 +4,24 @@ Bedrock 协议层统一悬浮显示库（LeviLamina 26.40 / BDS 1.26.40 / 协议
 
 | 能力域 | C++ 接口 | LSE 前缀 | 说明 |
 |--------|----------|----------|------|
-| 形状渲染 | `IShapeDrawer` | `shape*`（36 函数） | 线/盒/圆/球/箭头/文本，协议层 PrimitiveShapes 包 |
-| 悬浮字全息 | `IHologramText` | `holo*`（26 函数） | 多行文本、彩虹、变量占位符，跨维度迁移 |
+| 形状渲染 | `IShapeDrawer` | `shape*`（39 函数） | 线/盒/圆/球/箭头/文本（文本支持背景框颜色 / 穿墙开关 / 三轴旋转），协议层 PrimitiveShapes 包 |
+| 悬浮字全息 | `IHologramText` | `holo*`（26 函数） | 多行文本、整块颜色/背景框/穿墙开关/三轴旋转/缩放、**动态行（内容池轮播 / 行级变量解析）**、变量占位符，跨维度迁移 |
 | 渐变线 | — | `gradient*`（11 函数） | 多色渐变轨迹线 |
 | 物品详情 | `IItemDetail` | `itemDetail*`（2 函数） | 自动翻译 "钻石 x64" |
 | FMBE 物品悬浮 | `IItemDisplay`（1.6.0） | `itemDisplay*`（33 函数） | 狐狸+发包；无感创建（createSeamless）、白名单、视距、scaleTo |
-| 自定义实体 | `ICustomEntity`（1.10.0） | `entity*`（33 函数） | 协议层生成实体：姿态/装备槽/动画/ActorLink 骑乘；逐客户端朝向（1.20.0） |
+| 自定义实体 | `ICustomEntity`（1.10.0） | `entity*`（37 函数） | 协议层生成实体：姿态/装备槽/动画/ActorLink 骑乘；逐客户端朝向（1.20.0） |
 | Ghost 交互 | 监听器 + 轮询 | `ghost*`（2 函数） | 非真实实体的交互事件路由（InteractPacket hook, 1.12.0）；C++ 侧支持多播监听（1.19.1） |
 | 粒子形状 | `IParticleShape`（1.14.0） | `particle*`（22 函数） | 点/线/矩形环/填充面/盒框/六面/多面体 + moveTo/旋转/自旋/跟随 |
-| 假玩家 NPC | `IPlayerNpc`（1.16.0） | `playerNpc*`（25 函数） | 纯协议假玩家；皮肤 PNG 注册/在线采集/目录导入/自定义模型；逐客户端朝向（1.20.0） |
+| 假玩家 NPC | `IPlayerNpc`（1.16.0） | `playerNpc*`（29 函数） | 纯协议假玩家；皮肤 PNG 注册/在线采集/目录导入/**注入（含自视换肤）**/blob 持久化；逐客户端朝向（1.20.0） |
 | 感知域 | `IPlayerSensing`（1.21.0） | `sensing*`（3 函数, 1.22.0 补） | 客户端设备判断（AuthInput InputMode 逐包捕获）：触屏/手柄/键鼠 |
 | 千人千面 | `ICustomEntity` per-viewer 覆盖（1.21.0） | `entity*` 尾部 4 函数（1.22.0 补） | 同一实体按观看者覆盖名字牌/缩放/装备槽 |
 | 逐玩家变量全息 | `IHologramText` + `{var}`（1.21.0） | — | 文本含 `{var}` 时按观看者解析（每人看到自己的 `{player}`） |
 | 村民交易菜单 | `ITradeMenu`（1.21.0） | `trade*`（10 函数, 1.24.0 补真结算） | 协议层 `UpdateTrade` 开界面（与 BDS 抓包逐字节一致）；默认纯展示, `settleLocally=true` 时库自己扣付费/发产物（**客户端确认未打通, 见下**） |
-| NPC 对话框 | `INpcDialogue`（1.21.0） | `npcDialog*`（7 函数, 1.22.0 补） | `NpcDialoguePacket` + 合成 `minecraft:npc` 载体；按钮/关闭回传（LSE 走轮询）；多层级对话按场景名路由 |
+| NPC 对话框 | `INpcDialogue`（1.21.0） | `npcDialog*`（9 函数, 1.22.0 补 + 26.40.8 增） | `NpcDialoguePacket` + 合成 `minecraft:npc` 载体；**聊天框内头像可自定义**（内置皮肤变体 0..59 / 视图覆盖叠加换类型·换标题）；按钮/关闭回传（LSE 走轮询）；多层级对话按场景名路由 |
 | 虚拟容器（列表） | `IContainerMenu`（1.21.0） | `container*`（10 函数, 1.22.0 补） | 复刻 GMLIB ChestUI：客户端侧箱子方块 + 方块实体 NBT + `ContainerOpen`；小容器 27 格 / 大容器 54 格；点击回传槽位号（LSE 走轮询）；**可交互模式**（`interactive` / `containerSetInteractive`）能真的在容器内拖动/交换物品 |
 | 背包虚容器 | `IFakeInventory`（1.23.0） | `fakeInv*`（9 函数） | 协议层改写客户端看到的**玩家背包内容**（服务端背包不动）；点伪造物品回传槽位号（与虚容同一语义）；与交易菜单/虚拟容器共存（周期重发盖回去） |
 | 硫磺立方体展示 | `ISulfurDisplay`（1.23.0） | `sulfur*`（10 函数） | 第二种摆放方式：生成 `minecraft:sulfur_cube`，**把方块"吞"在主手**（行为包原生机制, 客户端按装备渲染）；**立方体默认隐身**（实测方块照常渲染 → 只留内容）；外观档位走 `sulfur_cube_archetype` 属性 |
-| 客户端视图覆盖 | `IViewOverride`（1.25.0） | `view*`（6 函数） | 协议层拦截**按玩家发包**并原地改写：实体换类型 / 换名字牌 / 对该玩家隐藏（阻断该实体的出生与更新包），方块显示成另一种方块。只改**客户端视图**（服务端世界/存档/碰撞不动），其余玩家看到原样 |
+| 客户端视图覆盖 | `IViewOverride`（1.25.0; 1.27.0 补 `EntityView::skinId`） | `view*`（16 函数） | 协议层拦截**按玩家发包**（**只拦不发**: 放行/丢弃; 需要"改"的一律丢原包 + 库手写协议包补发）：实体换类型 / 换名字牌 / 对该玩家隐藏（阻断该实体的出生与更新包），方块显示成另一种方块。只改**客户端视图**（服务端世界/存档/碰撞不动），其余玩家看到原样 |
 
 > **假玩家 NPC 皮肤已可正常渲染（26.40.2 修复）**：`playerNpc*` 的创建/移动/朝向/缩放/视距/显隐，以及皮肤注册表（PNG 注册、在线采集、目录导入、`getSkinBlob` 导出 / `registerSkinFromBlob` 恢复）均正常工作。此前的症状是客户端不渲染所设置的皮肤、外观回退为默认模型，原因在 PlayerList 皮肤条目的 `Id` / `FullId` 为空或残留了原玩家的缓存键。
 
@@ -29,28 +29,106 @@ PlayerList 现在只做包体前缀校验、不回读 BDS：发送前检查单�
 
 除 FMBE / 自定义实体 / 交易菜单 / NPC 对话走"假实体（部分隐身、仅目标玩家可见）+ 发包"外，其余渲染都不产生真实实体、不写存档、零服务器开销。交易菜单与 NPC 对话的载体实体在界面关闭时立即删除，不落存档；虚拟容器只在**客户端侧**摆箱子方块（服务端世界与存档里都没有这个方块）。粒子发送走 vanilla `SpawnParticleEffectPacket` 批量通道（BDS tick flush 自动聚合压缩为单 Batch 数据报）。
 
-- API 版本：**1.25.0**（`HOLOGLIB_API_VERSION 0x011F00`）
-- 插件发布版本：`26.40.7`
+- API 版本：**1.27.0**（`HOLOGLIB_API_VERSION 0x012100`）
+- 插件发布版本：`26.40.9`
 - 版本 / API 版本 / 宏 对照：见 [`VERSION-HISTORY.md`](./VERSION-HISTORY.md)
 
 ## 更新日志
 
-- `26.40.7`（API 1.25.0）：**新增客户端视图覆盖 `IViewOverride`**（协议层拦截改写）。
-  - **改写的是"服务端本来要发给这名玩家的包"**：库挂在 BDS 的按收件人发包汇合点
-    （`NetworkSystem::send` / `sendToMultiple`）—— 它自己负责序列化，所以结构化包在这一层还没变成
-    字节：直接改包对象里的字段，**序列化仍由 BDS 自己做**（调用方不需要懂包结构，库也不手拼字节）。
-    反编译实测实体出生包不走 `LoopbackPacketSender`（原先挂在那里 → 换类型不生效），故改挂这里。
+- `26.40.9`（API 1.27.0）：**`EntityView::skinId`（+ `scale` / `yOffset`）—— 非玩家实体"换成我们的模型"**（拦下的出生包 + 库自己的包替换, **同一个 runtimeId/uniqueId**）: 客户端看到已注册皮肤（可自定义几何）的玩家模型, 服务端那边还是那只生物 —— **点它/打它/瞄准都是它本人**。配套吃掉该实体的 `MoveActor*`(18/111) 并每 tick 用 `MoveActorAbsolute` 推位置/朝向、`PlayerList` 条目 20 tick 后摘掉、撤销时重发真实出生包；`scale` 等比碰撞箱（元数据 53/54）、`yOffset` 把模型原点对齐到脚位。消费方示例: MSkinventory 的"同 id 换皮"。
+  - **真实实体交互事件**：`addActorInteractListener` / `removeActorInteractListener`（类尾追加）—— 玩家右键 / 攻击**服务端真实实体**时回调；复用库已有的收包钩子（不新增 detour 层），多播互不覆盖，返回 token 用于移除。
+  - **ABI 布局戳**：头文件携带虚表布局描述符 + 消费方编译期自检（库侧运行期拦截"布局不一致的消费方"）—— 把 2026-10-09 / 10-10 两次"中段挪槽"启动崩溃固化成机制；详见 [VERSION-HISTORY.md](VERSION-HISTORY.md)「ABI 事故（明记）」。
+  - LSE：`viewEntity` 的 spec 串新增 **`skin=<皮肤id>`**（等价 `EntityView::skinId`；皮肤取自 `IPlayerNpc` 注册表）。
+- `26.40.8`（API 1.26.0）：**视图覆盖残骸清理 + `IPlayerNpc` 追加五方法 + 悬浮字/text 域收缩与补全**（收缩明记，见 [VERSION-HISTORY.md](VERSION-HISTORY.md)）。
+  - **视图覆盖（`IViewOverride`）代码整理**：行为不变 —— 出站钩子只决定"放行 / 丢弃"，**原包字段一律不改**
+    （自 26.40.7 起即如此）。本次清掉与行为不符的**旧世界残骸**：重写过期的"能原包改的就原包改"顶注、
+    删除就地改写的死代码（`dataListOf` / `setItemById` / `cloneItems` / `restoreItems`）、判定链路全 const 化
+    （读包只为识别身份）。需要"改"的地方一律**丢原包 + 库自己手写协议包**（换类型出生包其余字段照抄原包；
+    名字牌由库的 `SetActorData` 紧随其后压过去；方块覆盖在收到区块后自动补发；被替换玩家的位移包丢掉、
+    位置由心跳用 `MoveActorAbsolute` 推）。`view*` LSE 导出补齐**逐字段**（6→16 函数；唯一 id 判定修正——玩家 id 本身是负数）。
+  - **`IPlayerNpc` 尾部追加五个方法**（+ `setEntitySpawnCallback`；既有 ABI 不变）：
+  - **`setPositionLight(id, x, y, z, dim)`**：只发 `MoveActorAbsolute`（不重建实体、不重发皮肤，无闪烁），
+    与 `setRotationLight` 共用同一条轻脏通道，同一 tick 内合并为一条包。用途是"每 tick 跟随会移动的东西"
+    （典型场景：把自定义模型挂在移动中的生物身上）。`dim` 与当前维度不同时返回 `false`，跨维度请仍走 `setPosition` 重建。
+  - **`injectSkin(viewerName, targetName, skinId)` / `injectSkinAll(targetName, skinId)`**：把注册表里的皮肤
+    按 **target 自己的 UUID / uniqueId** 发一条 `PlayerList(Add)` 就地更新皮肤条目。`viewerName` 空串 = 所有在线玩家
+    （**含 target 本人** —— 这是"让玩家自己看到自己被换肤"的路径；Geyser 对 session 玩家自身也是走 PlayerList 而不是 `PlayerSkinPacket`）。
+    条目带真实 xuid、`TrustedSkinFlag = true`；皮肤对象自带 `OverridesPlayerAppearance = true`（覆盖玩家客户端上已装备的皮肤，缺它客户端会拒绝）。
+    **不自动重发**：客户端偶发丢帧时由消费方自己再调一次（Geyser 的做法是 ~100ms 后重发）。
+  - **`playAnimation(id, animation, stopExpression, durationTicks)` / `playAnimationTo(id, playerName, ...)`**：对已见过该 NPC
+    的玩家发 `AnimateEntityPacket`（`animation` = 资源包里的动画标识符; `controller` 名库内按 NPC id 自动唯一化, 不需要资源包里
+    预先存在同名控制器; `stopExpression` 空 = 常驻, `"query.any_animation"` = 立刻停; `durationTicks > 0` 到期自动补发停止包）。
+    同一版追加 `setEntitySpawnCallback`（NPC 对某玩家出生完成回调, 供补发动画/状态）。与 customentity 域同款队列（+2 tick 发出）。
+  - `setPositionLight` / `playAnimation(To)` / `setEntitySpawnCallback` 为 **C++ 接口（暂无 LSE 导出）**；
+    **皮肤一族已补 LSE 导出**：`playerNpcInjectSkin` / `playerNpcInjectSkinAll`（注入给指定/全体观看者，
+    **含被换肤者本人——自己看自己被换肤**）与 `playerNpcGetSkinBlobB64` / `playerNpcRegisterSkinFromBlobB64`
+    （皮肤 blob 的 base64 持久化配对：消费方落盘，重启后源玩家不在线也能恢复）——`playerNpc*` 25→29，
+    总计 265（Disguise / MSkinventory 类"玩家自视换肤"的脚本侧正路）。消费方用 `>= 0x012000` 门住这些方法。
+  - **收缩（移除 8 个 holo 导出 + 2 组内部能力）**：`holoSetLineGradient`（渐变）/ `holoSetLineRainbow`（彩虹）/
+    `holoSetLineColor`（行级颜色）/ `holoSetLineScroll`（滚动）/ `holoSetVerticalAnimation`（垂直动画）/
+    `holoSetLineSpacing`（行距）/ `holoSetLineScale`（行级缩放）/ `holoTick` —— 这些在"整块文本 = 单一文本形状"
+    的模型下**不可实现或空转**（行级样式只有第 0 行生效、彩虹落成白色、行距字段本协议不存在、自驱 tick 的偏移
+    无人消费）。行级颜色请改用文本内嵌 § 颜色代码；行级缩放改 `holoSetScale`（整块）。
+  - **补全（新增 6 个 holo 导出 + 3 个 shape 导出）**：`holoSetScale`（整块缩放）/ `holoSetBackgroundColor` /
+    `holoClearBackgroundColor`（背景框颜色; 不设 = 客户端默认色）/ `holoSetDepthTest`（穿墙可见性:
+    `false` = 始终渲染（默认，穿墙可见）, `true` = 被方块/实体遮挡）/ `holoSetRotation` / `holoClearRotation`
+    （三轴 Euler [Pitch, Yaw, Roll]，**单位 = 度**（官方脚本 API 口径）; 设置后文本不再面向相机）;
+    形状域同步补 `shapeSetBackgroundColor` / `shapeClearBackgroundColor` / `shapeSetDepthTest`。
+  - **动态行回归（重构自 Phantom——LGPL-3.0，已按许可标注来源，见文末「第三方来源标注」）**：`holoSetLinePool(id, line, [内容池], 间隔ms)`
+    （内容池按间隔**时间取模轮播**，无状态、多个浮字同池同相）+ `holoSetLineParseVariables(id, line, on)`
+    （行级变量开关，默认开）。轮播/变量刷新由库内 **0.5s 节流**承担、**内容变了才重发**
+    （区别于本版移除的自驱"偏移"：那时每拍都在动、但驱出来的东西没有消费方）；变量集补
+    `{dimension}` / `{x}` / `{y}` / `{z}`。另修**逐观看者（含 `{var}`）文本的刷新只改内存、不发包**
+    （此前更新要等 15s 兜底重发才到客户端）——现在 `refresh`/驱动会逐玩家原地重发（同 networkId，无闪烁）。
+    `holo*` 24→26，导出总数 265→267。
+  - **NPC 对话框头像自定义**：`NpcDialogSpec` 尾部新增两个参数 —— `avatarSkinVariant`
+    （NPC **内置皮肤变体** 0..59：写进载体 ActorData 的 `SkinId(104)`，聊天框里的头像/模型换内置皮肤；
+    `-1` = 不加该项，与旧行为逐字节一致）+ `avatarViewSpec`（**在这只载体上叠一层 IViewOverride**：
+    spec 语法同 `viewEntity` —— `type=` 换载体类型（测试矩阵: 僵尸 / 鸡）、`skin=` 用 **playernpc 注册表
+    里的皮肤**（MHR/MeowSkin 注册/采集的都在这张表）→ 载体改为**玩家模型**（PlayerList+AddPlayer 同 id，
+    Tab 条目 1s 后摘掉）、`name=` 换界面标题；`type` 换非 NPC 家族能否照常弹界面需实机验证）。
+    配套 LSE：`npcDialogSetAvatar(id, skinVariant, viewSpec)`（就地更新 + 重开，与翻页同一条 0 闪烁路径）；
+    `npcDialog*` 8→9，导出总数 267→268。要"整只模型完全自定义"也可走既有 `npcUniqueIdOverride` 路线：
+    用视图域 / 自定义实体生成展示实体、把对话挂在它 id 上
+    （1.27.0 的 `EntityView::skinId` 同-id 换模型路线也可用于那只展示实体）。
+  - **修复**：① 文本形状的 `setRotation` 此前**不生效**（缺少 `useRotation` 标志，文本永远面向相机）——
+    现在同时下发 `useRotation` 与双面渲染，`clearRotation` 恢复面向相机；② `shapeDestroyAll` /
+    `shapeDestroyBatch` 只清服务端内存、**不发移除包**（客户端残留显示），现已补齐；
+    ③ 跟随玩家不再依赖库内 tick —— 位置在 `setFollowPlayer` / `draw` / `refresh` 调用时就地解析；
+    ④ **颜色 R/B 通道颠倒**（int32 颜色沿用 v944 旧字节序，v2168 实际为 **ARGB** —— 填红显蓝）：
+    打包 `toPacked` 与解包 `getColor` 已统一修正（形状 / 文本颜色 / 背景框全部受影响；
+    修好后配置里的颜色按字面显示，若此前为凑颜色反填过值请改回）；
+    ⑤ **"伪装成某个玩家"被当成撤销**（`overrideEntity` 的"全空视为撤销"判空漏了 `asPlayer`
+    字段）—— 报"无法伪装"且顺手清掉旧覆盖；已把 `asPlayer` 计入判空；
+    ⑥ **玩家变生物会把本人客户端卡死**（覆盖对"自己"也生效：给本人发 `RemoveActor` + 同
+    runtimeId 的 `AddActor`）—— 新增"**自己的客户端不参与自己实体的覆盖**"规则，覆盖/恢复/
+    出站三条链路全部跳过本人（自己的 `SetActorData`、`MovePlayer` 也不再被吃）；
+    **换肤类例外：含本人**（`PlayerList(Add)` 发给本人是"自己看自己被换肤"的正路，自视也随之变）；
+    ⑦ **被替换玩家的位移从未推送**（`sendMoveActorAbsolute` 是死代码，替身站桩不动）——
+    现在每次收到他的输入包就按输入位置（眼位 → 脚位）给看得见的观看者推 `MoveActorAbsolute`（跳过本人）。
+  - 消费方提示：升级后在 `>= 0x012000` 门住新方法；按旧 holo 行级 API 写的代码**重新编译会得到弃用警告**
+    （`[[deprecated]]`），LSE 侧 `ll.import` 得 null 显式失败——**不会静默变行为**。**ABI 安全**：被收缩的
+    8 个方法在 C++ 接口里保留为**废弃空槽**（非纯虚 + 空实现），虚表槽位与 1.25.0 一致——未重编译的旧
+    消费方二进制不会错位（与 26.40.3 交易菜单收缩的区别：那次删的是尾部方法，这次在中段，直接删会
+    整体前移虚表）。库内消费者已同步（MeowHolographicRenderer、ZXPanel、Meow）。
+- `26.40.7`（API 1.25.0）：**新增客户端视图覆盖 `IViewOverride`**（协议层拦截; 只拦不发）。
+  - **拦截的是"服务端本来要发给这名玩家的包"**：库挂在 BDS 的按收件人发包汇合点
+    （`NetworkSystem::send` / `sendToMultiple`）—— 在这些汇合点上库**只决定拦不拦**
+    （放行 / 丢弃），**从不修改引擎包字段**；需要"改"的一律丢原包 + 库**自己手写协议包**补发
+    （sculk 构造 → 回读校验 → 原始字节发送）。反编译实测实体出生包不走 `LoopbackPacketSender`
+    （原先挂在那里 → 换类型不生效），故改挂这里。
   - **心跳兜底**：服务器每 tick 自查一次 —— 实体"重新进入视野"、玩家换区块时把覆盖重新推一遍。
     出生包拦漏 / 方块覆盖被区块重发冲掉都靠它恢复；没用到这个功能时只是一次原子读。
-  - **能做**：实体换类型（`AddActor` 的 `mActorType`）、换名字牌（元数据 `Name(4)` /
-    `NametagAlwaysShow(81)`，出生包内改 + 服务端后续改名不覆盖我们的视图）、**对该玩家隐藏**
-    （直接不发出生包与更新包，已在客户端上的补一条 `RemoveActor`）、方块显示成另一种方块
-    （`UpdateBlock` / `UpdateBlockSynced` 的 `mRuntimeId` 换成目标方块的网络 id）。
-  - **逐玩家隔离**：覆盖表按玩家名 + 一份全局表；多收件人路径（`sendToClients` / 广播）展开成逐收件人套用，
-    改完立刻把原值放回去，后一个收件人不会看到前一个的覆盖。**幂等**：同一条包被多条路径各套用一次，
-    结果与套用一次相同（"记录真实方块 id"这一步只在当前值还不是覆盖值时才做）。
+  - **能做**：实体换类型（丢掉原出生包，库用同一 `runtimeId`/`uniqueId` 自己发一只目标类型，其余字段照抄原包）、
+    换名字牌（元数据 `Name(4)` / `NametagAlwaysShow(81)`：原包照发，库自己的 `SetActorData` 紧随其后压过去，
+    服务端后续改名也压得住）、**对该玩家隐藏**（出生包与更新包不发给他，已在客户端上的补一条 `RemoveActor`）、
+    方块显示成另一种方块（丢掉原 `UpdateBlock` / `UpdateBlockSynced`，库自己发一条带覆盖方块网络 id 的
+    `UpdateBlock`；服务端发的本来就是覆盖方块时照发不改）。
+  - **逐玩家隔离**：覆盖表按玩家名 + 一份全局表；多收件人路径（`sendToClients` / 广播）展开成逐收件人套用 ——
+    只为让"放行 / 丢弃"逐人生效；因为从不改字段，不存在"后一个收件人看到前一个覆盖"的串味。**幂等**：
+    判定认 id 不认位置，同一条包被多条路径各判一次结果相同；已是覆盖方块的更新包直接放行。
   - **零开销**：库内没有任何覆盖时，钩子一条分支直接放行（不查玩家、不读包）；命中判定也只看
-    目标玩家有没有覆盖，没命中一个字段都不碰。**fail-safe**：不认识的包、认不出来的实体一律原样放行。
+    目标玩家有没有覆盖，没命中就原样放行。**fail-safe**：不认识的包、认不出来的实体一律原样放行。
   - **26.40 做不到的（所以没进 API）**：逐玩家的**缩放 / 发光 / 隐身** —— 元数据表里没有 `scale`，
     也没有 `glowing` / `invisible` 旗标（基岩版隐身是效果，走 `MobEffectPacket`）。
     自定义实体的逐客户端缩放/装备槽仍归 `ICustomEntity` 的 per-viewer 覆盖（1.21.0）。
@@ -121,7 +199,7 @@ PlayerList 现在只做包体前缀校验、不回读 BDS：发送前检查单�
   - **感知域 `IPlayerSensing`**：挂钩 `PlayerAuthInputPacket` 逐包捕获 `InputMode` → `KeyboardMouse` / `Touch` / `Gamepad` / `MotionController`；玩家离线即清，换设备下一包即更新。
   - **逐客户端渲染（千人千面）**：`ICustomEntity` 新增 `setPlayerNametag` / `setPlayerScale` / `setPlayerEquipmentSlot` / `clearPlayerAppearance`（出生包与增量包都按观看者覆盖值下发，装备变更即时单发无闪烁）；`IHologramText` 文本含 `{var}` 时自动切换为**逐观看者形状**，`{player}` 从此对全员绘制也逐人正确。
   - **裁剪**：移除逐客户端音效与短命飘字（讨论后不再需要，代码整体删除；两者是早期按"协议层手写包"做的实验）。
-  - **修复**：①文本动画（滚动 / 弹跳）改由库内自驱（`ServerLevelTickEvent` 监听）—— 此前 `tick` 只有 LSE 导出，原生侧没有驱动源，动画既不动也不消失；②147 钩子原先只在**交易**菜单打开时才进入，虚拟容器点击因此全部漏掉；③点击上报的是背包侧槽位（现在优先报交易侧）；④`src/DiagLog.h` 遗留在发布产物里的诊断开关（`check-no-diagnostics.bat` 会挡住）。
+  - **修复**：①文本动画（滚动 / 弹跳）改由库内自驱（`ServerLevelTickEvent` 监听）—— 此前 `tick` 只有 LSE 导出，原生侧没有驱动源，动画既不动也不消失（**该自驱与相关 API 已在 26.40.8 收缩中整体移除**）；②147 钩子原先只在**交易**菜单打开时才进入，虚拟容器点击因此全部漏掉；③点击上报的是背包侧槽位（现在优先报交易侧）；④`src/DiagLog.h` 遗留在发布产物里的诊断开关（`check-no-diagnostics.bat` 会挡住）。
   - **实测沉淀（详见下文各节）**：容器打开延迟 7 tick 可用 / 6 tick 不可用的下限；物品请求有 `ItemStackRequestPacket(147)` 与 `PlayerAuthInputPacket(144)` 内嵌两条通道；命中虚拟容器的动作只回传不拦（自己代答失败应答会让客户端弹错误提示）。
 - `26.40.2`（API 1.20.0）：修复假玩家 NPC 皮肤不渲染（客户端回退默认模型）—— PlayerList 皮肤条目的 `Id` / `FullId` 为空或残留原玩家的缓存键；PNG 注册、在线采集、blob 恢复统一走 `finalizeSkinIds` 补全 `Id` 并重建 `FullId`，且在 Persona / 采集改写完成后才设置，不再沿用来源玩家的身份。PlayerList 发送前校验 2168 包体前缀（Add `01 01 00`，Remove `01 00 01`），前缀异常时丢弃并记录实际前缀；首次提交到 NetworkPeer 时输出 `PlayerList submitted` 日志。新增离线回归检查 `tests/check-npc-playerlist.ps1`（用实际链接的静态库产生字节 + 独立 Python 解码器核对 2168 字段、可信标记位置、`Id` / `FullId` 与包体完全消费）。配套 Protocol 静态库完成 PlayerList 2168 帧格式移植（variant 数组、`ActionType` Add=0/Remove=1、可信标记改为皮肤内三态字符串）；本插件 ABI / API 版本不变
 - `26.40.1`（API 1.20.0）：适配 LeviLamina 26.40 / BDS 1.26.40（协议 2168，形状渲染改用 Protocol v2168 静态库）；修复事件 ID 与官方 LeviLamina 不一致导致监听器全部收不到事件（`src/EventIdCompat.h`）；新增逐客户端朝向（`setPlayerRotation` / `clearPlayerRotation` / `clearPlayerRotations`，实体与 NPC 通用）与轻量朝向更新（`setRotationLight`）；新增 ghost 交互多播监听（1.19.1）；NPC 创建/脏刷新合并到 tick 末尾统一发包（同一 tick 内多次下发会让客户端收到密集"新玩家"而断线）；不再下发 PlayerList 移除（客户端在皮肤条目仍活跃时移除该条目会崩，实体照常消失）；PlayerList / AddPlayer 发送跳过 BDS 回读校验
@@ -140,7 +218,7 @@ HologramLib/
 │   ├── SculkPacketSend.h               #   协议层发包原语（sculk 序列化 + NetworkPeer）
 │   ├── PacketDebugRenderer.*           #   形状渲染（协议层）
 │   ├── ProtocolShape.h / ProtocolPackets.*
-│   ├── FloatingTextManager.*           #   悬浮字（含逐观看者形状 + 自驱动动画）
+│   ├── FloatingTextManager.*           #   悬浮字（整块单形状 + 逐观看者形状）
 │   ├── GradientLineManager.*           #   渐变线
 │   ├── itemdetail/                     #   物品详情
 │   ├── itemdisplay/                    #   FMBE 物品悬浮
@@ -219,7 +297,7 @@ NPC 皮肤协议的离线回归检查（在 x64 Native Tools PowerShell 中运�
 
 真结算的意思是：界面仍是我们自建 `UpdateTrade` 开的（服务端**不放**交易表），但库把客户端的**付费放置 / 取回 / 成交**请求接住并自己落地 —— 真的从玩家背包扣付费、真的把产物写进背包，关界面时把暂存但没花掉的付费退还。判定逻辑独立在 `src/trade/TradeSettlementLogic.h`（不碰 BDS 类型，离线自检 `tests/check-trade-settlement.bat`，43 项），动背包那层在 `TradeMenuManager`。结果通过 `TradeSettlementEvent` 回传（C++ 监听器 / LSE `tradePollSettlements`）。
 
-> **⚠ 已知限制（实测, 未打通）**：客户端要求服务端在物品应答里回带交易槽的**槽位更正**（按客户端分配的物品网络 id）。该段在本协议版本与协议库 `sculk` 的线格式**不一致**（协议库多写一个字符串字段、`DurabilityCorrection` 按 varint 写，而客户端要定长 `short`）—— 照着协议库手写会**直接把客户端打崩**（已踩过）。所以：放料虽然被服务端受理（扣款、暂存、关界面退还是真的），客户端界面仍可能把这次放料撤回（表现为"放进交易槽又弹回背包"、成交按钮点不动）。**要稳定成交请用 `usePacketOffers = false`（真实交易表路径: BDS 自己结算, 触屏也能走完整流程）或容器 UI（`IContainerMenu`, 点击即物品拾取, 任何输入设备都发包）。**
+> ** 已知限制（实测, 未打通）**：客户端要求服务端在物品应答里回带交易槽的**槽位更正**（按客户端分配的物品网络 id）。该段在本协议版本与协议库 `sculk` 的线格式**不一致**（协议库多写一个字符串字段、`DurabilityCorrection` 按 varint 写，而客户端要定长 `short`）—— 照着协议库手写会**直接把客户端打崩**（已踩过）。所以：放料虽然被服务端受理（扣款、暂存、关界面退还是真的），客户端界面仍可能把这次放料撤回（表现为"放进交易槽又弹回背包"、成交按钮点不动）。**要稳定成交请用 `usePacketOffers = false`（真实交易表路径: BDS 自己结算, 触屏也能走完整流程）或容器 UI（`IContainerMenu`, 点击即物品拾取, 任何输入设备都发包）。**
 
 实测边界（原型阶段写明）：
   · **触屏到不了成交** —— 纯协议层下付费拖不进交易槽（客户端反复弹回），触屏请用真实交易表路径或容器 UI；键鼠/手柄正常。
@@ -408,11 +486,13 @@ lib.shapes().setColor(line, 1.0f, 0.2f, 0.2f, 1.0f);
 lib.shapes().setDuration(line, 10.0f);
 lib.shapes().draw(line);
 
-// 悬浮字（两行, 第二行彩虹）
+// 悬浮字（整块一个文本形状: 多行用 \n 合并; 行内颜色用 § 代码;
+//        整块样式 = 颜色/缩放/背景框/穿墙/旋转）
 auto holo = lib.holograms().create(0, 70, 0);
 lib.holograms().addLine(holo, "§e欢迎来到主城");
 lib.holograms().addLine(holo, "在线: {online}");
-lib.holograms().setLineRainbow(holo, 1, 1.5f);
+lib.holograms().setBackgroundColor(holo, 0.0f, 0.0f, 0.0f, 0.6f); // 背景框（不设 = 客户端默认色）
+lib.holograms().setDepthTest(holo, true);                          // true = 被方块遮挡（默认穿墙可见）
 lib.holograms().draw(holo);
 
 // FMBE 物品悬浮（狐狸+发包; 三轴旋转/平移/缩放支持 Molang 表达式）
@@ -546,4 +626,18 @@ npcDialogOpen("Steve", "§e村长", "main", "要来点任务吗？", "§a接受|
 
 ## 许可
 
-MIT 许可（见 [LICENSE](LICENSE)）
+MIT 许可（见 [LICENSE](LICENSE)）。
+
+### 第三方来源标注（LGPL-3.0）
+
+悬浮字「**动态行**」实现（`FloatingTextLine` 的内容池 / 轮播间隔 / 行级变量开关、
+按间隔**时间取模轮播**、0.5s 节流刷新与逐玩家重发、内容去重）**重构自
+[Phantom](https://github.com/GroupMountain/Phantom)**（LeviLamina 基岩版悬浮字插件，
+**GNU Lesser General Public License v3.0**，协议全文见上游 `LICENSE`）。
+
+依 LGPL-3.0 的要求在此标注来源：该重构部分及其演绎作品按 **LGPL-3.0** 分发，
+版权归 Phantom 贡献者（GroupMountain）所有；库其余部分仍为 MIT。分发包含该部分的
+产物时需同时满足 LGPL-3.0 —— 保留本版权与许可声明、提供对应源码（本仓库即提供，
+来源位置：`src/FloatingTextManager.h` 文件头、`src/FloatingTextManager.cpp` 相应函数
+上方标注、本 README 与 [VERSION-HISTORY.md](VERSION-HISTORY.md)），并保证该部分
+可被替换/独立重建（库对该部分无闭源改动、源码全量公开）。
