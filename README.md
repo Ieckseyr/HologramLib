@@ -36,7 +36,7 @@ PlayerList 现在只做包体前缀校验、不回读 BDS：发送前检查单�
 ## 更新日志
 
 - `26.40.9`（API 1.27.0）：**`EntityView::skinId`（+ `scale` / `yOffset`）—— 非玩家实体"换成我们的模型"**（拦下的出生包 + 库自己的包替换, **同一个 runtimeId/uniqueId**）: 客户端看到已注册皮肤（可自定义几何）的玩家模型, 服务端那边还是那只生物 —— **点它/打它/瞄准都是它本人**。配套吃掉该实体的 `MoveActor*`(18/111) 并每 tick 用 `MoveActorAbsolute` 推位置/朝向、`PlayerList` 条目 20 tick 后摘掉、撤销时重发真实出生包；`scale` 等比碰撞箱（元数据 53/54）、`yOffset` 把模型原点对齐到脚位。消费方示例: MSkinventory 的"同 id 换皮"。
-  - **（批次内追加，未发布）修复：NPC 对话框的头像载体换成玩家模型时不显示**。`avatarViewSpec` 的 `skin=` 分支此前沿用 NPC 载体的**负巨值 id 段**（-8.5e11）—— 实测（MeowMenu 头像演示：僵尸/鸡正常、玩家皮肤/模型空白）player 实体在这个 id 段上客户端建不出 actor。现改为**正段**（uniqueId `0x1F610000`、runtimeId `0x6F200000` 起, 与 playernpc 的"客户端能稳定处理的量级"约定一致并错开一档防撞 id）；同时修正载体生成的实际 id **必须回传**给对话（`sendCarrierSpawn` 返回实际使用的一对 id —— 否则对话包的 `mNpcId` 指向不存在的实体, 头像直接空白）。**ABI 不变**（无虚表/结构体改动, 消费方无需重编译）。
+  - **（批次内追加，未发布）移除：NPC 对话框 `avatarViewSpec` 的 `skin=` 分支**（收缩, 明记）。它会用 `PlayerList(Add)`+`AddPlayer` 把载体换成"玩家模型"—— 实测客户端在该载体上点进菜单会把界面关掉（同一次测试里 `type=` 载体：僵尸/鸡, 一切正常）, 属该路径当前不可用。按"库只做机制"的定位, "让客户端认它是玩家"的路线留给消费方自建（`playerNpcs()` 造真·假玩家 + `npcUniqueIdOverride` 把对话挂到它 id 上）。**保留**: `type=` / `name=`（可自定义实体类型/标题）与 `avatarSkinVariant`（NPC 内置皮肤变体）。`avatarViewSpec` / `avatarSkinVariant` 字段本身不动（**ABI 不变**, 消费方无需重编译）; 内部顺带掉一段从未生效的死代码（玩家模型载体的正段 id 分配）。
   - **真实实体交互事件**：`addActorInteractListener` / `removeActorInteractListener`（类尾追加）—— 玩家右键 / 攻击**服务端真实实体**时回调；复用库已有的收包钩子（不新增 detour 层），多播互不覆盖，返回 token 用于移除。
   - **ABI 布局戳**：头文件携带虚表布局描述符 + 消费方编译期自检（库侧运行期拦截"布局不一致的消费方"）—— 把 2026-10-09 / 10-10 两次"中段挪槽"启动崩溃固化成机制；详见 [VERSION-HISTORY.md](VERSION-HISTORY.md)「ABI 事故（明记）」。
   - LSE：`viewEntity` 的 spec 串新增 **`skin=<皮肤id>`**（等价 `EntityView::skinId`；皮肤取自 `IPlayerNpc` 注册表）。
@@ -85,7 +85,7 @@ PlayerList 现在只做包体前缀校验、不回读 BDS：发送前检查单�
   - **NPC 对话框头像自定义**：`NpcDialogSpec` 尾部新增两个参数 —— `avatarSkinVariant`
     （NPC **内置皮肤变体** 0..59：写进载体 ActorData 的 `SkinId(104)`，聊天框里的头像/模型换内置皮肤；
     `-1` = 不加该项，与旧行为逐字节一致）+ `avatarViewSpec`（**在这只载体上叠一层 IViewOverride**：
-    spec 语法同 `viewEntity` —— `type=` 换载体类型（测试矩阵: 僵尸 / 鸡）、`skin=` 用 **playernpc 注册表
+    spec 语法同 `viewEntity` —— `type=` 换载体类型（测试矩阵: 僵尸 / 鸡）；`skin=` 分支已移除（见上, 未发布批次内的收缩）。原描述留档：`skin=` 用 **playernpc 注册表
     里的皮肤**（MHR/MeowSkin 注册/采集的都在这张表）→ 载体改为**玩家模型**（PlayerList+AddPlayer 同 id，
     Tab 条目 1s 后摘掉）、`name=` 换界面标题；`type` 换非 NPC 家族能否照常弹界面需实机验证）。
     配套 LSE：`npcDialogSetAvatar(id, skinVariant, viewSpec)`（就地更新 + 重开，与翻页同一条 0 闪烁路径）；
