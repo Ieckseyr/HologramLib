@@ -607,22 +607,54 @@ void ViewOverrideManager::respawnForPlayer(
     view::sendActorSpawn(player, actor, identifier, nametag, hasNametag, alwaysShow);
 }
 
+// **调用约定: 不能在持 mMutex 的上下文里调**（下面会调加锁的 inputSnapshotOf; 非递归锁二次加锁
+// 会抛 system_error 一路穿到 terminate —— 2026-10-09 那次崩服就是这么来的）。
+// 两个调用点都在清表之后、锁作用域之外。
 void ViewOverrideManager::restoreEntityForPlayer(
     ::Player&           player,
     std::int64_t        uniqueId,
     EntityRecord const& record
 ) {
-    // 被"替换成生物"的玩家: 撤销时先把那只假生物从这名观看者客户端移除
-    // （真身的出生包不会再补发, 所以他要等重进/换维度才重新看到真实形态 —— 见 HologramLib.h 域注释）
-    if (record.substituted) sendRemoveActor(player, uniqueId);
-
     auto* actor = liveActorNear(player, uniqueId);
+    if (actor == nullptr) {
+        // fetchEntity 对玩家实体不一定取得到（BDS 的实体表对玩家是分开的）—— 玩家再兜一层,
+        // 距离口径与 liveActorNear 保持一致（>64 格不重建, 客户端本来也看不到）
+        auto* asPlayer = playerByUniqueId(uniqueId);
+        if (asPlayer != nullptr && player.distanceTo(*asPlayer) <= 64.0f) actor = asPlayer;
+    }
 
-    // 换过皮肤: 用他自己的皮肤再发一条, 立刻恢复（这条不依赖真身在不在附近之外的东西）
-    if (!record.view.asPlayer.empty() && actor != nullptr && actor->isPlayer()) {
-        sendPlayerSkin(player, *static_cast<::Player*>(actor), static_cast<::Player*>(actor)->getRealName());
+    // ── 真身是玩家: 变过生物 / 隐藏 / 换过类型 ──
+    // 这条路上真身被我们从客户端删掉了（RemoveActor）, 而 BDS 不会为单个观看者重发玩家出生包。
+    // **不能走下面那条"重发一只真类型"的老路**: 客户端认玩家实体靠 AddPlayer（身份要与他本人一致）,
+    // 发 AddActor(标识符=minecraft:player) 客户端不当玩家模型 —— 实测就是"卸下后人不在了"。
+    if (actor != nullptr && actor->isPlayer()) {
+        auto& target = *static_cast<::Player*>(actor);
+
+        // 借过皮肤: 先用他自己的皮肤把玩家列表条目正回来（对观看者本人也安全, 且立刻生效）
+        if (!record.view.asPlayer.empty()) sendPlayerSkin(player, target, target.getRealName());
+
+        bool const bodyTouched = record.substituted || record.view.hidden || !record.view.identifier.empty();
+        if (bodyTouched && &player != &target) {
+            // 观看者恰好是他本人时不动身体: 客户端上那是他自己的模型, 没有我们发的影子
+            sculk::protocol::SerializedSkin ownSkin;
+            if (captureOwnSkin(target, ownSkin)) {
+                // 皮肤读得到才动客户端 —— 先删后补不回来, 比"这次先不恢复"更糟
+                InputSnapshot snap{};
+                int const     playMode = inputSnapshotOf(uniqueId, snap) ? snap.playMode : 0;
+                sendRemoveActor(player, uniqueId); // 删掉我们发的那只（假生物 / 空壳玩家）
+                sendRealPlayerBody(player, target, ownSkin, playMode);
+            }
+            return;
+        }
+        // 只改过名字牌: 把真实名字牌推回去（真实值从实体上读）
+        if (record.view.hasNametag) {
+            sendNametag(player, static_cast<std::uint64_t>(target.getRuntimeID()), target.getNameTag(), false);
+        }
         return;
     }
+
+    // ── 非玩家实体: 老路子（我们发的那只删掉 + 按真类型重发一只）──
+    if (record.substituted) sendRemoveActor(player, uniqueId);
 
     // 隐藏过 / 换过类型 / 换过皮肤: 客户端上这只实体此刻是我们改过的那一版 —— 重发一次真实的
     if (record.view.hidden || !record.view.identifier.empty() || !record.view.skinId.empty()) {

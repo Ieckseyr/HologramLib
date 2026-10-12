@@ -237,6 +237,90 @@ inline bool sendPlayerSkin(::Player& viewer, ::Player const& target, std::string
     return npc_protocol::sendToPlayer(viewer, packet, NetworkPeer::Reliability::Reliable);
 }
 
+// ── 真身恢复（1.25.0 修复）: 把**真实玩家**重新发回观看者客户端 ──
+// 为什么需要: "变生物 / 隐藏"这条路会把真身从客户端删掉（RemoveActor）, 而 BDS 不会为单个观看者
+// 重发玩家出生包 —— 撤销后客户端上就空着。旧代码在这里补的是 AddActor(标识符=minecraft:player),
+// 客户端不把那种包当玩家模型（玩家实体在客户端上必须由 AddPlayer 成立）, 实测现象就是
+// "卸下后人不在了 / 还是那只假的"。
+// 身份纪律与换皮肤同源: UUID / uniqueId / 名字全用他本人的 —— 客户端靠 UUID 去 PlayerList 条目
+// 取皮肤, 身份对不上会丢皮肤, 严重时出幽灵玩家, 所以这里连列表条目一起补。
+// 返回 false = 皮肤没准备好（调用方**不要**动客户端: 先删后补不回来比先不恢复更糟）。
+inline bool captureOwnSkin(::Player& target, sculk::protocol::SerializedSkin& out) {
+    std::string const skinId = "view:" + target.getRealName();
+    if (!hologramlib::IHologramLib::getInstance().playerNpcs().captureSkin(skinId, target.getRealName())) {
+        return false;
+    }
+    return NpcSkinRegistry::getInstance().getSkin(skinId, out);
+}
+
+// 输入包里的 PlayMode -> 协议的 GameType（只放行原版的几档, 其它一律按生存, 免得写出越界枚举）
+inline sculk::protocol::GameType gameTypeOfPlayMode(int playMode) {
+    switch (playMode) {
+    case 1:
+        return sculk::protocol::GameType::Creative;
+    case 2:
+        return sculk::protocol::GameType::Adventure;
+    case 5:
+        return sculk::protocol::GameType::Default;
+    case 6:
+        return sculk::protocol::GameType::Spectator;
+    default:
+        return sculk::protocol::GameType::Survival;
+    }
+}
+
+// ② 玩家身体（AddPlayer）: 位置/朝向取引擎当前值（脚位 —— 与引擎构造出生包同一取值口）;
+//    手持物品留空、能力给默认档, 这两样客户端会随引擎后续的 MobEquipment / UpdateAbilities 自己纠正。
+inline bool sendRealPlayerBody(
+    ::Player&                              viewer,
+    ::Player&                              target,
+    sculk::protocol::SerializedSkin const& skin,
+    int                                    playMode
+) {
+    auto const        uuid      = target.getUuid();
+    auto const        runtimeId = static_cast<std::uint64_t>(target.getRuntimeID());
+    auto const        uniqueId  = static_cast<std::int64_t>(target.getOrCreateUniqueID().rawID);
+    auto const        pos       = target.getPosition();
+    auto const        rot       = target.getRotation(); // Vec2{pitch, yaw}
+    auto const        velocity  = target.getVelocity();
+    std::string const name      = target.getRealName();
+    sculk::protocol::UUID const uuidWire{uuid.a, uuid.b};
+
+    // ① 玩家列表条目（他本人的身份 + 他本人的皮肤）—— 顺带把"借皮肤"那次留下的假条目盖掉
+    {
+        sculk::protocol::PlayerListPacket list;
+        list.mAction          = sculk::protocol::PlayerListPacket::ActionType::Add;
+        list.mPlayerEntryList = {npc_protocol::playerListEntry(uuidWire, uniqueId, name, skin)};
+        sendSculkPacketToPlayer(viewer, list);
+    }
+
+    sculk::protocol::AddPlayerPacket body;
+    body.mUuid           = uuidWire;
+    body.mName           = name;
+    body.mActorRuntimeId = runtimeId;
+    body.mPos            = {pos.x, pos.y, pos.z};
+    body.mVelocity       = {velocity.x, velocity.y, velocity.z};
+    body.mRot            = {rot.x, rot.y};
+    body.mYHeadRot       = target.getYHeadRot();
+    body.mGameType       = gameTypeOfPlayMode(playMode);
+    body.mAbilities.mPlayerRawId      = uniqueId;
+    body.mAbilities.mPlayerPermission = 1; // Member
+    body.mAbilities.mLayers           = {{0, 0, 0, 0.05f, 0.1f, 0.1f}};
+    body.mBuildPlatform               = 1;
+    body.mMetaData.mDataItems         = {
+        {sculk::protocol::ActorDataIDs::Reserved0, visualFlagsOf(target)},
+        {sculk::protocol::ActorDataIDs::Name, name},
+        {sculk::protocol::ActorDataIDs::NametagAlwaysShow, nametagAlwaysShowWire(true)},
+        {sculk::protocol::ActorDataIDs::Reserved38, 1.0f}, // scale
+        {sculk::protocol::ActorDataIDs::Reserved53, 0.6f}, // 玩家默认碰撞箱
+        {sculk::protocol::ActorDataIDs::Reserved54, 1.8f},
+    };
+    // 发送器是 void: 用失败计数自己比一次, 让调用方能判成败（越界枚举 / 序列化失败都会计进去）
+    std::uint64_t const before = sculkSendFailureCount().load(std::memory_order_relaxed);
+    sendSculkPacketToPlayer(viewer, body);
+    return sculkSendFailureCount().load(std::memory_order_relaxed) == before;
+}
+
 // 位移: 玩家被"替换成生物"后, 服务端的 MovePlayer 对那名观看者被吃掉了 —— 位置改由这条推。
 // 旋转是**打包成字节**的（rotationByte, 与 NpcProtocol 同源）。flag = Teleport（与自定义实体域同值）。
 inline void sendMoveActorAbsolute(::Player& viewer, std::uint64_t runtimeId, float x, float y, float z, float pitch, float yaw, float headYaw) {
