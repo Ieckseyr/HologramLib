@@ -2,7 +2,7 @@
   <img src="docs/assets/HologramLib.svg" alt="HologramLib — unified protocol-layer hologram & display library for Bedrock servers" width="100%">
 </div>
 
-<!-- Docs site: pushing to main publishes it via .github/workflows/docs.yml to https://ieckseyr.github.io/HologramLib/ -->
+<!-- Docs site: https://ieckseyr.github.io/Hologramlib.github.io/ — the built site is pushed to the Ieckseyr/Hologramlib.github.io repo; the sources stay in this repo under docs/ -->
 [中文](README.md) · [English](README.en.md) · [Docs](docs/index.en.md)
 
 HologramLib folds 18 capability domains for "putting things on a Bedrock client" into one prerequisite-only plugin. A single implementation serves both C++ plugins (frozen pure-virtual interfaces) and LSE scripts (`ll.import`), and everything goes through the protocol layer: no real entities are spawned, nothing is written to the world save, no server-side world state is touched.
@@ -151,7 +151,7 @@ Consumers only need `getInstance()` in `enable()`; there is no declared dependen
 
 ## Documentation
 
-Full documentation lives in [`docs/`](docs/index.en.md), also published as a [docs site](https://ieckseyr.github.io/HologramLib/en/) (GitHub Pages, rebuilt on every push to the main branch).
+Full documentation lives in [`docs/`](docs/index.en.md), also published as a [docs site](https://ieckseyr.github.io/Hologramlib.github.io/en/) (GitHub Pages, rebuilt on every push to the main branch).
 
 | I want to… | Go to |
 |---|---|

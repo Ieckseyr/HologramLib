@@ -2,7 +2,7 @@
   <img src="docs/assets/HologramLib.svg" alt="HologramLib — 基岩版协议层统一悬浮显示库" width="100%">
 </div>
 
-<!-- 文档站: 推送 main 后由 .github/workflows/docs.yml 发布到 https://ieckseyr.github.io/HologramLib/ -->
+<!-- 文档站: https://ieckseyr.github.io/Hologramlib.github.io/ —— 构建产物推在 Ieckseyr/Hologramlib.github.io 仓库，源码仍是本仓库 docs/ -->
 [中文](README.md) · [English](README.en.md) · [文档](docs/index.md)
 
 HologramLib 把 18 个「往客户端塞东西」的能力域收进一个前置插件：同一份实现同时供 C++ 插件（冻结的纯虚接口）与 LSE 脚本（`ll.import`）调用，全部走协议层，不生成真实实体、不写存档、不碰服务端世界状态。
