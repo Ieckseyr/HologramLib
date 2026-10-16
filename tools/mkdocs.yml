@@ -17,8 +17,8 @@ edit_uri: edit/main/docs/
 
 site_name: HologramLib
 site_description: 基岩版协议层统一悬浮显示库 · Bedrock protocol-layer unified hologram & display library
-docs_dir: docs
-site_dir: site
+docs_dir: ../docs
+site_dir: ../site
 use_directory_urls: true
 
 # ⚠ 刻意**不**在这里打开 strict：

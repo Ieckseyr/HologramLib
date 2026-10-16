@@ -6,8 +6,8 @@ on:
     branches: [main]
     paths:
       - 'docs/**'
-      - 'mkdocs.yml'
-      - 'requirements.txt'
+      - 'tools/mkdocs.yml'
+      - 'tools/requirements.txt'
       - '.github/workflows/docs.yml'
   schedule:
     - cron: '17 4 * * *'
@@ -35,13 +35,13 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: tools/requirements.txt
 
       - name: Install MkDocs
-        run: python -m pip install -r requirements.txt
+        run: python -m pip install -r tools/requirements.txt
 
       - name: Build site
-        run: mkdocs build
+        run: mkdocs build -f tools/mkdocs.yml
 
       - name: Configure Pages
         id: configure

@@ -5,8 +5,7 @@
 !/README.en.md
 !/LICENSE
 !/docs/
-!/mkdocs.yml
-!/requirements.txt
+!/tools/
 !/.github/
 !/src/
 !/include/
@@ -19,7 +18,7 @@ tests/__pycache__/
 
 # ── docs/ 里只有公开文档可入库 ──
 # docs/internal/ 是维护者本地文档（设计约定 / 架构开销评估 / LSE 导出清单 / API 稳定性契约）,
-# 明确禁止提交 GitHub、不上传、不提交, 也已被 mkdocs.yml 的 exclude_docs 排除出文档站。
+# 明确禁止提交 GitHub、不上传、不提交, 也已被 tools/mkdocs.yml 的 exclude_docs 排除出文档站。
 # 注意: .gitignore 对「已被 git 跟踪的文件」无效 —— 所以另有一道 CI 守卫,
 #       见 .github/workflows/docs.yml 的 guard-local-docs job。
 docs/internal/
