@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/assets/HologramLib.svg" alt="HologramLib — 基岩版协议层统一悬浮显示库" width="100%">
+  <img src="docs/assets/HologramLib.png" alt="HologramLib — 基岩版协议层统一悬浮显示库" width="100%">
 </div>
 
 <!-- 文档站: https://ieckseyr.github.io/HologramLib/ —— 由 .github/workflows/docs.yml 从本仓库 docs/ 构建并发布 -->

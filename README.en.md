@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/assets/HologramLib.svg" alt="HologramLib — unified protocol-layer hologram & display library for Bedrock servers" width="100%">
+  <img src="docs/assets/HologramLib.png" alt="HologramLib — unified protocol-layer hologram & display library for Bedrock servers" width="100%">
 </div>
 
 <!-- Docs site: https://ieckseyr.github.io/HologramLib/ — built and published from this repo's docs/ by .github/workflows/docs.yml -->

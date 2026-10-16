@@ -1,6 +1,4 @@
-<div align="center">
-  <img src="assets/HologramLib.svg" alt="HologramLib — 基岩版协议层统一悬浮显示库" width="100%">
-</div>
+![HologramLib — 基岩版协议层统一悬浮显示库](assets/HologramLib.png){ width="100%" }
 
 # HologramLib
 

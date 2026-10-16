@@ -1,6 +1,4 @@
-<div align="center">
-  <img src="assets/HologramLib.svg" alt="HologramLib — unified protocol-layer hologram & display library for Bedrock servers" width="100%">
-</div>
+![HologramLib — unified protocol-layer hologram & display library for Bedrock servers](assets/HologramLib.png){ width="100%" }
 
 # HologramLib
 
