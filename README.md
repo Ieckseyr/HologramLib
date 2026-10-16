@@ -14,12 +14,12 @@ HologramLib 把 18 个「往客户端塞东西」的能力域收进一个前置�
 | 插件发布版本 | `26.51.3` |
 | API 版本 | `1.29.0`（`HOLOGLIB_API_VERSION 0x012300`） |
 | 运行平台 | LeviLamina 26.51 · BDS 1.26.51 · 协议 2193 |
-| 对外接口 | 唯一公开头 `include/hologramlib/HologramLib.h` + LSE 命名空间 `HologramLib`（268 个运行期导出） |
+| 对外接口 | 唯一公开头 `include/hologramlib/HologramLib.h` + LSE 命名空间 `HologramLib`（270 个运行期导出） |
 | 许可 | MIT（悬浮字「动态行」部分重构自 Phantom，按 LGPL-3.0） |
 
 > **本版（26.51.3）** —— 26.51 线把 26.40 线上 `26.40.8` / `26.40.9` / `26.40.10` 三个批次整体搬了过来（API `1.25.0` → `1.29.0`；`1.28.0` 按 26.40 线约定跳过）。**26.51 侧本次唯一需要新写的适配**：`PlayerAuthInputPacketPayload::mInputData` 在 26.51 由 `std::bitset<66>` 换成 `Bedrock::EnumSet<InputData, 66>`（没有 `operator[]`），视图覆盖的输入位掩码改用 `contains()` 逐位取。**26.51 移植既有的四处适配**（文本 `LineGapHeight`、`ItemInstance::EMPTY_ITEM()`、容器应答 `presence=false`、形状 NetworkId 种子 `0x00FFFFFF`）在本次合并后逐项复核仍在。构建 0 警告；离线检查全绿（`view*` 59 项、交易结算 43 项、容器 42 项、NPC 载体 32 项、PlayerList 与 trade-offers 逐字节对拍等；`check-authinput` 需要本机抓包 `logs/authinput.hex`，本工作区没有该文件，未跑）。
 >
-> LSE 侧另有运行期核对：用 `ll.hasExported` 逐名扫描源码里 270 处 `exportAs` → **268 项注册**，缺的正是 `ghostClearInteractions` / `ghostPollInteractions`（与 [LSE 接口参考](docs/reference/lse-api.md#已知问题) 记的已知问题一致）。
+> LSE 侧另有运行期核对：用 `ll.hasExported` 逐名扫描源码里 270 处 `exportAs` → **270 项全部注册**（`ghost*` 的 2 个此前漏在注册流程外，已接回）。
 >
 > ⚠ **26.51 侧未复测的部分**：`26.40.9` / `26.40.10` 关于实体元数据与 `AddItemActor`(15) 的结论来自 **26.40 抓包**。本次只核对了协议库常量两侧一致 —— `sculk/protocol/codec/actor/ActorDataIDs.hpp` 与 `MinecraftPacketIds.hpp` 在 26.40 / 26.51 两个协议库里**逐字节相同**，`PrimitiveShapes.hpp` 只多 `mLineGapHeight`（已由 `kTextLineGapHeight` 发出）。真机渲染效果仍需 1.26.51 客户端实测。
 
@@ -48,7 +48,7 @@ HologramLib 把 18 个「往客户端塞东西」的能力域收进一个前置�
 
 上表的 16 个前缀对应 16 个有 LSE 导出的域。剩下两个方向相反：渐变线只有 LSE 接口，逐玩家变量全息只有 C++ 接口。
 
-LSE 侧已知问题：源码里共 270 处 `exportAs`，但 `ghost*` 的 2 处没接进注册流程（`GhostInteractRouter::exportLse()` 无人调用），运行期实际注册 268 个。脚本侧 `ll.import` 得 `null`，C++ 侧的多播监听器不受影响。详见 [LSE 接口参考](docs/reference/lse-api.md#已知问题)。
+LSE 侧共 270 处 `exportAs`，运行期**全部注册**。`ghost*` 的 2 个（`ghostPollInteractions` / `ghostClearInteractions`）此前漏在注册流程之外，现已接回 `ModEntry::exportLseFunctions()`。
 
 ## 设计说明
 
@@ -110,6 +110,7 @@ add_links("HologramLib")
 ```
 
 ### LSE 脚本
+> LSE 标准接口（`mc` / `ll` / `logger` / 事件 / NBT / 表单 / 数据库…）见 [LSE 文档站](https://lse.levimc.org/zh/apis/)；这里只列 HologramLib 自己的命名空间。
 
 ```js
 // 统一命名空间 "HologramLib"，16 个前缀分域

@@ -31,6 +31,7 @@ site/
 # work/  = 离线检查的输出目录(fixture 编译产物 + 生成的包字节), 由 tests/check-*.bat 重建
 # bin/   = 打包产物(部署来源)   build/ = xmake 中间产物
 # .cache = 26.40 线格式 schema 真值源 + clangd 索引   .xmake = 本地包仓库缓存
+!/.github/
 work/
 bin/
 build/

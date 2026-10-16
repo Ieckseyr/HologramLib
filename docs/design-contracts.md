@@ -64,4 +64,4 @@
 ## 相关
 
 - 分层、目录、重发策略：[架构总览](architecture/overview.md)
-- 以上内容的摘要：[README](../README.md)
+- 以上内容的摘要：[README](https://github.com/Ieckseyr/HologramLib/blob/main/README.md)

@@ -132,6 +132,7 @@ add_links("HologramLib")
 ## 5. 第一个 LSE 脚本
 
 LSE 侧一切都在单一命名空间 `HologramLib` 下，函数名前缀分域：
+> 标准接口（`mc` / `ll` / `logger` / 事件 / NBT / 表单 / 数据库…）见 [LSE 文档站](https://lse.levimc.org/zh/apis/)；本页只讲 HologramLib 这一个命名空间。
 
 ```js
 const holoCreate = ll.import("HologramLib", "holoCreate");

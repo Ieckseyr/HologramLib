@@ -25,6 +25,7 @@
 #include "sulfur/SulfurDisplayExporter.h"
 #include "view/ViewOverrideExporter.h"
 #include "view/ViewOverrideManager.h"
+#include "ghost/GhostInteractRouter.h"
 #include "lse/LseBridge.h"
 
 #include "hologramlib/HologramLib.h"
@@ -64,6 +65,8 @@ static void exportLseFunctions() {
     FakeInventoryExporter::exportAll();
     SulfurDisplayExporter::exportAll();
     ViewOverrideExporter::exportAll();
+    // ghost 域只有 2 个导出，过去漏在注册流程之外（脚本 ll.import 得 null）。归位。
+    GhostInteractRouter::exportLse();
 }
 
 bool ModEntry::load() {

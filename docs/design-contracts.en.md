@@ -2,9 +2,8 @@
 
 This page covers HologramLib's interface evolution rules, its scope, and the restrictions on the view override domain. Together they decide what may live in the library and what has to stay in the consumer.
 
-A short version is in [README · Design notes](../README.en.md#design-notes). The sections below give the mechanisms and the boundary cases that are already settled.
+A short version is in [README · Design notes](https://github.com/Ieckseyr/HologramLib/blob/main/README.en.md#design-notes). The sections below give the mechanisms and the boundary cases that are already settled.
 
-[中文](design-contracts.md) · [English](design-contracts.en.md) · [Docs home](index.en.md)
 
 ---
 
@@ -34,7 +33,7 @@ Removing a released method moves slots as well. How it is handled depends on whe
 | Methods sit at the end of the class | Delete them, bump the minor version, record the removal | The six trade-menu listener methods removed in `26.40.3` |
 | Methods sit mid-class | Keep them as deprecated empty slots: non-pure, inline empty body, `[[deprecated]]`. Vtable slots do not move, so pre-compiled consumers keep working | The eight per-line hologram methods removed in `26.40.8`; the real cleanup waits for a major version |
 
-The reasons for both shrinks and the migration paths are in the [version & ABI matrix](versions/api-version-matrix.md) *(zh)*; a recompiled consumer gets a deprecation warning rather than a silent behaviour change.
+The reasons for both shrinks and the migration paths are in the [version & ABI matrix](versions/api-version-matrix.md); a recompiled consumer gets a deprecation warning rather than a silent behaviour change.
 
 ---
 
@@ -84,4 +83,4 @@ The `Level::$tick` heartbeat and the shape domain's resend mechanism are not cov
 ## Related
 
 - Layering, source layout, resend strategy, self-driven inventory: [Architecture overview](architecture/overview.en.md)
-- Summary of this page: [README · Design notes](../README.en.md#design-notes)
+- Summary of this page: [README · Design notes](https://github.com/Ieckseyr/HologramLib/blob/main/README.en.md#design-notes)

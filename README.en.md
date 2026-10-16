@@ -14,12 +14,12 @@ HologramLib folds 18 capability domains for "putting things on a Bedrock client"
 | Plugin release | `26.51.3` |
 | API version | `1.29.0` (`HOLOGLIB_API_VERSION 0x012300`) |
 | Platform | LeviLamina 26.51 · BDS 1.26.51 · protocol 2193 |
-| Public surface | One public header, `include/hologramlib/HologramLib.h`, plus the LSE namespace `HologramLib` (268 exports registered at runtime) |
+| Public surface | One public header, `include/hologramlib/HologramLib.h`, plus the LSE namespace `HologramLib` (270 exports registered at runtime) |
 | License | MIT (the floating-text "dynamic lines" feature is derived from Phantom and licensed LGPL-3.0) |
 
 > **This release (26.51.3)** ports the `26.40.8` / `26.40.9` / `26.40.10` batches from the 26.40 line onto the 26.51 line (API `1.25.0` → `1.29.0`; `1.28.0` is skipped by the 26.40 line's own convention). The only new 26.51-side change the port needed was `PlayerAuthInputPacketPayload::mInputData`, which becomes `Bedrock::EnumSet<InputData, 66>` (no `operator[]`), so the view-override input mask now reads it with `contains()`. The 26.51 port's existing adaptations (text `LineGapHeight`, `ItemInstance::EMPTY_ITEM()`, container ack `presence=false`, shape NetworkId seed `0x00FFFFFF`) were re-checked after the merge and are all still in place. The build is warning-free and every offline check passes (`view*` 59 items, trade settlement 43, container 42, NPC carrier 32, byte-for-byte PlayerList / trade-offers fixtures; `check-authinput` needs a local capture `logs/authinput.hex` that this workspace does not have).
 >
-> The LSE surface was verified at runtime as well: scanning all 270 `exportAs` names with `ll.hasExported` resolves 268 — exactly the two `ghost*` entries the docs list as unwired.
+> The LSE surface was verified at runtime as well: scanning all 270 `exportAs` names with `ll.hasExported` resolves all 270 (the two `ghost*` entries used to be unwired and are now wired in).
 >
 > ⚠ **Not re-verified on 26.51**: the entity-metadata and `AddItemActor`(15) findings of `26.40.9` / `26.40.10` come from **26.40 packet captures**. What was checked here is that the protocol constants are identical on both lines — `sculk/protocol/codec/actor/ActorDataIDs.hpp` and `MinecraftPacketIds.hpp` are byte-identical, and `PrimitiveShapes.hpp` only gains `mLineGapHeight` (emitted by `kTextLineGapHeight`). In-game rendering still needs a 1.26.51 client.
 
@@ -46,11 +46,11 @@ HologramLib folds 18 capability domains for "putting things on a Bedrock client"
 | Virtual container | `IContainerMenu` | `container*` · 10 | A reimplementation of GMLIB's ChestUI: client-side chest block + block-entity NBT + `ContainerOpen`; 27 or 54 slots; interactive mode lets items actually be dragged around |
 | Fake inventory | `IFakeInventory` | `fakeInv*` · 9 | Rewrites the client's view of the player inventory at the protocol layer (the real inventory is untouched); clicks report slot indices |
 | Sulfur-cube display | `ISulfurDisplay` | `sulfur*` · 10 | Spawns `minecraft:sulfur_cube` and "swallows" a block in its main hand; the cube is invisible by default, leaving only the block |
-| Client view override | `IViewOverride` | `view*` · 18 | Intercepts outbound packets per player (intercept-only): change type / nametag / hide from that player / swap the model while keeping the id / re-type dropped items / fake blocks |
+| Client view override | `IViewOverride` | `view*` · 18 | Intercepts outbound packets per player (suppress-only): change type / nametag / hide from that player / swap the model while keeping the id / re-type dropped items / fake blocks |
 
 Of the 18 domains, 16 have LSE exports (the 16 prefixes above). The two exceptions point in opposite directions: `gradient*` is LSE-only with no C++ interface, while per-viewer text variables are C++-only with no LSE export.
 
-> ⚠ Known issue: the LSE surface contains 270 `exportAs` calls, but the 2 `ghost*` ones are never wired into registration (`GhostInteractRouter::exportLse()` is never called), so **268** are registered at runtime. `ll.import` returns `null` for scripts; the C++ multicast listeners are unaffected. See the [LSE API reference](docs/reference/lse-api.md#已知问题) *(zh)*.
+> The LSE surface registers all 270 `exportAs` calls at runtime. The two `ghost*` entries (`ghostPollInteractions` / `ghostClearInteractions`) used to be missing from the registration path and are now wired in via `ModEntry::exportLseFunctions()`.
 
 ---
 
@@ -116,6 +116,7 @@ add_links("HologramLib")
 ```
 
 ### LSE script
+> The standard LSE interfaces (`mc`, `ll`, `logger`, events, NBT, forms, databases …) are covered by the [LSE docs](https://lse.levimc.org/apis/); this section only covers HologramLib's own namespace.
 
 ```js
 // One namespace, "HologramLib", with 16 domain prefixes
@@ -150,19 +151,19 @@ Consumers only need `getInstance()` in `enable()`; there is no declared dependen
 
 ## Documentation
 
-Full documentation lives in [`docs/`](docs/index.en.md), also published as a [docs site](docs/index.en.md) (GitHub Pages, rebuilt on every push to the main branch).
+Full documentation lives in [`docs/`](docs/index.en.md), also published as a [docs site](https://ieckseyr.github.io/HologramLib/en/) (GitHub Pages, rebuilt on every push to the main branch).
 
 | I want to… | Go to |
 |---|---|
 | Get it running and write my first feature | [Getting started](docs/getting-started.en.md) |
 | Learn how a domain works, including field-tested pitfalls | [Domain guides](docs/domains/README.en.md) |
-| Look up a full signature | [C++ API](docs/reference/cpp-api.md) · [LSE API](docs/reference/lse-api.md) *(zh)* |
-| Check version compatibility / ABI breakage | [Version & ABI matrix](docs/versions/api-version-matrix.md) *(zh)* |
-| Understand the internal layering and runtime cost | [Architecture overview](docs/architecture/overview.en.md) · [Protocol notes](docs/architecture/protocol-notes.md) *(zh)* |
-| See what changed in a release | [Changelog](docs/versions/changelog.md) *(zh)* |
+| Look up a full signature | [C++ API](docs/reference/cpp-api.en.md) · [LSE API](docs/reference/lse-api.en.md) |
+| Check version compatibility / ABI breakage | [Version & ABI matrix](docs/versions/api-version-matrix.en.md) |
+| Understand the internal layering and runtime cost | [Architecture overview](docs/architecture/overview.en.md) · [Protocol notes](docs/architecture/protocol-notes.en.md) |
+| See what changed in a release | [Changelog](docs/versions/changelog.en.md) |
 | Contribute to this library | [Design notes](#design-notes) · [Architecture overview](docs/architecture/overview.en.md) |
 
-English coverage is intentionally partial. The translated entry layer is this README plus [`docs/index.en.md`](docs/index.en.md), [`docs/getting-started.en.md`](docs/getting-started.en.md), [`docs/domains/README.en.md`](docs/domains/README.en.md) and [`docs/architecture/overview.en.md`](docs/architecture/overview.en.md). Every other page falls back to the Chinese original. The C++ and LSE API references in particular are large and change with every release, so they are not yet dual-maintained.
+The documentation set is bilingual: every page under [`docs/`](docs/index.en.md) has a Chinese original and an English version (`<name>.md` / `<name>.en.md`), and the docs site's header switches between the two trees. The two trees are kept in step — if a page exists only in Chinese, please open an issue.
 
 ---
 
@@ -174,7 +175,7 @@ English coverage is intentionally partial. The translated entry layer is this RE
 | API version | `1.29.0` above | Human-readable capability version |
 | `HOLOGLIB_API_VERSION` | `include/hologramlib/HologramLib.h` | The only version source in code, `0x012300` |
 
-The full mapping, the encoding rule, and the reasons behind the two documented API shrinks are in the [version & ABI matrix](docs/versions/api-version-matrix.md) *(zh)*.
+The full mapping, the encoding rule, and the reasons behind the two documented API shrinks are in the [version & ABI matrix](docs/versions/api-version-matrix.en.md).
 
 ---
 
@@ -184,4 +185,4 @@ MIT — see [LICENSE](LICENSE).
 
 The holographic-text "dynamic lines" feature (the `FloatingTextLine` content pool, rotation interval, per-line variable toggle, interval-modulo rotation, 0.5 s throttled refresh with per-player resend, and content deduplication) is derived from [Phantom](https://github.com/GroupMountain/Phantom) (a LeviLamina Bedrock hologram plugin, GNU Lesser General Public License v3.0).
 
-As required by LGPL-3.0, the origin is recorded here: that derived portion and its derivative works are distributed under LGPL-3.0, copyright the Phantom contributors (GroupMountain); the rest of the library remains MIT. Distributing a build that contains that portion means also satisfying LGPL-3.0 — keep the copyright and licence notices, provide the corresponding source (this repository does; origins are marked in the header of `src/FloatingTextManager.h`, above the relevant functions in `src/FloatingTextManager.cpp`, and in this README and `docs/versions/api-version-matrix.md`), and keep that portion replaceable / independently rebuildable.
+As required by LGPL-3.0, the origin is recorded here: that derived portion and its derivative works are distributed under LGPL-3.0, copyright the Phantom contributors (GroupMountain); the rest of the library remains MIT. Distributing a build that contains that portion means also satisfying LGPL-3.0 — keep the copyright and licence notices, provide the corresponding source (this repository does; origins are marked in the header of `src/FloatingTextManager.h`, above the relevant functions in `src/FloatingTextManager.cpp`, and in this README and `docs/versions/api-version-matrix.en.md`), and keep that portion replaceable / independently rebuildable.

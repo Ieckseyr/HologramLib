@@ -166,4 +166,4 @@ int32 颜色在 **v2168 是 ARGB** 打包。库早年沿用 v944 的字节序 �
 
 - 分层与重发策略：[架构总览](overview.md)
 - 各域的具体用法与坑：[能力域指南](../domains/README.md)
-- 判定逻辑为什么能离线测：[README · 设计说明](../../README.md#设计说明)
+- 判定逻辑为什么能离线测：[README · 设计说明](https://github.com/Ieckseyr/HologramLib/blob/main/README.md#设计说明)

@@ -4,7 +4,6 @@
 
 # HologramLib 文档
 
-[中文](index.md) · [English](index.en.md) · [项目首页](../README.md)
 
 **HologramLib** 是基岩版服务端（LeviLamina / BDS）的协议层统一悬浮显示库：把 18 个「往客户端塞东西」的能力域收进一个纯前置插件，同时供 C++ 插件与 LSE 脚本调用。
 
@@ -20,9 +19,10 @@
 | 要把某个能力接进自己的插件 | [能力域指南](domains/README.md)：每个域怎么用、有哪些实测坑 | 对应域的 [C++ 接口](reference/cpp-api.md) / [LSE 接口](reference/lse-api.md) 查签名 |
 | 决定自己该写在哪一侧 | [设计说明](design-contracts.md)：接口演进、库与消费方的边界 | [架构总览](architecture/overview.md) 看这套约定的落地方式 |
 | 写 LSE 脚本 | [LSE 接口参考](reference/lse-api.md)：16 个前缀域的完整函数清单 | [能力域指南](domains/README.md) 里的脚本侧示例 |
+| 查 LSE 标准接口 | [LSE 文档站](https://lse.levimc.org/zh/apis/)：`mc` / `ll` / `logger` / 事件 / NBT / 表单 / 数据库… | 本库只提供 `HologramLib` 命名空间下的导出 |
 | 遇到渲染不对 / 包发不出去 | [协议层实现笔记](architecture/protocol-notes.md)：线格式、tick、抓包验证 | [能力域指南](domains/README.md) 里该域的「实测」小节 |
 | 排查版本 / ABI 崩溃 | [版本与 ABI 对照](versions/api-version-matrix.md) | [架构总览](architecture/overview.md) 的 ABI 约束 |
-| 维护这个库 / 提交代码 | [设计说明](design-contracts.md) | [设计说明](../README.md#设计说明) · [架构总览](architecture/overview.md) · [协议层实现笔记](architecture/protocol-notes.md) |
+| 维护这个库 / 提交代码 | [设计说明](design-contracts.md) | [设计说明](https://github.com/Ieckseyr/HologramLib/blob/main/README.md#设计说明) · [架构总览](architecture/overview.md) · [协议层实现笔记](architecture/protocol-notes.md) |
 
 ---
 
@@ -65,7 +65,7 @@ docs/
 
 2. 描述里的版本号是「该能力出现的最低 API 版本」，用来写 `static_assert` 门。三套编号（发布版本 / API 版本 / `HOLOGLIB_API_VERSION`）的关系见 [版本与 ABI 对照](versions/api-version-matrix.md)。
 
-3. 「消费方」= 调用这个库的插件。本库不落盘、不做业务、不替消费方决定何时重发；数据持久化、命令、权限、表单都在消费方。这条边界决定了遇到「库为什么不帮我存这个」时的答案，见 [设计说明](design-contracts.md) 与 [README · 设计说明](../README.md#设计说明)。
+3. 「消费方」= 调用这个库的插件。本库不落盘、不做业务、不替消费方决定何时重发；数据持久化、命令、权限、表单都在消费方。这条边界决定了遇到「库为什么不帮我存这个」时的答案，见 [设计说明](design-contracts.md) 与 [README · 设计说明](https://github.com/Ieckseyr/HologramLib/blob/main/README.md#设计说明)。
 
 ---
 

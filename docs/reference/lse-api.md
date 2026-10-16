@@ -10,7 +10,7 @@ LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib
 | `itemDetail*` | 物品详情 | IItemDetail | 2 |
 | `itemDisplay*` | FMBE 物品悬浮 | IItemDisplay | 33 |
 | `entity*` | 自定义实体 | ICustomEntity | 37 |
-| `ghost*` | 交互事件轮询 | IHologramLib | 2 ⚠ |
+| `ghost*` | 交互事件轮询 | IHologramLib | 2 |
 | `particle*` | 通用粒子形状系统 | ParticleShapeManager | 22 |
 | `playerNpc*` | 假玩家 NPC（含皮肤注册/采集/目录导入/注入/blob 持久化） | IPlayerNpc | 29 |
 | `fakeInv*` | 背包虚容器（1.23.0） | IFakeInventory | 9 |
@@ -21,11 +21,24 @@ LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib
 | `sensing*` | 感知域（客户端设备） | IPlayerSensing | 3 |
 | `view*` | 客户端视图覆盖（1.25.0） | IViewOverride | 18 |
 
-上表合计 **270** 个 `exportAs` 调用，其中 **268 个在运行期真正注册**：`ghost*` 的 2 个（⚠）虽然在源码里调用了 `exportAs`，但**没有接进 `ModEntry::exportLseFunctions()`**，所以脚本侧 `ll.import` 得 `null` —— 详见本页末尾「已知问题」。
+上表合计 **270** 个 `exportAs` 调用，运行期**全部注册**。
 
 缺席时安全降级（`ll.import` 得 null）——**这是唯一且显式的失败方式**，不会出现「调用成功但没生效」。
 
-类型记法：`f`=浮点 `i`=整数 `s`=字符串 `b`=布尔 `[i]`=int64 数组。除注明外 id 均为 int64。
+**类型记法**：
+
+| 签名里的类型 | 引擎数据类型 | JavaScript | 说明 |
+|---|---|---|---|
+| `Float` | `Float` | `Number` | 浮点数 |
+| `Integer` | `Integer` | `Number` | 整数；本库的 id / runtimeId / uniqueId 一律为 int64 |
+| `String` | `String` | `String` | 字符串 |
+| `Boolean` | `Boolean` | `Boolean` | 布尔型 |
+| `Null` | `Null` | `null` / `undefined` | 无返回值 |
+| `Array<T>` | `Array` | `Array` | 数组；坐标 / 颜色数组按各函数说明为 `[x, y, z]` 或 `[r, g, b, a]` |
+
+可选参数用方括号括起：`foo(name : String[, count : Integer])`。
+
+> 本页只列 HologramLib 自己的 270 个导出。`mc` / `ll` / `logger` / 事件 / NBT / 表单 / 数据库等标准接口见 <https://lse.levimc.org/zh/apis/>。
 
 ## 2.1 shape*（形状，39 函数）
 
@@ -33,91 +46,91 @@ LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib
 
 | 函数 | 签名 |
 |------|------|
-| shapeCreateText | `(x: f, y: f, z: f, text: s) -> i` |
-| shapeCreateLine | `(x1,y1,z1: f, x2,y2,z2: f) -> i` |
-| shapeCreateBox | `(x1,y1,z1: f, x2,y2,z2: f) -> i` |
-| shapeCreateCircle | `(x: f, y: f, z: f, scale: f) -> i` |
-| shapeCreateSphere | `(x: f, y: f, z: f, scale: f) -> i` |
-| shapeCreateArrow | `(x1,y1,z1: f, x2,y2,z2: f) -> i` |
+| shapeCreateText | `(x : Float, y : Float, z : Float, text : String) -> Integer` |
+| shapeCreateLine | `(x1,y1,z1 : Float, x2,y2,z2 : Float) -> Integer` |
+| shapeCreateBox | `(x1,y1,z1 : Float, x2,y2,z2 : Float) -> Integer` |
+| shapeCreateCircle | `(x : Float, y : Float, z : Float, scale : Float) -> Integer` |
+| shapeCreateSphere | `(x : Float, y : Float, z : Float, scale : Float) -> Integer` |
+| shapeCreateArrow | `(x1,y1,z1 : Float, x2,y2,z2 : Float) -> Integer` |
 
 **属性**
 
 | 函数 | 签名 |
 |------|------|
-| shapeSetText | `(id, text: s) -> b` |
-| shapeGetText | `(id) -> s` |
-| shapeSetLocation | `(id, x: f, y: f, z: f) -> b` |
-| shapeGetLocation | `(id) -> [f,f,f]` |
-| shapeSetColor | `(id, r: f, g: f, b: f, a: f) -> b` |
-| shapeGetColor | `(id) -> [f,f,f,f]` |
-| shapeSetScale | `(id, scale: f) -> b` |
-| shapeSetDuration | `(id, seconds: f) -> b` |
-| shapeSetDimension | `(id, dimId: i) -> b` |
-| shapeSetRotation | `(id, pitch: f, yaw: f, roll: f) -> b` |
-| shapeClearRotation | `(id) -> b` |
-| shapeGetRotation | `(id) -> [f,f,f]` |
-| shapeGetShapeType | `(id) -> i`（0..5，见 ShapeType） |
-| shapeSetBackgroundColor | `(id, r: f, g: f, b: f, a: f) -> b`（1.26.0; 仅文本形状, 背景框颜色） |
-| shapeClearBackgroundColor | `(id) -> b`（1.26.0; 回客户端默认背景色） |
-| shapeSetDepthTest | `(id, enabled: b) -> b`（1.26.0; 仅文本形状, true = 被方块/实体遮挡） |
+| shapeSetText | `(id, text : String) -> Boolean` |
+| shapeGetText | `(id) -> String` |
+| shapeSetLocation | `(id, x : Float, y : Float, z : Float) -> Boolean` |
+| shapeGetLocation | `(id) -> Array<Float> ([x, y, z])` |
+| shapeSetColor | `(id, r : Float, g : Float, b : Float, a : Float) -> Boolean` |
+| shapeGetColor | `(id) -> Array<Float> ([r, g, b, a])` |
+| shapeSetScale | `(id, scale : Float) -> Boolean` |
+| shapeSetDuration | `(id, seconds : Float) -> Boolean` |
+| shapeSetDimension | `(id, dimId : Integer) -> Boolean` |
+| shapeSetRotation | `(id, pitch : Float, yaw : Float, roll : Float) -> Boolean` |
+| shapeClearRotation | `(id) -> Boolean` |
+| shapeGetRotation | `(id) -> Array<Float> ([x, y, z])` |
+| shapeGetShapeType | `(id) -> Integer`（0..5，见 ShapeType） |
+| shapeSetBackgroundColor | `(id, r : Float, g : Float, b : Float, a : Float) -> Boolean`（1.26.0; 仅文本形状, 背景框颜色） |
+| shapeClearBackgroundColor | `(id) -> Boolean`（1.26.0; 回客户端默认背景色） |
+| shapeSetDepthTest | `(id, enabled : Boolean) -> Boolean`（1.26.0; 仅文本形状, true = 被方块/实体遮挡） |
 
 **显示**
 
 | 函数 | 签名 |
 |------|------|
-| shapeDraw | `(id) -> b` |
-| shapeDrawToPlayer | `(id, playerName: s) -> b` |
-| shapeDrawToDimension | `(id, dimId: i) -> b` |
-| shapeDrawBatch | `(ids: [i]) -> b` |
-| shapeRemove | `(id) -> b` |
-| shapeRemoveToPlayer | `(id, playerName: s) -> b` |
-| shapeRemoveToDimension | `(id, dimId: i) -> b` |
-| shapeUpdate | `(id) -> b` |
-| shapeUpdateToPlayer | `(id, playerName: s) -> b` |
-| shapeUpdateToDimension | `(id, dimId: i) -> b` |
+| shapeDraw | `(id) -> Boolean` |
+| shapeDrawToPlayer | `(id, playerName : String) -> Boolean` |
+| shapeDrawToDimension | `(id, dimId : Integer) -> Boolean` |
+| shapeDrawBatch | `(ids: Array<Integer>) -> Boolean` |
+| shapeRemove | `(id) -> Boolean` |
+| shapeRemoveToPlayer | `(id, playerName : String) -> Boolean` |
+| shapeRemoveToDimension | `(id, dimId : Integer) -> Boolean` |
+| shapeUpdate | `(id) -> Boolean` |
+| shapeUpdateToPlayer | `(id, playerName : String) -> Boolean` |
+| shapeUpdateToDimension | `(id, dimId : Integer) -> Boolean` |
 
 **生命周期与查询**
 
 | 函数 | 签名 |
 |------|------|
-| shapeDestroy | `(id) -> b` |
-| shapeDestroyAll | `() -> nil` |
-| shapeDestroyBatch | `(ids: [i]) -> b` |
-| shapeFindTextByLocation | `(x: f, y: f, z: f, radius: f) -> [i]` |
-| shapeFindTextByLocationAndContent | `(x: f, y: f, z: f, radius: f, text: s) -> i` |
-| shapeGetAllShapeIds | `() -> [i]` |
-| shapeExists | `(id) -> b` |
+| shapeDestroy | `(id) -> Boolean` |
+| shapeDestroyAll | `() -> Null` |
+| shapeDestroyBatch | `(ids: Array<Integer>) -> Boolean` |
+| shapeFindTextByLocation | `(x : Float, y : Float, z : Float, radius : Float) -> Array<Integer>` |
+| shapeFindTextByLocationAndContent | `(x : Float, y : Float, z : Float, radius : Float, text : String) -> Integer` |
+| shapeGetAllShapeIds | `() -> Array<Integer>` |
+| shapeExists | `(id) -> Boolean` |
 
 ## 2.2 holo*（悬浮字，26 函数）
 
 | 函数 | 签名 |
 |------|------|
-| holoCreate | `(x: f, y: f, z: f) -> i` |
-| holoDestroy | `(id) -> b` |
-| holoDestroyAll | `() -> nil` |
-| holoAddLine | `(id, text: s) -> b` |
-| holoSetLineText | `(id, lineIndex: i, text: s) -> b` |
-| holoSetLinePool | `(id, lineIndex: i, content: [s], intervalMs: i) -> b`（1.26.0; 动态行: 内容池按间隔**时间取模轮播**; 池 ≤1 项 / 间隔≤0 = 不轮播; 空数组 = 清除池） |
-| holoSetLineParseVariables | `(id, lineIndex: i, enabled: b) -> b`（1.26.0; 该行是否解析变量, 默认开; 关 = `{}` 按字面量显示） |
-| holoRemoveLine | `(id, lineIndex: i) -> b` |
-| holoClearLines | `(id) -> b` |
-| holoGetLineCount | `(id) -> i` |
-| holoSetColor | `(id, r,g,b,a: f) -> b`（整块文字颜色） |
-| holoSetScale | `(id, scale: f) -> b`（整块缩放; 替代原 holoSetLineScale） |
-| holoSetBackgroundColor | `(id, r,g,b,a: f) -> b`（背景框颜色; 不设 = 客户端默认色） |
-| holoClearBackgroundColor | `(id) -> b`（回客户端默认背景色） |
-| holoSetDepthTest | `(id, enabled: b) -> b`（true = 被方块/实体遮挡; false = 始终渲染/穿墙可见, 默认） |
-| holoSetRotation | `(id, pitch: f, yaw: f, roll: f) -> b`（三轴 Euler, **单位 = 度**; 设置后不再面向相机） |
-| holoClearRotation | `(id) -> b`（恢复面向相机） |
-| holoSetLocation | `(id, x: f, y: f, z: f) -> b` |
-| holoSetDimension | `(id, dimId: i) -> b`（迁移维度; 已绘制时原地重发, 无闪烁） |
-| holoSetFollowPlayer | `(id, playerName: s, offsetY: f) -> b`（位置在 setFollowPlayer/draw/refresh 时就地解析） |
-| holoClearFollowPlayer | `(id) -> b` |
-| holoDraw | `(id) -> b` |
-| holoDrawToDimension | `(id, dimId: i) -> b` |
-| holoDrawToPlayer | `(id, playerName: s) -> b` |
-| holoRemove | `(id) -> b` |
-| holoRefresh | `(id) -> b`（重解析变量/跟随坐标并原地重发） |
+| holoCreate | `(x : Float, y : Float, z : Float) -> Integer` |
+| holoDestroy | `(id) -> Boolean` |
+| holoDestroyAll | `() -> Null` |
+| holoAddLine | `(id, text : String) -> Boolean` |
+| holoSetLineText | `(id, lineIndex : Integer, text : String) -> Boolean` |
+| holoSetLinePool | `(id, lineIndex : Integer, content: Array<String>, intervalMs : Integer) -> Boolean`（1.26.0; 动态行: 内容池按间隔**时间取模轮播**; 池 ≤1 项 / 间隔≤0 = 不轮播; 空数组 = 清除池） |
+| holoSetLineParseVariables | `(id, lineIndex : Integer, enabled : Boolean) -> Boolean`（1.26.0; 该行是否解析变量, 默认开; 关 = `{}` 按字面量显示） |
+| holoRemoveLine | `(id, lineIndex : Integer) -> Boolean` |
+| holoClearLines | `(id) -> Boolean` |
+| holoGetLineCount | `(id) -> Integer` |
+| holoSetColor | `(id, r,g,b,a : Float) -> Boolean`（整块文字颜色） |
+| holoSetScale | `(id, scale : Float) -> Boolean`（整块缩放; 替代原 holoSetLineScale） |
+| holoSetBackgroundColor | `(id, r,g,b,a : Float) -> Boolean`（背景框颜色; 不设 = 客户端默认色） |
+| holoClearBackgroundColor | `(id) -> Boolean`（回客户端默认背景色） |
+| holoSetDepthTest | `(id, enabled : Boolean) -> Boolean`（true = 被方块/实体遮挡; false = 始终渲染/穿墙可见, 默认） |
+| holoSetRotation | `(id, pitch : Float, yaw : Float, roll : Float) -> Boolean`（三轴 Euler, **单位 = 度**; 设置后不再面向相机） |
+| holoClearRotation | `(id) -> Boolean`（恢复面向相机） |
+| holoSetLocation | `(id, x : Float, y : Float, z : Float) -> Boolean` |
+| holoSetDimension | `(id, dimId : Integer) -> Boolean`（迁移维度; 已绘制时原地重发, 无闪烁） |
+| holoSetFollowPlayer | `(id, playerName : String, offsetY : Float) -> Boolean`（位置在 setFollowPlayer/draw/refresh 时就地解析） |
+| holoClearFollowPlayer | `(id) -> Boolean` |
+| holoDraw | `(id) -> Boolean` |
+| holoDrawToDimension | `(id, dimId : Integer) -> Boolean` |
+| holoDrawToPlayer | `(id, playerName : String) -> Boolean` |
+| holoRemove | `(id) -> Boolean` |
+| holoRefresh | `(id) -> Boolean`（重解析变量/跟随坐标并原地重发） |
 
 > **1.26.0 收缩**：原 `holoSetLineScale` / `holoSetLineColor` / `holoSetLineGradient` / `holoSetLineRainbow` /
 > `holoSetLineScroll` / `holoSetVerticalAnimation` / `holoSetLineSpacing` / `holoTick` 已移除（这些在"整块
@@ -127,24 +140,24 @@ LegacyRemoteCall（lrca）在场时自动导出。**单命名空间 `HologramLib
 
 | 函数 | 签名 |
 |------|------|
-| gradientCreate | `(x1,y1,z1: f, x2,y2,z2: f, segments: i) -> i` |
-| gradientSetGradient | `(id, r1,g1,b1,r2,g2,b2: f) -> b` |
-| gradientSetRainbow | `(id, speed: f) -> b` |
-| gradientSetColor | `(id, r,g,b,a: f) -> b` |
-| gradientSetEndpoints | `(id, x1,y1,z1: f, x2,y2,z2: f) -> b` |
-| gradientDraw | `(id) -> b` |
-| gradientDrawToDimension | `(id, dimId: i) -> b` |
-| gradientRemove | `(id) -> b` |
-| gradientDestroy | `(id) -> b` |
-| gradientDestroyAll | `() -> nil` |
-| gradientTick | `(deltaTime: f) -> nil`（彩虹动画驱动） |
+| gradientCreate | `(x1,y1,z1 : Float, x2,y2,z2 : Float, segments : Integer) -> Integer` |
+| gradientSetGradient | `(id, r1,g1,b1,r2,g2,b2 : Float) -> Boolean` |
+| gradientSetRainbow | `(id, speed : Float) -> Boolean` |
+| gradientSetColor | `(id, r,g,b,a : Float) -> Boolean` |
+| gradientSetEndpoints | `(id, x1,y1,z1 : Float, x2,y2,z2 : Float) -> Boolean` |
+| gradientDraw | `(id) -> Boolean` |
+| gradientDrawToDimension | `(id, dimId : Integer) -> Boolean` |
+| gradientRemove | `(id) -> Boolean` |
+| gradientDestroy | `(id) -> Boolean` |
+| gradientDestroyAll | `() -> Null` |
+| gradientTick | `(deltaTime : Float) -> Null`（彩虹动画驱动） |
 
 ## 2.4 itemDetail*（物品详情，2 函数）
 
 | 函数 | 签名 |
 |------|------|
-| itemDetailShow | `(dimId: i, x,y,z: f, itemId: s, aux: i, count: i, customText: s) -> i` |
-| itemDetailHide | `(id) -> b` |
+| itemDetailShow | `(dimId : Integer, x,y,z : Float, itemId : String, aux : Integer, count : Integer, customText : String) -> Integer` |
+| itemDetailHide | `(id) -> Boolean` |
 
 `itemDetailShow`：在 (x,y,z) 显示"本地化物品名 xN"（count<=1 无数量后缀）；`customText` 传 `""` 用自动文本，非空则完全替代（支持 § 颜色码与 `{变量}`）。返回悬浮字 ID，可继续用 `holo*` 精修。
 
@@ -154,39 +167,39 @@ FMBE（狐狸+发包）技术：隐形狐狸手持物品渲染任意物品/方�
 
 | 函数 | 签名 |
 |------|------|
-| itemDisplayCreate | `(x: f, y: f, z: f, dim: i, itemId: s, aux: i) -> i` |
-| itemDisplayCreateAdvanced | `(x,y,z: f, dim: i, itemId: s, aux: i, offX,offY,offZ: s, rotX,rotY,rotZ: s, scale: s) -> i` |
-| itemDisplayCreateSeamless | `(x,y,z: f, dim: i, itemId: s, aux: i, offX,offY,offZ: s, rotX,rotY,rotZ: s, scale: s, mode: i, viewDistance: f, visiblePlayer: s) -> i`（无感创建: mode/视距/白名单在首次 spawn 之前写入, 全程只发一次 Add 序列; 创建后无需 setMode/setViewDistance/setVisiblePlayer。mode: -1=默认 auto 1=item 2=block; viewDistance: -1=默认 0=不限; visiblePlayer 空串=全员） |
-| itemDisplayCreateRandom | `(x: f, y: f, z: f, dim: i, itemId: s, aux: i) -> i`（随机段 `[0x10000000,0x7FFFFFFF)` 不重复 ID） |
-| itemDisplayCreateWithId | `(x: f, y: f, z: f, dim: i, itemId: s, aux: i, desiredId: i) -> i`（指定 ID 创建, 持久化恢复用; <=0 或已占用返回 -2） |
-| itemDisplayDestroy | `(id) -> b` |
-| itemDisplayDestroyAll | `() -> nil` |
-| itemDisplayExists | `(id) -> b` |
-| itemDisplayIsIdUsed | `(id) -> b` |
-| itemDisplayScaleBy | `(id, factor: f) -> b`（相对缩放: factor>1 放大, 0<factor<1 缩小） |
-| itemDisplaySetItemWithNbt | `(id, itemId: s, aux: i, nbt: s) -> b`（换物品带附加数据: nbt 为 SNBT; 空串清除） |
-| itemDisplaySetGlint | `(id, on: b) -> b`（附魔光效开关: BDS 原生路径注入 1 级锋利, 客户端紫色光效） |
-| itemDisplaySetVisiblePlayers | `(id, playerNames: [s]) -> b`（可见玩家白名单: 按玩家名/LSE `player.realName` 匹配; 空列表 = 全员可见; 维度/视距条件仍叠加） |
-| itemDisplayClearVisiblePlayers | `(id) -> b`（清除白名单, 恢复全员可见） |
-| itemDisplaySetVisiblePlayer | `(id, playerName: s) -> b`（标量版单玩家白名单; JS 侧推荐） |
-| itemDisplayGetInfo | `(id) -> s`（诊断探针: 返回运行态摘要; 未找到返回 `not_found`） |
-| itemDisplayScaleTo | `(id, targetScale: f) -> b`（单次跳变缩放: 以新 scale 常量重发完整方块动画序列, 无 respawn、无 Remove/Add; 渐变动画由消费者步进驱动（如 5 步 easeOutCubic）。仅方块模式; scale<0.01 钳制为 0.01） |
-| itemDisplayGetAllIds | `() -> [i]` |
-| itemDisplaySetItem | `(id, itemId: s, aux: i) -> b`（换物品; 清除附加数据） |
-| itemDisplaySetPosition | `(id, x,y,z: f, dim: i) -> b`（dim<0 仅改坐标） |
-| itemDisplaySetOffset | `(id, ox,oy,oz: s) -> b`（模型单位平移; Molang） |
-| itemDisplaySetBaseOffset | `(id, ox,oy,oz: s) -> b`（渲染像素基础偏移; Molang） |
-| itemDisplaySetRotation | `(id, rx,ry,rz: s) -> b`（三轴旋转/度; Molang） |
-| itemDisplaySetScale | `(id, scale: s) -> b`（Molang） |
-| itemDisplaySetExtend | `(id, scale,rx,ry: s) -> b`（方块模式二段变换） |
-| itemDisplaySetMode | `(id, mode: i) -> b`（0=auto 1=item 2=block） |
-| itemDisplaySetEnabled | `(id, enabled: b) -> b` |
-| itemDisplaySetViewDistance | `(id, dist: f) -> b`（<=0 无限制） |
-| itemDisplayRotateY | `(id, delta: f) -> b`（偏航叠加增量） |
-| itemDisplayFindNearest | `(x,y,z: f, dim: i, maxDist: f) -> i`（最近查找; 无匹配 -1） |
-| itemDisplayFollow | `(id, playerName: s, offX,offY,offZ: f) -> b`（1.17.0 展示跟随玩家: 每 tick 同步目标实时坐标（含跨维度自动 respawn）, 对已见玩家发 MoveActorAbsolute（非 teleport, 客户端插值）平滑位移, 全程无 respawn 无闪烁; 玩家下线自动解除跟随（方块原地保留）; `itemDisplaySetPosition` 手动设位解除跟随） |
-| itemDisplayUnfollow | `(id) -> b`（1.17.0 解除跟随; 无跟随关系返回 true） |
-| itemDisplaySetHitbox | `(id, width: f, height: f) -> b`（1.17.0 AABB 判定体积: 对已见玩家广播 SetActorDataPacket(R53=Width R54=Height), 即时无 respawn; 数值持久入配置, respawn/新观察者自动按当前值发包; 0/0 = 恢复不可命中。开启后客户端射线可命中 → 攻击经 `ghost*` 路由回库内 id） |
+| itemDisplayCreate | `(x : Float, y : Float, z : Float, dim : Integer, itemId : String, aux : Integer) -> Integer` |
+| itemDisplayCreateAdvanced | `(x,y,z : Float, dim : Integer, itemId : String, aux : Integer, offX,offY,offZ : String, rotX,rotY,rotZ : String, scale : String) -> Integer` |
+| itemDisplayCreateSeamless | `(x,y,z : Float, dim : Integer, itemId : String, aux : Integer, offX,offY,offZ : String, rotX,rotY,rotZ : String, scale : String, mode : Integer, viewDistance : Float, visiblePlayer : String) -> Integer`（无感创建: mode/视距/白名单在首次 spawn 之前写入, 全程只发一次 Add 序列; 创建后无需 setMode/setViewDistance/setVisiblePlayer。mode: -1=默认 auto 1=item 2=block; viewDistance: -1=默认 0=不限; visiblePlayer 空串=全员） |
+| itemDisplayCreateRandom | `(x : Float, y : Float, z : Float, dim : Integer, itemId : String, aux : Integer) -> Integer`（随机段 `[0x10000000,0x7FFFFFFF)` 不重复 ID） |
+| itemDisplayCreateWithId | `(x : Float, y : Float, z : Float, dim : Integer, itemId : String, aux : Integer, desiredId : Integer) -> Integer`（指定 ID 创建, 持久化恢复用; <=0 或已占用返回 -2） |
+| itemDisplayDestroy | `(id) -> Boolean` |
+| itemDisplayDestroyAll | `() -> Null` |
+| itemDisplayExists | `(id) -> Boolean` |
+| itemDisplayIsIdUsed | `(id) -> Boolean` |
+| itemDisplayScaleBy | `(id, factor : Float) -> Boolean`（相对缩放: factor>1 放大, 0<factor<1 缩小） |
+| itemDisplaySetItemWithNbt | `(id, itemId : String, aux : Integer, nbt : String) -> Boolean`（换物品带附加数据: nbt 为 SNBT; 空串清除） |
+| itemDisplaySetGlint | `(id, on : Boolean) -> Boolean`（附魔光效开关: BDS 原生路径注入 1 级锋利, 客户端紫色光效） |
+| itemDisplaySetVisiblePlayers | `(id, playerNames: Array<String>) -> Boolean`（可见玩家白名单: 按玩家名/LSE `player.realName` 匹配; 空列表 = 全员可见; 维度/视距条件仍叠加） |
+| itemDisplayClearVisiblePlayers | `(id) -> Boolean`（清除白名单, 恢复全员可见） |
+| itemDisplaySetVisiblePlayer | `(id, playerName : String) -> Boolean`（标量版单玩家白名单; JS 侧推荐） |
+| itemDisplayGetInfo | `(id) -> String`（诊断探针: 返回运行态摘要; 未找到返回 `not_found`） |
+| itemDisplayScaleTo | `(id, targetScale : Float) -> Boolean`（单次跳变缩放: 以新 scale 常量重发完整方块动画序列, 无 respawn、无 Remove/Add; 渐变动画由消费者步进驱动（如 5 步 easeOutCubic）。仅方块模式; scale<0.01 钳制为 0.01） |
+| itemDisplayGetAllIds | `() -> Array<Integer>` |
+| itemDisplaySetItem | `(id, itemId : String, aux : Integer) -> Boolean`（换物品; 清除附加数据） |
+| itemDisplaySetPosition | `(id, x,y,z : Float, dim : Integer) -> Boolean`（dim<0 仅改坐标） |
+| itemDisplaySetOffset | `(id, ox,oy,oz : String) -> Boolean`（模型单位平移; Molang） |
+| itemDisplaySetBaseOffset | `(id, ox,oy,oz : String) -> Boolean`（渲染像素基础偏移; Molang） |
+| itemDisplaySetRotation | `(id, rx,ry,rz : String) -> Boolean`（三轴旋转/度; Molang） |
+| itemDisplaySetScale | `(id, scale : String) -> Boolean`（Molang） |
+| itemDisplaySetExtend | `(id, scale,rx,ry : String) -> Boolean`（方块模式二段变换） |
+| itemDisplaySetMode | `(id, mode : Integer) -> Boolean`（0=auto 1=item 2=block） |
+| itemDisplaySetEnabled | `(id, enabled : Boolean) -> Boolean` |
+| itemDisplaySetViewDistance | `(id, dist : Float) -> Boolean`（<=0 无限制） |
+| itemDisplayRotateY | `(id, delta : Float) -> Boolean`（偏航叠加增量） |
+| itemDisplayFindNearest | `(x,y,z : Float, dim : Integer, maxDist : Float) -> Integer`（最近查找; 无匹配 -1） |
+| itemDisplayFollow | `(id, playerName : String, offX,offY,offZ : Float) -> Boolean`（1.17.0 展示跟随玩家: 每 tick 同步目标实时坐标（含跨维度自动 respawn）, 对已见玩家发 MoveActorAbsolute（非 teleport, 客户端插值）平滑位移, 全程无 respawn 无闪烁; 玩家下线自动解除跟随（方块原地保留）; `itemDisplaySetPosition` 手动设位解除跟随） |
+| itemDisplayUnfollow | `(id) -> Boolean`（1.17.0 解除跟随; 无跟随关系返回 true） |
+| itemDisplaySetHitbox | `(id, width : Float, height : Float) -> Boolean`（1.17.0 AABB 判定体积: 对已见玩家广播 SetActorDataPacket(R53=Width R54=Height), 即时无 respawn; 数值持久入配置, respawn/新观察者自动按当前值发包; 0/0 = 恢复不可命中。开启后客户端射线可命中 → 攻击经 `ghost*` 路由回库内 id） |
 
 渲染模式：`auto`（默认）按物品 3D/2D 自动选择；`item` 平面物品渲染（rotY 内部自动 +205 补偿狐狸头朝向）；`block` 3D 方块渲染（完整旋转矩阵路径 + 二段扩展变换）。可见性由库内 Level tick hook 自动同步。
 
@@ -198,60 +211,60 @@ AddActorPacket 直发客户端生成纯视觉实体（NPC 壳/装饰生物/盔�
 
 | 函数 | 签名 |
 |------|------|
-| entityCreate | `(identifier: s, x,y,z: f, dim: i) -> i` |
-| entityCreateAdvanced | `(identifier: s, x,y,z: f, dim: i, yaw: f, pitch: f, scale: f, nametag: s) -> i` |
-| entityCreateRandom | `(identifier: s, x,y,z: f, dim: i) -> i`（随机段 ID） |
-| entityCreateWithId | `(identifier: s, x,y,z: f, dim: i, desiredId: i) -> i`（指定 ID 创建; <=0 或占用返回 -2） |
-| entityDestroy | `(id) -> b` |
-| entityDestroyAll | `() -> nil` |
-| entityExists | `(id) -> b` |
-| entityIsIdUsed | `(id) -> b` |
-| entityGetAllIds | `() -> [i]` |
+| entityCreate | `(identifier : String, x,y,z : Float, dim : Integer) -> Integer` |
+| entityCreateAdvanced | `(identifier : String, x,y,z : Float, dim : Integer, yaw : Float, pitch : Float, scale : Float, nametag : String) -> Integer` |
+| entityCreateRandom | `(identifier : String, x,y,z : Float, dim : Integer) -> Integer`（随机段 ID） |
+| entityCreateWithId | `(identifier : String, x,y,z : Float, dim : Integer, desiredId : Integer) -> Integer`（指定 ID 创建; <=0 或占用返回 -2） |
+| entityDestroy | `(id) -> Boolean` |
+| entityDestroyAll | `() -> Null` |
+| entityExists | `(id) -> Boolean` |
+| entityIsIdUsed | `(id) -> Boolean` |
+| entityGetAllIds | `() -> Array<Integer>` |
 
 **属性**
 
 | 函数 | 签名 |
 |------|------|
-| entitySetIdentifier | `(id, identifier: s) -> b`（换实体类型; 短名自动补 `minecraft:`） |
-| entitySetPosition | `(id, x,y,z: f, dim: i) -> b`（dim<0 仅改坐标） |
-| entitySetRotation | `(id, yaw: f, pitch: f) -> b`（度） |
-| entitySetNametag | `(id, text: s) -> b`（支持 § 颜色码; 空串清除） |
-| entitySetScale | `(id, scale: f) -> b`（<=0 拒绝; 自动钳制 0.0625~10） |
-| entitySetVariant | `(id, variant: i) -> b` |
-| entitySetMarkVariant | `(id, markVariant: i) -> b` |
-| entitySetColorIndex | `(id, colorIndex: i) -> b`（羊/项圈等染色实体） |
-| entitySetFlags | `(id, flags: i) -> b`（原始位掩码 0x01=着火 0x20=隐身 等） |
-| entitySetInvisible | `(id, on: b) -> b`（隐身便捷开关, 幂等） |
-| entitySetEnabled | `(id, enabled: b) -> b` |
-| entitySetViewDistance | `(id, dist: f) -> b`（<=0 无限制） |
-| entitySetPose | `(id, pose: i) -> b`（PoseIndex 0..13; 盔甲架坐姿/睡姿/跳舞等） |
-| entitySetEquipmentSlot | `(id, slot: i, name: s, aux: i, nbt: s) -> b`（槽位 0=mainhand 1=offhand 2=head 3=chest 4=legs 5=feet; name 空清空; nbt 为 SNBT） |
-| entityFindNearest | `(x,y,z: f, dim: i, maxDist: f) -> i`（最近查找; 无匹配 -1） |
+| entitySetIdentifier | `(id, identifier : String) -> Boolean`（换实体类型; 短名自动补 `minecraft:`） |
+| entitySetPosition | `(id, x,y,z : Float, dim : Integer) -> Boolean`（dim<0 仅改坐标） |
+| entitySetRotation | `(id, yaw : Float, pitch : Float) -> Boolean`（度） |
+| entitySetNametag | `(id, text : String) -> Boolean`（支持 § 颜色码; 空串清除） |
+| entitySetScale | `(id, scale : Float) -> Boolean`（<=0 拒绝; 自动钳制 0.0625~10） |
+| entitySetVariant | `(id, variant : Integer) -> Boolean` |
+| entitySetMarkVariant | `(id, markVariant : Integer) -> Boolean` |
+| entitySetColorIndex | `(id, colorIndex : Integer) -> Boolean`（羊/项圈等染色实体） |
+| entitySetFlags | `(id, flags : Integer) -> Boolean`（原始位掩码 0x01=着火 0x20=隐身 等） |
+| entitySetInvisible | `(id, on : Boolean) -> Boolean`（隐身便捷开关, 幂等） |
+| entitySetEnabled | `(id, enabled : Boolean) -> Boolean` |
+| entitySetViewDistance | `(id, dist : Float) -> Boolean`（<=0 无限制） |
+| entitySetPose | `(id, pose : Integer) -> Boolean`（PoseIndex 0..13; 盔甲架坐姿/睡姿/跳舞等） |
+| entitySetEquipmentSlot | `(id, slot : Integer, name : String, aux : Integer, nbt : String) -> Boolean`（槽位 0=mainhand 1=offhand 2=head 3=chest 4=legs 5=feet; name 空清空; nbt 为 SNBT） |
+| entityFindNearest | `(x,y,z : Float, dim : Integer, maxDist : Float) -> Integer`（最近查找; 无匹配 -1） |
 
 **扩展能力**
 
 | 函数 | 签名 |
 |------|------|
-| entityScaleBy | `(id, factor: f) -> b`（相对缩放: 现有 scale × factor, 自动钳制 0.0625~10） |
-| entitySetVisiblePlayers | `(id, playerNames: [s]) -> b`（可见玩家白名单; 空列表 = 全员可见） |
-| entitySetVisiblePlayer | `(id, playerName: s) -> b`（单玩家白名单标量版; JS 侧推荐） |
-| entityClearVisiblePlayers | `(id) -> b`（恢复全员可见） |
-| entityGetInfo | `(id) -> s`（诊断探针; 未找到返回 `not_found`） |
-| entitySetRidePlayer | `(id, playerName: s) -> b`（实体骑到指定玩家头上; 空名清除; 玩家须在线） |
-| entitySetRideEntity | `(id, vehicleEntityId: i) -> b`（骑到另一自定义实体上; 0 清除） |
-| entityClearRide | `(id) -> b`（解除骑乘链接） |
-| entityPlayAnimation | `(id, animation: s, stopExpression: s, durationTicks: i) -> b`（播放原版动画, 如 `animation.humanoid.base_pose`; stopExpression 空串 = 常驻; durationTicks>0 到期自动停止） |
-| entitySetPlayerNametag | `(id, playerName: s, text: s) -> b`（1.22.0; 只改该玩家看到的名字牌; 空串 = 清除覆盖回到 config） |
-| entitySetPlayerScale | `(id, playerName: s, scale: f) -> b`（1.22.0; 只改该玩家看到的缩放; <=0 = 清除覆盖） |
-| entitySetPlayerEquipmentSlot | `(id, playerName: s, slot: i, name: s, aux: i, nbt: s) -> b`（1.22.0; 0=主手 1=副手 2=头 3=胸 4=腿 5=脚; name 空 = 回退 config） |
-| entityClearPlayerAppearance | `(id, playerName: s) -> b`（1.22.0; 清除该玩家的名字/缩放/装备覆盖） |
+| entityScaleBy | `(id, factor : Float) -> Boolean`（相对缩放: 现有 scale × factor, 自动钳制 0.0625~10） |
+| entitySetVisiblePlayers | `(id, playerNames: Array<String>) -> Boolean`（可见玩家白名单; 空列表 = 全员可见） |
+| entitySetVisiblePlayer | `(id, playerName : String) -> Boolean`（单玩家白名单标量版; JS 侧推荐） |
+| entityClearVisiblePlayers | `(id) -> Boolean`（恢复全员可见） |
+| entityGetInfo | `(id) -> String`（诊断探针; 未找到返回 `not_found`） |
+| entitySetRidePlayer | `(id, playerName : String) -> Boolean`（实体骑到指定玩家头上; 空名清除; 玩家须在线） |
+| entitySetRideEntity | `(id, vehicleEntityId : Integer) -> Boolean`（骑到另一自定义实体上; 0 清除） |
+| entityClearRide | `(id) -> Boolean`（解除骑乘链接） |
+| entityPlayAnimation | `(id, animation : String, stopExpression : String, durationTicks : Integer) -> Boolean`（播放原版动画, 如 `animation.humanoid.base_pose`; stopExpression 空串 = 常驻; durationTicks>0 到期自动停止） |
+| entitySetPlayerNametag | `(id, playerName : String, text : String) -> Boolean`（1.22.0; 只改该玩家看到的名字牌; 空串 = 清除覆盖回到 config） |
+| entitySetPlayerScale | `(id, playerName : String, scale : Float) -> Boolean`（1.22.0; 只改该玩家看到的缩放; <=0 = 清除覆盖） |
+| entitySetPlayerEquipmentSlot | `(id, playerName : String, slot : Integer, name : String, aux : Integer, nbt : String) -> Boolean`（1.22.0; 0=主手 1=副手 2=头 3=胸 4=腿 5=脚; name 空 = 回退 config） |
+| entityClearPlayerAppearance | `(id, playerName : String) -> Boolean`（1.22.0; 清除该玩家的名字/缩放/装备覆盖） |
 
 ## 2.7 ghost*（交互事件轮询，2 函数）
 
 | 函数 | 签名 |
 |------|------|
-| ghostPollInteractions | `() -> [s]`（取走并清空待处理交互队列; 队列上限 256 条, 满时丢最旧） |
-| ghostClearInteractions | `() -> nil`（丢弃队列中全部待处理事件） |
+| ghostPollInteractions | `() -> Array<String>`（取走并清空待处理交互队列; 队列上限 256 条, 满时丢最旧） |
+| ghostClearInteractions | `() -> Null`（丢弃队列中全部待处理事件） |
 
 事件条目为可解析字符串，格式：
 
@@ -290,28 +303,28 @@ setInterval(() => {
 
 | 函数 | 签名 |
 |------|------|
-| particleCreatePoint | `(owner: s, dimId: i, x: f, y: f, z: f, effect: s, interval: i, lifetime: i) -> id` |
-| particleCreateLine | `(owner: s, dimId: i, x1,y,z1: f, x2,y2,z2: f, step: f, effect: s, interval: i, lifetime: i) -> id`（锚点=中点, 旋转绕中点） |
-| particleCreateRect | `(owner: s, dimId: i, cx,cy,cz: f, w: f, h: f, axis: i, step: f, effect: s, interval: i, lifetime: i) -> id`（矩形环线） |
+| particleCreatePoint | `(owner : String, dimId : Integer, x : Float, y : Float, z : Float, effect : String, interval : Integer, lifetime : Integer) -> Integer` |
+| particleCreateLine | `(owner : String, dimId : Integer, x1,y,z1 : Float, x2,y2,z2 : Float, step : Float, effect : String, interval : Integer, lifetime : Integer) -> Integer`（锚点=中点, 旋转绕中点） |
+| particleCreateRect | `(owner : String, dimId : Integer, cx,cy,cz : Float, w : Float, h : Float, axis : Integer, step : Float, effect : String, interval : Integer, lifetime : Integer) -> Integer`（矩形环线） |
 | particleCreatePlane | 同 rect 参数（填充平面网格） |
-| particleCreateBox | `(owner: s, dimId: i, cx,cy,cz: f, hx,hy,hz: f, step: f, effect: s, interval: i, lifetime: i) -> id`（长方体 12 边线框, 半尺寸） |
+| particleCreateBox | `(owner : String, dimId : Integer, cx,cy,cz : Float, hx,hy,hz : Float, step : Float, effect : String, interval : Integer, lifetime : Integer) -> Integer`（长方体 12 边线框, 半尺寸） |
 | particleCreateBoxFaces | 同 box 参数（六面填充） |
-| particleCreatePoly | `(owner: s, dimId: i, verts: s, edges: s, step: f, effect: s, interval: i, lifetime: i) -> id`（verts `"x,y,z;x,y,z"`世界坐标锚点=质心; edges `"i-j"`顶点索引对） |
-| particleSetPos | `(id: i64, x, y, z: f) -> b`（平移锚点; 解除跟随） |
-| particleMoveBy | `(id: i64, dx, dy, dz: f) -> b`（相对平移） |
-| particleMoveTo | `(id: i64, x, y, z: f, durationTicks: i) -> b`（平滑点对点移动, easeOutCubic; 解除跟随; duration<=0 = 立即到达） |
-| particleSetRot | `(id: i64, rx, ry, rz: f) -> b`（欧拉角, 度, ZYX 序, 绕锚点） |
-| particleSpin | `(id: i64, sx, sy, sz: f) -> b`（自旋速率, 度/tick; 0,0,0 停止） |
-| particleSetScale | `(id: i64, s: f) -> b` |
-| particleFollow | `(id: i64, uuid: s, offX, offY, offZ: f) -> b`（锚点跟随玩家+偏移, 每 tick） |
-| particleUnfollow | `(id: i64) -> b` |
-| particleSetEffect | `(id: i64, effect: s) -> b` |
-| particleSetVisible | `(id: i64, playersCsv: s) -> b`（`"uuid1,uuid2"` 白名单; 空串 = 维度全员） |
-| particleSetInterval | `(id: i64, ticks: i) -> b` |
-| particleSetViewDistance | `(id: i64, blocks: i) -> b`（逐玩家 3D 裁剪; 0 = 不裁剪） |
-| particleSetLifetime | `(id: i64, ticks: i) -> b`（从现在起; 0 = 永久） |
-| particleDestroy | `(id: i64) -> b` |
-| particleGetInfo | `(id: i64) -> s`（诊断探针） |
+| particleCreatePoly | `(owner : String, dimId : Integer, verts : String, edges : String, step : Float, effect : String, interval : Integer, lifetime : Integer) -> Integer`（verts `"x,y,z;x,y,z"`世界坐标锚点=质心; edges `"i-j"`顶点索引对） |
+| particleSetPos | `(id : Integer, x, y, z : Float) -> Boolean`（平移锚点; 解除跟随） |
+| particleMoveBy | `(id : Integer, dx, dy, dz : Float) -> Boolean`（相对平移） |
+| particleMoveTo | `(id : Integer, x, y, z : Float, durationTicks : Integer) -> Boolean`（平滑点对点移动, easeOutCubic; 解除跟随; duration<=0 = 立即到达） |
+| particleSetRot | `(id : Integer, rx, ry, rz : Float) -> Boolean`（欧拉角, 度, ZYX 序, 绕锚点） |
+| particleSpin | `(id : Integer, sx, sy, sz : Float) -> Boolean`（自旋速率, 度/tick; 0,0,0 停止） |
+| particleSetScale | `(id : Integer, s : Float) -> Boolean` |
+| particleFollow | `(id : Integer, uuid : String, offX, offY, offZ : Float) -> Boolean`（锚点跟随玩家+偏移, 每 tick） |
+| particleUnfollow | `(id : Integer) -> Boolean` |
+| particleSetEffect | `(id : Integer, effect : String) -> Boolean` |
+| particleSetVisible | `(id : Integer, playersCsv : String) -> Boolean`（`"uuid1,uuid2"` 白名单; 空串 = 维度全员） |
+| particleSetInterval | `(id : Integer, ticks : Integer) -> Boolean` |
+| particleSetViewDistance | `(id : Integer, blocks : Integer) -> Boolean`（逐玩家 3D 裁剪; 0 = 不裁剪） |
+| particleSetLifetime | `(id : Integer, ticks : Integer) -> Boolean`（从现在起; 0 = 永久） |
+| particleDestroy | `(id : Integer) -> Boolean` |
+| particleGetInfo | `(id : Integer) -> String`（诊断探针） |
 
 LSE 示例（旋转自旋立方体 + 跟随玩家的光圈）：
 
@@ -347,35 +360,35 @@ rot(box, 45, 0, 0);
 
 | 函数 | 签名 |
 |------|------|
-| playerNpcRegisterSkin | `(pngPath: s, skinId: s, geometry: s, armSize: s) -> b`（skinId 空 = 文件名; geometry 空 = geometry.humanoid.custom; armSize: wide/slim） |
-| playerNpcImportSkins | `(dirPath: s) -> i`（目录批量导入: 一个子文件夹 = 一套皮肤, PNG 必需 + `.json` 几何可选; skinId = 文件夹名; 返回导入数量, 目录无效 -1） |
-| playerNpcCaptureSkin | `(skinId: s, playerName: s) -> b`（从在线玩家采集当前皮肤, 全字段快照注册, 其后换肤不影响） |
-| playerNpcHasSkin | `(skinId: s) -> b` |
-| playerNpcUnregisterSkin | `(skinId: s) -> b`（有 NPC 引用时拒绝） |
-| playerNpcGetSkinIds | `() -> [s]` |
-| playerNpcCreate | `(x, y, z: f, dim: i, name: s, skinId: s) -> id`（失败 <0: -2 id 占用, -3 皮肤未注册） |
+| playerNpcRegisterSkin | `(pngPath : String, skinId : String, geometry : String, armSize : String) -> Boolean`（skinId 空 = 文件名; geometry 空 = geometry.humanoid.custom; armSize: wide/slim） |
+| playerNpcImportSkins | `(dirPath : String) -> Integer`（目录批量导入: 一个子文件夹 = 一套皮肤, PNG 必需 + `.json` 几何可选; skinId = 文件夹名; 返回导入数量, 目录无效 -1） |
+| playerNpcCaptureSkin | `(skinId : String, playerName : String) -> Boolean`（从在线玩家采集当前皮肤, 全字段快照注册, 其后换肤不影响） |
+| playerNpcHasSkin | `(skinId : String) -> Boolean` |
+| playerNpcUnregisterSkin | `(skinId : String) -> Boolean`（有 NPC 引用时拒绝） |
+| playerNpcGetSkinIds | `() -> Array<String>` |
+| playerNpcCreate | `(x, y, z : Float, dim : Integer, name : String, skinId : String) -> Integer`（失败 <0: -2 id 占用, -3 皮肤未注册） |
 | playerNpcCreateRandom | 同 create 参数（随机段 ID） |
-| playerNpcCreateWithId | `(x, y, z: f, dim: i, name: s, skinId: s, desiredId: i64) -> id`（持久化恢复用） |
-| playerNpcDestroy | `(id: i64) -> b` |
-| playerNpcDestroyAll | `() -> void` |
-| playerNpcExists | `(id: i64) -> b` |
-| playerNpcIsIdUsed | `(id: i64) -> b` |
-| playerNpcGetAllIds | `() -> [i64]` |
-| playerNpcSetPos | `(id: i64, x, y, z: f, dim: i) -> b`（dim<0 仅改坐标） |
-| playerNpcSetRotation | `(id: i64, yaw: f) -> b` |
-| playerNpcSetNametag | `(id: i64, text: s) -> b`（空串清除） |
-| playerNpcSetSkin | `(id: i64, skinId: s) -> b`（换肤 = respawn） |
-| playerNpcSetScale | `(id: i64, scale: f) -> b`（模型缩放; 客户端硬限 0.0625~10, 碰撞箱等比; 变更经 tick 脏刷新合并为单次 respawn） |
-| playerNpcSetViewDistance | `(id: i64, dist: f) -> b`（<=0 无限制） |
-| playerNpcSetEnabled | `(id: i64, enabled: b) -> b` |
-| playerNpcSetVisiblePlayers | `(id: i64, players: [s]) -> b`（空列表 = 全员可见） |
-| playerNpcClearVisiblePlayers | `(id: i64) -> b` |
-| playerNpcSetVisiblePlayer | `(id: i64, playerName: s) -> b` |
-| playerNpcGetDebugInfo | `(id: i64) -> s`（诊断探针） |
-| playerNpcInjectSkin | `(viewerName: s, targetName: s, skinId: s) -> b`（1.26.0; 把注册表的皮肤发给观看者 —— viewerName 空串 = 所有在线玩家**含被换肤者本人**（"自己看自己被换肤"），非空 = 只发给该玩家; target 必须在线且 skinId 已注册; **不自动重发**） |
-| playerNpcInjectSkinAll | `(targetName: s, skinId: s) -> b`（1.26.0; 便捷: 等价 viewerName 空串） |
-| playerNpcGetSkinBlobB64 | `(skinId: s) -> s`（1.26.0; 全字段二进制快照的 **base64**（LSE 字符串编组对二进制不安全）; 空串 = 未注册） |
-| playerNpcRegisterSkinFromBlobB64 | `(b64: s) -> b`（1.26.0; 与上一条配对 —— 消费方落盘后重启恢复, 源玩家不在线也能用） |
+| playerNpcCreateWithId | `(x, y, z : Float, dim : Integer, name : String, skinId : String, desiredId : Integer) -> Integer`（持久化恢复用） |
+| playerNpcDestroy | `(id : Integer) -> Boolean` |
+| playerNpcDestroyAll | `() -> Null` |
+| playerNpcExists | `(id : Integer) -> Boolean` |
+| playerNpcIsIdUsed | `(id : Integer) -> Boolean` |
+| playerNpcGetAllIds | `() -> Array<Integer>` |
+| playerNpcSetPos | `(id : Integer, x, y, z : Float, dim : Integer) -> Boolean`（dim<0 仅改坐标） |
+| playerNpcSetRotation | `(id : Integer, yaw : Float) -> Boolean` |
+| playerNpcSetNametag | `(id : Integer, text : String) -> Boolean`（空串清除） |
+| playerNpcSetSkin | `(id : Integer, skinId : String) -> Boolean`（换肤 = respawn） |
+| playerNpcSetScale | `(id : Integer, scale : Float) -> Boolean`（模型缩放; 客户端硬限 0.0625~10, 碰撞箱等比; 变更经 tick 脏刷新合并为单次 respawn） |
+| playerNpcSetViewDistance | `(id : Integer, dist : Float) -> Boolean`（<=0 无限制） |
+| playerNpcSetEnabled | `(id : Integer, enabled : Boolean) -> Boolean` |
+| playerNpcSetVisiblePlayers | `(id : Integer, players: Array<String>) -> Boolean`（空列表 = 全员可见） |
+| playerNpcClearVisiblePlayers | `(id : Integer) -> Boolean` |
+| playerNpcSetVisiblePlayer | `(id : Integer, playerName : String) -> Boolean` |
+| playerNpcGetDebugInfo | `(id : Integer) -> String`（诊断探针） |
+| playerNpcInjectSkin | `(viewerName : String, targetName : String, skinId : String) -> Boolean`（1.26.0; 把注册表的皮肤发给观看者 —— viewerName 空串 = 所有在线玩家**含被换肤者本人**（"自己看自己被换肤"），非空 = 只发给该玩家; target 必须在线且 skinId 已注册; **不自动重发**） |
+| playerNpcInjectSkinAll | `(targetName : String, skinId : String) -> Boolean`（1.26.0; 便捷: 等价 viewerName 空串） |
+| playerNpcGetSkinBlobB64 | `(skinId : String) -> String`（1.26.0; 全字段二进制快照的 **base64**（LSE 字符串编组对二进制不安全）; 空串 = 未注册） |
+| playerNpcRegisterSkinFromBlobB64 | `(b64 : String) -> Boolean`（1.26.0; 与上一条配对 —— 消费方落盘后重启恢复, 源玩家不在线也能用） |
 
 LSE 示例（采集玩家皮肤并创建 NPC）：
 
@@ -408,12 +421,12 @@ reg("E:/server/skins/girl.png", "girl", "", "slim");
 
 | 函数 | 签名 | 说明 |
 |------|------|------|
-| tradeOpen | `(playerName: s, tradeType: s, tier: i, experience: i, realTrades: b, carrierIdentifier: s) -> i` | 打开菜单。`realTrades = false`（推荐）= 纯协议层展示；`true` = 真实交易表（玩家真的能成交、物品真的消耗）。`carrierIdentifier` 空 = 村民, 可填 `minecraft:wandering_trader` |
-| tradeAddOffer | `(id: i, buyAType: s, buyACount: i, buyBType: s, buyBCount: i, sellType: s, sellCount: i, sellName: s, tier: i, locked: b) -> b` | 追加一条并**就地重发**（不重开界面）；`buyBType` 空 = 无第二付费项 |
-| tradeSetTier | `(id: i, tier: i, experience: i) -> b` | 改显示栏值 / 经验条（同样就地重发） |
-| tradeSetSettle | `(id: i, on: b) -> b` | **1.24.0** 打开后随时切换纯协议真结算（只有纯协议层路径有效；真实交易表路径归 BDS 结算）。也可打开前用 `TradeMenuSpec::settleLocally` 定初值 |
-| tradeIsSettle | `(id: i) -> b` | 查询当前是否真结算 |
-| tradePollSettlements | `() -> [s]` | **取走并清空**结算回传；每条 `player=Steve menuId=3 offer=1 ok=1 reason=` |
+| tradeOpen | `(playerName : String, tradeType : String, tier : Integer, experience : Integer, realTrades : Boolean, carrierIdentifier : String) -> Integer` | 打开菜单。`realTrades = false`（推荐）= 纯协议层展示；`true` = 真实交易表（玩家真的能成交、物品真的消耗）。`carrierIdentifier` 空 = 村民, 可填 `minecraft:wandering_trader` |
+| tradeAddOffer | `(id : Integer, buyAType : String, buyACount : Integer, buyBType : String, buyBCount : Integer, sellType : String, sellCount : Integer, sellName : String, tier : Integer, locked : Boolean) -> Boolean` | 追加一条并**就地重发**（不重开界面）；`buyBType` 空 = 无第二付费项 |
+| tradeSetTier | `(id : Integer, tier : Integer, experience : Integer) -> Boolean` | 改显示栏值 / 经验条（同样就地重发） |
+| tradeSetSettle | `(id : Integer, on : Boolean) -> Boolean` | **1.24.0** 打开后随时切换纯协议真结算（只有纯协议层路径有效；真实交易表路径归 BDS 结算）。也可打开前用 `TradeMenuSpec::settleLocally` 定初值 |
+| tradeIsSettle | `(id : Integer) -> Boolean` | 查询当前是否真结算 |
+| tradePollSettlements | `() -> Array<String>` | **取走并清空**结算回传；每条 `player=Steve menuId=3 offer=1 ok=1 reason=` |
 | tradeClose / tradeCloseAll / tradeIsOpen / tradeGetIds | — | 生命周期与查询 |
 
 > **本域没有点击回调。** 要「点条目就有回调」的列表界面用 `container*`（点击 = 一次物品拾取，任何输入设备都发包）。交易结果只能通过 `tradePollSettlements` 取。
@@ -429,13 +442,13 @@ tradeAddOffer(id, "minecraft:emerald", 3, "", 1, "minecraft:diamond", 1, "§b钻
 
 | 函数 | 签名 | 说明 |
 |------|------|------|
-| containerOpen | `(playerName: s, title: s, rows: i) -> i` | 打开一个空容器（`rows` 3 = 27 格, 6 = 54 格）。打开有固有延迟（默认 7 tick）, 之后才能填格 |
-| containerSetItem | `(id: i, slot: i, type: s, count: i, damage: i, name: s, loreCsv: s) -> b` | 单格刷新（一条 `InventorySlot`, 无延迟无闪烁）；`type` 空 = 清空该槽；`loreCsv` 用 `\n` 或 `\|` 分行, 空 = 无描述行 |
-| containerSetTitle | `(id: i, title: s) -> b` | 就地换标题（重发方块实体 + ContainerOpen, 不重摆方块） |
-| containerSetInteractive | `(id: i, on: b) -> b` | **可交互模式**: 打开后客户端在容器**内部**拖动/交换物品会被库接住并回成功（物品真的留在新格子）; 默认关（只回传点击, 物品被服务端打回） |
+| containerOpen | `(playerName : String, title : String, rows : Integer) -> Integer` | 打开一个空容器（`rows` 3 = 27 格, 6 = 54 格）。打开有固有延迟（默认 7 tick）, 之后才能填格 |
+| containerSetItem | `(id : Integer, slot : Integer, type : String, count : Integer, damage : Integer, name : String, loreCsv : String) -> Boolean` | 单格刷新（一条 `InventorySlot`, 无延迟无闪烁）；`type` 空 = 清空该槽；`loreCsv` 用 `\n` 或 `\|` 分行, 空 = 无描述行 |
+| containerSetTitle | `(id : Integer, title : String) -> Boolean` | 就地换标题（重发方块实体 + ContainerOpen, 不重摆方块） |
+| containerSetInteractive | `(id : Integer, on : Boolean) -> Boolean` | **可交互模式**: 打开后客户端在容器**内部**拖动/交换物品会被库接住并回成功（物品真的留在新格子）; 默认关（只回传点击, 物品被服务端打回） |
 | containerClose / containerCloseAll / containerIsOpen / containerGetIds | — | 生命周期与查询 |
-| containerPollClicks | `() -> [s]` | **取走并清空**待处理的点击/关闭；每条 `player=X menuId=N slot=S closed=0\|1` |
-| containerClearClicks | `() -> void` | 丢弃队列里全部待处理点击 |
+| containerPollClicks | `() -> Array<String>` | **取走并清空**待处理的点击/关闭；每条 `player=X menuId=N slot=S closed=0\|1` |
+| containerClearClicks | `() -> Null` | 丢弃队列里全部待处理点击 |
 
 ```js
 const containerOpen       = ll.import("HologramLib", "containerOpen");
@@ -454,12 +467,12 @@ for (const line of containerPollClicks()) { /* 切分 player= / menuId= / slot= 
 
 | 函数 | 签名 | 说明 |
 |------|------|------|
-| npcDialogOpen | `(playerName: s, npcName: s, sceneName: s, dialogue: s, buttonsSpec: s, carrierIdentifier: s) -> i` | 打开对话（同一玩家重复调用先关上一层）；按钮串格式见下 |
-| npcDialogUpdate | `(id: i, dialogue: s, buttonsSpec: s) -> b` | 就地换正文与按钮（npcName / sceneName / 载体类型保留不变）；**只适合界面仍开着时的微调**，见下方实测限制 |
-| npcDialogSetAvatar | `(id: i, skinVariant: i, avatarViewSpec: s) -> b` | **26.40.8** 换聊天框内的头像 / 模型：`skinVariant` = NPC 内置皮肤变体 `0..59`（`-1` = 默认，不加 `SkinId` 项）；`avatarViewSpec` = 在载体上叠一层 `IViewOverride`（spec 语法同 `viewEntity`，如 `name=§6酒保`）。就地更新并重开（**0 闪烁**路径）；`false` = 该对话已不在 |
+| npcDialogOpen | `(playerName : String, npcName : String, sceneName : String, dialogue : String, buttonsSpec : String, carrierIdentifier : String) -> Integer` | 打开对话（同一玩家重复调用先关上一层）；按钮串格式见下 |
+| npcDialogUpdate | `(id : Integer, dialogue : String, buttonsSpec : String) -> Boolean` | 就地换正文与按钮（npcName / sceneName / 载体类型保留不变）；**只适合界面仍开着时的微调**，见下方实测限制 |
+| npcDialogSetAvatar | `(id : Integer, skinVariant : Integer, avatarViewSpec : String) -> Boolean` | **26.40.8** 换聊天框内的头像 / 模型：`skinVariant` = NPC 内置皮肤变体 `0..59`（`-1` = 默认，不加 `SkinId` 项）；`avatarViewSpec` = 在载体上叠一层 `IViewOverride`（spec 语法同 `viewEntity`，如 `name=§6酒保`）。就地更新并重开（**0 闪烁**路径）；`false` = 该对话已不在 |
 | npcDialogClose / npcDialogCloseAll / npcDialogIsOpen / npcDialogGetIds | — | 生命周期与查询 |
-| npcDialogPollClicks | `() -> [s]` | 取走并清空；每条 `player=X dialogId=N scene=S button=I actionId=A closed=0\|1 commands=...` |
-| npcDialogClearClicks | `() -> void` | 丢弃队列 |
+| npcDialogPollClicks | `() -> Array<String>` | 取走并清空；每条 `player=X dialogId=N scene=S button=I actionId=A closed=0\|1 commands=...` |
+| npcDialogClearClicks | `() -> Null` | 丢弃队列 |
 
 按钮串格式：按钮之间用 `;` 分隔（空段跳过），字段用 `|` 分隔 —— `label|actionId|mode|命令1,命令2`（后三项可省）。
 `mode`：0=普通按钮 1=关闭 2=打开。
@@ -479,9 +492,9 @@ const id = npcDialogOpen("Steve", "§e村长", "main", "要来点任务吗？", 
 
 | 函数 | 签名 | 说明 |
 |------|------|------|
-| sensingDeviceOf | `(playerName: s) -> s` | `keyboardMouse` / `touch` / `gamepad` / `motionController` / `unknown` |
-| sensingIsTouch | `(playerName: s) -> b` | 是否触屏（最常用的那个） |
-| sensingDeviceCode | `(playerName: s) -> i` | 0=Unknown 1=键鼠 2=触屏 3=手柄 4=体感（与 C++ 枚举同值） |
+| sensingDeviceOf | `(playerName : String) -> String` | `keyboardMouse` / `touch` / `gamepad` / `motionController` / `unknown` |
+| sensingIsTouch | `(playerName : String) -> Boolean` | 是否触屏（最常用的那个） |
+| sensingDeviceCode | `(playerName : String) -> Integer` | 0=Unknown 1=键鼠 2=触屏 3=手柄 4=体感（与 C++ 枚举同值） |
 
 ```js
 const sensingIsTouch = ll.import("HologramLib", "sensingIsTouch");
@@ -492,13 +505,13 @@ if (sensingIsTouch("Steve")) { /* 触屏: 用容器列表 */ } else { /* 键鼠:
 
 | 函数 | 签名 | 说明 |
 |------|------|------|
-| fakeInvApply | `(playerName: s, itemsSpec: s, refreshIntervalTicks: i) -> b` | 整份下发。`itemsSpec` 每条 `槽位\|物品id\|数量\|名字\|描述行~描述行`，条目之间用 `;` 或换行分隔；`refreshIntervalTicks` 0 = 关周期重发 |
-| fakeInvSetSlot | `(playerName: s, slot: i, type: s, count: i, damage: i, name: s, loreCsv: s) -> b` | 单格改动（`type` 空 = 清空该格） |
-| fakeInvRefresh | `(playerName: s) -> b` | 立即重发伪造内容（打开界面后 / 发现被覆盖时用） |
-| fakeInvClear / fakeInvClearAll | `(playerName: s) -> b` / `() -> void` | 撤销伪造并恢复真实背包 |
-| fakeInvIsActive / fakeInvGetPlayers | `(playerName: s) -> b` / `() -> [s]` | 查询 |
-| fakeInvPollClicks | `() -> [s]` | 取走并清空；每条 `player=X slot=S` |
-| fakeInvClearClicks | `() -> void` | 丢弃队列 |
+| fakeInvApply | `(playerName : String, itemsSpec : String, refreshIntervalTicks : Integer) -> Boolean` | 整份下发。`itemsSpec` 每条 `槽位\|物品id\|数量\|名字\|描述行~描述行`，条目之间用 `;` 或换行分隔；`refreshIntervalTicks` 0 = 关周期重发 |
+| fakeInvSetSlot | `(playerName : String, slot : Integer, type : String, count : Integer, damage : Integer, name : String, loreCsv : String) -> Boolean` | 单格改动（`type` 空 = 清空该格） |
+| fakeInvRefresh | `(playerName : String) -> Boolean` | 立即重发伪造内容（打开界面后 / 发现被覆盖时用） |
+| fakeInvClear / fakeInvClearAll | `(playerName : String) -> Boolean` / `() -> Null` | 撤销伪造并恢复真实背包 |
+| fakeInvIsActive / fakeInvGetPlayers | `(playerName : String) -> Boolean` / `() -> Array<String>` | 查询 |
+| fakeInvPollClicks | `() -> Array<String>` | 取走并清空；每条 `player=X slot=S` |
+| fakeInvClearClicks | `() -> Null` | 丢弃队列 |
 
 ```js
 const fakeInvApply = ll.import("HologramLib", "fakeInvApply");
@@ -512,10 +525,10 @@ for (const line of fakeInvPollClicks()) { /* "player=Steve slot=0" */ }
 
 | 函数 | 签名 | 说明 |
 |------|------|------|
-| sulfurCreate | `(x: f, y: f, z: f, dim: i, blockType: s, blockCount: i, blockDamage: i, blockName: s, archetype: s, invisible: b) -> i` | 生成一只"吞着方块"的立方体; `archetype` 空串 = 不下发属性; `invisible` = 立方体本体是否隐身（默认 true → 只看到被吞的方块） |
-| sulfurSetBlock | `(id: i, type: s, count: i, damage: i, name: s) -> b` | 换吞下去的方块/物品（会重建一次实体） |
-| sulfurSetArchetype | `(id: i, archetype: s) -> b` | 换外观档位（空串 = 清掉属性; 不重建实体） |
-| sulfurSetInvisible / sulfurSetScale | `(id: i, on: b) / (id: i, scale: f) -> b` | 隐身 / 缩放 |
+| sulfurCreate | `(x : Float, y : Float, z : Float, dim : Integer, blockType : String, blockCount : Integer, blockDamage : Integer, blockName : String, archetype : String, invisible : Boolean) -> Integer` | 生成一只"吞着方块"的立方体; `archetype` 空串 = 不下发属性; `invisible` = 立方体本体是否隐身（默认 true → 只看到被吞的方块） |
+| sulfurSetBlock | `(id : Integer, type : String, count : Integer, damage : Integer, name : String) -> Boolean` | 换吞下去的方块/物品（会重建一次实体） |
+| sulfurSetArchetype | `(id : Integer, archetype : String) -> Boolean` | 换外观档位（空串 = 清掉属性; 不重建实体） |
+| sulfurSetInvisible / sulfurSetScale | `(id : Integer, on : Boolean) / (id : Integer, scale : Float) -> Boolean` | 隐身 / 缩放 |
 | sulfurDestroy / sulfurDestroyAll | — | 销毁（`sulfurDestroy` 单个 / `sulfurDestroyAll` 全部） |
 | sulfurExists / sulfurGetIds / sulfurGetEntityId | — | 查询（`sulfurGetEntityId` 是背后的自定义实体 id） |
 
@@ -533,34 +546,34 @@ sulfurSetArchetype(id, "sticky");   // 换外观档位（不重建实体）
 
 | 函数 | 签名 | 说明 |
 |------|------|------|
-| viewEntity | `(playerName: s, entityUniqueId: i, spec: s) -> b` | 按 spec 覆盖该玩家看到的这只实体; 玩家名空串 = 所有玩家; false = 该玩家不在线 / spec 没解析出内容 |
-| viewBlock | `(playerName: s, x: i, y: i, z: i, type: s) -> b` | 把 (x,y,z) 在该玩家客户端显示成 `type` 那种方块; type 空串 = 撤销; false = 玩家不在线 / 类型名无效 |
-| viewClearEntity | `(playerName: s, entityUniqueId: i) -> b` | 撤销单个实体 |
-| viewClearBlock | `(playerName: s, x: i, y: i, z: i) -> b` | 撤销单个方块（并把真实方块推回去） |
-| viewClearAll | `(playerName: s) -> void` | 撤销该玩家（空串 = 全部玩家）的全部覆盖 |
-| viewDescribe | `(playerName: s) -> s` | 当前覆盖条数摘要, 如 `"entities=1 blocks=2"` |
-| viewUniqueIdOf | `(playerName: s) -> i` | 按名字取该玩家实体的 uniqueId; **`-1` = 不在线**（脚本拿不到 id, 用这个） |
-| viewEcho | `(text: s) -> s` | 原样回显（附长度与前 16 字节十六进制）; 排查"字符串到底传进来没有" |
-| viewMetaProbe | `(spec: s) -> s` | 把 spec 折成的**元数据真序列化一遍**并回读成 items / bytes / hex。走的是与真正发包**完全同一条** `pushMetaItems`, 所以它绿 = 线上那一串 id/type 就是这个（**不需要客户端**就能验 spec） |
-| viewItemSpawnHooked | `() -> b` | **1.29.0**: 本库的视图覆盖是否连 `AddItemActor`(id 15) 一起拦。`true` = 掉落物换类型/隐藏一次到位; 老库没有这个名字（`ll.hasExported` 判 false）→ 脚本必须周期性重套覆盖 |
+| viewEntity | `(playerName : String, entityUniqueId : Integer, spec : String) -> Boolean` | 按 spec 覆盖该玩家看到的这只实体; 玩家名空串 = 所有玩家; false = 该玩家不在线 / spec 没解析出内容 |
+| viewBlock | `(playerName : String, x : Integer, y : Integer, z : Integer, type : String) -> Boolean` | 把 (x,y,z) 在该玩家客户端显示成 `type` 那种方块; type 空串 = 撤销; false = 玩家不在线 / 类型名无效 |
+| viewClearEntity | `(playerName : String, entityUniqueId : Integer) -> Boolean` | 撤销单个实体 |
+| viewClearBlock | `(playerName : String, x : Integer, y : Integer, z : Integer) -> Boolean` | 撤销单个方块（并把真实方块推回去） |
+| viewClearAll | `(playerName : String) -> Null` | 撤销该玩家（空串 = 全部玩家）的全部覆盖 |
+| viewDescribe | `(playerName : String) -> String` | 当前覆盖条数摘要, 如 `"entities=1 blocks=2"` |
+| viewUniqueIdOf | `(playerName : String) -> Integer` | 按名字取该玩家实体的 uniqueId; **`-1` = 不在线**（脚本拿不到 id, 用这个） |
+| viewEcho | `(text : String) -> String` | 原样回显（附长度与前 16 字节十六进制）; 排查"字符串到底传进来没有" |
+| viewMetaProbe | `(spec : String) -> String` | 把 spec 折成的**元数据真序列化一遍**并回读成 items / bytes / hex。走的是与真正发包**完全同一条** `pushMetaItems`, 所以它绿 = 线上那一串 id/type 就是这个（**不需要客户端**就能验 spec） |
+| viewItemSpawnHooked | `() -> Boolean` | **1.29.0**: 本库的视图覆盖是否连 `AddItemActor`(id 15) 一起拦。`true` = 掉落物换类型/隐藏一次到位; 老库没有这个名字（`ll.hasExported` 判 false）→ 脚本必须周期性重套覆盖 |
 
 给"自己"套覆盖（写成所有玩家都看得见, 管理员自我伪装用）:
 
 | 函数 | 签名 | 说明 |
 |------|------|------|
-| viewSelf | `(playerName: s, spec: s) -> b` | 等价 `viewEntity("", viewUniqueIdOf(playerName), spec)` |
-| viewSelfClear | `(playerName: s) -> b` | 撤销自己的覆盖 |
+| viewSelf | `(playerName : String, spec : String) -> Boolean` | 等价 `viewEntity("", viewUniqueIdOf(playerName), spec)` |
+| viewSelfClear | `(playerName : String) -> Boolean` | 撤销自己的覆盖 |
 
 **逐字段版**（一个字段一个参数, 不用拼 spec 串; 脚本侧推荐用这一组, 免去拼串与转义）:
 
 | 函数 | 签名 | 说明 |
 |------|------|------|
-| viewSelfType | `(playerName: s, type: s) -> b` | 自己变成该生物类型（玩家/生物都行） |
-| viewSelfSkin | `(playerName: s, skinOfPlayer: s) -> b` | 自己显示成另一名在线玩家的样子（借皮肤） |
-| viewSelfName | `(playerName: s, nametag: s, alwaysShow: b) -> b` | 改自己头顶名字牌 |
-| viewSelfHide | `(playerName: s, hidden: b) -> b` | 对所有人隐藏自己 |
-| viewTargetType | `(entityUniqueId: i, type: s) -> b` | 让**所有**玩家看到这只实体是该类型（不限于玩家实体; JS 侧拿不到别人 id 时的主力） |
-| viewClearId | `(entityUniqueId: i) -> b` | 撤销这只实体的覆盖（所有玩家） |
+| viewSelfType | `(playerName : String, type : String) -> Boolean` | 自己变成该生物类型（玩家/生物都行） |
+| viewSelfSkin | `(playerName : String, skinOfPlayer : String) -> Boolean` | 自己显示成另一名在线玩家的样子（借皮肤） |
+| viewSelfName | `(playerName : String, nametag : String, alwaysShow : Boolean) -> Boolean` | 改自己头顶名字牌 |
+| viewSelfHide | `(playerName : String, hidden : Boolean) -> Boolean` | 对所有人隐藏自己 |
+| viewTargetType | `(entityUniqueId : Integer, type : String) -> Boolean` | 让**所有**玩家看到这只实体是该类型（不限于玩家实体; JS 侧拿不到别人 id 时的主力） |
+| viewClearId | `(entityUniqueId : Integer) -> Boolean` | 撤销这只实体的覆盖（所有玩家） |
 
 **uniqueId 是负数, 判在线只认 -1**:
 
@@ -625,19 +638,11 @@ viewClearAll("Steve");   // 收工
 
 ## 已知问题
 
-### `ghost*` 的 2 个导出在运行期不注册
+当前没有已知问题。
 
-`ghostPollInteractions` / `ghostClearInteractions` 在源码里确实调用了 `exportAs`（位于 `src/ghost/GhostInteractRouter.cpp` 的 `GhostInteractRouter::exportLse()`），但 **`ModEntry::exportLseFunctions()` 没有调用它** —— 该函数只调用 15 个 `*Exporter::exportAll()`，不含 `GhostInteractRouter`。
-
-| 侧 | 影响 |
-|---|---|
-| LSE 脚本 | `ll.import("HologramLib", "ghostPollInteractions")` 得 `null`（`ll.hasExported` 判 false） |
-| C++ | **不受影响** —— `addGhostInteractListener` / `removeGhostInteractListener` 多播监听器不经过 LSE 注册 |
-
-所以本页开头的表合计 **270** 个 `exportAs` 调用，**运行期实际注册 268 个**。
-
-**修法（维护者）**：在 `ModEntry.cpp` 的 `exportLseFunctions()` 里补一行 `GhostInteractRouter::exportLse();` 并重新构建。
-在此之前，脚本侧要拿 ghost 交互事件只能由 C++ 侧转发（见 [实体与 NPC · Ghost 交互](../domains/entities-npc.md#ghost-交互)）。
+`ghost*` 的 2 个导出（`ghostPollInteractions` / `ghostClearInteractions`）**曾经**漏在注册流程之外
+（`ModEntry::exportLseFunctions()` 没有调用 `GhostInteractRouter::exportLse()`，脚本侧 `ll.import` 得 `null`）。
+现已接回：270 处 `exportAs` 在运行期全部注册。
 
 > 本库维护者另有一份**由源码逐文件统计**的权威清单（含每个前缀的逐函数名、重名与注释检查），位于 `docs/internal/LSE导出清单.md` —— 该目录是本地文档，**不随库发布**。
 > 发现本页与代码不一致时，以代码为准。

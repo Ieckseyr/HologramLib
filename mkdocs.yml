@@ -65,7 +65,7 @@ theme:
 # 其余条目是 ASCII slug 改名后留下的旧路径跳转桩，同样不参与构建。
 exclude_docs: |
   internal/
-  README.md
+  /README.md
   快速开始.md
   能力域/
   API参考/

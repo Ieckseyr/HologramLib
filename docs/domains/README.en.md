@@ -4,12 +4,12 @@ HologramLib's 18 capability domains fall into four groups. The tables below are 
 
 | Group | Domains | Guide |
 |---|---|---|
-| Rendering & text | Shapes · Holographic text · Gradient lines · Item detail · FMBE item display · Particle shapes | [Rendering & text](rendering.md) *(zh)* |
-| Entities & NPCs | Custom entities · Ghost interaction · Fake-player NPCs · Sulfur-cube display | [Entities & NPCs](entities-npc.md) *(zh)* |
-| Interfaces & containers | Trade menu · Virtual container · Fake inventory · NPC dialogue | [Interfaces & containers](interfaces.md) *(zh)* |
-| View override & sensing | Client view override · Player sensing · Per-viewer appearance · Per-viewer text variables | [View override & sensing](view-sensing.md) *(zh)* |
+| Rendering & text | Shapes · Holographic text · Gradient lines · Item detail · FMBE item display · Particle shapes | [Rendering & text](rendering.md) |
+| Entities & NPCs | Custom entities · Ghost interaction · Fake-player NPCs · Sulfur-cube display | [Entities & NPCs](entities-npc.md) |
+| Interfaces & containers | Trade menu · Virtual container · Fake inventory · NPC dialogue | [Interfaces & containers](interfaces.md) |
+| View override & sensing | Client view override · Player sensing · Per-viewer appearance · Per-viewer text variables | [View override & sensing](view-sensing.md) |
 
-Only the overview is translated so far; the four group guides are Chinese-only. The selection tables below are enough to pick a domain, and the API references cover the signatures.
+Every page in this set now has an English version, including the four group guides. The selection tables below are the fastest way to pick a domain, and the API references cover the signatures.
 
 ---
 
@@ -101,4 +101,4 @@ Use these values when writing `static_assert` gates:
 | `0x012100` · 1.27.0 | `EntityView::skinId`; real-entity interaction listeners; ABI layout stamp |
 | `0x012300` · 1.29.0 | `AddItemActor` interception; `EntityView` gains pose / scale / variant / colour |
 
-> ⚠ `0x012200` (= API 1.28.0) is not in the table. That number was skipped and never shipped as a release. See the [version & ABI matrix](../versions/api-version-matrix.md) *(zh)*.
+> ⚠ `0x012200` (= API 1.28.0) is not in the table. That number was skipped and never shipped as a release. See the [version & ABI matrix](../versions/api-version-matrix.md).

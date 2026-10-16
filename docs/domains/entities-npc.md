@@ -7,7 +7,7 @@
 | 域 | C++ | LSE | 一句话 |
 |---|---|---|---|
 | 自定义实体 | `ICustomEntity` | `entity*` · 37 | 协议层生成原版实体：姿态 / 装备 / 动画 / 骑乘 |
-| Ghost 交互 | 监听器 + 轮询 | `ghost*` · 2 ⚠ | 非真实实体的交互事件路由 |
+| Ghost 交互 | 监听器 + 轮询 | `ghost*` · 2 | 非真实实体的交互事件路由 |
 | 假玩家 NPC | `IPlayerNpc` | `playerNpc*` · 29 | 纯协议假玩家，皮肤可注册 / 采集 / 注入 |
 | 硫磺立方体展示 | `ISulfurDisplay` | `sulfur*` · 10 | 把方块「吞」在立方体上；默认只看到方块 |
 
@@ -68,10 +68,7 @@ lib.removeGhostInteractListener(token);
 
   处理前先判 `action == 1 || action == 2`，不要假设只有这两种取值。
 
-> ⚠ **已知问题：`ghost*` 的 2 个 LSE 导出当前不可用。**
-> `ghostPollInteractions` / `ghostClearInteractions` 在 `src/ghost/GhostInteractRouter.cpp` 里确实调用了 `exportAs`，但 `ModEntry::exportLseFunctions()` **没有调用 `GhostInteractRouter::exportLse()`** —— 所以运行期不会注册，脚本侧 `ll.import("HologramLib", "ghostPollInteractions")` 得 `null`。
-> **C++ 侧的多播监听器不受影响**（不经过 LSE 注册）。脚本侧要拿 ghost 事件目前只能靠 C++ 侧转发。
-> 详见 [LSE 接口参考 · 已知问题](../reference/lse-api.md#已知问题)。
+> **脚本侧拿事件**：`ghostPollInteractions()` 取走并清空待处理队列（返回字符串数组，格式见 [LSE 接口参考](../reference/lse-api.md)），`ghostClearInteractions()` 直接丢弃队列。C++ 侧另有 `addGhostInteractListener` 多播监听器。
 
 ---
 

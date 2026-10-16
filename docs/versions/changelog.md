@@ -1,13 +1,13 @@
 # 更新日志
 
-本页是 [`README.md`](../../README.md) 原文「更新日志」小节的迁移归档，正文**逐字**复制，不改写、不摘要、不整理成表格。
+本页是 [`README.md`](https://github.com/Ieckseyr/HologramLib/blob/main/README.md) 原文「更新日志」小节的迁移归档，正文**逐字**复制，不改写、不摘要、不整理成表格。
 条目保持倒序排列：最新版本在最上，最早版本在最下，与原文顺序一致。
 嵌套子条目的缩进层级、加粗、⚠ 等符号与行内代码标记均与原文相同，各条目之间的空行节奏也照原样保留。
 API 版本与发布版本的对应关系见同目录 [`版本与ABI对照.md`](./api-version-matrix.md)。
 
 > **读之前要知道的三处缺口 / 已知错误**（正文按原文**逐字保留、未改写、未编造**，差异只记在这里）：
 > ① 本页**没有** `26.40.6`（API 1.24.0，交易菜单纯协议真结算）的独立条目，也没有 `26.10.5` / `26.10.4` / `26.10.1` —— 原文从 `26.40.7` 直接跳到 `26.40.5`。这几个版本在 [`版本与ABI对照.md`](./api-version-matrix.md) 的完整对照表里都有记录。
-> ② 文中「见文末「第三方来源标注」」指的是项目根 [`README.md`](../../README.md) 的「许可」小节（悬浮字动态行重构自 Phantom，LGPL-3.0），**不在本文件内**。
+> ② 文中「见文末「第三方来源标注」」指的是项目根 [`README.md`](https://github.com/Ieckseyr/HologramLib/blob/main/README.md) 的「许可」小节（悬浮字动态行重构自 Phantom，LGPL-3.0），**不在本文件内**。
 > ③ **一处沿用到今天的旧错误**：`26.40.5` 条目里写硫磺立方体「`invisible`, **默认关**」，与代码不符 —— `HologramLib.h` 是 `bool invisible{true};`（**默认开**），项目 README 与[实体与 NPC](../domains/entities-npc.md) 也都写「默认开」。**以代码为准。**
 
 - `26.51.3`（API 1.29.0）：**26.51 线的合并发布** —— 26.40 线的 `26.40.8` / `26.40.9` / `26.40.10`
@@ -19,7 +19,7 @@ API 版本与发布版本的对应关系见同目录 [`版本与ABI对照.md`](.
   种子 `0x00FFFFFF`）在合并后逐项复核仍在。构建 0 警告，离线检查全绿（`view*` 59 项 / 交易结算 43 项 /
   容器 42 项 / NPC 载体 32 项 / PlayerList 与 trade-offers 逐字节对拍）；`check-authinput` 需要本机抓包
   `logs/authinput.hex`，本工作区没有该文件，未跑。
-  - LSE 运行期核对：`ll.hasExported` 逐名扫描 270 处 `exportAs` → 268 项注册（缺 `ghostClearInteractions` / `ghostPollInteractions`，与已知问题一致）。
+  - **修复**：`ghost*` 的 2 个导出（`ghostPollInteractions` / `ghostClearInteractions`）此前漏在 `ModEntry::exportLseFunctions()` 之外，脚本侧 `ll.import` 得 `null`；现已接回 —— 270 处 `exportAs` 运行期全部注册（`ll.hasExported` 逐名扫描确认）。
   - ⚠ **未在 26.51 客户端复测**：`26.40.9` / `26.40.10` 关于实体元数据与 `AddItemActor`(15) 的结论来自
     **26.40 抓包**。本次只核对了协议常量两侧一致（`ActorDataIDs.hpp` 与 `MinecraftPacketIds.hpp` 在
     26.40 / 26.51 协议库里逐字节相同，`PrimitiveShapes.hpp` 只多 `mLineGapHeight`）。
