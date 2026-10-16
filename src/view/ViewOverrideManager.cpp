@@ -27,6 +27,7 @@
 #include <mc/network/Packet.h>
 #include <mc/legacy/ActorUniqueID.h>
 #include <mc/network/packet/AddActorPacketPayload.h>
+#include <mc/network/packet/AddItemActorPacketPayload.h>
 #include <mc/network/packet/AddPlayerPacketPayload.h>
 #include <mc/network/packet/LevelChunkPacketPayload.h>
 #include <mc/network/packet/MoveActorAbsolutePacketPayload.h>
@@ -41,6 +42,7 @@
 #include <mc/deps/nbt/CompoundTag.h>
 #include <mc/world/actor/Actor.h>
 #include <mc/world/actor/ActorFlags.h>
+#include <mc/world/actor/ActorType.h>
 #include <sculk/protocol/codec/packet/ActorEventPacket.hpp>
 #include <sculk/protocol/codec/packet/AnimatePacket.hpp>
 #include <mc/world/actor/player/Inventory.h>
@@ -62,6 +64,7 @@ namespace {
 // ── 逻辑层写死的数值必须与引擎一致（对不上就编译失败, 不会静默错位）──
 static_assert(logic::kAddPlayer == static_cast<int>(::MinecraftPacketIds::AddPlayer));
 static_assert(logic::kAddActor == static_cast<int>(::MinecraftPacketIds::AddActor));
+static_assert(logic::kAddItemActor == static_cast<int>(::MinecraftPacketIds::AddItemActor));
 static_assert(logic::kRemoveActor == static_cast<int>(::MinecraftPacketIds::RemoveActor));
 static_assert(logic::kUpdateBlock == static_cast<int>(::MinecraftPacketIds::UpdateBlock));
 static_assert(logic::kSetActorData == static_cast<int>(::MinecraftPacketIds::SetActorData));
@@ -185,6 +188,16 @@ float feetAnchorYFromInput(::Actor const& actor, float inputY) {
     auto* actor = level->fetchEntity(::ActorUniqueID{uniqueId}, false);
     if (actor == nullptr) return nullptr;
     return player.distanceTo(*actor) <= maxDistance ? actor : nullptr;
+}
+
+// 把一条 EntityView 折成"要往出生包 / SetActorData 里塞哪几项"的计划（26.40.10: 姿态·缩放·变种·颜色）。
+// 实现在 ViewPackets.h 的 `view::planOf` —— 管理器与 LSE 的 metaprobe 走同一份（不再各写一遍）。
+using view::planOf;
+
+// 撤销 / 恢复真身时用的计划: 不带任何外观覆盖（空计划）
+logic::MetaPlan const& noPlan() {
+    static logic::MetaPlan const empty{};
+    return empty;
 }
 
 } // namespace
@@ -377,15 +390,13 @@ bool ViewOverrideManager::overrideEntity(
                             snap.pitch,
                             snap.yaw,
                             snap.headYaw,
-                            normalised.nametag,
-                            normalised.hasNametag,
-                            normalised.nametagAlwaysShow
+                            planOf(normalised)
                         );
                     }
                     return;
                 }
                 if (normalised.hasNametag && record.runtimeKnown) {
-                    sendNametag(player, record.runtimeId, normalised.nametag, normalised.nametagAlwaysShow);
+                    view::sendViewMeta(player, record.runtimeId, logic::metaPlanOf(true, normalised.nametag, normalised.nametagAlwaysShow));
                 }
                 return;
             }
@@ -419,7 +430,7 @@ bool ViewOverrideManager::overrideEntity(
                             normalised.skinId
                         );
                         // 失败不静默: 放行原样（这只实体在这名玩家客户端上还是真实模型）
-                        respawnForPlayer(player, *actor, actor->getTypeName(), actor->getNameTag(), false, false);
+                        respawnForPlayer(player, *actor, actor->getTypeName(), logic::metaPlanOf(false, {}, false));
                     }
                 }
                 return;
@@ -428,24 +439,24 @@ bool ViewOverrideManager::overrideEntity(
                 sendRemoveActor(player, uniqueId);
             } else if (!normalised.identifier.empty()) {
                 if (actor != nullptr) {
-                    respawnForPlayer(
-                        player,
-                        *actor,
-                        normalised.identifier,
-                        normalised.nametag,
-                        normalised.hasNametag,
-                        normalised.nametagAlwaysShow
-                    );
+                    if (actor->isType(::ActorType::ItemEntity)) {
+                        // 掉落物: 出生包走 AddItemActor + ItemActor 的 maxHealth=0, 都不能照抄
+                        // （详见 ViewPackets.h 里 sendItemActorSpawn 的注释）
+                        view::sendItemActorAsOther(player, *actor, normalised.identifier, planOf(normalised));
+                        scheduleMetaPush(player.getRealName(), uniqueId); // 变种/颜色: ~2 tick 后再确认一次
+                    } else {
+                        respawnForPlayer(player, *actor, normalised.identifier, planOf(normalised));
+                    }
                 } else if (normalised.hasNametag && record.runtimeKnown) {
-                    sendNametag(player, record.runtimeId, normalised.nametag, normalised.nametagAlwaysShow);
+                    view::sendViewMeta(player, record.runtimeId, logic::metaPlanOf(true, normalised.nametag, normalised.nametagAlwaysShow));
                 }
             } else if (normalised.hasNametag && record.runtimeKnown) {
-                sendNametag(player, record.runtimeId, normalised.nametag, normalised.nametagAlwaysShow);
+                view::sendViewMeta(player, record.runtimeId, logic::metaPlanOf(true, normalised.nametag, normalised.nametagAlwaysShow));
             }
         });
     } else if (pushNametagNow) {
         forEachOverrideViewer(playerName, uniqueId, [&](::Player& player) {
-            sendNametag(player, record.runtimeId, normalised.nametag, normalised.nametagAlwaysShow);
+            view::sendViewMeta(player, record.runtimeId, logic::metaPlanOf(true, normalised.nametag, normalised.nametagAlwaysShow));
         });
     }
     return true;
@@ -586,25 +597,25 @@ void ViewOverrideManager::restoreCleared(
 }
 
 void ViewOverrideManager::respawnForPlayer(
-    ::Player&          player,
-    ::Actor&           actor,
-    std::string const& identifier,
-    std::string const& nametag,
-    bool               hasNametag,
-    bool               alwaysShow
+    ::Player&               player,
+    ::Actor&                actor,
+    std::string const&      identifier,
+    logic::MetaPlan const&  plan
 ) {
     if (actor.isPlayer()) return; // 玩家出生包（AddPlayer）重建不了: 见 HologramLib.h 的域注释
 
     auto const uniqueId = actor.getOrCreateUniqueID().rawID;
     if (actor.getTypeName() == identifier) {
-        // 本来就是这个类型（撤销时常见）: 不用重建, 只把名字牌状态推回去
-        if (hasNametag) {
-            sendNametag(player, static_cast<std::uint64_t>(actor.getRuntimeID()), nametag, alwaysShow);
+        // 本来就是这个类型（撤销时常见）: 不用重建, 只把元数据（名字牌 / 姿态 / 缩放 / 变种）推回去
+        if (plan.setName) {
+            view::sendViewMeta(player, static_cast<std::uint64_t>(actor.getRuntimeID()), logic::metaPlanOf(true, plan.name, plan.alwaysShow));
+        } else if (!plan.empty()) {
+            view::sendViewMeta(player, static_cast<std::uint64_t>(actor.getRuntimeID()), plan);
         }
         return;
     }
     sendRemoveActor(player, uniqueId);
-    view::sendActorSpawn(player, actor, identifier, nametag, hasNametag, alwaysShow);
+    view::sendActorSpawn(player, actor, identifier, plan);
 }
 
 // **调用约定: 不能在持 mMutex 的上下文里调**（下面会调加锁的 inputSnapshotOf; 非递归锁二次加锁
@@ -648,7 +659,7 @@ void ViewOverrideManager::restoreEntityForPlayer(
         }
         // 只改过名字牌: 把真实名字牌推回去（真实值从实体上读）
         if (record.view.hasNametag) {
-            sendNametag(player, static_cast<std::uint64_t>(target.getRuntimeID()), target.getNameTag(), false);
+            view::sendViewMeta(player, static_cast<std::uint64_t>(target.getRuntimeID()), logic::metaPlanOf(true, target.getNameTag(), false));
         }
         return;
     }
@@ -659,18 +670,17 @@ void ViewOverrideManager::restoreEntityForPlayer(
     // 隐藏过 / 换过类型 / 换过皮肤: 客户端上这只实体此刻是我们改过的那一版 —— 重发一次真实的
     if (record.view.hidden || !record.view.identifier.empty() || !record.view.skinId.empty()) {
         if (actor == nullptr) return; // 已经不在附近了: 客户端上也没有, 等它下次出生自然就是原样
-        respawnForPlayer(player, *actor, actor->getTypeName(), actor->getNameTag(), true, false);
+        respawnForPlayer(player, *actor, actor->getTypeName(), logic::metaPlanOf(true, actor->getNameTag(), false));
         return;
     }
 
     // 只改过名字牌: 把真实名字牌推回去（真实值从实体上读; 常显状态没有读口, 按"不常显"发,
     // 服务端下次因别的原因重发元数据时会带回真实值）
     if (record.view.hasNametag && actor != nullptr) {
-        sendNametag(
+        view::sendViewMeta(
             player,
             static_cast<std::uint64_t>(actor->getRuntimeID()),
-            actor->getNameTag(),
-            false
+            logic::metaPlanOf(true, actor->getNameTag(), false)
         );
     }
 }
@@ -804,9 +814,57 @@ void ViewOverrideManager::flushTabRemovals() {
     }
 }
 
+void ViewOverrideManager::scheduleMetaPush(std::string const& playerName, std::int64_t uniqueId) {
+    std::lock_guard lock(mMutex);
+    auto const*     record = findEntityLocked(playerName, uniqueId);
+    if (record == nullptr || planOf(record->view).empty()) return;
+    for (auto const& [due, name, id] : mPendingMetaPush) {
+        if (name == playerName && id == uniqueId) return; // 同一条只排一次（幂等）
+    }
+    if (mPendingMetaPush.size() > 512) mPendingMetaPush.erase(mPendingMetaPush.begin());
+    mPendingMetaPush.emplace_back(mServerTick + 2, playerName, uniqueId);
+}
+
+void ViewOverrideManager::flushMetaPushes() {
+    if (mPendingMetaPush.empty()) return; // 没排过就不碰锁
+    std::vector<std::pair<std::string, std::int64_t>> due;
+    {
+        std::lock_guard lock(mMutex);
+        for (auto it = mPendingMetaPush.begin(); it != mPendingMetaPush.end();) {
+            if (std::get<0>(*it) <= mServerTick) {
+                due.emplace_back(std::get<1>(*it), std::get<2>(*it));
+                it = mPendingMetaPush.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+    if (due.empty()) return;
+    auto level = ::ll::service::getLevel();
+    if (!level) return;
+    for (auto const& [name, uniqueId] : due) {
+        auto* player = level->getPlayer(name);
+        if (player == nullptr) continue;
+        // 计划从记录里现取（这两拍里可能又改过覆盖）; 记录没了就算了
+        std::optional<logic::MetaPlan> plan;
+        {
+            std::lock_guard lock(mMutex);
+            if (auto const* record = findEntityLocked(name, uniqueId); record != nullptr) {
+                plan = planOf(record->view);
+            }
+        }
+        if (!plan || plan->empty()) continue;
+        auto* actor = liveActorNear(*player, uniqueId);
+        if (actor == nullptr) continue;
+        view::sendViewMeta(*player, static_cast<std::uint64_t>(actor->getRuntimeID()), *plan);
+    }
+}
+
 void ViewOverrideManager::tickPulse() {
     ++mServerTick;
+    view::viewTickRef() = mServerTick; // SetActorData / UpdateAttributes 要带当前 tick（见 ViewPackets.h 的说明）
     flushTabRemovals(); // 换皮肤的实体: PlayerList(Add) 之后 ~20 tick 把 Tab 条目摘掉（实体保留）
+    flushMetaPushes();  // 出生包里的元数据（变种/颜色/姿态）: 出生后 ~2 tick 再确认一次
     if (!mActive.load(std::memory_order_relaxed)) return; // 没用到这个功能: 每 tick 一次原子读, 就这么多
     auto level = ::ll::service::getLevel();
     if (!level) return;
@@ -1058,15 +1116,10 @@ bool ViewOverrideManager::applyToOutbound(::Player& target, ::Packet const& pack
             return true;
         }
         if (!record->view.identifier.empty()) {
-            // 换类型: 丢掉原出生包, 发我们自己的包（其余字段照抄原包 → 内容齐全, 只换类型字符串）
-            sendActorSpawnRewritten(
-                target,
-                payload,
-                record->view.identifier,
-                record->view.nametag,
-                record->view.hasNametag,
-                record->view.nametagAlwaysShow
-            );
+            // 换类型: 丢掉原出生包, 发我们自己的包（其余字段照抄原包 → 内容齐全, 只换类型字符串;
+            // 26.40.10 起计划里还带姿态/缩放/变种/颜色）
+            sendActorSpawnRewritten(target, payload, record->view.identifier, planOf(record->view));
+            applied.metaPush.push_back(uniqueId); // 出生后 ~2 tick 确认元数据（变种/颜色）
             applied.drop = true;
             return true;
         }
@@ -1074,6 +1127,37 @@ bool ViewOverrideManager::applyToOutbound(::Player& target, ::Packet const& pack
             applied.nametagPush.emplace_back(uniqueId, record->runtimeId); // 原包照发, 名字牌我们补
         }
         return true;
+    }
+    case logic::kAddItemActor: {
+        // 掉落物的出生包（id 15, **不是 AddActor**）。这条以前没接 —— 于是"把掉落物换类型/隐藏"
+        // 只做了一半: 设覆盖那一刻能把已经在看的玩家换掉, 但引擎随后自己发的这条出生包会把物品图标
+        // 又塞回客户端（2026-10-16 实机抓包: RemoveActor+AddActor(鱼) 之后 13ms 就来一条同 id 的
+        // AddItemActor, 客户端最终看到的还是物品图标）。这里与 kAddActor 同款处理:
+        //   hidden        → 丢包（客户端根本不会看到这只掉落物）
+        //   identifier    → 丢原包 + 同 id 手写一只 AddActor(目标类型)（属性用已验证配方, 不照抄 ItemActor 的 0 血）
+        mSpawnSeen.fetch_add(1, std::memory_order_relaxed);
+        auto& payload  = payloadOf<::AddItemActorPacketPayload>(packet);
+        auto  uniqueId = unwrap(payload.mId).rawID;
+        auto* record   = findEntityLocked(playerName, uniqueId);
+        if (record == nullptr) return false;
+        record->runtimeKnown = true;
+        record->runtimeId    = static_cast<std::uint64_t>(unwrap(payload.mRuntimeId).rawID);
+        if (playerTable != nullptr) playerTable->byRuntime[record->runtimeId] = uniqueId;
+
+        applied.hit = true;
+        switch (logic::planItemSpawn(record->view.hidden, !record->view.identifier.empty())) {
+        case logic::ItemSpawnPlan::Drop:
+            applied.drop = true;
+            return true;
+        case logic::ItemSpawnPlan::Rewrite:
+            view::sendItemSpawnRewritten(target, payload, record->view.identifier, planOf(record->view));
+            applied.metaPush.push_back(uniqueId); // 出生后 ~2 tick 确认元数据（变种/颜色）
+            applied.drop = true;
+            return true;
+        case logic::ItemSpawnPlan::Pass:
+        default:
+            return true; // 只改名字牌之类: 原包照发
+        }
     }
     case logic::kSetActorMotion: {
         // 击退/速度: 换成"我们的模型"后这是个**玩家实体** —— 客户端会按玩家物理去模拟它
@@ -1143,9 +1227,7 @@ bool ViewOverrideManager::applyToOutbound(::Player& target, ::Packet const& pack
                     snap.pitch,
                     snap.yaw,
                     snap.headYaw,
-                    record->view.nametag,
-                    record->view.hasNametag,
-                    record->view.nametagAlwaysShow
+                    planOf(record->view)
                 );
             }
             record->substituted = true;
@@ -1249,12 +1331,18 @@ void ViewOverrideManager::runPostActions(::Player& target, Applied const& applie
             nametag    = record->view.nametag;
             alwaysShow = record->view.nametagAlwaysShow;
         }
-        sendNametag(target, runtimeId, nametag, alwaysShow);
+        view::sendViewMeta(target, runtimeId, logic::metaPlanOf(true, nametag, alwaysShow));
     }
 
     // ② 区块重发后把方块覆盖补回给这名玩家
     for (auto const& [key, viewId] : applied.repush) {
         sendBlockUpdate(target, logic::unpackX(key), logic::unpackY(key), logic::unpackZ(key), viewId);
+    }
+
+    // ③ 出生包里换过类型/换过皮的实体: ~2 tick 后再确认一次元数据（变种/颜色/姿态）。
+    //    与①的区别: ①是"这一包本身就要补名字牌", ③是"我们刚给它发了出生包, 元数据要后置落一次"。
+    for (auto const uniqueId : applied.metaPush) {
+        scheduleMetaPush(target.getRealName(), uniqueId);
     }
 }
 

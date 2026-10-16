@@ -40,7 +40,24 @@
 // 本值 0x012100 随 26.40.9 发布（1.27.0）: 视图覆盖 `EntityView::skinId`（非玩家实体同-id 换"我们的模型"）+
 //   真实实体交互多播（addActorInteractListener / removeActorInteractListener, 类尾追加）;
 //   配套 ABI 布局戳（消费方编译期自检, 库侧运行期拦截布局不一致的消费方）。消费方用 >= 0x012100 门住这些新方法。
-#define HOLOGLIB_API_VERSION 0x012100
+// 本值 0x012300 随 26.40.10 发布（1.29.0）—— 本版两件事一起出:
+//   ① **视图覆盖补上 `AddItemActor`(id 15) 这条出生包**: 此前只拦 `AddActor`, 于是"把 item 实体（掉落物）
+//      换类型 / 隐藏"永远只做一半 —— 设覆盖那一刻能把已经在看的玩家换掉, 但引擎自己随后发的 AddItemActor
+//      会把物品图标又塞回客户端（2026-10-16 抓包实证）。现在 hidden = 丢该包; identifier = 丢该包 +
+//      同 runtimeId/uniqueId 手写一只 AddActor（属性用 health 20/scale 1 的已验证配方, 不照抄 ItemActor 的 0 血）。
+//      纯行为修复, 接口无变化。LSE 侧新增 `viewItemSpawnHooked()` 供脚本做能力协商。
+//   ② **视图覆盖补上"变成生物之后的姿态等设置"**: `EntityView` 尾部追加
+//      pose / hasPose · metaScale / hasMetaScale · variant / hasVariant · markVariant / hasMarkVariant ·
+//      colorIndex / hasColorIndex · color2 / hasColor2（`hasXxx = false` = 该项不动, 与 hasNametag 同约定）;
+//      LSE `viewEntity` 的 spec 串补 `pose= / scale= / variant= / mark= / color= / color2=` 六个键。
+//      协议项: PoseIndex(79) / Reserved38(scale) / Variant(2) / MarkVariant(43) / ColorIndex(3) /
+//      Color2Index(82) / Reserved53·54(客户端碰撞箱) —— **颜色两项的类型是 Byte, 另两项是 Int**,
+//      这是解码引擎自己的真实出生包得到的（不是照协议表猜的）。
+//      消费方用 >= 0x012300 门住这些新字段。
+//   ⚠ 尾部追加不改虚表槽位, 但**改了 EntityView 的大小** —— 直接构造该结构体的消费方要重新编译。
+//   ⚠ 与 `skinId` 搭配的"模型缩放"仍是 `EntityView::scale`（1.27.0 起）, 本版新增的**元数据缩放**叫
+//     `metaScale`（两个都在结构尾部, 别混: 前者走玩家模型出生包, 后者走元数据 + 客户端碰撞箱）。
+#define HOLOGLIB_API_VERSION 0x012300
 
 // ── ABI 布局戳（消费方自检用; 与上面的"功能版本"是两件事, 别混）──
 // 语义: 只在**破坏虚表槽位**的改动时 +1 —— 在接口**中段**插入/删除/重排虚函数、改已发布方法的签名;
@@ -1315,8 +1332,12 @@ public:
 //     MoveActorAbsolute 推。**因为 id 没变, 服务端那边仍然是那个真玩家 —— 打到它身上的攻击由
 //     服务端按真身结算**。撤销时把替代实体移走 **并把真身补发回该观看者**（RemoveActor → 用他
 //     自己身份的 PlayerList(Add) → AddPlayer, 位置/朝向取引擎当前值）—— 立刻恢复, 不用重进。
-//   · **缩放 / 发光 / 隐身做不成逐玩家**: 26.40 的元数据表里没有 scale，也没有 glowing /
-//     invisible 旗标（基岩版的隐身是效果, 走 MobEffectPacket）。这三项没有进本版 API。
+//   · **逐玩家的 发光 / 隐身 做不成**: 26.40 的元数据表里没有 glowing / invisible 旗标
+//     （基岩版的隐身是效果, 走 MobEffectPacket）。这两项没有进本版 API。
+//   · **逐玩家的实体缩放** 26.40 元数据表里没有独立的 scale 项, 但 `Reserved38` 就是客户端
+//     实体缩放（库内玩家替身出生包一直在用）, `Reserved53/54` 是客户端碰撞箱 —— 1.29.0 起
+//     `EntityView::scale` 走这条（模型与碰撞箱等比, 越界 0.0625~10 整项忽略）, 与
+//     `skinId` 那档"玩家模型出生包里的 scale"不是同一条路。
 //   · **方块覆盖**在区块重发后会丢，库会自动补发（该玩家收到覆盖范围内的区块时）。
 //   · 撤销时离得太远（>64 格）或已经消失的实体不重建 —— 客户端上本来也没有它，等它下次出生即可。
 //   · `identifier` 换的是**原版**类型（客户端注册表里有的）; 要换成**自定义模型/贴图**用 `skinId`
@@ -1364,6 +1385,35 @@ struct EntityView {
     bool        hasNametag{false};
     std::string nametag;
     bool        nametagAlwaysShow{false};
+    // ── 26.40.10 追加（冻结契约: 结构尾部追加）── 变成生物之后的"姿态等设置"
+    // 语义与同域的名字牌一致: `hasXxx = false` = 这一项不动（0 / 1.0 都是合法取值,
+    // 所以不能用"值为 0 就是没设"来区分）。协议项见 ActorDataIDs
+    // （PoseIndex 79 / Reserved38 = scale / Variant 2 / MarkVariant 43 / 53·54 = 碰撞箱）。
+    //
+    // 姿态: PoseIndex 0..13（0=Standing, 1..2 盔甲架, 3..13 坐/睡/跳舞等）—— 越界自动钳进范围。
+    //   ⚠ 客户端**只对盔甲架与玩家**按 PoseIndex 摆姿势; 给牛/僵尸这类生物设它, 多数原版模型
+    //   不会因此改姿势（要"生物做动作"得发 AnimateEntityPacket —— 那不是本项, 见
+    //   `IPlayerNpc::playAnimation` / `ICustomEntity::playAnimation` 与 README 的边界说明）。
+    int         pose{0};
+    bool        hasPose{false};
+    // 元数据缩放: 客户端实体缩放 + 碰撞箱, 有效域 0.0625~10（越界整项忽略）。
+    //   ⚠ 字段名叫 metaScale 是为了与上面 `skinId` 那档的 `scale`（**模型缩放**, 走玩家模型出生包）
+    //     分开 —— 两者是两条路, 同名会撞（26.40.10 这批改动的编译错误就是这么来的）。
+    //   LSE spec 里两者分别是 `scale=`（本条）与 `skin=` 那档自带的模型缩放。
+    float       metaScale{1.0f};
+    bool        hasMetaScale{false};
+    // 变种 / 二级变种（马的毛色、羊的颜色、猫的品种、村民职业等由 Variant / MarkVariant 决定的实体）
+    int         variant{0};
+    bool        hasVariant{false};
+    int         markVariant{0};
+    bool        hasMarkVariant{false};
+    // 颜色两项（ColorIndex 3 / Color2Index 82，协议上都是 **Byte**）—— 热带鱼这类"主色 + 花纹色"
+    //   决定的实体靠它们区分外观；河豚的"鼓起来"则是 variant（0=常态 1=半鼓 2=全鼓）。
+    //   ⚠ 两项都要 `hasXxx = true` 才发（0 = 白色是合法取值）; 越界（<0 或 >15）整项忽略。
+    int         colorIndex{0};
+    bool        hasColorIndex{false};
+    int         color2{0};
+    bool        hasColor2{false};
 };
 
 // 方块的客户端视图覆盖（type 空 = 不改）
@@ -1411,7 +1461,7 @@ public:
     // LSE 兼容层是否可用（LegacyRemoteCall 运行时检测成功）
     virtual bool isLseAvailable() = 0;
 
-    // 库版本（BCD: 0x012100 = 1.27.0, 与 HOLOGLIB_API_VERSION 同值）
+    // 库版本（BCD: 0x012300 = 1.29.0, 与 HOLOGLIB_API_VERSION 同值）
     virtual uint32_t version() = 0;
 
     // ── 1.6.0 追加（冻结契约: 只在尾部追加）──

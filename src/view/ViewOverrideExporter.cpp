@@ -17,6 +17,7 @@
 #include "ViewOverrideExporter.h"
 
 #include "ViewOverrideManager.h"
+#include "ViewPackets.h"
 
 #include "lse/LseBridge.h"
 
@@ -50,7 +51,32 @@ bool truthy(std::string const& value) {
     return v == "1" || v == "true" || v == "yes" || v == "on";
 }
 
-// "type=minecraft:cow;name=奶牛;always=1" → EntityView
+// 数值解析: 解析不出来就当"这一项没给"（不设 hasXxx）, 而不是抛异常穿过 LSE 边界
+bool intOf(std::string const& value, int& out) {
+    try {
+        std::size_t used = 0;
+        auto const  v    = std::stoi(trim(value), &used);
+        if (used == 0) return false;
+        out = v;
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+bool floatOf(std::string const& value, float& out) {
+    try {
+        std::size_t used = 0;
+        auto const  v    = std::stof(trim(value), &used);
+        if (used == 0) return false;
+        out = v;
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+// "type=minecraft:cow;name=奶牛;always=1;variant=2" → EntityView
 hologramlib::EntityView parseEntitySpec(std::string const& spec) {
     hologramlib::EntityView view;
     std::string             part;
@@ -74,6 +100,46 @@ hologramlib::EntityView parseEntitySpec(std::string const& spec) {
                 // 26.40.8/1.27.0: 换成**注册表里的那张皮肤**（非玩家实体 = 同 id 换模型;
                 // npcDialog 的头像载体 = 玩家模型载体）。皮肤来自 IPlayerNpc 注册表。
                 view.skinId = value;
+            }
+            // ── 26.40.10 / 1.29.0: 变成生物之后的姿态 / 缩放 / 变种 / 颜色（逐字段, 设了才发）──
+            else if (key == "pose") {
+                int v = 0;
+                if (intOf(value, v)) {
+                    view.hasPose = true;
+                    view.pose    = v; // 越界由库内 clampPose 钳进 0..13
+                }
+            } else if (key == "scale") {
+                // ⚠ 这条是**元数据缩放**（客户端实体缩放 + 碰撞箱, 0.0625~10 外整项忽略）,
+                //   与 `skin=` 那档的"皮肤模型缩放"不是一回事（后者是结构体里另一个字段）。
+                float v = 1.0f;
+                if (floatOf(value, v)) {
+                    view.hasMetaScale = true;
+                    view.metaScale    = v;
+                }
+            } else if (key == "variant") {
+                int v = 0;
+                if (intOf(value, v)) {
+                    view.hasVariant = true;
+                    view.variant    = v; // 河豚的鼓胀档位、热带鱼体型、羊的颜色档……都在这一项
+                }
+            } else if (key == "mark" || key == "markvariant") {
+                int v = 0;
+                if (intOf(value, v)) {
+                    view.hasMarkVariant = true;
+                    view.markVariant    = v; // 热带鱼花纹 0..5
+                }
+            } else if (key == "color" || key == "colorindex") {
+                int v = 0;
+                if (intOf(value, v)) {
+                    view.hasColorIndex = true;
+                    view.colorIndex    = v; // 主色 0..15（越界整项忽略）
+                }
+            } else if (key == "color2") {
+                int v = 0;
+                if (intOf(value, v)) {
+                    view.hasColor2 = true;
+                    view.color2    = v; // 花纹色 0..15（热带鱼用）
+                }
             }
         }
         part.clear();
@@ -206,6 +272,13 @@ void ViewOverrideExporter::exportAll() {
             return view::ViewOverrideManager::getInstance().clearEntity({}, uniqueId);
         });
 
+    // 元数据探针（无客户端也能验）: 把 spec 折成的元数据真序列化一遍, 回读成 items/bytes/hex。
+    // 用的是和真正发包完全同一条 `pushMetaItems` —— 所以它绿=线上那一串 id/type 就是这个。
+    hologramlib::lse::exportAs(NAMESPACE, "viewMetaProbe",
+        [](std::string const& spec) -> std::string {
+            return view::describeMetaItems(parseEntitySpec(spec));
+        });
+
     // 诊断: 把收到的字符串原样回传（带上长度与每个字节的十六进制前 16 个）——
     // 用来判断 LSE 传进来的字符串有没有被串码/截断（spec 解析失败时先看它）。
     hologramlib::lse::exportAs(NAMESPACE, "viewEcho",
@@ -220,6 +293,16 @@ void ViewOverrideExporter::exportAll() {
     hologramlib::lse::exportAs(NAMESPACE, "viewDescribe",
         [&manager](std::string const& playerName) -> std::string {
             return manager.describeFor(playerName);
+        });
+
+    // 能力协商（26.40.10 / 1.28.0 新增）: 本库的视图覆盖是否连 **AddItemActor**(id 15) 一起拦。
+    // 为什么脚本需要它: 掉落物(item 实体)的出生包走 AddItemActor, 老库只拦 AddActor —— 那种库上
+    // "把掉落物换类型/隐藏"只做一半（引擎随后自己发的出生包会把物品图标塞回去）, 脚本必须周期性重套;
+    // 新库拦住了这条, 脚本就不必重套（也就没有那个周期性 remove+respawn 的闪一下）。
+    // 返回 true / false, 恒可用（老库没有这个名字 → 脚本 ll.hasExported 判 false, 视为不支持）。
+    hologramlib::lse::exportAs(NAMESPACE, "viewItemSpawnHooked",
+        []() -> bool {
+            return true;
         });
 }
 

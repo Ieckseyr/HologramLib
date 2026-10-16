@@ -69,6 +69,9 @@ public:
 
         // 名字牌补发（原包之后由我们自己的 SetActorData 压过去）: uniqueId + runtimeId
         std::vector<std::pair<std::int64_t, std::uint64_t>> nametagPush;
+
+        // 元数据补发（出生包之后 ~2 tick 再确认一次变种/颜色/姿态）: uniqueId 列表
+        std::vector<std::int64_t> metaPush;
     };
 
     // 命中才碰包; 返回 false = 这名玩家没有任何覆盖（一个字段都没读）
@@ -103,6 +106,14 @@ public:
     // 不移除的话玩家列表里会一直挂着一个假名字）。同 (玩家, 实体) 只排一次, 幂等。
     void scheduleTabRemoval(std::string const& playerName, std::int64_t uniqueId);
     void flushTabRemovals();
+
+    // 元数据延迟确认（26.40.10 补）: 出生包里的**元数据**和属性一样"客户端只初始化不生效",
+    // 必须出生之后再发一条 SetActorData 才真正落到渲染上（customentity 域的 setVariant/setColorIndex
+    // 走的正是这条后置通道, 所以那边一直是好的）。
+    // 这里排一次 ~2 tick 后的确认: 出生包 + 紧随的 SetActorData + 2 tick 后的再一条 = 三道保险。
+    // 计划在推送时按记录现取（不缓存），同 (玩家, 实体) 只排一次; 幂等。
+    void scheduleMetaPush(std::string const& playerName, std::int64_t uniqueId);
+    void flushMetaPushes();
 
     // 心跳（服务器每 tick 调一次）: 实体"重新进入视野" / 玩家换区块时把覆盖重新推一遍。
     // 为什么需要它: 实体出生包不走按玩家发包函数（实测), 所以"走出视野再回来"客户端会重新
@@ -192,13 +203,12 @@ private:
     void onEntityOverrideChanged(std::string const& playerName, std::int64_t uniqueId, EntityRecord const& record);
     void onBlockOverrideCleared(std::string const& playerName, std::int64_t posKey, BlockRecord const& record);
     // 换外观: RemoveActor + 重发一只带该类型的实体（同一个 runtimeId/uniqueId）
+    // plan 里带名字牌 / 姿态 / 缩放 / 变种 / 颜色（26.40.10 起）
     void respawnForPlayer(
-        ::Player&          player,
-        ::Actor&           actor,
-        std::string const& identifier,
-        std::string const& nametag,
-        bool               hasNametag,
-        bool               alwaysShow
+        ::Player&               player,
+        ::Actor&                actor,
+        std::string const&      identifier,
+        logic::MetaPlan const&  plan
     );
     // 把一条实体覆盖"恢复原样"（撤销时用）: 换过类型/隐藏过 → 重发真实类型; 只改过名字牌 → 推回真实名字牌
     void restoreEntityForPlayer(::Player& player, std::int64_t uniqueId, EntityRecord const& record);
@@ -215,6 +225,8 @@ private:
     mutable std::mutex                     mMutex;
     // (到期 tick, (玩家名, uniqueId)) —— 只有换皮肤的实体用它做 Tab 清理
     std::vector<std::pair<std::uint64_t, std::pair<std::string, std::int64_t>>> mPendingTabRemoval;
+    // (到期 tick, 玩家名, uniqueId) —— 元数据延迟确认（计划在推送时按记录现取）
+    std::vector<std::tuple<std::uint64_t, std::string, std::int64_t>> mPendingMetaPush;
     Table                                  mGlobal;    // 对所有玩家生效的那一份
     std::unordered_map<std::string, Table> mPlayers;
     std::unordered_map<std::string, PulseState>    mPulse;  // 心跳状态（按玩家名）

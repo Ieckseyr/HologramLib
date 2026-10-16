@@ -1,0 +1,155 @@
+# HologramLib 文档站配置（MkDocs Material + mkdocs-static-i18n）
+#
+# 本地预览：
+#   pip install -r requirements.txt
+#   mkdocs serve            # http://127.0.0.1:8000
+# 构建：
+#   mkdocs build --strict
+#
+# 部署：推送到主分支后由 .github/workflows/docs.yml 自动发布到 GitHub Pages。
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TODO(必填)：把下面两处换成你的 GitHub 仓库与 Pages 实际地址。
+#   site_url 会影响 sitemap、以及 i18n 语言切换器的绝对链接 —— 填错不致命，
+#   但搜索引擎收录的地址会错。仓库形如 https://github.com/<owner>/HologramLib
+#   时，Pages 默认地址是 https://<owner>.github.io/HologramLib/
+site_url: https://example.github.io/HologramLib/
+repo_url: https://github.com/example/HologramLib
+edit_uri: edit/main/docs/
+# ─────────────────────────────────────────────────────────────────────────────
+
+site_name: HologramLib
+site_description: 基岩版协议层统一悬浮显示库 · Bedrock protocol-layer unified hologram & display library
+docs_dir: docs
+site_dir: site
+use_directory_urls: true
+
+# ⚠ 刻意**不**在这里打开 strict：
+# docs/ 下的页面会有意链接到 docs_dir 之外的仓库根 README（如 `../../README.md#设计说明`），
+# mkdocs 会把这类「目标不在文档集里」的链接报成 warning，strict 会让整次构建直接失败、站点发不出去。
+# 需要严格检查时用 CI 里那条 `mkdocs build --strict`（它不阻断发布）。
+
+copyright: |
+  HologramLib · MIT（悬浮字「动态行」部分按 LGPL-3.0）· 运行于 LeviLamina 26.40 / BDS 1.26.40
+
+theme:
+  name: material
+  language: zh
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: black
+      accent: cyan
+      toggle:
+        icon: material/weather-night
+        name: 切到深色
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: cyan
+      toggle:
+        icon: material/weather-sunny
+        name: 切到浅色
+
+# docs/internal/ 是维护者本地文档（.gitignore 排除、禁止提交 GitHub），
+# 因此必须排除出站点构建，绝不能让它们出现在公开文档站上。
+# 其余条目是 ASCII slug 改名后留下的旧路径跳转桩，同样不参与构建。
+exclude_docs: |
+  internal/
+  README.md
+  快速开始.md
+  能力域/
+  API参考/
+  架构/
+  版本/
+
+plugins:
+  - search:
+      separator: '[\s\u200b\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
+  - i18n:
+      docs_structure: suffix          # 英文版 = <原名>.en.md，未翻译的页面自动回落中文
+      fallback_to_default: true
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: zh
+          default: true
+          name: 中文
+          build: true
+        - locale: en
+          name: English
+          build: true
+          site_description: Bedrock protocol-layer unified hologram & display library
+          nav_translations:
+            首页: Home
+            快速开始: Getting started
+            设计说明: Design notes
+            能力域指南: Capability domains
+            总览: Overview
+            渲染与文本: Rendering & text
+            实体与 NPC: Entities & NPCs
+            界面与容器: Interfaces & containers
+            视图覆盖与感知: View override & sensing
+            API 参考: API reference
+            C++ 接口: C++ API
+            LSE 接口: LSE API
+            架构: Architecture
+            架构总览: Architecture overview
+            协议层实现笔记: Protocol notes
+            版本: Versions
+            更新日志: Changelog
+            版本与 ABI 对照: Version & ABI matrix
+
+nav:
+  - 首页: index.md
+  - 快速开始: getting-started.md
+  - 设计说明: design-contracts.md
+  - 能力域指南:
+      - 总览: domains/README.md
+      - 渲染与文本: domains/rendering.md
+      - 实体与 NPC: domains/entities-npc.md
+      - 界面与容器: domains/interfaces.md
+      - 视图覆盖与感知: domains/view-sensing.md
+  - API 参考:
+      - C++ 接口: reference/cpp-api.md
+      - LSE 接口: reference/lse-api.md
+  - 架构:
+      - 架构总览: architecture/overview.md
+      - 协议层实现笔记: architecture/protocol-notes.md
+  - 版本:
+      - 更新日志: versions/changelog.md
+      - 版本与 ABI 对照: versions/api-version-matrix.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/example/HologramLib
