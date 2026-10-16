@@ -1,11 +1,13 @@
-# 严格白名单: 源码、协议回归检查与项目配置文档
+# 严格白名单: 源码、公开文档与项目配置
 /*
-
 !/.gitignore
 !/README.md
-!/API.md
-!/VERSION-HISTORY.md
+!/README.en.md
 !/LICENSE
+!/docs/
+!/mkdocs.yml
+!/requirements.txt
+!/.github/
 !/src/
 !/include/
 !/xmake.lua
@@ -14,6 +16,16 @@
 # 白名单内仍需排除的内容
 src/**/*.log
 tests/__pycache__/
+
+# ── docs/ 里只有公开文档可入库 ──
+# docs/internal/ 是维护者本地文档（设计约定 / 架构开销评估 / LSE 导出清单 / API 稳定性契约）,
+# 明确禁止提交 GitHub、不上传、不提交, 也已被 mkdocs.yml 的 exclude_docs 排除出文档站。
+# 注意: .gitignore 对「已被 git 跟踪的文件」无效 —— 所以另有一道 CI 守卫,
+#       见 .github/workflows/docs.yml 的 guard-local-docs job。
+docs/internal/
+
+# 文档站构建产物（mkdocs build 的输出目录）
+site/
 
 # ── 本地工作产物,永不入库(显式列出, 防止将来误放行)──
 # work/  = 离线检查的输出目录(fixture 编译产物 + 生成的包字节), 由 tests/check-*.bat 重建
@@ -29,7 +41,5 @@ build/
 tests/
 
 # 本地工具与文档(不随库发布; tests/ = 离线回归检查脚本, 需要本机抓包/编译环境)
-/架构约定.md
-/ROADMAP.md
-# 搁置的功能（不进仓库；见 shelf/player-control/README.md）
+# 注: 设计约定、架构开销评估与 API 稳定性契约已迁入 docs/internal/(见上方规则)
 shelf/

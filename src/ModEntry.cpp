@@ -86,6 +86,7 @@ bool ModEntry::enable() {
     // 玩家进服后重发全部可见形状(悬浮字/形状客户端不落盘, 重连必须补发)
     // 含周期兜底: 每 15s 全量重发, 与 PlayerJoinEvent 1s/5s 双保险
     PacketDebugRenderer::getInstance().init();
+    FloatingTextManager::getInstance().initDynamicDriver(); // 动态行驱动（内容池轮播/变量刷新, 0.5s 节流）
 
     // 运行时可选挂载 LegacyRemoteCall（无前置依赖）:
     // - lrca 已加载（顺序在前）→ 立即导出, LSE 可用
@@ -119,6 +120,7 @@ bool ModEntry::disable() {
     // Destroy all shapes, release resources
     PacketDebugRenderer::getInstance().shutdown();
     PacketDebugRenderer::getInstance().destroyAll();
+    FloatingTextManager::getInstance().shutdownDynamicDriver();
     FloatingTextManager::getInstance().destroyAll();
     GradientLineManager::getInstance().destroyAll();
     ItemDisplayManager::getInstance().shutdown();

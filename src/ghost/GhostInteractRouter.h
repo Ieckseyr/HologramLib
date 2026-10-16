@@ -34,12 +34,19 @@ public:
     std::uint64_t addListener(std::function<void(hologramlib::GhostInteractEvent const&)> listener);
     bool          removeListener(std::uint64_t token);
 
+    // 真实实体交互多播监听（1.27.0）; 返回 token（0=失败）; 主线程回调
+    std::uint64_t addActorListener(std::function<void(hologramlib::ActorInteractEvent const&)> listener);
+    bool          removeActorListener(std::uint64_t token);
+
     // 轮询队列（LSE; 取走并清空）
     std::vector<hologramlib::GhostInteractEvent> poll();
     void                                          clearQueue();
 
     // 内部: hook 收包路径调用（已解析好的事件）
     void dispatch(hologramlib::GhostInteractEvent const& ev);
+
+    // 内部: hook 收包路径调用（真实实体; 由 routeGhostInteract 在 runtimeId 不属于库内段时派发）
+    void dispatchActor(hologramlib::ActorInteractEvent const& ev);
 
     // 事件格式化为可解析字符串（LSE 轮询条目格式）:
     // "player=X action=A domain=D id=I pos=(x,y,z)"（pos 仅存在时携带）
@@ -57,10 +64,16 @@ private:
         std::function<void(hologramlib::GhostInteractEvent const&)> fn;
     };
 
+    struct TaggedActorListener {
+        std::uint64_t                                               token;
+        std::function<void(hologramlib::ActorInteractEvent const&)> fn;
+    };
+
     std::mutex mMutex;
     std::uint64_t                                            mNextToken = 1;
     std::function<void(hologramlib::GhostInteractEvent const&)> mListener; // 旧单槽（兼容）
     std::vector<TaggedListener>                              mListeners;    // 多播
+    std::vector<TaggedActorListener>                         mActorListeners; // 真实实体交互（1.27.0）
     std::deque<hologramlib::GhostInteractEvent>                 mQueue;
 };
 

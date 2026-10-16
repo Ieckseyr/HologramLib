@@ -1,0 +1,7 @@
+# HologramLib 文档站依赖（GitHub Actions 与本地预览共用）
+#
+# 本地预览：
+#   python -m pip install -r requirements.txt
+#   mkdocs serve
+mkdocs-material>=9.5,<10
+mkdocs-static-i18n>=1.2,<2

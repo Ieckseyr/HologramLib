@@ -41,6 +41,11 @@ public:
     bool    isOpen(int64_t dialogId) const;
     // 取当前规格的拷贝（就地改内容前先读出来, 避免把 npcName/sceneName/载体类型一起冲掉）
     [[nodiscard]] bool getSpec(int64_t dialogId, hologramlib::NpcDialogSpec& out) const;
+    // 26.40.8: 聊天框内显示的头像/模型自定义 —— 更新该对话的
+    //   avatarSkinVariant（NPC 内置皮肤变体 0..59; -1 = 默认）与 avatarViewSpec（视图覆盖叠加,
+    //   spec 语法同 viewEntity）后就地**重开**（删旧载体→建新载体→重发 Open, 与翻页同一条 0 闪烁路径）。
+    //   返回 false = 该对话已不在（调用方应改用 open）。
+    bool setAvatar(int64_t dialogId, int skinVariant, std::string const& avatarViewSpec);
     std::vector<int64_t> getAllIds() const;
 
     uint64_t addClickListener(std::function<void(hologramlib::NpcDialogClickEvent const&)> listener);

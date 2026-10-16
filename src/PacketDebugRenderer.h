@@ -55,6 +55,12 @@ public:
     bool setRotation(int64_t id, float pitch, float yaw, float roll);
     bool clearRotation(int64_t id);
 
+    // 文本形状专属（其它类型返回 false）:
+    //   背景框颜色（RGBA 0~1; 与 mColor 同打包）/ 清除（回客户端默认色）/ 穿墙开关
+    bool setBackgroundColor(int64_t id, float r, float g, float b, float a);
+    bool clearBackgroundColor(int64_t id);
+    bool setDepthTest(int64_t id, bool enabled);
+
     // 属性获取
     std::string getText(int64_t id);
     std::vector<float> getLocation(int64_t id);

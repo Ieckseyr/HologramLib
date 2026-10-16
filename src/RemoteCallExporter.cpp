@@ -118,6 +118,24 @@ void RemoteCallExporter::exportPropertyFunctions() {
             return mgr.setScale(id, scale);
         });
     
+    // setBackgroundColor(id, r, g, b, a) -> bool - 背景框颜色（仅文本形状; 不设 = 客户端默认色）
+    hologramlib::lse::exportAs(NAMESPACE, "shapeSetBackgroundColor",
+        [&mgr](int64_t id, float r, float g, float b, float a) -> bool {
+            return mgr.setBackgroundColor(id, r, g, b, a);
+        });
+    
+    // clearBackgroundColor(id) -> bool - 清除背景框颜色（回客户端默认色）
+    hologramlib::lse::exportAs(NAMESPACE, "shapeClearBackgroundColor",
+        [&mgr](int64_t id) -> bool {
+            return mgr.clearBackgroundColor(id);
+        });
+    
+    // setDepthTest(id, enabled) -> bool - 穿墙可见性（仅文本形状; true = 被方块/实体遮挡）
+    hologramlib::lse::exportAs(NAMESPACE, "shapeSetDepthTest",
+        [&mgr](int64_t id, bool enabled) -> bool {
+            return mgr.setDepthTest(id, enabled);
+        });
+    
     // setDuration(id, seconds) -> bool - 设置持续时间
     hologramlib::lse::exportAs(NAMESPACE, "shapeSetDuration",
         [&mgr](int64_t id, float seconds) -> bool {
@@ -130,7 +148,7 @@ void RemoteCallExporter::exportPropertyFunctions() {
             return mgr.setDimension(id, dimId);
         });
     
-    // setRotation(id, pitch, yaw, roll) -> bool - 设置固定朝向（弧度）
+    // setRotation(id, pitch, yaw, roll) -> bool - 三轴固定朝向（度; 文本形状自动启用 useRotation + 双面渲染）
     hologramlib::lse::exportAs(NAMESPACE, "shapeSetRotation",
         [&mgr](int64_t id, float pitch, float yaw, float roll) -> bool {
             return mgr.setRotation(id, pitch, yaw, roll);

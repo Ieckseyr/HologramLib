@@ -16,7 +16,7 @@ void FloatingTextExporter::exportAll() {
     exportCreateFunctions();
     exportLineFunctions();
     exportColorFunctions();
-    exportAnimationFunctions();
+    exportStyleFunctions();
     exportDisplayFunctions();
     
     HLIB_LOG_INFO("FloatingText functions exported successfully.");
@@ -58,11 +58,17 @@ void FloatingTextExporter::exportLineFunctions() {
         [&mgr](int64_t id, int lineIndex, std::string const& text) -> bool {
             return mgr.setLineText(id, lineIndex, text);
         });
-    
-    // setLineScale(id, lineIndex, scale) -> bool
-    hologramlib::lse::exportAs(NAMESPACE, "holoSetLineScale",
-        [&mgr](int64_t id, int lineIndex, float scale) -> bool {
-            return mgr.setLineScale(id, lineIndex, scale);
+
+    // setLinePool(id, lineIndex, content: [s], intervalMs) -> bool（动态行: 内容池轮播, 重构自 Phantom, LGPL-3.0）
+    hologramlib::lse::exportAs(NAMESPACE, "holoSetLinePool",
+        [&mgr](int64_t id, int lineIndex, std::vector<std::string> content, int intervalMs) -> bool {
+            return mgr.setLinePool(id, lineIndex, content, intervalMs);
+        });
+
+    // setLineParseVariables(id, lineIndex, enabled) -> bool（该行是否解析变量; 默认 true）
+    hologramlib::lse::exportAs(NAMESPACE, "holoSetLineParseVariables",
+        [&mgr](int64_t id, int lineIndex, bool enabled) -> bool {
+            return mgr.setLineParseVariables(id, lineIndex, enabled);
         });
     
     // removeLine(id, lineIndex) -> bool
@@ -87,54 +93,50 @@ void FloatingTextExporter::exportLineFunctions() {
 void FloatingTextExporter::exportColorFunctions() {
     auto& mgr = FloatingTextManager::getInstance();
     
-    // setColor(id, r, g, b, a) -> bool - 设置整体颜色
+    // setColor(id, r, g, b, a) -> bool - 整块文字颜色
     hologramlib::lse::exportAs(NAMESPACE, "holoSetColor",
         [&mgr](int64_t id, float r, float g, float b, float a) -> bool {
             return mgr.setColor(id, r, g, b, a);
         });
     
-    // setLineColor(id, lineIndex, r, g, b, a) -> bool - 设置单行纯色
-    hologramlib::lse::exportAs(NAMESPACE, "holoSetLineColor",
-        [&mgr](int64_t id, int lineIndex, float r, float g, float b, float a) -> bool {
-            return mgr.setLineColor(id, lineIndex, r, g, b, a);
+    // setBackgroundColor(id, r, g, b, a) -> bool - 背景框颜色（不设 = 客户端默认）
+    hologramlib::lse::exportAs(NAMESPACE, "holoSetBackgroundColor",
+        [&mgr](int64_t id, float r, float g, float b, float a) -> bool {
+            return mgr.setBackgroundColor(id, r, g, b, a);
         });
     
-    // setLineGradient(id, lineIndex, r1, g1, b1, r2, g2, b2) -> bool - 设置单行渐变
-    hologramlib::lse::exportAs(NAMESPACE, "holoSetLineGradient",
-        [&mgr](int64_t id, int lineIndex, 
-               float r1, float g1, float b1,
-               float r2, float g2, float b2) -> bool {
-            return mgr.setLineGradient(id, lineIndex, r1, g1, b1, r2, g2, b2);
-        });
-    
-    // setLineRainbow(id, lineIndex, speed) -> bool - 设置单行彩虹效果
-    hologramlib::lse::exportAs(NAMESPACE, "holoSetLineRainbow",
-        [&mgr](int64_t id, int lineIndex, float speed) -> bool {
-            return mgr.setLineRainbow(id, lineIndex, speed);
+    // clearBackgroundColor(id) -> bool - 清除背景框颜色（回客户端默认色）
+    hologramlib::lse::exportAs(NAMESPACE, "holoClearBackgroundColor",
+        [&mgr](int64_t id) -> bool {
+            return mgr.clearBackgroundColor(id);
         });
 }
 
-void FloatingTextExporter::exportAnimationFunctions() {
+void FloatingTextExporter::exportStyleFunctions() {
     auto& mgr = FloatingTextManager::getInstance();
     
-    // setLineScroll(id, lineIndex, direction, speed) -> bool
-    // direction: 0=无, 1=左, 2=右
-    hologramlib::lse::exportAs(NAMESPACE, "holoSetLineScroll",
-        [&mgr](int64_t id, int lineIndex, int direction, float speed) -> bool {
-            return mgr.setLineScroll(id, lineIndex, direction, speed);
+    // setScale(id, scale) -> bool - 整块缩放
+    hologramlib::lse::exportAs(NAMESPACE, "holoSetScale",
+        [&mgr](int64_t id, float scale) -> bool {
+            return mgr.setScale(id, scale);
         });
     
-    // setVerticalAnimation(id, type, speed, range) -> bool
-    // type: 0=无, 1=弹跳, 2=滚动
-    hologramlib::lse::exportAs(NAMESPACE, "holoSetVerticalAnimation",
-        [&mgr](int64_t id, int type, float speed, float range) -> bool {
-            return mgr.setVerticalAnimation(id, type, speed, range);
+    // setDepthTest(id, enabled) -> bool - 穿墙可见性（true = 被方块遮挡, false = 始终渲染）
+    hologramlib::lse::exportAs(NAMESPACE, "holoSetDepthTest",
+        [&mgr](int64_t id, bool enabled) -> bool {
+            return mgr.setDepthTest(id, enabled);
         });
     
-    // setLineSpacing(id, spacing) -> bool
-    hologramlib::lse::exportAs(NAMESPACE, "holoSetLineSpacing",
-        [&mgr](int64_t id, float spacing) -> bool {
-            return mgr.setLineSpacing(id, spacing);
+    // setRotation(id, pitch, yaw, roll) -> bool - 三轴固定朝向（度; 不再面向相机）
+    hologramlib::lse::exportAs(NAMESPACE, "holoSetRotation",
+        [&mgr](int64_t id, float pitch, float yaw, float roll) -> bool {
+            return mgr.setRotation(id, pitch, yaw, roll);
+        });
+    
+    // clearRotation(id) -> bool - 恢复面向相机
+    hologramlib::lse::exportAs(NAMESPACE, "holoClearRotation",
+        [&mgr](int64_t id) -> bool {
+            return mgr.clearRotation(id);
         });
     
     // setLocation(id, x, y, z) -> bool
@@ -159,12 +161,6 @@ void FloatingTextExporter::exportAnimationFunctions() {
     hologramlib::lse::exportAs(NAMESPACE, "holoClearFollowPlayer",
         [&mgr](int64_t id) -> bool {
             return mgr.clearFollowPlayer(id);
-        });
-    
-    // tick(deltaTime) -> void - 更新动画 (应在游戏tick中调用)
-    hologramlib::lse::exportAs(NAMESPACE, "holoTick",
-        [&mgr](float deltaTime) -> void {
-            mgr.tick(deltaTime);
         });
 }
 
@@ -195,7 +191,7 @@ void FloatingTextExporter::exportDisplayFunctions() {
             return mgr.remove(id);
         });
     
-    // refresh(id) -> bool - 刷新显示
+    // refresh(id) -> bool - 重解析变量/跟随坐标并原地重发
     hologramlib::lse::exportAs(NAMESPACE, "holoRefresh",
         [&mgr](int64_t id) -> bool {
             return mgr.refresh(id);

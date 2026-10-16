@@ -148,6 +148,33 @@ inline bool spawnPlayerList(
     return sendToPlayer(player, packet, NetworkPeer::Reliability::Reliable);
 }
 
+// 玩家皮肤注入专用条目（1.26.0）: 身份字段取自**这名玩家本人**
+//   · uuid / uniqueId 用他自己的 —— Geyser 注释明确: Bedrock 客户端认得自己登录时提供的 UUID,
+//     收到别的 UUID 会加出一只"幽灵玩家"甚至崩客户端;
+//   · xuid 用真实值（空则回落 "0"）—— 这是与假玩家条目的唯一区别, 对真实玩家更接近原版皮肤更新包;
+//   · trust 三态与 OverridesPlayerAppearance 由皮肤对象自身携带（注册表已就绪）。
+inline sculk::protocol::PlayerListEntry playerListEntryForPlayer(
+    Player const&                          player,
+    sculk::protocol::SerializedSkin const& skin
+) {
+    auto const  uuid = player.getUuid();
+    std::string xuid = player.getXuid();
+    if (xuid.empty()) xuid = "0";
+
+    sculk::protocol::PlayerListEntry entry;
+    entry.mUUID           = sculk::protocol::UUID{uuid.a, uuid.b};
+    entry.mActorUniqueId  = static_cast<std::int64_t>(player.getOrCreateUniqueID().rawID);
+    entry.mPlayerName     = player.getRealName();
+    entry.mXuid           = std::move(xuid);
+    entry.mPlatformChatId = "";
+    entry.mSerializedSkin = skin;
+    entry.mSkinTrusted    = true;
+    entry.mSerializedSkin.mTrustedSkinFlag = kSkinTrustedTrue;
+    entry.mBuildPlatform  = 1;
+    entry.mColor          = 0;
+    return entry;
+}
+
 // 假玩家生成第二步: AddPlayer 实体化（时序上必须在 PlayerList Add 之后）
 // scale: 模型缩放（1.19.0; Reserved38=SCALE 元数据, 53/54 碰撞箱随玩家默认 0.6x1.8 等比）
 inline bool spawnPlayerBody(

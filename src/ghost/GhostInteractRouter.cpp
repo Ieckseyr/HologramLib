@@ -11,6 +11,8 @@
 #include "customentity/CustomEntityManager.h"
 #include "itemdisplay/ItemDisplayManager.h"
 #include "lse/LseBridge.h"
+
+#include "DiagLog.h"
 #include "playernpc/PlayerNpcManager.h"
 
 #include <ll/api/memory/Hook.h>
@@ -82,6 +84,44 @@ void GhostInteractRouter::clearQueue() {
     mQueue.clear();
 }
 
+std::uint64_t GhostInteractRouter::addActorListener(std::function<void(hologramlib::ActorInteractEvent const&)> listener
+) {
+    if (!listener) return 0;
+    std::lock_guard lock(mMutex);
+    auto const      token = mNextToken++;
+    mActorListeners.push_back({token, std::move(listener)});
+    return token;
+}
+
+bool GhostInteractRouter::removeActorListener(std::uint64_t token) {
+    std::lock_guard lock(mMutex);
+    for (auto it = mActorListeners.begin(); it != mActorListeners.end(); ++it) {
+        if (it->token == token) {
+            mActorListeners.erase(it);
+            return true;
+        }
+    }
+    return false;
+}
+
+void GhostInteractRouter::dispatchActor(hologramlib::ActorInteractEvent const& ev) {
+    // 快照后锁外回调（监听器里再注册/注销不会死锁）—— 与 dispatch 同套路
+    std::vector<std::function<void(hologramlib::ActorInteractEvent const&)>> multicast;
+    {
+        std::lock_guard lock(mMutex);
+        multicast.reserve(mActorListeners.size());
+        for (auto const& l : mActorListeners) multicast.push_back(l.fn);
+    }
+    for (auto const& fn : multicast) {
+        try {
+            fn(ev);
+        } catch (...) {
+            // 监听器抛异常不许穿回收包路径
+            HLIB_LOG_ERROR("HologramLib: ActorInteract 监听器抛出异常（已忽略）");
+        }
+    }
+}
+
 void GhostInteractRouter::dispatch(hologramlib::GhostInteractEvent const& ev) {
     // 快照后锁外回调, 避免监听器内再调 add/removeListener 造成死锁
     std::function<void(hologramlib::GhostInteractEvent const&)> legacy;
@@ -145,7 +185,26 @@ static void routeGhostInteract(
     bool const isDisplay = runtimeId >= kItemDisplayRuntimeMin && runtimeId < kItemDisplayRuntimeMax;
     bool const isEntity  = runtimeId >= kCustomEntityRuntimeMin && runtimeId < kCustomEntityRuntimeMax;
     bool const isNpc     = runtimeId >= kPlayerNpcRuntimeMin && runtimeId < kPlayerNpcRuntimeMax;
-    if (!isDisplay && !isEntity && !isNpc) return;
+    if (!isDisplay && !isEntity && !isNpc) {
+        // 真实实体（原版生物 / 自定义生物 / 玩家）: 派发给"实体交互"监听器（1.27.0）。
+        // 消费方因此不必自己挂钩子 —— 挂到 BDS 热路径上的 detour 层叠多了会毁掉 trampoline。
+        hologramlib::ActorInteractEvent actor;
+        actor.playerName = playerName;
+        actor.action     = action;
+        actor.runtimeId  = runtimeId;
+        actor.hasPos     = hasPos;
+        actor.x          = x;
+        actor.y          = y;
+        actor.z          = z;
+        if (auto level = ::ll::service::getLevel(); level != nullptr) {
+            if (auto* target = level->getRuntimeEntity(::ActorRuntimeID{runtimeId}, false); target != nullptr) {
+                actor.uniqueId   = target->getOrCreateUniqueID().rawID;
+                actor.targetType = target->getTypeName();
+            }
+        }
+        GhostInteractRouter::getInstance().dispatchActor(actor);
+        return;
+    }
 
     // runtimeId -> 库内 id 反查（找不到 = 实体已销毁, 忽略迟到的交互）
     int64_t id = -1;
