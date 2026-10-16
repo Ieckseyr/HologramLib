@@ -146,7 +146,7 @@ if (sensingIsTouch("Steve")) {
 |---|---|
 | 把库跑起来、写第一个功能 | [快速开始](docs/getting-started.md) |
 | 知道某个能力域怎么用、有哪些实测坑 | [能力域指南](docs/domains/README.md) |
-| 查某个接口的完整签名 | [C++ 接口参考](docs/reference/cpp-api.md) · [LSE 接口参考](docs/reference/lse-api.md) |
+| 查某个接口的完整签名 | [C++ 接口参考](docs/reference/cpp-api.md) · [LSE 脚本接口](docs/lse/index.md) |
 | 确认版本兼容性 / 会不会 ABI 断裂 | [版本与 ABI 对照](docs/versions/api-version-matrix.md) |
 | 理解内部分层与运行时开销 | [架构总览](docs/architecture/overview.md) · [协议层实现笔记](docs/architecture/protocol-notes.md) |
 | 看某个版本改了什么 | [更新日志](docs/versions/changelog.md) |

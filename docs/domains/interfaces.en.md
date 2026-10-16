@@ -308,6 +308,6 @@ for (const line of npcDialogPollClicks()) { /* split it yourself */ }
 ## Related
 
 - Full signatures: [C++ API reference](../reference/cpp-api.md) (§1.10 trade menu / §1.11 NPC dialogue / §1.12 virtual container / §1.14 fake inventory)
-- LSE function list: [LSE API reference](../reference/lse-api.md) (§2.10 ~ §2.14)
-- Why these packets are written the way they are: [Protocol notes](../architecture/protocol-notes.md)
+- LSE function list: [Interfaces & containers](../lse/interfaces.md) · [Inventory & sulfur cube](../lse/inventory.md)
+- Why these packets are written the way they are: [Protocol notes](https://github.com/Ieckseyr/HologramLib/blob/main/docs/architecture/protocol-notes.en.md)
 - Routing the interface by the player's device (touch → container, keyboard-mouse → trade): [Player sensing](view-sensing.md#player-sensing)

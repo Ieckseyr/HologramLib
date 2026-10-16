@@ -106,7 +106,7 @@ Two costs you must know about:
 ### Lifecycle and resend
 
 - **never set a `duration` on a permanent hologram** — leaving it unset is what avoids the client's countdown deleting it;
-- the client persists nothing, so a reconnect must be covered by a resend. The resend strategy is centralised in the shape domain (see the [architecture overview](../architecture/overview.md#resend-strategy));
+- the client persists nothing, so a reconnect must be covered by a resend. The resend strategy is centralised in the shape domain (see the [architecture overview](https://github.com/Ieckseyr/HologramLib/blob/main/docs/architecture/overview.en.md#resend-strategy));
 - **following a player no longer depends on an internal tick** (since `26.40.8`): the position is **resolved in place** when `setFollowPlayer` / `draw` / `refresh` is called, and on-demand refresh is the consumer's job (example: ZXPanel resends in place every 2 ticks).
 
 ---
@@ -163,5 +163,5 @@ Transforms: `moveTo` (anchor interpolated with `easeOutCubic`, **the whole plane
 ## Related
 
 - Full signatures: [C++ API reference](../reference/cpp-api.md) (§1.2 shapes / §1.3 holographic text / §1.4 item detail / §1.5 item display / §1.8 particles)
-- LSE function list: [LSE API reference](../reference/lse-api.md) (§2.1 ~ §2.5, §2.8)
-- Resend and cost: [Architecture overview](../architecture/overview.md) · [Protocol-layer implementation notes](../architecture/protocol-notes.md)
+- LSE function list: [Shapes](../lse/shapes.md) · [Holograms & gradient lines](../lse/holograms.md) · [Item display](../lse/items.md)
+- Resend and cost: [Architecture overview](https://github.com/Ieckseyr/HologramLib/blob/main/docs/architecture/overview.en.md) · [Protocol-layer implementation notes](https://github.com/Ieckseyr/HologramLib/blob/main/docs/architecture/protocol-notes.en.md)

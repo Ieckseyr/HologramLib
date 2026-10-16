@@ -3,15 +3,15 @@
 本页是 [`README.md`](https://github.com/Ieckseyr/HologramLib/blob/main/README.md) 原文「更新日志」小节的迁移归档，正文**逐字**复制，不改写、不摘要、不整理成表格。
 条目保持倒序排列：最新版本在最上，最早版本在最下，与原文顺序一致。
 嵌套子条目的缩进层级、加粗、⚠ 等符号与行内代码标记均与原文相同，各条目之间的空行节奏也照原样保留。
-API 版本与发布版本的对应关系见同目录 [`版本与ABI对照.md`](./api-version-matrix.md)。
+API 版本与发布版本的对应关系见同目录 [`版本与ABI对照.md`](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.md)。
 
 > **读之前要知道的三处缺口 / 已知错误**（正文按原文**逐字保留、未改写、未编造**，差异只记在这里）：
-> ① 本页**没有** `26.40.6`（API 1.24.0，交易菜单纯协议真结算）的独立条目，也没有 `26.10.5` / `26.10.4` / `26.10.1` —— 原文从 `26.40.7` 直接跳到 `26.40.5`。这几个版本在 [`版本与ABI对照.md`](./api-version-matrix.md) 的完整对照表里都有记录。
+> ① 本页**没有** `26.40.6`（API 1.24.0，交易菜单纯协议真结算）的独立条目，也没有 `26.10.5` / `26.10.4` / `26.10.1` —— 原文从 `26.40.7` 直接跳到 `26.40.5`。这几个版本在 [`版本与ABI对照.md`](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.md) 的完整对照表里都有记录。
 > ② 文中「见文末「第三方来源标注」」指的是项目根 [`README.md`](https://github.com/Ieckseyr/HologramLib/blob/main/README.md) 的「许可」小节（悬浮字动态行重构自 Phantom，LGPL-3.0），**不在本文件内**。
 > ③ **一处沿用到今天的旧错误**：`26.40.5` 条目里写硫磺立方体「`invisible`, **默认关**」，与代码不符 —— `HologramLib.h` 是 `bool invisible{true};`（**默认开**），项目 README 与[实体与 NPC](../domains/entities-npc.md) 也都写「默认开」。**以代码为准。**
 
 - `26.51.3`（API 1.29.0）：**26.51 线的合并发布** —— 26.40 线的 `26.40.8` / `26.40.9` / `26.40.10`
-  三个批次整体搬到 26.51 线。逐条内容见[版本与 ABI 对照](./api-version-matrix.md)的 `26.40.8` /
+  三个批次整体搬到 26.51 线。逐条内容见[版本与 ABI 对照](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.md)的 `26.40.8` /
   `26.40.9` / `26.40.10` 行（本版与它们能力域一致，差别只在协议线）。26.51 侧本次唯一新写的适配是
   视图覆盖的输入位读取：26.51 把 `PlayerAuthInputPacketPayload::mInputData` 由 `std::bitset<66>` 换成
   `Bedrock::EnumSet<InputData, 66>`（没有 `operator[]`），掩码改用 `contains()` 逐位取；`26.51.0` 的四处
@@ -48,9 +48,9 @@ API 版本与发布版本的对应关系见同目录 [`版本与ABI对照.md`](.
 - `26.40.9`（API 1.27.0）：**`EntityView::skinId`（+ `scale` / `yOffset`）—— 非玩家实体"换成我们的模型"**（拦下的出生包 + 库自己的包替换, **同一个 runtimeId/uniqueId**）: 客户端看到已注册皮肤（可自定义几何）的玩家模型, 服务端那边还是那只生物 —— **点它/打它/瞄准都是它本人**。配套吃掉该实体的 `MoveActor*`(18/111) 并每 tick 用 `MoveActorAbsolute` 推位置/朝向、`PlayerList` 条目 20 tick 后摘掉、撤销时重发真实出生包；`scale` 等比碰撞箱（元数据 53/54）、`yOffset` 把模型原点对齐到脚位。消费方示例: MSkinventory 的"同 id 换皮"。
   - **（批次内追加，未发布）移除：NPC 对话框 `avatarViewSpec` 的 `skin=` 分支**（收缩, 明记）。它会用 `PlayerList(Add)`+`AddPlayer` 把载体换成"玩家模型"—— 实测客户端在该载体上点进菜单会把界面关掉（同一次测试里 `type=` 载体：僵尸/鸡, 一切正常）, 属该路径当前不可用。按"库只做机制"的定位, "让客户端认它是玩家"的路线留给消费方自建（`playerNpcs()` 造真·假玩家 + `npcUniqueIdOverride` 把对话挂到它 id 上）。**保留**: `type=` / `name=`（可自定义实体类型/标题）与 `avatarSkinVariant`（NPC 内置皮肤变体）。`avatarViewSpec` / `avatarSkinVariant` 字段本身不动（**ABI 不变**, 消费方无需重编译）; 内部顺带掉一段从未生效的死代码（玩家模型载体的正段 id 分配）。
   - **真实实体交互事件**：`addActorInteractListener` / `removeActorInteractListener`（类尾追加）—— 玩家右键 / 攻击**服务端真实实体**时回调；复用库已有的收包钩子（不新增 detour 层），多播互不覆盖，返回 token 用于移除。
-  - **ABI 布局戳**：头文件携带虚表布局描述符 + 消费方编译期自检（库侧运行期拦截"布局不一致的消费方"）—— 把 2026-10-09 / 10-10 两次"中段挪槽"启动崩溃固化成机制；详见 [版本与ABI对照.md](api-version-matrix.md)「ABI 事故（明记）」。
+  - **ABI 布局戳**：头文件携带虚表布局描述符 + 消费方编译期自检（库侧运行期拦截"布局不一致的消费方"）—— 把 2026-10-09 / 10-10 两次"中段挪槽"启动崩溃固化成机制；详见 [版本与ABI对照.md](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.md)「ABI 事故（明记）」。
   - LSE：`viewEntity` 的 spec 串新增 **`skin=<皮肤id>`**（等价 `EntityView::skinId`；皮肤取自 `IPlayerNpc` 注册表）。
-- `26.40.8`（API 1.26.0）：**视图覆盖残骸清理 + `IPlayerNpc` 追加五方法 + 悬浮字/text 域收缩与补全**（收缩明记，见 [版本与ABI对照.md](api-version-matrix.md)）。
+- `26.40.8`（API 1.26.0）：**视图覆盖残骸清理 + `IPlayerNpc` 追加五方法 + 悬浮字/text 域收缩与补全**（收缩明记，见 [版本与ABI对照.md](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.md)）。
   - **视图覆盖（`IViewOverride`）代码整理**：行为不变 —— 出站钩子只决定"放行 / 丢弃"，**原包字段一律不改**
     （自 26.40.7 起即如此）。本次清掉与行为不符的**旧世界残骸**：重写过期的"能原包改的就原包改"顶注、
     删除就地改写的死代码（`dataListOf` / `setItemById` / `cloneItems` / `restoreItems`）、判定链路全 const 化
@@ -202,7 +202,7 @@ API 版本与发布版本的对应关系见同目录 [`版本与ABI对照.md`](.
   - `ITradeMenu` 新增 `addOffer` / `setTier`：追加一条交易或改档位/经验条时**就地重发**交易表，不必关掉重开。
   - **四个新域补齐 LSE 导出**：`trade*`（7）、`container*`（9）、`npcDialog*`（7）、`sensing*`（3）；容器与 NPC 对话的点击在脚本侧走**轮询队列**（`containerPollClicks` / `npcDialogPollClicks`，取走并清空，条目是可切分的字符串），`ghost*` 早就用的同一套办法。
   - `entity*` 补逐客户端渲染导出：`entitySetPlayerNametag` / `entitySetPlayerScale` / `entitySetPlayerEquipmentSlot` / `entityClearPlayerAppearance`。
-  - API 版本因此抬到 **1.22.0**：撤回已发布过的东西属于收缩（正常该走大版本），这里抬次版本并在 [`版本与ABI对照.md`](./api-version-matrix.md) 明记原因。按 1.21.0 写过交易菜单点击监听的代码升上来会**编译报错**（不会静默变行为）。
+  - API 版本因此抬到 **1.22.0**：撤回已发布过的东西属于收缩（正常该走大版本），这里抬次版本并在 [`版本与ABI对照.md`](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.md) 明记原因。按 1.21.0 写过交易菜单点击监听的代码升上来会**编译报错**（不会静默变行为）。
 - `26.40.3`（API 1.21.0）：**四个新能力域（村民交易菜单 / NPC 对话框 / 虚拟容器 / 感知域）+ 逐客户端渲染 + 一次裁剪**（清单见上表 1.21.0 各行）。
   - **村民交易菜单 `ITradeMenu`**：协议层自建 `UpdateTrade` 开界面（包级字段与 Offers NBT 都与 BDS 抓包逐字节对拍），隐身载体实体驱动经验条；点击回传按配方 netId 精确定位条目（`offerIndex` / `recipeNetId`），另有与参考实现 GMLIB ChestUI 同语义的逐动作回调（`src` / `dst` / `amount`，关闭时以 `slot=-1, amount=-1` 哨兵收尾）。**（本条的点击回传已在 26.40.4 按需求撤回 —— 详见上一条。）**两条路径由 `usePacketOffers` 选：**默认纯协议层**（服务端不放交易表 → 天然只读），置 `false` 走真实交易表 + BDS `openTrading`（成交真的换物品）。载体类型 `carrierIdentifier` 可选村民或流浪商人。
   - **NPC 对话框 `INpcDialogue`**：`NpcDialoguePacket` + 合成 `minecraft:npc` 载体（放在世界下方 → 客户端看不到实体，但对话框头像照常渲染）；按钮 / 关闭回传，多层级对话按场景名路由。

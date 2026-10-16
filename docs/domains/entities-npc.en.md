@@ -68,7 +68,7 @@ lib.removeGhostInteractListener(token);
 
   Check `action == 1 || action == 2` before handling, and do not assume those are the only two values.
 
-> **Getting events from a script**: `ghostPollInteractions()` takes and clears the pending queue (it returns an array of strings, format documented in the [LSE API reference](../reference/lse-api.md)); `ghostClearInteractions()` just drops the queue. On the C++ side there are also the `addGhostInteractListener` multicast listeners.
+> **Getting events from a script**: `ghostPollInteractions()` takes and clears the pending queue (it returns an array of strings, format documented in [Entities, particles & interaction](../lse/entities.md)); `ghostClearInteractions()` just drops the queue. On the C++ side there are also the `addGhostInteractListener` multicast listeners.
 
 ---
 
@@ -178,5 +178,5 @@ The cube is just a custom entity, so **scale / view distance / visible-player wh
 ## Related
 
 - Full signatures: [C++ API reference](../reference/cpp-api.md) (§1.6 custom entities / §1.7 Ghost / §1.9 fake-player NPCs / §1.15 sulfur cube)
-- LSE function list: [LSE API reference](../reference/lse-api.md) (§2.6 / §2.7 / §2.9 / §2.15)
+- LSE function list: [Entities, particles & interaction](../lse/entities.md) · [Fake-player NPCs](../lse/player-npc.md)
 - To "give a real mob a different model" instead of creating a new entity: [View override & sensing](view-sensing.md)

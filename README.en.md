@@ -157,7 +157,7 @@ Full documentation lives in [`docs/`](docs/index.en.md), also published as a [do
 |---|---|
 | Get it running and write my first feature | [Getting started](docs/getting-started.en.md) |
 | Learn how a domain works, including field-tested pitfalls | [Domain guides](docs/domains/README.en.md) |
-| Look up a full signature | [C++ API](docs/reference/cpp-api.en.md) · [LSE API](docs/reference/lse-api.en.md) |
+| Look up a full signature | [C++ API](docs/reference/cpp-api.en.md) · [LSE API](docs/lse/index.en.md) |
 | Check version compatibility / ABI breakage | [Version & ABI matrix](docs/versions/api-version-matrix.en.md) |
 | Understand the internal layering and runtime cost | [Architecture overview](docs/architecture/overview.en.md) · [Protocol notes](docs/architecture/protocol-notes.en.md) |
 | See what changed in a release | [Changelog](docs/versions/changelog.en.md) |

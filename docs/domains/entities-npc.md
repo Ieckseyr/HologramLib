@@ -68,7 +68,7 @@ lib.removeGhostInteractListener(token);
 
   处理前先判 `action == 1 || action == 2`，不要假设只有这两种取值。
 
-> **脚本侧拿事件**：`ghostPollInteractions()` 取走并清空待处理队列（返回字符串数组，格式见 [LSE 接口参考](../reference/lse-api.md)），`ghostClearInteractions()` 直接丢弃队列。C++ 侧另有 `addGhostInteractListener` 多播监听器。
+> **脚本侧拿事件**：`ghostPollInteractions()` 取走并清空待处理队列（返回字符串数组，格式见 [实体、粒子与交互](../lse/entities.md)），`ghostClearInteractions()` 直接丢弃队列。C++ 侧另有 `addGhostInteractListener` 多播监听器。
 
 ---
 
@@ -178,5 +178,5 @@ auto id = lib.sulfurDisplays().create(spec);
 ## 相关
 
 - 完整签名：[C++ 接口参考](../reference/cpp-api.md)（§1.6 自定义实体 / §1.7 Ghost / §1.9 假玩家 NPC / §1.15 硫磺立方体）
-- LSE 函数清单：[LSE 接口参考](../reference/lse-api.md)（§2.6 / §2.7 / §2.9 / §2.15）
+- LSE 函数清单：[实体、粒子与交互](../lse/entities.md) · [假玩家 NPC](../lse/player-npc.md)
 - 想「给真生物换模型」而不是造新实体：[视图覆盖与感知](view-sensing.md)

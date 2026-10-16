@@ -97,6 +97,6 @@ HologramLib 的 18 个能力域分成四组。这一页管选型：先确定用�
 | `0x012100` · 1.27.0 | `EntityView::skinId`；真实实体交互监听；ABI 布局戳 |
 | `0x012300` · 1.29.0 | `AddItemActor` 纳入拦截；`EntityView` 补姿态 / 缩放 / 变种 / 颜色 |
 
-注：`0x012200`（= API 1.28.0）没有出现在上表里，该编号被跳过、从未作为发布版本出现过。原因与说明见 [版本与 ABI 对照](../versions/api-version-matrix.md)。
+注：`0x012200`（= API 1.28.0）没有出现在上表里，该编号被跳过、从未作为发布版本出现过。原因与说明见 [版本与 ABI 对照](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.md)。
 
-完整对照（含两次「明记收缩」的原因与迁移方式）见 [版本与 ABI 对照](../versions/api-version-matrix.md)。
+完整对照（含两次「明记收缩」的原因与迁移方式）见 [版本与 ABI 对照](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.md)。

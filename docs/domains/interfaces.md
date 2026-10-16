@@ -307,6 +307,6 @@ for (const line of npcDialogPollClicks()) { /* 自行切分 */ }
 ## 相关
 
 - 完整签名：[C++ 接口参考](../reference/cpp-api.md)（§1.10 交易菜单 / §1.11 NPC 对话 / §1.12 虚拟容器 / §1.14 背包虚容器）
-- LSE 函数清单：[LSE 接口参考](../reference/lse-api.md)（§2.10 ~ §2.14）
-- 想知道这些包为什么这么写：[协议层实现笔记](../architecture/protocol-notes.md)
+- LSE 函数清单：[界面与容器](../lse/interfaces.md) · [背包与硫磺立方体](../lse/inventory.md)
+- 想知道这些包为什么这么写：[协议层实现笔记](https://github.com/Ieckseyr/HologramLib/blob/main/docs/architecture/protocol-notes.md)
 - 按玩家设备分流界面（触屏 → 容器，键鼠 → 交易）：[感知域](view-sensing.md#感知域)

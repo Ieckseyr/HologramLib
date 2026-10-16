@@ -110,7 +110,7 @@ The whole multi-line block renders as one background box (all lines are joined w
 > **1.26.0 shrink (on the record)**: `setLineScale` / `setLineColor` / `setLineGradient` / `setLineRainbow` /
 > `setLineScroll` / `setVerticalAnimation` / `setLineSpacing` and `tick` were removed — under the "one whole block,
 > one shape" model they cannot be implemented, or they spin idle. The reasons and the replacements (§ colour codes / setScale)
-> are in the [changelog](../versions/changelog.md) and the [version & ABI matrix](../versions/api-version-matrix.md).
+> are in the [changelog](../versions/changelog.md) and the [version & ABI matrix](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.en.md).
 > **C++ ABI**: they are kept as **deprecated empty slots** (non-pure + inline empty body + `[[deprecated]]`; calling one returns `false` / does nothing),
 > with vtable slots unchanged from 1.25.0 — a consumer binary that was not recompiled calls through the old slots without misaligning; on the LSE side the exports were deleted as usual.
 

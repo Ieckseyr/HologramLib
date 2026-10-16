@@ -203,6 +203,6 @@ The cost and the suitable scenarios are the same as for per-viewer overrides: **
 ## Related
 
 - Full signatures: [C++ API reference](../reference/cpp-api.md) (§1.13 sensing / per-viewer overrides / per-player variables, §1.16 view override)
-- LSE function list: [LSE API reference](../reference/lse-api.md) (§2.13 / §2.16)
+- LSE function list: [View override & sensing](../lse/view.md)
 - The short version of the boundary disciplines (suppress-only / data only from protocol packets): [README · Design notes](https://github.com/Ieckseyr/HologramLib/blob/main/README.en.md#design-notes)
-- The send primitive and the read-back check: [Protocol notes](../architecture/protocol-notes.md)
+- The send primitive and the read-back check: [Protocol notes](https://github.com/Ieckseyr/HologramLib/blob/main/docs/architecture/protocol-notes.en.md)

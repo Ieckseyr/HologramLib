@@ -5,16 +5,16 @@ rewritten, not summarised, not tidied into a table.
 Entries stay in reverse order: the newest release at the top, the earliest at the bottom, matching the original order.
 Nested sub-entry indentation levels, bold, ⚠ and other symbols and inline code markers are all the same as the original, and the blank-line
 rhythm between entries is preserved as-is.
-The mapping between API versions and release versions is in the [version & ABI matrix](./api-version-matrix.md) in the same directory.
+The mapping between API versions and release versions is in the [version & ABI matrix](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.en.md) in the same directory.
 
 > **Three gaps / known errors to know before reading** (the body follows the original **verbatim, unrewritten, uninvented**; the differences are recorded only here):
-> ① This page has **no** standalone entry for `26.40.6` (API 1.24.0, trade menu protocol-only real settlement), and none for `26.10.5` / `26.10.4` / `26.10.1` either — the original jumps straight from `26.40.7` to `26.40.5`. All of those releases are recorded in the full matrix in the [version & ABI matrix](./api-version-matrix.md).
+> ① This page has **no** standalone entry for `26.40.6` (API 1.24.0, trade menu protocol-only real settlement), and none for `26.10.5` / `26.10.4` / `26.10.1` either — the original jumps straight from `26.40.7` to `26.40.5`. All of those releases are recorded in the full matrix in the [version & ABI matrix](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.en.md).
 > ② The phrase "see 'third-party attribution' at the end of the text" refers to the "License" section of the project-root [`README.md`](https://github.com/Ieckseyr/HologramLib/blob/main/README.en.md) (the holographic-text dynamic lines were refactored from Phantom, LGPL-3.0); it is **not inside this file**.
 > ③ **One old error that survives to today**: the `26.40.5` entry says the sulfur cube is "`invisible`, **off by default**", which does not match the code — `HologramLib.h` has `bool invisible{true};` (**on by default**), and the project README and [Entities & NPCs](../domains/entities-npc.md) both say "on by default" as well. **The code is the source of truth.**
 
 - `26.51.3` (API 1.29.0): **the merged release of the 26.51 line** — the three batches `26.40.8` / `26.40.9` / `26.40.10` of the 26.40 line
   moved to the 26.51 line wholesale. The item-by-item content is in the `26.40.8` / `26.40.9` / `26.40.10` rows of the
-  [version & ABI matrix](./api-version-matrix.md) (this release matches them in capability domains; the only difference is the protocol line).
+  [version & ABI matrix](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.en.md) (this release matches them in capability domains; the only difference is the protocol line).
   The only newly written adaptation on the 26.51 side this time is view override's input-bit reading: 26.51 replaced
   `PlayerAuthInputPacketPayload::mInputData` from `std::bitset<66>` with `Bedrock::EnumSet<InputData, 66>` (no `operator[]`), so the mask now
   takes bits with `contains()`; the four adaptations of `26.51.0` (text `LineGapHeight`, `ItemInstance::EMPTY_ITEM()`, container response
@@ -70,11 +70,11 @@ The mapping between API versions and release versions is in the [version & ABI m
     detour layer), the multicasts do not overwrite each other, and the returned token is used to remove.
   - **ABI layout stamp**: the header carries a vtable layout descriptor + a consumer-side compile-time self-check (the library intercepts
     "layout-mismatched consumers" at runtime) — turning the two "mid-class slot move" startup crashes of 2026-10-09 / 10-10 into a mechanism;
-    see "ABI incident (this time, on the record)" in the [version & ABI matrix](api-version-matrix.md).
+    see "ABI incident (this time, on the record)" in the [version & ABI matrix](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.en.md).
   - LSE: the `viewEntity` spec string gained **`skin=<skin id>`** (equivalent to `EntityView::skinId`; the skin comes from the `IPlayerNpc`
     registry).
 - `26.40.8` (API 1.26.0): **view override debris cleanup + five methods appended to `IPlayerNpc` + holographic-text/text domain shrink and
-  completion** (the shrink is on the record, see the [version & ABI matrix](api-version-matrix.md)).
+  completion** (the shrink is on the record, see the [version & ABI matrix](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.en.md)).
   - **View override (`IViewOverride`) code tidy-up**: behaviour unchanged — the outbound hook only decides "pass / drop", and **original packet
     fields are never modified** (that has been so since 26.40.7). This pass cleared out **old-world debris** that did not match the behaviour:
     rewrote the stale "rewrite the original packet wherever possible" header comment, deleted the in-place-rewrite dead code (`dataListOf` /
@@ -269,7 +269,7 @@ The mapping between API versions and release versions is in the [version & ABI m
   - `entity*` gained per-client rendering exports: `entitySetPlayerNametag` / `entitySetPlayerScale` / `entitySetPlayerEquipmentSlot` /
     `entityClearPlayerAppearance`.
   - The API version therefore went up to **1.22.0**: retracting something already released is a shrink (normally a major-version change); here
-    the minor version was bumped and the reason recorded explicitly in the [version & ABI matrix](./api-version-matrix.md). Code written against
+    the minor version was bumped and the reason recorded explicitly in the [version & ABI matrix](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.en.md). Code written against
     1.21.0 that listened for trade-menu clicks will get a **compile error** when upgraded (not a silent behaviour change).
 - `26.40.3` (API 1.21.0): **four new capability domains (villager trade menu / NPC dialogue / virtual container / sensing) + per-client
   rendering + one trim** (the list is in the 1.21.0 rows of the table above).

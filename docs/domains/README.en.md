@@ -101,4 +101,4 @@ Use these values when writing `static_assert` gates:
 | `0x012100` · 1.27.0 | `EntityView::skinId`; real-entity interaction listeners; ABI layout stamp |
 | `0x012300` · 1.29.0 | `AddItemActor` interception; `EntityView` gains pose / scale / variant / colour |
 
-> ⚠ `0x012200` (= API 1.28.0) is not in the table. That number was skipped and never shipped as a release. See the [version & ABI matrix](../versions/api-version-matrix.md).
+> ⚠ `0x012200` (= API 1.28.0) is not in the table. That number was skipped and never shipped as a release. See the [version & ABI matrix](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.en.md).
