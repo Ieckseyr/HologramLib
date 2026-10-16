@@ -13,7 +13,7 @@ The same capabilities are reachable two ways: from **C++ plugins** (frozen pure-
 | Plugin version | `26.51.3` |
 | API version | `1.29.0` (`HOLOGLIB_API_VERSION 0x012300`) |
 | Platform | LeviLamina 26.51 · BDS 1.26.51 (protocol 2193) |
-| Prerequisites | LeviLamina; scripts additionally need LegacyRemoteCall and an LSE engine |
+| Script prerequisite | `lrca` (LegacyRemoteCall) |
 
 ---
 

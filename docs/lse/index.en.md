@@ -8,13 +8,7 @@ This page shows you how to get it running. The individual functions are paged by
 
 ## 1. Prerequisites
 
-| Install | Role | Notes |
-|---|---|---|
-| LeviLamina | The server itself | — |
-| LegacyRemoteCall (`lrca`) | The bridge between the script engine and C++ plugins | HologramLib probes for it at startup; if the probe fails it tries again once the server has finished starting |
-| legacy-script-engine-quickjs or nodejs | Runs your `.js` scripts | Either one; the interface is the same |
-
-**Load order does not matter**: the library looks for `lrca` inside `enable()` and, if it cannot find it, waits for the `ServerStarted` event as a safety net, so whichever loads first, they still connect.
+On the script side the only thing you need is **LegacyRemoteCall (`lrca`)** — that is what exposes the C++ interface to scripts. Load order does not matter: the library probes for `lrca` inside `enable()` and retries once the server has finished starting.
 
 ---
 

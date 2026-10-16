@@ -8,13 +8,7 @@ HologramLib 在脚本侧只占**一个命名空间** `HologramLib`：装上前�
 
 ## 1. 前置
 
-| 需要装 | 作用 | 备注 |
-|---|---|---|
-| LeviLamina | 服务端本体 | — |
-| LegacyRemoteCall（`lrca`） | 脚本引擎与 C++ 插件之间的桥 | HologramLib 启动时探测它；没探测到会在服务器启动完成后再试一次 |
-| legacy-script-engine-quickjs 或 nodejs | 跑 `.js` 脚本 | 两者任选，接口一样 |
-
-**加载顺序无所谓**：库在 `enable()` 里找 `lrca`，找不到就等 `ServerStarted` 事件兜底，所以谁先加载都能连上。
+脚本侧只需要 **LegacyRemoteCall（`lrca`）** —— 库靠它把 C++ 接口暴露给脚本。加载顺序无所谓：库在 `enable()` 里探测 `lrca`，没探测到会在服务器启动完成后再试一次。
 
 ---
 
