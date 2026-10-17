@@ -1,42 +1,80 @@
 # 更新日志
 
-本页是 [`README.md`](../../README.md) 原文「更新日志」小节的迁移归档，正文**逐字**复制，不改写、不摘要、不整理成表格。
-条目保持倒序排列：最新版本在最上，最早版本在最下，与原文顺序一致。
-嵌套子条目的缩进层级、加粗、⚠ 等符号与行内代码标记均与原文相同，各条目之间的空行节奏也照原样保留。
-API 版本与发布版本的对应关系见同目录 [`版本与ABI对照.md`](./api-version-matrix.md)。
+按发布版本倒序排列。每个条目给出 API 版本、新增或变更的导出、行为变更，以及是否需要重新编译 C++ 消费方。
+发布版本与 API 版本的对应关系见[版本与 ABI 对照](api-version-matrix.md)。
 
-> **读之前要知道的三处缺口 / 已知错误**（正文按原文**逐字保留、未改写、未编造**，差异只记在这里）：
-> ① 本页**没有** `26.40.6`（API 1.24.0，交易菜单纯协议真结算）的独立条目，也没有 `26.10.5` / `26.10.4` / `26.10.1` —— 原文从 `26.40.7` 直接跳到 `26.40.5`。这几个版本在 [`版本与ABI对照.md`](./api-version-matrix.md) 的完整对照表里都有记录。
-> ② 文中「见文末「第三方来源标注」」指的是项目根 [`README.md`](../../README.md) 的「许可」小节（悬浮字动态行重构自 Phantom，LGPL-3.0），**不在本文件内**。
-> ③ **一处沿用到今天的旧错误**：`26.40.5` 条目里写硫磺立方体「`invisible`, **默认关**」，与代码不符 —— `HologramLib.h` 是 `bool invisible{true};`（**默认开**），项目 README 与[实体与 NPC](../domains/entities-npc.md) 也都写「默认开」。**以代码为准。**
+## 版本概览
 
-- `26.40.10`（API 1.29.0）：**视图覆盖一次性补齐两件事** ——
-  ① **`AddItemActor`(id 15) 也纳入拦截**：掉落物（item 实体）的出生包走 `AddItemActor` 而不是 `AddActor`,
-  此前只拦后者 → "把掉落物换类型 / 隐藏"永远只做一半（设覆盖那一刻能把当时能看到的玩家换掉,
-  但引擎随后自己发的 `AddItemActor` 会把物品图标又塞回客户端; 2026-10-16 抓包实证: `RemoveActor` +
-  `AddActor(minecraft:cod)` 之后 13ms 就来一条同 uniqueId 的 `AddItemActor`）。现在 `hidden` 丢包、
-  `identifier` 丢原包 + 同 `runtimeId/uniqueId` 手写一只 `AddActor`（属性用 `health 20 / scale 1` 的
-  已验证配方, 不照抄 `ItemActor` 的 `maxHealth = 0`）; 判定抽成 `ViewOverrideLogic::planItemSpawn`,
-  离线检查 54 → 59 项; 新增 LSE 导出 `viewItemSpawnHooked()` 供脚本做能力协商。
-  ② **`EntityView` 补上"变成生物之后的姿态等设置"**（尾部追加）: `pose` / `metaScale` / `variant` /
-  `markVariant` / `colorIndex` / `color2`（各带 `hasXxx`; `false` = 该项不动）; LSE `viewEntity` 的 spec 串
-  补 `pose= / scale= / variant= / mark= / color= / color2=` 六个键。协议项与类型：`PoseIndex(79)`、
-  `Reserved38`+`Reserved53·54`（缩放与客户端碰撞箱）、`Variant(2)`=Int、`MarkVariant(43)`=Int、
-  `ColorIndex(3)`=Byte、`Color2Index(82)`=Byte —— **后两项是 Byte、前两项是 Int, 类型取自解码引擎的
-  真实出生包**, 不是照协议表猜的。用途: 掉落物实体化里"每条热带鱼掉落物长得不一样、河豚一律全鼓"
-  （`FishDropEntity`（独立插件））。⚠ `EntityView` 大小变了, 直接构造该结构体的 C++ 消费方要重新编译。
-  **同版二次修复**: `SetActorDataPacket` / `UpdateAttributesPacket` 在 26.40 线格式里都带 `mTick`,
-  而视图覆盖这条路一直没填（=0）→ 客户端把"元数据更新 / 属性更新"当**过期包丢掉**（2026-10-16 抓包证明:
-  出生包里 `id2/id43/id3/id82` 都在且值正确, 画面却仍是默认外观; 河豚也一直不鼓 —— 属性二次确认同样失效）。
-  现在: ① 这两个包统一填 `currentViewTick()`（`tickPulse` 每拍同步）; ② 出生包之后**紧跟一条同计划的
-  `SetActorData`**; ③ 再排一条 **+2 tick** 的确认（`ViewOverrideManager::scheduleMetaPush` / `flushMetaPushes`）。
-  customentity 域一直带着 tick 发（`sadp.mTick = tick`）, 所以那边的 `setVariant` / `setColorIndex` 一直是好的。
+| 发布版本 | API | 协议线 | 主要内容 | 新增导出 | C++ 消费方 |
+|---|---|---|---|---|---|
+| `26.40.11` / `26.51.4` | 1.30.0 | 26.40 · 26.51 | 三个协议原语 + 一个时机通知 | 3 | 无需重新编译（虚表未变） |
+| `26.40.10` / `26.51.3` | 1.29.0 | 26.40 · 26.51 | 视图覆盖补齐 `AddItemActor` 拦截、姿态/缩放/变种/颜色；修复元数据 tick | 1（`viewItemSpawnHooked`） | 需重新编译（`EntityView` 结构体变大） |
+| `26.40.9` | 1.27.0 | 26.40 | `EntityView::skinId`（同 id 换模型）、真实实体交互事件、ABI 布局戳 | 类方法 | 需重新编译（虚表追加） |
+| `26.40.8` | 1.26.0 | 26.40 | 逐观看者覆盖、四个界面域 | 若干 | 需重新编译 |
+
+## 26.40.11 / 26.51.4 — API 1.30.0
+
+26.40 与 26.51 两条协议线的发布内容一致。
+
+### 新增导出
+
+| 导出 | 说明 | 返回值 |
+|---|---|---|
+| `viewPollSpawnEvents()` | 返回并清空出生事件队列。每条格式为 `drop\|uid\|dim\|x\|y\|z\|` 或 `actor\|uid\|dim\|x\|y\|z\|<类型名>`；同一实体只入队一次 | `Array<String>` |
+| `itemDisplayCreateFull(...)` | 创建物品悬浮，并在创建时传入物品 NBT 与附魔光效，避免创建后再调用 `itemDisplaySetItemWithNbt` / `itemDisplaySetGlint` 引起的重建。参数与 `itemDisplayCreateAdvanced` 相同，末尾增加 `nbt`、`glint` | 悬浮 id |
+| `itemDisplayEmitForEntity(playerName, uid, item, aux, offsetY, rotX, rotY, rotZ, scale, nbt, glint)` | 对指定玩家，把 uniqueId 为 `uid` 的现有实体按 FMBE 规则渲染为物品模型：依次发送 `RemoveActor`、`AddActor`（fox）、`MobEquipment`、`SetActorData` 与动画序列。使用调用方给定的 id，库内不保存状态。`rotY` 传 `"0"` 时按该实体当前速度方向计算朝向 | `1` 物品平面 · `2` 3D 方块 · `<0` 失败 |
+
+### 修复
+
+- **附魔物品不显示光效。** 此前的导出无法在创建或发射的同一步给出 `glint`，必须另调 `itemDisplaySetGlint` 才可能生效，漏调或晚调即无光效；同时附魔内容由 `nbt` 决定，调用方先 `itemDisplaySetItemWithNbt` 再 `itemDisplaySetGlint` 会触发一次重建。
+  本版本 `itemDisplayCreateFull` 与 `itemDisplayEmitForEntity` 都在首次发包时接受 `nbt` 与 `glint`，附魔物品自第一帧起带光效，不依赖后续调用。
+
+### 范围
+
+本版本只新增上述三个导出。以下行为不由库实现，由调用方决定：是否接管某只实体、向哪些玩家发送、落地后如何恢复角度、方块与物品分别使用何种尺寸。
+
+### 兼容性
+
+本次只新增 LSE 导出（按名称注册）。`include/hologramlib/HologramLib.h` 的虚表未变，`HOLOGLIB_ABI_STAMP` 保持为 1，已编译的 C++ 消费方无需重新编译。
+
+### 参考实现
+
+`ItemPhys` 1.8.0（LSE 插件）以 `viewEntity` 的 `hidden=1` 配合 `itemDisplayEmitForEntity` 实现掉落物模型接管。
+
+## 26.40.10 / 26.51.3 — API 1.29.0
+
+26.51.3 将 26.40.8、26.40.9、26.40.10 三个批次迁移至 26.51 协议线，能力与 26.40.10 一致；26.51 侧仅有 `PlayerAuthInput` 输入位的适配。
+
+### 新增与变更
+
+- **`AddItemActor`（id 15）纳入拦截。** 掉落物出生走该包而非 `AddActor`，此前只拦后者，"换类型 / 隐藏"只能作用于设置覆盖时已在观看的玩家；引擎随后发送的 `AddItemActor` 会重新写入物品图标（2026-10-16 抓包：`RemoveActor` 与 `AddActor(cod)` 之后 13 ms 出现同 uniqueId 的 `AddItemActor`）。现为：`hidden` 丢弃该包；`identifier` 丢弃原包并手写一只同 `runtimeId` / `uniqueId` 的 `AddActor`，属性采用 health 20 / scale 1 的已验证配方。
+- **`EntityView` 增加变形后的外观项（尾部追加）。** 新增 `pose`、`metaScale`、`variant`、`markVariant`、`colorIndex`、`color2`，各带 `hasXxx` 标志，`false` 表示该项不变。LSE `viewEntity` 的 spec 串增加 `pose=`、`scale=`、`variant=`、`mark=`、`color=`、`color2=`。协议项：`PoseIndex(79)`、`Reserved38`、`Reserved53`/`Reserved54`、`Variant(2)` 为 Int、`MarkVariant(43)` 为 Int、`ColorIndex(3)` 为 Byte、`Color2Index(82)` 为 Byte；类型取自解码后的真实出生包。
+- **新增导出 `viewItemSpawnHooked()`**，用于脚本侧能力协商。
+
+### 修复
+
+- `SetActorDataPacket` 与 `UpdateAttributesPacket` 在 26.40 线格式中含 `mTick`，视图覆盖路径此前填 0，客户端按过期包丢弃，导致元数据与属性更新不生效（抓包显示出生包内 `id2`、`id43`、`id3`、`id82` 值正确，画面仍为默认外观）。现统一填写 `currentViewTick()`，并在出生包之后补发一条 `SetActorData`、再排一条 +2 tick 的确认。
+- `ghost*` 的两个导出（`ghostPollInteractions`、`ghostClearInteractions`）此前未接入 `ModEntry::exportLseFunctions()`，脚本侧 `ll.import` 返回 `null`；现已接回。
+
+### 需要重新编译
+
+`EntityView` 结构体大小改变（尾部追加六个字段），直接构造该结构体的 C++ 消费方需重新编译；虚表槽位不变。
+
+### 备注
+
+- `26.51.2` 已撤回，使用 `26.51.3` 或 `26.51.4`。
+- 26.40.9 与 26.40.10 关于实体元数据与 `AddItemActor` 的结论基于 26.40 抓包；26.51 线只核对了协议常量逐字节一致，未在 26.51 客户端复测。
+
+## 历史条目
+
+以下为更早版本的原始条目，保持提交时的文本。
+
 - `26.40.9`（API 1.27.0）：**`EntityView::skinId`（+ `scale` / `yOffset`）—— 非玩家实体"换成我们的模型"**（拦下的出生包 + 库自己的包替换, **同一个 runtimeId/uniqueId**）: 客户端看到已注册皮肤（可自定义几何）的玩家模型, 服务端那边还是那只生物 —— **点它/打它/瞄准都是它本人**。配套吃掉该实体的 `MoveActor*`(18/111) 并每 tick 用 `MoveActorAbsolute` 推位置/朝向、`PlayerList` 条目 20 tick 后摘掉、撤销时重发真实出生包；`scale` 等比碰撞箱（元数据 53/54）、`yOffset` 把模型原点对齐到脚位。消费方示例: MSkinventory 的"同 id 换皮"。
   - **（批次内追加，未发布）移除：NPC 对话框 `avatarViewSpec` 的 `skin=` 分支**（收缩, 明记）。它会用 `PlayerList(Add)`+`AddPlayer` 把载体换成"玩家模型"—— 实测客户端在该载体上点进菜单会把界面关掉（同一次测试里 `type=` 载体：僵尸/鸡, 一切正常）, 属该路径当前不可用。按"库只做机制"的定位, "让客户端认它是玩家"的路线留给消费方自建（`playerNpcs()` 造真·假玩家 + `npcUniqueIdOverride` 把对话挂到它 id 上）。**保留**: `type=` / `name=`（可自定义实体类型/标题）与 `avatarSkinVariant`（NPC 内置皮肤变体）。`avatarViewSpec` / `avatarSkinVariant` 字段本身不动（**ABI 不变**, 消费方无需重编译）; 内部顺带掉一段从未生效的死代码（玩家模型载体的正段 id 分配）。
   - **真实实体交互事件**：`addActorInteractListener` / `removeActorInteractListener`（类尾追加）—— 玩家右键 / 攻击**服务端真实实体**时回调；复用库已有的收包钩子（不新增 detour 层），多播互不覆盖，返回 token 用于移除。
-  - **ABI 布局戳**：头文件携带虚表布局描述符 + 消费方编译期自检（库侧运行期拦截"布局不一致的消费方"）—— 把 2026-10-09 / 10-10 两次"中段挪槽"启动崩溃固化成机制；详见 [版本与ABI对照.md](api-version-matrix.md)「ABI 事故（明记）」。
+  - **ABI 布局戳**：头文件携带虚表布局描述符 + 消费方编译期自检（库侧运行期拦截"布局不一致的消费方"）—— 把 2026-10-09 / 10-10 两次"中段挪槽"启动崩溃固化成机制；详见 [版本与ABI对照.md](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.md)「ABI 事故（明记）」。
   - LSE：`viewEntity` 的 spec 串新增 **`skin=<皮肤id>`**（等价 `EntityView::skinId`；皮肤取自 `IPlayerNpc` 注册表）。
-- `26.40.8`（API 1.26.0）：**视图覆盖残骸清理 + `IPlayerNpc` 追加五方法 + 悬浮字/text 域收缩与补全**（收缩明记，见 [版本与ABI对照.md](api-version-matrix.md)）。
+- `26.40.8`（API 1.26.0）：**视图覆盖残骸清理 + `IPlayerNpc` 追加五方法 + 悬浮字/text 域收缩与补全**（收缩明记，见 [版本与ABI对照.md](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.md)）。
   - **视图覆盖（`IViewOverride`）代码整理**：行为不变 —— 出站钩子只决定"放行 / 丢弃"，**原包字段一律不改**
     （自 26.40.7 起即如此）。本次清掉与行为不符的**旧世界残骸**：重写过期的"能原包改的就原包改"顶注、
     删除就地改写的死代码（`dataListOf` / `setItemById` / `cloneItems` / `restoreItems`）、判定链路全 const 化
@@ -188,7 +226,7 @@ API 版本与发布版本的对应关系见同目录 [`版本与ABI对照.md`](.
   - `ITradeMenu` 新增 `addOffer` / `setTier`：追加一条交易或改档位/经验条时**就地重发**交易表，不必关掉重开。
   - **四个新域补齐 LSE 导出**：`trade*`（7）、`container*`（9）、`npcDialog*`（7）、`sensing*`（3）；容器与 NPC 对话的点击在脚本侧走**轮询队列**（`containerPollClicks` / `npcDialogPollClicks`，取走并清空，条目是可切分的字符串），`ghost*` 早就用的同一套办法。
   - `entity*` 补逐客户端渲染导出：`entitySetPlayerNametag` / `entitySetPlayerScale` / `entitySetPlayerEquipmentSlot` / `entityClearPlayerAppearance`。
-  - API 版本因此抬到 **1.22.0**：撤回已发布过的东西属于收缩（正常该走大版本），这里抬次版本并在 [`版本与ABI对照.md`](./api-version-matrix.md) 明记原因。按 1.21.0 写过交易菜单点击监听的代码升上来会**编译报错**（不会静默变行为）。
+  - API 版本因此抬到 **1.22.0**：撤回已发布过的东西属于收缩（正常该走大版本），这里抬次版本并在 [`版本与ABI对照.md`](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.md) 明记原因。按 1.21.0 写过交易菜单点击监听的代码升上来会**编译报错**（不会静默变行为）。
 - `26.40.3`（API 1.21.0）：**四个新能力域（村民交易菜单 / NPC 对话框 / 虚拟容器 / 感知域）+ 逐客户端渲染 + 一次裁剪**（清单见上表 1.21.0 各行）。
   - **村民交易菜单 `ITradeMenu`**：协议层自建 `UpdateTrade` 开界面（包级字段与 Offers NBT 都与 BDS 抓包逐字节对拍），隐身载体实体驱动经验条；点击回传按配方 netId 精确定位条目（`offerIndex` / `recipeNetId`），另有与参考实现 GMLIB ChestUI 同语义的逐动作回调（`src` / `dst` / `amount`，关闭时以 `slot=-1, amount=-1` 哨兵收尾）。**（本条的点击回传已在 26.40.4 按需求撤回 —— 详见上一条。）**两条路径由 `usePacketOffers` 选：**默认纯协议层**（服务端不放交易表 → 天然只读），置 `false` 走真实交易表 + BDS `openTrading`（成交真的换物品）。载体类型 `carrierIdentifier` 可选村民或流浪商人。
   - **NPC 对话框 `INpcDialogue`**：`NpcDialoguePacket` + 合成 `minecraft:npc` 载体（放在世界下方 → 客户端看不到实体，但对话框头像照常渲染）；按钮 / 关闭回传，多层级对话按场景名路由。

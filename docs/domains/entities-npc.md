@@ -71,7 +71,7 @@ lib.removeGhostInteractListener(token);
 > ⚠ **已知问题：`ghost*` 的 2 个 LSE 导出当前不可用。**
 > `ghostPollInteractions` / `ghostClearInteractions` 在 `src/ghost/GhostInteractRouter.cpp` 里确实调用了 `exportAs`，但 `ModEntry::exportLseFunctions()` **没有调用 `GhostInteractRouter::exportLse()`** —— 所以运行期不会注册，脚本侧 `ll.import("HologramLib", "ghostPollInteractions")` 得 `null`。
 > **C++ 侧的多播监听器不受影响**（不经过 LSE 注册）。脚本侧要拿 ghost 事件目前只能靠 C++ 侧转发。
-> 详见 [LSE 接口参考 · 已知问题](../reference/lse-api.md#已知问题)。
+> 详见 [LSE 脚本接口 · 交互事件](../lse/entities.md)。
 
 ---
 
@@ -181,5 +181,5 @@ auto id = lib.sulfurDisplays().create(spec);
 ## 相关
 
 - 完整签名：[C++ 接口参考](../reference/cpp-api.md)（§1.6 自定义实体 / §1.7 Ghost / §1.9 假玩家 NPC / §1.15 硫磺立方体）
-- LSE 函数清单：[LSE 接口参考](../reference/lse-api.md)（§2.6 / §2.7 / §2.9 / §2.15）
+- LSE 函数清单：[实体、粒子与交互](../lse/entities.md) · [假玩家 NPC](../lse/player-npc.md)
 - 想「给真生物换模型」而不是造新实体：[视图覆盖与感知](view-sensing.md)

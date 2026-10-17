@@ -99,6 +99,7 @@ struct AnimEntry {
     std::string      animation;
     std::string      controller;
     std::string      stopExpression;
+    bool             noAliveCheck{false};  // 一次性原语(emit)发的条目: 实体不在显示表里, 跳过活性检查
 };
 
 std::multimap<std::uint64_t, AnimEntry>& animQueue() {
@@ -494,14 +495,23 @@ constexpr std::string_view kBlockAttackRotExpr =
 // 2026-08-24: 后缀从 runtimeId 改为展示 id —— respawn 现在会更换新实体 ID（防客户端
 // runtimeId 重映射串台）, 若继续用 runtimeId 每次操作都会注册新名字导致客户端注册表泄漏;
 // 展示 id 稳定不变 → 同一展示多次 respawn 同名原地覆盖（旧实体已被 Remove）, 零累积。
-void scheduleAnims(int64_t id, ItemDisplayConfig const& data, Runtime const& rt, Player& player, int mode) {
+void scheduleAnims(
+    int64_t                  id,
+    ItemDisplayConfig const& data,
+    Runtime const&           rt,
+    Player&                  player,
+    int                      mode,
+    bool                     noAliveCheck = false
+) {
     auto const uuid  = player.getUuid();
     auto const base  = currentTick();
     auto const block = (mode == 2);
     auto const tag   = "." + std::to_string(id);
 
     auto push = [&](std::uint64_t at, std::string anim, std::string ctrl, std::string stop) {
-        animQueue().emplace(at, AnimEntry{uuid, rt.runtimeId, std::move(anim), std::move(ctrl), std::move(stop)});
+        AnimEntry e{uuid, rt.runtimeId, std::move(anim), std::move(ctrl), std::move(stop)};
+        e.noAliveCheck = noAliveCheck;
+        animQueue().emplace(at, std::move(e));
     };
 
     // 三轮投递（spawn 后即刻 + 2s + 5s 重投）: 玩家上线首 tick 实体即 spawn,
@@ -1161,6 +1171,49 @@ bool ItemDisplayManager::follow(int64_t id, std::string const& playerName, float
     return true;
 }
 
+// ── 单发原语: FMBE 出生序列（用**给定 id**发, 无状态）──
+// 与"另起一只假狐狸"的区别: 这里用调用方给的 uniqueId/runtimeId, 于是客户端那只狐狸
+// 就是它本人 —— 位移/删除都由引擎的包驱动。库只负责发这一套包, 何时发/发给谁由调用方决定。
+int ItemDisplayManager::emitForEntity(std::string const& playerName, std::int64_t uniqueId, ItemDisplayConfig const& cfg) {
+    auto level = ll::service::getLevel();
+    if (!level) return -1;
+    Player* player = nullptr;
+    level->forEachPlayer([&](Player& p) {
+        if (p.getRealName() == playerName) { player = &p; return false; }
+        return true;
+    });
+    if (!player) return -1;
+    auto* ent = level->fetchEntity(ActorUniqueID(uniqueId), false);
+    if (!ent) return -1;
+    auto stack = buildItemStack(cfg.item, cfg.itemAux, cfg.itemNbt, cfg.itemGlint);
+    if (!stack) return -1;
+
+    auto const  runtimeId = static_cast<std::uint64_t>(ent->getRuntimeID().rawID);
+    auto const& pos       = ent->getPosition();
+    auto const& vel       = ent->getVelocity();
+    int const   mode      = effectiveMode(cfg, *stack);
+
+    ItemDisplayConfig data = cfg;
+    data.x = pos.x;
+    data.y = pos.y;
+    data.z = pos.z;
+    if (data.rotY == "0") { // 没显式给朝向 → 用速度方向（原版 ItemPhys 的做法）
+        data.rotY = std::format("{:.2f}", std::atan2(vel.x, -vel.z) * 57.2957795f + 90.0f);
+    }
+
+    // 先删掉客户端可能已有的那只（已有掉落物必须删, 否则同 id 的 AddActor 会被忽略）
+    {
+        sculk::protocol::RemoveActorPacket rm;
+        rm.mActorUniqueId = uniqueId;
+        sendSculkToPlayer(*player, rm);
+    }
+    sendFoxActor(*player, data, Runtime{static_cast<std::uint64_t>(uniqueId), runtimeId, {}});
+    sendEquipment(*player, runtimeId, *stack);
+    sendDataPacket(*player, runtimeId, data.hitboxWidth, data.hitboxHeight);
+    scheduleAnims(uniqueId, data, Runtime{static_cast<std::uint64_t>(uniqueId), runtimeId, {}}, *player, mode, true);
+    return mode;
+}
+
 bool ItemDisplayManager::unfollow(int64_t id) {
     std::lock_guard lock(mMutex);
     mFollowers.erase(id); // 无跟随关系也返回 true（幂等; 方块保留在当前位置）
@@ -1324,7 +1377,8 @@ LL_TYPE_INSTANCE_HOOK(ItemDisplayTickHook, HookPriority::Normal, Level, &Level::
         if (auto* player = findPlayerByUuid(entry.playerUuid)) {
             // 发送前活性验证: 实体已被 despawn 的动画条目直接丢弃
             // （双保险——despawnForPlayer 已清理队列, 此处拦截一切残余时序窗口）
-            if (ItemDisplayTickHookAccess::alive(
+            if (entry.noAliveCheck
+                || ItemDisplayTickHookAccess::alive(
                     ItemDisplayManager::getInstance(),
                     entry.runtimeId,
                     entry.playerUuid

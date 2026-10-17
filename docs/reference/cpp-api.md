@@ -110,7 +110,7 @@ enum class ShapeType : int { Text=0, Line=1, Box=2, Circle=3, Sphere=4, Arrow=5 
 > **1.26.0 收缩（明记）**：`setLineScale` / `setLineColor` / `setLineGradient` / `setLineRainbow` /
 > `setLineScroll` / `setVerticalAnimation` / `setLineSpacing` 与 `tick` 已移除 —— 这些在"整块单形状"
 > 模型下不可实现或空转。原因与替代（§ 颜色代码 / setScale）见 [更新日志](../versions/changelog.md)
-> 与 [版本与 ABI 对照](../versions/api-version-matrix.md)。
+> 与 [版本与 ABI 对照](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.md)。
 > **C++ ABI**：它们保留为**废弃空槽**（非纯虚 + 内联空实现 + `[[deprecated]]`，调用返回 `false` / 无动作），
 > 虚表槽位与 1.25.0 一致 —— 未重编译的旧消费方二进制按旧槽位调用不会错位；LSE 侧导出照旧删除。
 
@@ -620,7 +620,7 @@ struct SulfurDisplaySpec {
 
 ## 1.16 IViewOverride（客户端视图覆盖，1.25.0）
 
-> **1.29.0（26.40.10）补齐: `AddItemActor` 也纳入拦截。** 掉落物（item 实体）的出生包走的是
+> **1.29.0（26.40.10，26.51 线随 `26.51.3`）补齐: `AddItemActor` 也纳入拦截。** 掉落物（item 实体）的出生包走的是
 > `AddItemActor`(id 15) 而不是 `AddActor`(id 13)，此前只拦后者 → "把掉落物换类型/隐藏"只做一半:
 > 设覆盖那一刻能把已经在看的玩家换掉，但引擎随后自己发的 `AddItemActor` 会把物品图标又塞回客户端
 > （2026-10-16 抓包实证: `RemoveActor` + `AddActor(minecraft:cod)` 之后 13ms 就来一条同 uniqueId 的

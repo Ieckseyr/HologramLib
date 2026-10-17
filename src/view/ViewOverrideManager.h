@@ -37,6 +37,10 @@ class Actor;
 
 namespace debugshape_export::view {
 
+// 出生事件队列（时机通知; 脚本侧 viewPollSpawnEvents 取走, 读完清空）
+void pushSpawnEvent(std::string event);
+std::vector<std::string> drainSpawnEvents();
+
 class ViewOverrideManager {
 public:
     static ViewOverrideManager& getInstance();

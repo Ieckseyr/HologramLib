@@ -2,7 +2,7 @@
   <img src="docs/assets/HologramLib.svg" alt="HologramLib — 基岩版协议层统一悬浮显示库" width="100%">
 </div>
 
-<!-- TODO: 文档站上线后，把下面这行改成在线地址（例如 https://<owner>.github.io/HologramLib/） -->
+<!-- 文档站: https://ieckseyr.github.io/Hologramlib.github.io/ —— 构建产物推在 Ieckseyr/Hologramlib.github.io 仓库，源码仍是本仓库 docs/ -->
 [中文](README.md) · [English](README.en.md) · [文档](docs/index.md)
 
 HologramLib 把 18 个「往客户端塞东西」的能力域收进一个前置插件：同一份实现同时供 C++ 插件（冻结的纯虚接口）与 LSE 脚本（`ll.import`）调用，全部走协议层，不生成真实实体、不写存档、不碰服务端世界状态。
@@ -11,10 +11,10 @@ HologramLib 把 18 个「往客户端塞东西」的能力域收进一个前置�
 
 | | |
 |---|---|
-| 插件发布版本 | `26.40.10` |
-| API 版本 | `1.29.0`（`HOLOGLIB_API_VERSION 0x012300`） |
+| 插件发布版本 | `26.40.11` |
+| API 版本 | `1.30.0`（`HOLOGLIB_API_VERSION 0x012400`） |
 | 运行平台 | LeviLamina 26.40 · BDS 1.26.40 · 协议 2168 |
-| 对外接口 | 唯一公开头 `include/hologramlib/HologramLib.h` + LSE 命名空间 `HologramLib`（268 个运行期导出） |
+| 对外接口 | 唯一公开头 `include/hologramlib/HologramLib.h` + LSE 命名空间 `HologramLib`（271 个运行期导出） |
 | 许可 | MIT（悬浮字「动态行」部分重构自 Phantom，按 LGPL-3.0） |
 
 ## 能力域
@@ -25,7 +25,7 @@ HologramLib 把 18 个「往客户端塞东西」的能力域收进一个前置�
 | 悬浮字全息 | `IHologramText` | `holo*` · 26 | 多行文本、整块颜色 / 缩放 / 背景框 / 穿墙 / 旋转、动态行（内容池轮播 + 行级变量解析）、跨维度迁移 |
 | 渐变线 | — | `gradient*` · 11 | 多色渐变轨迹线 |
 | 物品详情 | `IItemDetail` | `itemDetail*` · 2 | 自动翻译「钻石 x64」 |
-| FMBE 物品悬浮 | `IItemDisplay` | `itemDisplay*` · 33 | 「狐狸 + 发包」；无感创建、白名单、视距、Molang 驱动三轴动画 |
+| FMBE 物品悬浮 | `IItemDisplay` | `itemDisplay*` · 35 | 「狐狸 + 发包」；无感创建、白名单、视距、Molang 驱动三轴动画 |
 | 自定义实体 | `ICustomEntity` | `entity*` · 37 | 协议层生成实体：姿态 / 装备槽 / 动画 / ActorLink 骑乘；逐客户端朝向 |
 | Ghost 交互 | 监听器 + 轮询 | `ghost*` · 2 | 非真实实体的交互事件路由（InteractPacket 钩子；C++ 侧支持多播） |
 | 粒子形状 | `IParticleShape` | `particle*` · 22 | 点 / 线 / 矩形环 / 填充面 / 盒框 / 六面 / 多面体 + moveTo / 旋转 / 自旋 / 跟随 |
@@ -42,7 +42,7 @@ HologramLib 把 18 个「往客户端塞东西」的能力域收进一个前置�
 
 上表的 16 个前缀对应 16 个有 LSE 导出的域。剩下两个方向相反：渐变线只有 LSE 接口，逐玩家变量全息只有 C++ 接口。
 
-LSE 侧已知问题：源码里共 270 处 `exportAs`，但 `ghost*` 的 2 处没接进注册流程（`GhostInteractRouter::exportLse()` 无人调用），运行期实际注册 268 个。脚本侧 `ll.import` 得 `null`，C++ 侧的多播监听器不受影响。详见 [LSE 接口参考](docs/reference/lse-api.md#已知问题)。
+LSE 侧已知问题：源码里共 273 处 `exportAs`，但 `ghost*` 的 2 处没接进注册流程（`GhostInteractRouter::exportLse()` 无人调用），运行期实际注册 271 个。脚本侧 `ll.import` 得 `null`，C++ 侧的多播监听器不受影响。详见 [LSE 脚本接口 · 交互事件](docs/lse/entities.md)。
 
 ## 设计说明
 
@@ -104,6 +104,7 @@ add_links("HologramLib")
 ```
 
 ### LSE 脚本
+> LSE 标准接口（`mc` / `ll` / `logger` / 事件 / NBT / 表单 / 数据库…）见 [LSE 文档站](https://lse.levimc.org/zh/apis/)；这里只列 HologramLib 自己的命名空间。
 
 ```js
 // 统一命名空间 "HologramLib"，16 个前缀分域
@@ -139,7 +140,7 @@ if (sensingIsTouch("Steve")) {
 |---|---|
 | 把库跑起来、写第一个功能 | [快速开始](docs/getting-started.md) |
 | 知道某个能力域怎么用、有哪些实测坑 | [能力域指南](docs/domains/README.md) |
-| 查某个接口的完整签名 | [C++ 接口参考](docs/reference/cpp-api.md) · [LSE 接口参考](docs/reference/lse-api.md) |
+| 查某个接口的完整签名 | [C++ 接口参考](docs/reference/cpp-api.md) · [LSE 脚本接口](docs/lse/index.md) |
 | 确认版本兼容性 / 会不会 ABI 断裂 | [版本与 ABI 对照](docs/versions/api-version-matrix.md) |
 | 理解内部分层与运行时开销 | [架构总览](docs/architecture/overview.md) · [协议层实现笔记](docs/architecture/protocol-notes.md) |
 | 看某个版本改了什么 | [更新日志](docs/versions/changelog.md) |
@@ -151,9 +152,9 @@ if (sensingIsTouch("Steve")) {
 
 | 编号 | 位置 | 用途 |
 |---|---|---|
-| 插件发布版本 | `manifest.json` 的 `version` | 部署用，与 git tag 同名（形如 `26.40.10`） |
-| API 版本 | 本文档上方的 `1.29.0` | 人读的能力版本 |
-| `HOLOGLIB_API_VERSION` | `include/hologramlib/HologramLib.h` | 代码里唯一的版本依据，`0x012300` |
+| 插件发布版本 | `manifest.json` 的 `version` | 部署用，与 git tag 同名（形如 `26.40.11`） |
+| API 版本 | 本文档上方的 `1.30.0` | 人读的能力版本 |
+| `HOLOGLIB_API_VERSION` | `include/hologramlib/HologramLib.h` | 代码里唯一的版本依据，`0x012400` |
 
 三者的完整对应表、编码规律，以及两次 API 收缩的原因，见 [版本与 ABI 对照](docs/versions/api-version-matrix.md)。
 

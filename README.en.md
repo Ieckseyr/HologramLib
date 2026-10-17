@@ -2,7 +2,7 @@
   <img src="docs/assets/HologramLib.svg" alt="HologramLib — unified protocol-layer hologram & display library for Bedrock servers" width="100%">
 </div>
 
-<!-- TODO: once the docs site is live, point this at the Pages URL (e.g. https://<owner>.github.io/HologramLib/) -->
+<!-- Docs site: https://ieckseyr.github.io/Hologramlib.github.io/ — the built site is pushed to the Ieckseyr/Hologramlib.github.io repo; the sources stay in this repo under docs/ -->
 [中文](README.md) · [English](README.en.md) · [Docs](docs/index.en.md)
 
 HologramLib folds 18 capability domains for "putting things on a Bedrock client" into one prerequisite-only plugin. A single implementation serves both C++ plugins (frozen pure-virtual interfaces) and LSE scripts (`ll.import`), and everything goes through the protocol layer: no real entities are spawned, nothing is written to the world save, no server-side world state is touched.
@@ -11,10 +11,10 @@ HologramLib folds 18 capability domains for "putting things on a Bedrock client"
 
 | | |
 |---|---|
-| Plugin release | `26.40.10` |
-| API version | `1.29.0` (`HOLOGLIB_API_VERSION 0x012300`) |
+| Plugin release | `26.40.11` |
+| API version | `1.30.0` (`HOLOGLIB_API_VERSION 0x012400`) |
 | Platform | LeviLamina 26.40 · BDS 1.26.40 · protocol 2168 |
-| Public surface | One public header, `include/hologramlib/HologramLib.h`, plus the LSE namespace `HologramLib` (268 exports registered at runtime) |
+| Public surface | One public header, `include/hologramlib/HologramLib.h`, plus the LSE namespace `HologramLib` (271 exports registered at runtime) |
 | License | MIT (the floating-text "dynamic lines" feature is derived from Phantom and licensed LGPL-3.0) |
 
 ---
@@ -27,7 +27,7 @@ HologramLib folds 18 capability domains for "putting things on a Bedrock client"
 | Holographic text | `IHologramText` | `holo*` · 26 | Multi-line text as one block: colour / scale / background / depth test / rotation, dynamic lines (content-pool rotation + per-line variables), cross-dimension moves |
 | Gradient lines | — | `gradient*` · 11 | Multi-colour gradient trails |
 | Item detail | `IItemDetail` | `itemDetail*` · 2 | Translates "diamond x64" for you |
-| FMBE item display | `IItemDisplay` | `itemDisplay*` · 33 | "Fox carrying an item"; creation, whitelists, view distance, Molang-driven animation |
+| FMBE item display | `IItemDisplay` | `itemDisplay*` · 35 | "Fox carrying an item"; creation, whitelists, view distance, Molang-driven animation |
 | Custom entities | `ICustomEntity` | `entity*` · 37 | Protocol-level entities: poses, equipment slots, animations, ActorLink riding; per-viewer rotation |
 | Ghost interaction | Listeners + polling | `ghost*` · 2 | Interaction-event routing for entities that do not really exist (InteractPacket hook; multicast on the C++ side) |
 | Particle shapes | `IParticleShape` | `particle*` · 22 | Points / lines / rectangular rings / filled planes / box frames / six-faced / polyhedra, plus moveTo / rotate / spin / follow |
@@ -40,11 +40,11 @@ HologramLib folds 18 capability domains for "putting things on a Bedrock client"
 | Virtual container | `IContainerMenu` | `container*` · 10 | A reimplementation of GMLIB's ChestUI: client-side chest block + block-entity NBT + `ContainerOpen`; 27 or 54 slots; interactive mode lets items actually be dragged around |
 | Fake inventory | `IFakeInventory` | `fakeInv*` · 9 | Rewrites the client's view of the player inventory at the protocol layer (the real inventory is untouched); clicks report slot indices |
 | Sulfur-cube display | `ISulfurDisplay` | `sulfur*` · 10 | Spawns `minecraft:sulfur_cube` and "swallows" a block in its main hand; the cube is invisible by default, leaving only the block |
-| Client view override | `IViewOverride` | `view*` · 18 | Intercepts outbound packets per player (intercept-only): change type / nametag / hide from that player / swap the model while keeping the id / re-type dropped items / fake blocks |
+| Client view override | `IViewOverride` | `view*` · 18 | Intercepts outbound packets per player (suppress-only): change type / nametag / hide from that player / swap the model while keeping the id / re-type dropped items / fake blocks |
 
 Of the 18 domains, 16 have LSE exports (the 16 prefixes above). The two exceptions point in opposite directions: `gradient*` is LSE-only with no C++ interface, while per-viewer text variables are C++-only with no LSE export.
 
-> ⚠ Known issue: the LSE surface contains 270 `exportAs` calls, but the 2 `ghost*` ones are never wired into registration (`GhostInteractRouter::exportLse()` is never called), so **268** are registered at runtime. `ll.import` returns `null` for scripts; the C++ multicast listeners are unaffected. See the [LSE API reference](docs/reference/lse-api.md#已知问题) *(zh)*.
+> ⚠ Known issue: the LSE surface contains 271 `exportAs` calls, but the 2 `ghost*` ones are never wired into registration (`GhostInteractRouter::exportLse()` is never called), so **269** are registered at runtime. `ll.import` returns `null` for scripts; the C++ multicast listeners are unaffected. See [LSE scripting API · interaction events](docs/lse/entities.md) *(zh)*.
 
 ---
 
@@ -110,6 +110,7 @@ add_links("HologramLib")
 ```
 
 ### LSE script
+> The standard LSE interfaces (`mc`, `ll`, `logger`, events, NBT, forms, databases …) are covered by the [LSE docs](https://lse.levimc.org/apis/); this section only covers HologramLib's own namespace.
 
 ```js
 // One namespace, "HologramLib", with 16 domain prefixes
@@ -144,19 +145,19 @@ Consumers only need `getInstance()` in `enable()`; there is no declared dependen
 
 ## Documentation
 
-Full documentation lives in [`docs/`](docs/index.en.md), also published as a [docs site](docs/index.en.md) (GitHub Pages, rebuilt on every push to the main branch).
+Full documentation lives in [`docs/`](docs/index.en.md), also published as a [docs site](https://ieckseyr.github.io/Hologramlib.github.io/en/) (GitHub Pages, rebuilt on every push to the main branch).
 
 | I want to… | Go to |
 |---|---|
 | Get it running and write my first feature | [Getting started](docs/getting-started.en.md) |
 | Learn how a domain works, including field-tested pitfalls | [Domain guides](docs/domains/README.en.md) |
-| Look up a full signature | [C++ API](docs/reference/cpp-api.md) · [LSE API](docs/reference/lse-api.md) *(zh)* |
-| Check version compatibility / ABI breakage | [Version & ABI matrix](docs/versions/api-version-matrix.md) *(zh)* |
-| Understand the internal layering and runtime cost | [Architecture overview](docs/architecture/overview.en.md) · [Protocol notes](docs/architecture/protocol-notes.md) *(zh)* |
-| See what changed in a release | [Changelog](docs/versions/changelog.md) *(zh)* |
+| Look up a full signature | [C++ API](docs/reference/cpp-api.en.md) · [LSE API](docs/lse/index.en.md) |
+| Check version compatibility / ABI breakage | [Version & ABI matrix](docs/versions/api-version-matrix.en.md) |
+| Understand the internal layering and runtime cost | [Architecture overview](docs/architecture/overview.en.md) · [Protocol notes](docs/architecture/protocol-notes.en.md) |
+| See what changed in a release | [Changelog](docs/versions/changelog.en.md) |
 | Contribute to this library | [Design notes](#design-notes) · [Architecture overview](docs/architecture/overview.en.md) |
 
-English coverage is intentionally partial. The translated entry layer is this README plus [`docs/index.en.md`](docs/index.en.md), [`docs/getting-started.en.md`](docs/getting-started.en.md), [`docs/domains/README.en.md`](docs/domains/README.en.md) and [`docs/architecture/overview.en.md`](docs/architecture/overview.en.md). Every other page falls back to the Chinese original. The C++ and LSE API references in particular are large and change with every release, so they are not yet dual-maintained.
+The documentation set is bilingual: every page under [`docs/`](docs/index.en.md) has a Chinese original and an English version (`<name>.md` / `<name>.en.md`), and the docs site's header switches between the two trees. The two trees are kept in step — if a page exists only in Chinese, please open an issue.
 
 ---
 
@@ -168,7 +169,7 @@ English coverage is intentionally partial. The translated entry layer is this RE
 | API version | `1.29.0` above | Human-readable capability version |
 | `HOLOGLIB_API_VERSION` | `include/hologramlib/HologramLib.h` | The only version source in code, `0x012300` |
 
-The full mapping, the encoding rule, and the reasons behind the two documented API shrinks are in the [version & ABI matrix](docs/versions/api-version-matrix.md) *(zh)*.
+The full mapping, the encoding rule, and the reasons behind the two documented API shrinks are in the [version & ABI matrix](docs/versions/api-version-matrix.en.md).
 
 ---
 
@@ -178,4 +179,4 @@ MIT — see [LICENSE](LICENSE).
 
 The holographic-text "dynamic lines" feature (the `FloatingTextLine` content pool, rotation interval, per-line variable toggle, interval-modulo rotation, 0.5 s throttled refresh with per-player resend, and content deduplication) is derived from [Phantom](https://github.com/GroupMountain/Phantom) (a LeviLamina Bedrock hologram plugin, GNU Lesser General Public License v3.0).
 
-As required by LGPL-3.0, the origin is recorded here: that derived portion and its derivative works are distributed under LGPL-3.0, copyright the Phantom contributors (GroupMountain); the rest of the library remains MIT. Distributing a build that contains that portion means also satisfying LGPL-3.0 — keep the copyright and licence notices, provide the corresponding source (this repository does; origins are marked in the header of `src/FloatingTextManager.h`, above the relevant functions in `src/FloatingTextManager.cpp`, and in this README and `docs/versions/api-version-matrix.md`), and keep that portion replaceable / independently rebuildable.
+As required by LGPL-3.0, the origin is recorded here: that derived portion and its derivative works are distributed under LGPL-3.0, copyright the Phantom contributors (GroupMountain); the rest of the library remains MIT. Distributing a build that contains that portion means also satisfying LGPL-3.0 — keep the copyright and licence notices, provide the corresponding source (this repository does; origins are marked in the header of `src/FloatingTextManager.h`, above the relevant functions in `src/FloatingTextManager.cpp`, and in this README and `docs/versions/api-version-matrix.en.md`), and keep that portion replaceable / independently rebuildable.

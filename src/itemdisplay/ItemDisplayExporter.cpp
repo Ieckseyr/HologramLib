@@ -61,6 +61,54 @@ void ItemDisplayExporter::exportAll() {
             return mgr.create(cfg);
         });
 
+    // 单发原语: 让某玩家把 uid 这只实体看成 FMBE 物品模型（一次性发全套包, 无状态）
+    // itemDisplayEmitForEntity(playerName, uniqueId: i64, item: s, aux: i, offsetY: s,
+    //                         rotX: s, rotY: s, rotZ: s, scale: s, nbt: s, glint: b) -> i（1=item 2=block, <0 失败）
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "itemDisplayEmitForEntity",
+        [&mgr](std::string const& playerName,
+               int64_t            uniqueId,
+               std::string const& item,
+               int                aux,
+               std::string const& offsetY,
+               std::string const& rotX,
+               std::string const& rotY,
+               std::string const& rotZ,
+               std::string const& scale,
+               std::string const& nbt,
+               bool               glint) -> int64_t {
+            ItemDisplayConfig cfg;
+            cfg.item      = item;
+            cfg.itemAux   = aux;
+            cfg.offsetY   = offsetY;
+            cfg.rotX      = rotX;
+            cfg.rotY      = rotY;
+            cfg.rotZ      = rotZ;
+            cfg.scale     = scale;
+            cfg.itemNbt   = nbt;
+            cfg.itemGlint = glint;
+            return mgr.emitForEntity(playerName, uniqueId, cfg);
+        });
+
+    // 单发原语: 建展示时直接带 NBT / 附魔光效（省掉"建完再改"的那次重建）
+    // itemDisplayCreateFull(x,y,z,dim,item,aux,offX,offY,offZ,rotX,rotY,rotZ,scale,nbt,glint) -> i64
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "itemDisplayCreateFull",
+        [&mgr](float x, float y, float z, int dim, std::string const& item, int aux,
+               std::string const& offX, std::string const& offY, std::string const& offZ,
+               std::string const& rotX, std::string const& rotY, std::string const& rotZ,
+               std::string const& scale, std::string const& nbt, bool glint) -> int64_t {
+            ItemDisplayConfig cfg;
+            cfg.x = x; cfg.y = y; cfg.z = z; cfg.dimension = dim;
+            cfg.item = item; cfg.itemAux = aux;
+            cfg.offsetX = offX; cfg.offsetY = offY; cfg.offsetZ = offZ;
+            cfg.rotX = rotX; cfg.rotY = rotY; cfg.rotZ = rotZ;
+            cfg.scale = scale; cfg.itemNbt = nbt; cfg.itemGlint = glint;
+            return mgr.create(cfg);
+        });
+
     hologramlib::lse::exportAs(NAMESPACE, "itemDisplayDestroy",
         [&mgr](int64_t id) -> bool { return mgr.destroy(id); });
     hologramlib::lse::exportAs(NAMESPACE, "itemDisplayDestroyAll",

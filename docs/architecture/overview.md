@@ -110,7 +110,7 @@ HologramLib/
 
 复杂度：每次全量重发 = `O(形状数 × 在线玩家数)` 的包构造 + 序列化，周期 15s。悬浮字的逐观看者形状同样走这套重发（每个观看者形状单独计入形状数）。
 
-> ⚠ 规模上限的第一道墙就在这里。形状数到千级、玩家上百时，15s 全量重发的包构造量会变成可观测的负载。想估自己的场景，把「重发策略分层（按维度分组 / 脏标记）」列进需求，这在维护者的优化候选里，见 [架构与开销评估](../internal/architecture-cost.md)（本地文档，不随库发布）。
+> ⚠ 规模上限的第一道墙就在这里。形状数到千级、玩家上百时，15s 全量重发的包构造量会变成可观测的负载。想估自己的场景，把「重发策略分层（按维度分组 / 脏标记）」列进需求，这在维护者的优化候选里，见 架构与开销评估（本地文档，不随库发布）。
 
 ---
 
@@ -197,7 +197,8 @@ HologramLib 不以 LegacyRemoteCall（`lrca`）/ MeowPAPI 为前置依赖：无�
 
 挂载是双时机的：`enable()` 时试一次，没成功就监听 `ServerStartedEvent` 兜底重试（届时所有插件均已加载）。这也是「启动顺序无任何要求」的原因。
 
-> ⚠ 已知问题：`ghost*` 的 2 个导出虽然调用了 `exportAs`，但没有接进 `ModEntry::exportLseFunctions()`，所以运行期不注册。详见 [LSE 接口参考 · 已知问题](../reference/lse-api.md#已知问题)。
+> ⚠ 已知问题：`ghost*` 的 2 个导出虽然调用了 `exportAs`，但没有接进 `ModEntry::exportLseFunctions()`，所以运行期不注册。详见 [LSE 脚本接口 · 交互事件](../lse/entities.md)。
+
 
 ---
 
@@ -205,4 +206,4 @@ HologramLib 不以 LegacyRemoteCall（`lrca`）/ MeowPAPI 为前置依赖：无�
 
 - 线格式、发包原语、抓包验证：[协议层实现笔记](protocol-notes.md)
 - 边界与纪律：[设计说明](../design-contracts.md)
-- 维护者视角的开销评估与优化候选：[架构与开销评估](../internal/architecture-cost.md)（本地文档，不随库发布）
+- 维护者视角的开销评估与优化候选：架构与开销评估（本地文档，不随库发布）

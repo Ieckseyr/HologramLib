@@ -62,6 +62,11 @@ lib.holograms().draw(holo);
 `Text(0) / UseRotation(1) / BackgroundColor(2, optional) / DepthTest(3) / ShowBackface(4) / ShowTextBackface(5)`
 —— **没有行级颜色 / 缩放 / 渐变 / 行间距字段**，`lineGapHeight` 在协议 2168 里根本不存在。
 
+> **26.51 线（协议 2193）**：`TextDataPayload` 在 `BackgroundColor` 与 `DepthTest` 之间**新增了 `LineGapHeight`(float)**
+> —— 这是 2168 → 2193 在这张表上唯一的差异。26.51 上**必须显式发出该字段**（不发会让其后所有字段错位、客户端解析
+> 失败），库发的是 `kTextLineGapHeight = 0.0f`（= 协议默认值，即不额外加行距，见 `src/ProtocolShape.h`）。
+> 行级颜色 / 缩放 / 渐变在 2193 上仍不存在；要让多行排得松一些，调的就是这一个常量。
+
 | 你想做 | 正确做法 |
 |---|---|
 | 某一行换颜色 | 文本内嵌 `§` 颜色代码 |
@@ -101,7 +106,7 @@ lib.holograms().addLine(holo, "§b{player}§r 你好");   // 每人看到自己�
 ### 生命周期与重发
 
 - **永久悬浮字不要设 `duration`** —— 不设才能避免客户端倒计时自动删除；
-- 客户端不落盘，所以重连必须补发。补发策略集中在形状域（见 [架构总览](../architecture/overview.md#重发策略)）；
+- 客户端不落盘，所以重连必须补发。补发策略集中在形状域（见 [架构总览](https://github.com/Ieckseyr/HologramLib/blob/main/docs/architecture/overview.md#重发策略)）；
 - **跟随玩家不再依赖库内 tick**（`26.40.8` 起）：位置在 `setFollowPlayer` / `draw` / `refresh` 调用时**就地解析**，按需刷新由消费方负责（示例：ZXPanel 每 2 tick 原地重发一次）。
 
 ---
@@ -158,5 +163,5 @@ lib.particleShapes().moveTo(wall, 150, 64, -200, 100);            // 5 秒平滑
 ## 相关
 
 - 完整签名：[C++ 接口参考](../reference/cpp-api.md)（§1.2 形状 / §1.3 悬浮字 / §1.4 物品详情 / §1.5 物品悬浮 / §1.8 粒子）
-- LSE 函数清单：[LSE 接口参考](../reference/lse-api.md)（§2.1 ~ §2.5、§2.8）
-- 重发与开销：[架构总览](../architecture/overview.md) · [协议层实现笔记](../architecture/protocol-notes.md)
+- LSE 函数清单：[形状](../lse/shapes.md) · [悬浮字与渐变线](../lse/holograms.md) · [物品显示](../lse/items.md)
+- 重发与开销：[架构总览](https://github.com/Ieckseyr/HologramLib/blob/main/docs/architecture/overview.md) · [协议层实现笔记](https://github.com/Ieckseyr/HologramLib/blob/main/docs/architecture/protocol-notes.md)

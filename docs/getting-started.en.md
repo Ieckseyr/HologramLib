@@ -4,7 +4,6 @@ From nothing to a running HologramLib: build → deploy → first feature. About
 
 Just using the library and not building it yourself? Skip ahead to [Deployment](#3-deployment).
 
-[中文](getting-started.md) · [English](getting-started.en.md) · [Docs home](index.en.md)
 
 ---
 
@@ -117,8 +116,8 @@ lib.holograms().draw(holo);
 
 Two model-level facts about holographic text will save you a round of trial and error:
 
-- Multiple lines are one text shape. Lines are joined with `\n` and share a single colour / scale / background / depth-test / rotation. For per-line colour, embed `§` codes in the text; there is no per-line API to look for. Protocol 2168's text payload has no per-line fields, and the historical per-line functions were removed in `26.40.8`.
-- Never set a `duration` on a permanent hologram. Leaving it unset is what stops the client from running a countdown and deleting it. Lifecycle details are in the [architecture overview](architecture/overview.en.md#the-holographic-text-composition-model).
+- Multiple lines are one text shape. Lines are joined with `\n` and share a single colour / scale / background / depth-test / rotation. For per-line colour, embed `§` codes in the text; there is no per-line API to look for. Protocol 2168's text payload has no per-line fields, and the historical per-line functions were removed in `26.40.8`. The 26.51 line is the same: protocol 2193 only adds a whole-payload `LineGapHeight` (line spacing; the library always sends `0.0f` = no extra gap), while per-line colour / scale still do not exist.
+- Never set a `duration` on a permanent hologram. Leaving it unset is what stops the client from running a countdown and deleting it. Lifecycle details are in the [architecture overview](https://github.com/Ieckseyr/HologramLib/blob/main/docs/architecture/overview.en.md#the-holographic-text-composition-model).
 
 ### xmake integration
 
@@ -133,6 +132,7 @@ add_links("HologramLib")
 ## 5. Your first LSE script
 
 Everything on the LSE side lives under one namespace, `HologramLib`, with the function-name prefix identifying the domain:
+> The standard interfaces (`mc`, `ll`, `logger`, events, NBT, forms, databases …) are documented in the [LSE docs](https://lse.levimc.org/apis/); this page only covers the HologramLib namespace.
 
 ```js
 const holoCreate = ll.import("HologramLib", "holoCreate");
@@ -158,7 +158,7 @@ There are two failure modes, both explicit and neither silent:
 | Function name does not exist (older library) | `ll.import` returns `null` |
 
 So "I got `null`" always means "you do not have this capability right now", never "it was called but did nothing".
-The complete list of all 16 prefix domains is in the [LSE API reference](reference/lse-api.md) *(zh)*.
+All 270 functions are listed by domain in the [LSE scripting API](lse/index.md).
 
 ---
 
@@ -181,7 +181,7 @@ Three things to know:
 
 - These scripts are tools from a local working copy and are not shipped with the library (`tests/` is in `.gitignore`). Some need real captures under `logs/fullpkts/`; without a sample a script prints `no captured ... found` and exits non-zero.
 - `check-no-diagnostics.bat` verifies a release invariant: after changing `src/DiagLog.h` or any logging call you must re-run it.
-- Most checks pin the bytes produced by a specific header, so after changing that header you must re-run its check. The mapping is in the [protocol notes](architecture/protocol-notes.md#offline-regression-checks) *(zh)*.
+- Most checks pin the bytes produced by a specific header, so after changing that header you must re-run its check. The mapping is in the [protocol notes](https://github.com/Ieckseyr/HologramLib/blob/main/docs/architecture/protocol-notes.en.md#offline-regression-checks).
 
 ---
 
@@ -190,6 +190,7 @@ Three things to know:
 | I want to… | Go to |
 |---|---|
 | Pick a domain and wire it into my plugin | [Domain overview](domains/README.en.md) |
-| Look up a full method signature | [C++ API](reference/cpp-api.md) · [LSE API](reference/lse-api.md) *(zh)* |
-| Understand resend, heartbeat and ABI stamping | [Architecture overview](architecture/overview.en.md) |
-| Debug a missing packet or a wrong render | [Protocol notes](architecture/protocol-notes.md) *(zh)* |
+| Look up a full method signature | [C++ API](reference/cpp-api.md) · [LSE API](lse/index.md) |
+| Understand resend, heartbeat and ABI stamping | [Architecture overview](https://github.com/Ieckseyr/HologramLib/blob/main/docs/architecture/overview.en.md) |
+| Decide which side my code belongs on | [Design notes](https://github.com/Ieckseyr/HologramLib/blob/main/docs/design-contracts.en.md) |
+| Debug a missing packet or a wrong render | [Protocol notes](https://github.com/Ieckseyr/HologramLib/blob/main/docs/architecture/protocol-notes.en.md) |

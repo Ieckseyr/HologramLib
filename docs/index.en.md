@@ -2,59 +2,47 @@
   <img src="assets/HologramLib.svg" alt="HologramLib — unified protocol-layer hologram & display library for Bedrock servers" width="100%">
 </div>
 
-# HologramLib documentation
+# HologramLib
 
-[中文](index.md) · [English](index.en.md) · [Project home](../README.en.md)
+HologramLib is a **protocol-layer display library** for Minecraft Bedrock dedicated servers (LeviLamina / BDS): one set of APIs that puts shapes, holograms, items, entities and menus in front of the client — with no real entities spawned, nothing written to the save, and no server-side world state touched.
 
-HologramLib is a protocol-layer display library for Minecraft Bedrock dedicated servers (LeviLamina / BDS). It folds 18 capability domains into one prerequisite-only plugin, usable from both C++ plugins (frozen virtual interfaces) and LSE scripts (`ll.import`).
+The same capabilities are reachable two ways: from **C++ plugins** (frozen pure-virtual interfaces) and from **LSE scripts** (`ll.import`).
 
-Current: plugin `26.40.10` · API `1.29.0` (`0x012300`) · LeviLamina 26.40 / BDS 1.26.40 / protocol 2168.
-
-> Partial translation. The English tree covers the entry layer: this hub, [getting started](getting-started.en.md), the [domain overview](domains/README.en.md) and the [architecture overview](architecture/overview.en.md). Every other page falls back to the Chinese original (the site's language switcher jumps straight to it). The C++ and LSE API references are Chinese-only for now; they are large, change with every release, and would otherwise need two maintained copies.
+| | |
+|---|---|
+| Plugin version | `26.40.11` |
+| API version | `1.30.0` (`HOLOGLIB_API_VERSION 0x012400`) |
+| Platform | LeviLamina 26.40 · BDS 1.26.40 (protocol 2168) |
+| Script prerequisite | `lrca` (LegacyRemoteCall) |
 
 ---
 
-## Find your path
+## Where to start
 
-| You are… | Start here | Then |
+| You are | Start here | Then |
 |---|---|---|
-| New to this library | [Getting started](getting-started.en.md) — build, deploy, first feature | [Domain overview](domains/README.en.md) to pick a capability |
-| Wiring a capability into your plugin | [Domain guides](domains/README.en.md) — how each works, plus field-tested pitfalls | [C++ API](reference/cpp-api.md) / [LSE API](reference/lse-api.md) for signatures *(zh)* |
-| Writing LSE scripts | [LSE API reference](reference/lse-api.md) — all 16 prefix domains *(zh)* | Script-side examples in the [domain guides](domains/README.en.md) |
-| Debugging a packet or render problem | [Protocol notes](architecture/protocol-notes.md) — wire format, tick, packet captures *(zh)* | The "field-tested" section of that domain |
-| Chasing a version / ABI crash | [Version & ABI matrix](versions/api-version-matrix.md) *(zh)* | ABI rules in the [architecture overview](architecture/overview.en.md#abi-why-append-only-is-load-bearing) |
-| Writing or reviewing library code | [Design notes](design-contracts.en.md) — what may live in the library, and the boundary cases already settled | How those boundaries appear at runtime in the [architecture overview](architecture/overview.en.md) |
-| Maintaining / contributing | [README · Design notes](../README.en.md#design-notes) | Architecture & protocol notes |
+| New to the library | [Getting started](getting-started.md) — build, deploy, first feature | Pick a domain in the [domain guides](domains/README.md) |
+| Writing LSE scripts | [LSE scripting API](lse/index.md) — how to import, call and troubleshoot | [Look up functions by domain](lse/index.md) |
+| Writing a C++ plugin | [C++ API reference](reference/cpp-api.md) — full signatures for every method | [Domain guides](domains/README.md) |
+| Wondering what a domain can and cannot do | [Domain guides](domains/README.md) | The C++ / LSE pages for that domain |
+| Looking for what changed in a release | [Changelog](versions/changelog.md) | — |
 
 ---
 
-## Layout
+## What it can do
 
-```
-docs/
-├── index.md                       This hub (zh)
-├── index.en.md                    This hub (en)
-├── getting-started.md             Build / deploy / first feature
-├── design-contracts.md            Design notes: what may live in the library, what stays in the consumer
-├── domains/                       Per-domain how-to + pitfalls
-├── reference/                     Signatures: the API surface, method by method
-├── architecture/                  Internals: why it is built this way
-├── versions/                      Changelog and the version/ABI matrix
-├── internal/                    ⚠ Maintainer-local docs — NOT published, NOT committed
-└── assets/HologramLib.svg         Header image
-```
+| Need | Entry point |
+|---|---|
+| Lines, boxes, spheres, circles, arrows, text shapes | [Shapes `shape*`](lse/shapes.md) |
+| Multi-line holograms, rotating content pools, gradient lines | [Holograms & gradient lines `holo*` `gradient*`](lse/holograms.md) |
+| "Diamond x64" item detail, 3D item display | [Item display `itemDetail*` `itemDisplay*`](lse/items.md) |
+| Protocol-level fake players (NPCs) with skin registration / capture / import | [Fake-player NPCs `playerNpc*`](lse/player-npc.md) |
+| Custom entities, particle shapes, interaction events | [Entities, particles & interaction `entity*` `particle*` `ghost*`](lse/entities.md) |
+| Trade menu, virtual container, NPC dialogue | [Interfaces & containers `trade*` `container*` `npcDialog*`](lse/interfaces.md) |
+| Faking your own inventory, sulfur-cube display | [Inventory & sulfur cube `fakeInv*` `sulfur*`](lse/inventory.md) |
+| Reskinning / hiding mobs, reading the client device | [View override & sensing `view*` `sensing*`](lse/view.md) |
 
-> ⚠ `docs/internal/` is local-only and forbidden from GitHub. It is excluded by `.gitignore`, kept out of the site by `mkdocs.yml`'s `exclude_docs`, and a CI guard in `.github/workflows/docs.yml` fails the build if it ever gets committed. That is why nothing above links into it.
-
----
-
-## Three things to know before reading
-
-1. A "capability domain" is one independently usable surface. On the C++ side it is an interface (`IShapeDrawer`, `IPlayerNpc`, …); on the LSE side it is a function-name prefix (`shape*`, `playerNpc*`, …). Domains are independent; only a few relate (the sulfur-cube domain delegates entirely to `ICustomEntity`).
-
-2. Version numbers in the docs are the minimum API version a capability appeared in. Use them in `static_assert` gates. The three numbering schemes (release version / API version / `HOLOGLIB_API_VERSION`) are explained in the [version & ABI matrix](versions/api-version-matrix.md) *(zh)*.
-
-3. A "consumer" is a plugin that calls this library. HologramLib stores nothing, implements no business logic, and never decides when a consumer should resend something. Persistence, commands, permissions and forms all live in the consumer, which is the answer to "why doesn't the library store this for me?"
+All **273 script functions** are listed in the [LSE scripting API](lse/index.md); the matching C++ interfaces (`IShapeDrawer`, `IHologramText`, `ICustomEntity`, `IViewOverride` …) are in the [C++ API reference](reference/cpp-api.md).
 
 ---
 
@@ -62,28 +50,16 @@ docs/
 
 | Term | Meaning |
 |---|---|
-| Capability domain / domain | A set of related APIs, e.g. the "view override" domain. One C++ interface, one LSE prefix |
-| Consumer | A plugin calling HologramLib (C++ or LSE): MeowHolographicRenderer, MSkinventory, ZXPanel |
-| Prerequisite library | This library's role: mechanisms only, no business logic. Consumers call `getInstance()` in `enable()`; no declared dependency |
-| Intercept-only | The view-override restriction: the outbound hook only decides send or drop, and never mutates engine packet fields |
-| Timing notification | A callback from the library (e.g. "entity spawned for this player"); the consumer decides what to resend |
-| Interface compatibility | `IHologramLib` and every domain interface gain virtuals only at the end of the class; existing signatures and semantics never change |
-| Vtable slot | A pure virtual's position in the C++ vtable. Inserting or deleting in the middle silently misaligns pre-compiled consumers |
-| ABI layout stamp | A vtable-layout descriptor in the header plus a consumer-side compile-time check; the library rejects mismatched consumers at runtime |
-| Documented shrink | Removal of already-released API (normally a major-version change), recorded per release with the reason and migration path |
-| Carrier entity | The invisible entity behind an interface domain (NPC dialogue / trade menu). Deleted when the UI closes; never saved |
+| Capability domain / domain | A group of related APIs. One C++ interface, one LSE function prefix (e.g. `view*`) |
+| Consumer | A plugin calling this library (C++ or LSE), e.g. MeowHolographicRenderer, MSkinventory |
+| Prerequisite library | The library's role: mechanisms only, no business logic. Consumers grab the interface via `getInstance()` in `enable()`; no declared dependency |
+| Suppress-only | The view-override discipline: the outbound hook only decides send / drop, it never mutates engine packets |
+| Timing notification | A callback the library sends to consumers (e.g. an entity finished spawning for a player); what to resend is the consumer's call |
+| Carrier entity | The invisible entity interface domains use (trade menu, NPC dialogue); deleted when the interface closes, never persisted |
 
 ---
 
-## Where the numbers come from
+## Versions
 
-Version numbers and function counts in these docs are taken from code, never from prose written afterwards:
-
-| Fact | Source of truth |
-|---|---|
-| Plugin release version | `version` in `manifest.json` |
-| API version / `HOLOGLIB_API_VERSION` | `include/hologramlib/HologramLib.h` |
-| LSE export list and count | The `exportAs(NAMESPACE, ...)` calls in `src/` |
-| C++ interface signatures | `include/hologramlib/HologramLib.h` |
-
-If the docs disagree with the code, the code wins — please open an issue. This documentation pass already corrected several stale numbers (the API version had been stuck at 1.27.0, `view*` was undercounted by 2, and the `trade*` / `npcDialog*` lists were missing entries). See the [changelog](versions/changelog.md) *(zh)*.
+- The three numbering schemes (plugin version / API version / `HOLOGLIB_API_VERSION`) and the per-release capability list are in the [changelog](versions/changelog.md).
+- The only version source in code is `HOLOGLIB_API_VERSION` in `include/hologramlib/HologramLib.h`: gated at compile time with `static_assert`, handshaken at runtime via `IHologramLib::getInstance().version()`.

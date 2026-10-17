@@ -2,9 +2,8 @@
 
 How HologramLib is put together, and why it costs what it costs.
 
-[中文](overview.md) · [English](overview.en.md) · [Docs home](../index.en.md)
 
-For why the boundaries sit where they do (what may live in the library and what may not), see [README · Design notes](../../README.en.md#design-notes). For wire formats, the send primitive and capture-based verification, see [Protocol notes](protocol-notes.md) *(zh)*.
+For why the boundaries sit where they do (what may live in the library and what may not), see [README · Design notes](https://github.com/Ieckseyr/HologramLib/blob/main/README.en.md#design-notes). For wire formats, the send primitive and capture-based verification, see [Protocol notes](protocol-notes.md).
 
 ---
 
@@ -171,7 +170,7 @@ Removing a released method moves slots too. The library has two documented appro
 | The removed methods are at the end | Delete them outright, bump the minor version, document it in the version matrix | The six trade-menu listener methods in `26.40.3` |
 | The removed methods are mid-class | Keep them as deprecated empty slots (non-pure + inline empty body + `[[deprecated]]`) so vtable slots are unchanged; the real cleanup waits for a major version | The eight per-line hologram methods in `26.40.8` |
 
-The reasons and migration paths for both shrinks are in the [version & ABI matrix](../versions/api-version-matrix.md) *(zh)*.
+The reasons and migration paths for both shrinks are in the [version & ABI matrix](../versions/api-version-matrix.md).
 
 ---
 
@@ -189,12 +188,13 @@ Instead it resolves seven C++ functions exported by `lrca` at runtime via `GetMo
 
 Mounting is two-phase: it is attempted during `enable()`, and if that fails the library listens for `ServerStartedEvent` and retries (by which point every plugin is loaded). That is why load order does not matter.
 
-> ⚠ Known issue: the two `ghost*` exports do call `exportAs`, but they are not wired into `ModEntry::exportLseFunctions()`, so they are never registered at runtime. See the [LSE API reference · known issues](../reference/lse-api.md#已知问题) *(zh)*.
+> ⚠ Known issue: the two `ghost*` exports do call `exportAs`, but they are not wired into `ModEntry::exportLseFunctions()`, so they are never registered at runtime. See [LSE scripting API · interaction events](../lse/entities.md) *(zh)*.
+
 
 ---
 
 ## Related
 
-- Wire formats, send primitive, capture verification: [Protocol notes](protocol-notes.md) *(zh)*
-- Boundaries and rules: [README · Design notes](../../README.en.md#design-notes)
+- Wire formats, send primitive, capture verification: [Protocol notes](protocol-notes.md)
+- Boundaries and rules: [README · Design notes](https://github.com/Ieckseyr/HologramLib/blob/main/README.en.md#design-notes)
 - Picking a capability domain: [Domain overview](../domains/README.en.md)

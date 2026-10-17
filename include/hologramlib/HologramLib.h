@@ -57,7 +57,7 @@
 //   ⚠ 尾部追加不改虚表槽位, 但**改了 EntityView 的大小** —— 直接构造该结构体的消费方要重新编译。
 //   ⚠ 与 `skinId` 搭配的"模型缩放"仍是 `EntityView::scale`（1.27.0 起）, 本版新增的**元数据缩放**叫
 //     `metaScale`（两个都在结构尾部, 别混: 前者走玩家模型出生包, 后者走元数据 + 客户端碰撞箱）。
-#define HOLOGLIB_API_VERSION 0x012300
+#define HOLOGLIB_API_VERSION 0x012400
 
 // ── ABI 布局戳（消费方自检用; 与上面的"功能版本"是两件事, 别混）──
 // 语义: 只在**破坏虚表槽位**的改动时 +1 —— 在接口**中段**插入/删除/重排虚函数、改已发布方法的签名;
@@ -1461,7 +1461,7 @@ public:
     // LSE 兼容层是否可用（LegacyRemoteCall 运行时检测成功）
     virtual bool isLseAvailable() = 0;
 
-    // 库版本（BCD: 0x012300 = 1.29.0, 与 HOLOGLIB_API_VERSION 同值）
+    // 库版本（BCD: 0x012400 = 1.30.0, 与 HOLOGLIB_API_VERSION 同值）
     virtual uint32_t version() = 0;
 
     // ── 1.6.0 追加（冻结契约: 只在尾部追加）──

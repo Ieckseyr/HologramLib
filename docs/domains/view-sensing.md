@@ -203,6 +203,6 @@ lib.holograms().addLine(holo, "§b{player}§r 你好");
 ## 相关
 
 - 完整签名：[C++ 接口参考](../reference/cpp-api.md)（§1.13 感知域 / 千人千面 / 逐玩家变量、§1.16 视图覆盖）
-- LSE 函数清单：[LSE 接口参考](../reference/lse-api.md)（§2.13 / §2.16）
-- 边界纪律（只拦不发 / 数据只来自协议包）的精简版：[README · 设计说明](../../README.md#设计说明)
-- 发包原语与回读校验：[协议层实现笔记](../architecture/protocol-notes.md)
+- LSE 函数清单：[视图覆盖与感知](../lse/view.md)
+- 边界纪律（只拦不发 / 数据只来自协议包）的精简版：[README · 设计说明](https://github.com/Ieckseyr/HologramLib/blob/main/README.md#设计说明)
+- 发包原语与回读校验：[协议层实现笔记](https://github.com/Ieckseyr/HologramLib/blob/main/docs/architecture/protocol-notes.md)

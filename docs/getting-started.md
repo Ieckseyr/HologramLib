@@ -116,8 +116,8 @@ lib.holograms().draw(holo);
 
 关于悬浮字，两个模型级的事实先记住，能省掉一轮试错：
 
-- 多行 = 一个文本形状：多行用 `\n` 合并，整块共用一份颜色 / 缩放 / 背景框 / 穿墙 / 旋转。行级颜色用文本内嵌 `§` 代码，不要找「行级 API」，协议 2168 的文本载荷没有行级字段，历史上那批行级函数已在 `26.40.8` 收缩移除。
-- 永久悬浮字不要设 `duration`：不设 duration 才能避免客户端倒计时自动删除。生命周期细节见 [架构总览](architecture/overview.md#悬浮字的组合模型)。
+- 多行 = 一个文本形状：多行用 `\n` 合并，整块共用一份颜色 / 缩放 / 背景框 / 穿墙 / 旋转。行级颜色用文本内嵌 `§` 代码，不要找「行级 API」，协议 2168 的文本载荷没有行级字段，历史上那批行级函数已在 `26.40.8` 收缩移除。26.51 线同理：协议 2193 只是在**整块**载荷里多了 `LineGapHeight`（行间距，库固定发 `0.0f` = 不加行距），行级颜色 / 缩放依旧不存在。
+- 永久悬浮字不要设 `duration`：不设 duration 才能避免客户端倒计时自动删除。生命周期细节见 [架构总览](https://github.com/Ieckseyr/HologramLib/blob/main/docs/architecture/overview.md#悬浮字的组合模型)。
 
 ### xmake 接入
 
@@ -132,6 +132,7 @@ add_links("HologramLib")
 ## 5. 第一个 LSE 脚本
 
 LSE 侧一切都在单一命名空间 `HologramLib` 下，函数名前缀分域：
+> 标准接口（`mc` / `ll` / `logger` / 事件 / NBT / 表单 / 数据库…）见 [LSE 文档站](https://lse.levimc.org/zh/apis/)；本页只讲 HologramLib 这一个命名空间。
 
 ```js
 const holoCreate = ll.import("HologramLib", "holoCreate");
@@ -157,7 +158,7 @@ if (ll.hasExported("HologramLib", "containerPollClicks")) {
 | 函数名不存在（旧版库） | `ll.import` 得 `null` |
 
 所以「拿到的函数是 `null`」永远意味着「这个能力你现在没有」，而不是「调用了但没生效」。
-完整的 16 个前缀域函数清单见 [LSE 接口参考](reference/lse-api.md)。
+完整的 270 个函数按域分页，见 [LSE 脚本接口](lse/index.md)。
 
 ---
 
@@ -180,7 +181,7 @@ if (ll.hasExported("HologramLib", "containerPollClicks")) {
 
 - 这些脚本是本地工作副本里的工具，不随库发布（`tests/` 在 `.gitignore` 里）。部分需要本机 `logs/fullpkts/` 下的真实抓包；没有样本时脚本打印 `no captured ... found` 并以非零码退出。
 - `check-no-diagnostics.bat` 验的是发布不变量：改动 `src/DiagLog.h` 或任何日志调用后必须重跑。
-- 多数检查钉住的是「某份头文件产出的字节」，所以改动对应头文件后必须重跑那一个。具体对应关系见 [协议层实现笔记](architecture/protocol-notes.md#离线回归检查)。
+- 多数检查钉住的是「某份头文件产出的字节」，所以改动对应头文件后必须重跑那一个。具体对应关系见 [协议层实现笔记](https://github.com/Ieckseyr/HologramLib/blob/main/docs/architecture/protocol-notes.md#离线回归检查)。
 
 ---
 
@@ -189,7 +190,7 @@ if (ll.hasExported("HologramLib", "containerPollClicks")) {
 | 我想…… | 去看 |
 |---|---|
 | 挑一个能力域接进插件 | [能力域总览](domains/README.md) |
-| 查某个方法的完整签名 | [C++ 接口参考](reference/cpp-api.md) · [LSE 接口参考](reference/lse-api.md) |
-| 搞懂重发、心跳、ABI 戳这些机制 | [架构总览](architecture/overview.md) |
-| 决定自己的代码该写在哪一侧 | [设计说明](design-contracts.md) |
-| 排一个收不到包 / 渲染不对的问题 | [协议层实现笔记](architecture/protocol-notes.md) |
+| 查某个方法的完整签名 | [C++ 接口参考](reference/cpp-api.md) · [LSE 脚本接口](lse/index.md) |
+| 搞懂重发、心跳、ABI 戳这些机制 | [架构总览](https://github.com/Ieckseyr/HologramLib/blob/main/docs/architecture/overview.md) |
+| 决定自己的代码该写在哪一侧 | [设计说明](https://github.com/Ieckseyr/HologramLib/blob/main/docs/design-contracts.md) |
+| 排一个收不到包 / 渲染不对的问题 | [协议层实现笔记](https://github.com/Ieckseyr/HologramLib/blob/main/docs/architecture/protocol-notes.md) |

@@ -30,6 +30,15 @@ NetworkPeer::sendPacket 原始字节发送
 
 这几条都踩过、都有抓包或崩溃作为证据。**改任何手写包体之前先读这一节。**
 
+> **26.51 线（协议 2193）与 26.40（2168）的全部差异**（2026-10-16 逐文件核对两条线的协议库 `include/`）：
+> ① `PrimitiveShapes.hpp`：`TextDataPayload` 在 `BackgroundColor` 与 `DepthTest` 之间多一个 `LineGapHeight`(float)
+> —— 必须显式发出（库用 `kTextLineGapHeight = 0.0f`），否则其后字段整体错位；
+> ② `ItemStackResponse` 的 containers 改成 optional 编码 —— 成功应答恒写 `presence` 字节（虚拟容器可交互模式发 `presence=false`）；
+> ③ `PlayerAuthInputPacketPayload::mInputData` 由 `std::bitset<66>` 换成 `Bedrock::EnumSet<InputData, 66>`
+> （没有 `operator[]`，视图覆盖的掩码改用 `contains()`）；
+> ④ 包 ID 未动（`MinecraftPacketIds.hpp` 与 `codec/actor/ActorDataIDs.hpp` 两条线**逐字节相同**）。
+> 其余线格式（本文下面各条）两条线一致。
+
 ### 1. 存在两套 NBT 方言，不能混用
 
 | 方言 | 用在哪 | 格式 |
@@ -157,4 +166,4 @@ int32 颜色在 **v2168 是 ARGB** 打包。库早年沿用 v944 的字节序 �
 
 - 分层与重发策略：[架构总览](overview.md)
 - 各域的具体用法与坑：[能力域指南](../domains/README.md)
-- 判定逻辑为什么能离线测：[README · 设计说明](../../README.md#设计说明)
+- 判定逻辑为什么能离线测：[README · 设计说明](https://github.com/Ieckseyr/HologramLib/blob/main/README.md#设计说明)

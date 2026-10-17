@@ -9,12 +9,9 @@
 # 部署：推送到主分支后由 .github/workflows/docs.yml 自动发布到 GitHub Pages。
 
 # ─────────────────────────────────────────────────────────────────────────────
-# TODO(必填)：把下面两处换成你的 GitHub 仓库与 Pages 实际地址。
-#   site_url 会影响 sitemap、以及 i18n 语言切换器的绝对链接 —— 填错不致命，
-#   但搜索引擎收录的地址会错。仓库形如 https://github.com/<owner>/HologramLib
-#   时，Pages 默认地址是 https://<owner>.github.io/HologramLib/
-site_url: https://example.github.io/HologramLib/
-repo_url: https://github.com/example/HologramLib
+# 下面两处是真实仓库 / GitHub Pages 地址（进 sitemap 与页面链接）。
+site_url: https://ieckseyr.github.io/Hologramlib.github.io/
+repo_url: https://github.com/Ieckseyr/HologramLib
 edit_uri: edit/main/docs/
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -68,12 +65,10 @@ theme:
 # 其余条目是 ASCII slug 改名后留下的旧路径跳转桩，同样不参与构建。
 exclude_docs: |
   internal/
-  README.md
-  快速开始.md
-  能力域/
-  API参考/
-  架构/
-  版本/
+  # 站点只放「怎么用」：开发者内参留在仓库里，不上站
+  architecture/
+  design-contracts.md
+  versions/api-version-matrix.md
 
 plugins:
   - search:
@@ -111,26 +106,38 @@ plugins:
             版本: Versions
             更新日志: Changelog
             版本与 ABI 对照: Version & ABI matrix
+            LSE 脚本接口: LSE scripting API
+            怎么用: How to use it
+            形状: Shapes
+            悬浮字与渐变线: Holograms & gradient lines
+            物品显示: Item display
+            假玩家 NPC: Fake-player NPCs
+            实体、粒子与交互: Entities, particles & interaction
+            背包与硫磺立方体: Inventory & sulfur cube
+            C++ 接口参考: C++ API reference
+            更新日志: Changelog
 
 nav:
   - 首页: index.md
   - 快速开始: getting-started.md
-  - 设计说明: design-contracts.md
+  - LSE 脚本接口:
+      - 怎么用: lse/index.md
+      - 形状: lse/shapes.md
+      - 悬浮字与渐变线: lse/holograms.md
+      - 物品显示: lse/items.md
+      - 假玩家 NPC: lse/player-npc.md
+      - 实体、粒子与交互: lse/entities.md
+      - 界面与容器: lse/interfaces.md
+      - 背包与硫磺立方体: lse/inventory.md
+      - 视图覆盖与感知: lse/view.md
+  - C++ 接口参考: reference/cpp-api.md
   - 能力域指南:
       - 总览: domains/README.md
       - 渲染与文本: domains/rendering.md
       - 实体与 NPC: domains/entities-npc.md
       - 界面与容器: domains/interfaces.md
       - 视图覆盖与感知: domains/view-sensing.md
-  - API 参考:
-      - C++ 接口: reference/cpp-api.md
-      - LSE 接口: reference/lse-api.md
-  - 架构:
-      - 架构总览: architecture/overview.md
-      - 协议层实现笔记: architecture/protocol-notes.md
-  - 版本:
-      - 更新日志: versions/changelog.md
-      - 版本与 ABI 对照: versions/api-version-matrix.md
+  - 更新日志: versions/changelog.md
 
 markdown_extensions:
   - admonition
@@ -152,4 +159,4 @@ markdown_extensions:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/example/HologramLib
+      link: https://github.com/Ieckseyr/HologramLib
