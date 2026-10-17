@@ -8,8 +8,8 @@ The same capabilities are reachable two ways: from **C++ plugins** (frozen pure-
 
 | | |
 |---|---|
-| Plugin version | `26.51.3` |
-| API version | `1.29.0` (`HOLOGLIB_API_VERSION 0x012300`) |
+| Plugin version | `26.51.4` |
+| API version | `1.30.0` (`HOLOGLIB_API_VERSION 0x012400`) |
 | Platform | LeviLamina 26.51 · BDS 1.26.51 (protocol 2193) |
 | Script prerequisite | `lrca` (LegacyRemoteCall) |
 
@@ -40,7 +40,7 @@ The same capabilities are reachable two ways: from **C++ plugins** (frozen pure-
 | Faking your own inventory, sulfur-cube display | [Inventory & sulfur cube `fakeInv*` `sulfur*`](lse/inventory.md) |
 | Reskinning / hiding mobs, reading the client device | [View override & sensing `view*` `sensing*`](lse/view.md) |
 
-All **270 script functions** are listed in the [LSE scripting API](lse/index.md); the matching C++ interfaces (`IShapeDrawer`, `IHologramText`, `ICustomEntity`, `IViewOverride` …) are in the [C++ API reference](reference/cpp-api.md).
+All **273 script functions** are listed in the [LSE scripting API](lse/index.md); the matching C++ interfaces (`IShapeDrawer`, `IHologramText`, `ICustomEntity`, `IViewOverride` …) are in the [C++ API reference](reference/cpp-api.md).
 
 ---
 

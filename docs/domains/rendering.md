@@ -10,7 +10,7 @@
 | 悬浮字全息 | `IHologramText` | `holo*` · 26 | 多行文本，整块样式，动态行 |
 | 渐变线 | — | `gradient*` · 11 | 多色渐变轨迹线 |
 | 物品详情 | `IItemDetail` | `itemDetail*` · 2 | 自动翻译「钻石 x64」 |
-| FMBE 物品悬浮 | `IItemDisplay` | `itemDisplay*` · 33 | 狐狸举着物品；Molang 驱动动画 |
+| FMBE 物品悬浮 | `IItemDisplay` | `itemDisplay*` · 40 | 狐狸举着物品；Molang 驱动动画 |
 | 粒子形状 | `IParticleShape` | `particle*` · 22 | 点 / 线 / 面 / 盒框 + 移动旋转跟随 |
 
 ---

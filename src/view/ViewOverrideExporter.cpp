@@ -300,6 +300,10 @@ void ViewOverrideExporter::exportAll() {
     // "把掉落物换类型/隐藏"只做一半（引擎随后自己发的出生包会把物品图标塞回去）, 脚本必须周期性重套;
     // 新库拦住了这条, 脚本就不必重套（也就没有那个周期性 remove+respawn 的闪一下）。
     // 返回 true / false, 恒可用（老库没有这个名字 → 脚本 ll.hasExported 判 false, 视为不支持）。
+    // 出生事件（读完清空）: "drop|uid|dim|x|y|z|" / "actor|uid|dim|x|y|z|identifier"
+    hologramlib::lse::exportAs(NAMESPACE, "viewPollSpawnEvents",
+        []() -> std::vector<std::string> { return debugshape_export::view::drainSpawnEvents(); });
+
     hologramlib::lse::exportAs(NAMESPACE, "viewItemSpawnHooked",
         []() -> bool {
             return true;

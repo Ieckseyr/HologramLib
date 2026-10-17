@@ -158,7 +158,7 @@ if (ll.hasExported("HologramLib", "containerPollClicks")) {
 | 函数名不存在（旧版库） | `ll.import` 得 `null` |
 
 所以「拿到的函数是 `null`」永远意味着「这个能力你现在没有」，而不是「调用了但没生效」。
-完整的 270 个函数按域分页，见 [LSE 脚本接口](lse/index.md)。
+完整的 278 个函数按域分页，见 [LSE 脚本接口](lse/index.md)。
 
 ---
 

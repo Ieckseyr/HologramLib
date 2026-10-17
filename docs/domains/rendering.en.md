@@ -10,7 +10,7 @@ None of these domains **creates a real entity or writes to the save** (the one e
 | Holographic text | `IHologramText` | `holo*` · 26 | multi-line text, whole-block styling, dynamic lines |
 | Gradient lines | — | `gradient*` · 11 | multi-colour gradient trail lines |
 | Item detail | `IItemDetail` | `itemDetail*` · 2 | automatically translates "钻石 x64" ("diamond x64") |
-| FMBE item display | `IItemDisplay` | `itemDisplay*` · 33 | a fox holding an item; Molang-driven animation |
+| FMBE item display | `IItemDisplay` | `itemDisplay*` · 40 | a fox holding an item; Molang-driven animation |
 | Particle shapes | `IParticleShape` | `particle*` · 22 | point / line / plane / box frame + move, rotate, follow |
 
 ---

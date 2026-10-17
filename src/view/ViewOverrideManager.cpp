@@ -59,6 +59,36 @@
 
 namespace debugshape_export::view {
 
+// ── 出生事件队列 ──
+// 引擎只把出生包发给"看得见的玩家", 脚本又没有"实体出生"事件可听 —— 这里在出站钩子里
+// 顺手记一条（每只实体只记一次）, 脚本每 tick 取走, 自己决定要不要接管/伪装。
+namespace {
+std::mutex                        gSpawnEventMutex;
+std::vector<std::string>          gSpawnEvents;
+std::unordered_set<std::int64_t>  gSpawnSeen;
+constexpr std::size_t             kSpawnEventMax = 512;
+} // namespace
+
+void pushSpawnEvent(std::string event) {
+    std::lock_guard lock(gSpawnEventMutex);
+    if (gSpawnEvents.size() >= kSpawnEventMax) gSpawnEvents.erase(gSpawnEvents.begin());
+    gSpawnEvents.push_back(std::move(event));
+}
+
+std::vector<std::string> drainSpawnEvents() {
+    std::lock_guard lock(gSpawnEventMutex);
+    auto out = std::move(gSpawnEvents);
+    gSpawnEvents.clear();
+    return out;
+}
+
+bool markSpawnSeen(std::int64_t uniqueId) {
+    std::lock_guard lock(gSpawnEventMutex);
+    if (!gSpawnSeen.insert(uniqueId).second) return false;
+    if (gSpawnSeen.size() > 8192) gSpawnSeen.clear();
+    return true;
+}
+
 namespace {
 
 // ── 逻辑层写死的数值必须与引擎一致（对不上就编译失败, 不会静默错位）──
@@ -1073,6 +1103,14 @@ bool ViewOverrideManager::applyToOutbound(::Player& target, ::Packet const& pack
         mSpawnSeen.fetch_add(1, std::memory_order_relaxed);
         auto& payload  = payloadOf<::AddActorPacketPayload>(packet);
         auto  uniqueId = unwrap(payload.mEntityId).rawID;
+        if (markSpawnSeen(uniqueId)) {
+            auto const& sp = unwrap(payload.mPos);
+            pushSpawnEvent(
+                "actor|" + std::to_string(uniqueId) + "|" + std::to_string(static_cast<int>(target.getDimensionId()))
+                + "|" + std::to_string(sp.x) + "|" + std::to_string(sp.y) + "|" + std::to_string(sp.z) + "|"
+                + unwrap(payload.mActorType)
+            );
+        }
         auto* record   = findEntityLocked(playerName, uniqueId);
         if (record == nullptr) return false;
         record->runtimeKnown = true;
@@ -1138,6 +1176,13 @@ bool ViewOverrideManager::applyToOutbound(::Player& target, ::Packet const& pack
         mSpawnSeen.fetch_add(1, std::memory_order_relaxed);
         auto& payload  = payloadOf<::AddItemActorPacketPayload>(packet);
         auto  uniqueId = unwrap(payload.mId).rawID;
+        if (markSpawnSeen(uniqueId)) {
+            auto const& sp = unwrap(payload.mPos);
+            pushSpawnEvent(
+                "drop|" + std::to_string(uniqueId) + "|" + std::to_string(static_cast<int>(target.getDimensionId()))
+                + "|" + std::to_string(sp.x) + "|" + std::to_string(sp.y) + "|" + std::to_string(sp.z) + "|"
+            );
+        }
         auto* record   = findEntityLocked(playerName, uniqueId);
         if (record == nullptr) return false;
         record->runtimeKnown = true;

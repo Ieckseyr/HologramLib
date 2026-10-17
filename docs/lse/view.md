@@ -288,6 +288,32 @@ viewClearAll("");   // 收工：清掉所有玩家的覆盖
 
 ## 查询与诊断
 
+### 取走「刚出生的实体」事件（1.30.0 / 26.51.4 起）
+
+`viewPollSpawnEvents()`
+
+- 参数：无
+- 返回值：字符串数组，每条是一只要么刚出生的实体，读一次**清空**（取走语义，与 `ghost*` / `containerPollClicks` 一致）
+  - 掉落物：`drop|uid|dim|x|y|z|`
+  - 其它实体：`actor|uid|dim|x|y|z|identifier`
+- 返回值类型：`Array<String>`
+- 说明：出生包在**出站钩子里**就记一条（每只实体只记一次），所以脚本不需要再靠定时扫描（0.5~1s 一轮）去找"刚刷出来的东西"，
+  最晚**一拍**就能拿到。典型用法：掉落物一出生就 `itemDisplayEmitForEntity(玩家, uid, ...)` 让这名玩家看到模型；生物一出生就套伪装规则。
+  队列有上限（512 条），脚本停摆太久会丢掉最早的几条。
+- 示例：
+
+    ```js
+    const pollSpawn = ll.import("HologramLib", "viewPollSpawnEvents");
+    const emitOne   = ll.import("HologramLib", "itemDisplayEmitForEntity");
+
+    function onTick() {
+        for (const ev of pollSpawn()) {
+            const [kind, uid, dim, x, y, z, identifier] = ev.split("|");
+            if (kind === "drop") attach(Number(uid), "-0.4", "0", "0", "0.375", 180, 2, "", true);
+        }
+    }
+    ```
+
 ### 按玩家名取他的 uniqueId
 
 `viewUniqueIdOf(playerName)`

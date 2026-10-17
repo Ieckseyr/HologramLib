@@ -517,6 +517,41 @@ const box = itemDisplayCreate(100.5, 66, -200.5, 0, "minecraft:diamond", 0);
     unfollow(box);   // stop following the player
     ```
 
+### Create a display with item NBT / enchant glint (1.30.0 / 26.51.4)
+
+`itemDisplayCreateFull(x, y, z, dim, itemId, aux, offX, offY, offZ, rotX, rotY, rotZ, scale, nbt, glint)`
+
+- Params: the first 13 match `itemDisplayCreateAdvanced`; plus:
+  - `nbt`: `String`<br>item SNBT (custom name / enchantments), empty string = none
+  - `glint`: `Boolean`<br>`true` adds the enchant glint
+- Returns: item-display id; negative on failure
+- Notes: same result as `itemDisplayCreateAdvanced` + `itemDisplaySetItemWithNbt` + `itemDisplaySetGlint`, but without that
+  extra post-create respawn — which made a freshly appeared display blink.
+- Example:
+
+    ```js
+    const createFull = ll.import("HologramLib", "itemDisplayCreateFull");
+    const id = createFull(0.5, 66, 0.5, 0, "minecraft:diamond_sword", 0,
+                          "0", "-4", "0", "180", "0", "180", "0.375",
+                          '{"ench":[{"id":9s,"lvl":1s}]}', true);
+    ```
+
+### Render an existing entity as an FMBE model for one player (1.30.0)
+
+`itemDisplayEmitForEntity(playerName, uniqueId, itemId, aux, offsetY, rotX, rotY, rotZ, scale, nbt, glint)`
+
+- Params: `playerName` (only this player), `uniqueId` (an **existing** entity), `itemId`/`aux`/`nbt`/`glint` (what it looks
+  like), `offsetY`/`rotX`/`rotY`/`rotZ`/`scale` (FMBE appearance; `rotY = "0"` → use the entity's velocity direction)
+- Returns: render mode actually used — `1` item plane, `2` 3D block; `-1` on failure
+- Notes: sends `RemoveActor + AddActor(fox) + MobEquipment + SetActorData + animations` **once** with the caller's id and
+  **keeps no state**; when/who/how it rests/size are the caller's decisions.
+- Example:
+
+    ```js
+    const emit = ll.import("HologramLib", "itemDisplayEmitForEntity");
+    emit("Steve", 12345, "minecraft:diamond", 0, "-4", "180", "0", "180", "0.375", "", false);
+    ```
+
 ### Give the display a hitbox
 
 `itemDisplaySetHitbox(id, width, height)`

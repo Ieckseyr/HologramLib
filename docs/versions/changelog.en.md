@@ -1,56 +1,83 @@
 # Changelog
 
-This page is a migration archive of the "Changelog" section of [`README.md`](https://github.com/Ieckseyr/HologramLib/blob/main/README.en.md); the body is copied **verbatim** and is not
-rewritten, not summarised, not tidied into a table.
-Entries stay in reverse order: the newest release at the top, the earliest at the bottom, matching the original order.
-Nested sub-entry indentation levels, bold, ⚠ and other symbols and inline code markers are all the same as the original, and the blank-line
-rhythm between entries is preserved as-is.
-The mapping between API versions and release versions is in the [version & ABI matrix](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.en.md) in the same directory.
+Newest first. Each entry lists the API version, added or changed exports, behaviour changes, and whether C++ consumers
+must recompile. The full release ↔ API mapping is in the [version & ABI matrix](api-version-matrix.en.md).
 
-> **Three gaps / known errors to know before reading** (the body follows the original **verbatim, unrewritten, uninvented**; the differences are recorded only here):
-> ① This page has **no** standalone entry for `26.40.6` (API 1.24.0, trade menu protocol-only real settlement), and none for `26.10.5` / `26.10.4` / `26.10.1` either — the original jumps straight from `26.40.7` to `26.40.5`. All of those releases are recorded in the full matrix in the [version & ABI matrix](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.en.md).
-> ② The phrase "see 'third-party attribution' at the end of the text" refers to the "License" section of the project-root [`README.md`](https://github.com/Ieckseyr/HologramLib/blob/main/README.en.md) (the holographic-text dynamic lines were refactored from Phantom, LGPL-3.0); it is **not inside this file**.
-> ③ **One old error that survives to today**: the `26.40.5` entry says the sulfur cube is "`invisible`, **off by default**", which does not match the code — `HologramLib.h` has `bool invisible{true};` (**on by default**), and the project README and [Entities & NPCs](../domains/entities-npc.md) both say "on by default" as well. **The code is the source of truth.**
+## Overview
 
-- `26.51.3` (API 1.29.0): **the merged release of the 26.51 line** — the three batches `26.40.8` / `26.40.9` / `26.40.10` of the 26.40 line
-  moved to the 26.51 line wholesale. The item-by-item content is in the `26.40.8` / `26.40.9` / `26.40.10` rows of the
-  [version & ABI matrix](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.en.md) (this release matches them in capability domains; the only difference is the protocol line).
-  The only newly written adaptation on the 26.51 side this time is view override's input-bit reading: 26.51 replaced
-  `PlayerAuthInputPacketPayload::mInputData` from `std::bitset<66>` with `Bedrock::EnumSet<InputData, 66>` (no `operator[]`), so the mask now
-  takes bits with `contains()`; the four adaptations of `26.51.0` (text `LineGapHeight`, `ItemInstance::EMPTY_ITEM()`, container response
-  `presence=false`, shape NetworkId seed `0x00FFFFFF`) were re-checked item by item after the merge and are all still there. Build has
-  0 warnings, offline checks all green (`view*` 59 items / trade settlement 43 items / container 42 items / NPC carrier 32 items / PlayerList
-  and trade-offers byte-compared); `check-authinput` needs a local packet capture `logs/authinput.hex`, which this workspace does not have,
-  so it was not run.
-  - **Fix**: the two `ghost*` exports (`ghostPollInteractions` / `ghostClearInteractions`) were missing from `ModEntry::exportLseFunctions()`, so `ll.import` returned `null`; they are wired in now — all 270 `exportAs` calls register at runtime (verified by scanning every name with `ll.hasExported`).
-  - ⚠ **Not retested on a 26.51 client**: the `26.40.9` / `26.40.10` conclusions about entity metadata and `AddItemActor`(15) come from a
-    **26.40 packet capture**. This time only the protocol constants were checked for agreement on both sides (`ActorDataIDs.hpp` and
-    `MinecraftPacketIds.hpp` are byte-identical across the 26.40 / 26.51 protocol libraries; `PrimitiveShapes.hpp` only adds `mLineGapHeight`).
-  - **`26.51.2` was retracted**: that release was retracted after publication; deploy `26.51.3` directly.
-- `26.40.10` (API 1.29.0): **view override caught up on two things at once** —
-  ① **`AddItemActor`(id 15) is now intercepted as well**: a dropped item's (item entity's) spawn packet goes through `AddItemActor` rather
-  than `AddActor`, and previously only the latter was intercepted → "change a dropped item's type / hide it" was always only half done (at the
-  moment the override was set it could swap out the players visible then, but the engine's own `AddItemActor` right afterwards pushed the item
-  icon back into the client; a 2026-10-16 packet capture proved it: after `RemoveActor` + `AddActor(minecraft:cod)` an `AddItemActor` with the
-  same uniqueId arrives 13 ms later). Now `hidden` drops the packet, and `identifier` drops the original packet + hand-writes an `AddActor`
-  with the same `runtimeId/uniqueId` (attributes use the verified recipe of `health 20 / scale 1`, not copying `ItemActor`'s
-  `maxHealth = 0`); the decision was extracted into `ViewOverrideLogic::planItemSpawn`, offline checks 54 → 59 items; new LSE export
-  `viewItemSpawnHooked()` for scripts to do capability negotiation.
-  ② **`EntityView` gained "the pose and other settings after it becomes a mob"** (appended at the tail): `pose` / `metaScale` / `variant` /
-  `markVariant` / `colorIndex` / `color2` (each with `hasXxx`; `false` = leave that item alone); the LSE `viewEntity` spec string gained the
-  six keys `pose= / scale= / variant= / mark= / color= / color2=`. Protocol items and types: `PoseIndex(79)`,
-  `Reserved38`+`Reserved53·54` (scale and the client hitbox), `Variant(2)`=Int, `MarkVariant(43)`=Int, `ColorIndex(3)`=Byte,
-  `Color2Index(82)`=Byte — **the last two are Byte and the first two are Int, the types taken from the decode engine's real spawn packets**,
-  not guessed from the protocol tables. Use: in dropped-item materialisation, "every tropical-fish drop looks different, pufferfish always
-  fully puffed" (`FishDropEntity` (a standalone plugin)). ⚠ `EntityView` changed size, so C++ consumers that construct that struct directly
-  must recompile.
-  **Second fix in the same release**: `SetActorDataPacket` / `UpdateAttributesPacket` both carry `mTick` in the 26.40 wire format, and the
-  view override path never filled it (=0) → the client **drops "metadata update / attribute update" as stale packets** (a 2026-10-16 capture
-  proves it: in the spawn packet `id2/id43/id3/id82` are all present with correct values, yet the visuals stay the default appearance; the
-  pufferfish never puffs either — the attribute second confirmation fails the same way). Now: ① both packets uniformly fill
-  `currentViewTick()` (synced on every `tickPulse`); ② a `SetActorData` of the same plan **follows immediately after the spawn packet**;
-  ③ and a **+2 tick** confirmation is scheduled (`ViewOverrideManager::scheduleMetaPush` / `flushMetaPushes`). The customentity domain has
-  always sent with a tick (`sadp.mTick = tick`), so its `setVariant` / `setColorIndex` have always been fine.
+| Release | API | Line | Contents | New exports | C++ consumers |
+|---|---|---|---|---|---|
+| `26.40.11` / `26.51.4` | 1.30.0 | 26.40 · 26.51 | Three protocol primitives and one timing notification | 3 | No recompile (vtable unchanged) |
+| `26.40.10` / `26.51.3` | 1.29.0 | 26.40 · 26.51 | `AddItemActor` interception, pose/scale/variant/colour, metadata tick fix | 1 (`viewItemSpawnHooked`) | Recompile (`EntityView` grew) |
+| `26.40.9` | 1.27.0 | 26.40 | `EntityView::skinId` (same-id model swap), real-actor interaction events, ABI stamp | class methods | Recompile (vtable appended) |
+| `26.40.8` | 1.26.0 | 26.40 | Per-viewer overrides, four UI domains | several | Recompile |
+
+## 26.40.11 / 26.51.4 — API 1.30.0
+
+The 26.40 and 26.51 lines ship identical content.
+
+### New exports
+
+| Export | Description | Returns |
+|---|---|---|
+| `viewPollSpawnEvents()` | Returns and clears the spawn-event queue. Each entry is `drop\|uid\|dim\|x\|y\|z\|` or `actor\|uid\|dim\|x\|y\|z\|<identifier>`; one entry per entity | `Array<String>` |
+| `itemDisplayCreateFull(...)` | Creates an item display with item NBT and enchant glint supplied at creation, avoiding the rebuild caused by calling `itemDisplaySetItemWithNbt` / `itemDisplaySetGlint` afterwards. Same parameters as `itemDisplayCreateAdvanced` plus trailing `nbt` and `glint` | display id |
+| `itemDisplayEmitForEntity(playerName, uid, item, aux, offsetY, rotX, rotY, rotZ, scale, nbt, glint)` | Renders the existing entity with uniqueId `uid` as an FMBE item model for one player: sends `RemoveActor`, `AddActor` (fox), `MobEquipment`, `SetActorData` and the animation sequence. Uses the caller-supplied id and keeps no state. When `rotY` is `"0"` the orientation is derived from the entity's current velocity | `1` item plane · `2` 3D block · `<0` failure |
+
+### Fixed
+
+- **Enchanted items rendered without the enchantment glint.** Previously no export accepted `glint` at creation or emit
+  time, so consumers had to call `itemDisplaySetGlint` separately — if that call was missing or arrived late there was no
+  glint, and combining `itemDisplaySetItemWithNbt` with `itemDisplaySetGlint` triggered an extra rebuild because the
+  enchantment lives in `nbt`.
+  In this release `itemDisplayCreateFull` and `itemDisplayEmitForEntity` both take `nbt` and `glint` on the first send, so
+  an enchanted item shows the glint from its first frame without follow-up calls.
+
+### Scope
+
+This release adds the three exports above only. The library does not implement the following; the caller decides them:
+whether an entity is taken over, which players receive it, how the angle is restored after landing, and which size is used
+for blocks versus items.
+
+### Compatibility
+
+Only LSE exports are added (registered by name). The vtable in `include/hologramlib/HologramLib.h` is unchanged,
+`HOLOGLIB_ABI_STAMP` stays at 1, and compiled C++ consumers need no recompile.
+
+### Reference implementation
+
+`ItemPhys` 1.8.0 (an LSE plugin) implements dropped-item model takeover by combining `viewEntity`'s `hidden=1` with
+`itemDisplayEmitForEntity`.
+
+## 26.40.10 / 26.51.3 — API 1.29.0
+
+26.51.3 moves the 26.40.8, 26.40.9 and 26.40.10 batches onto the 26.51 protocol line with the same capabilities as
+26.40.10; the only 26.51-specific adaptation is reading `PlayerAuthInput` input bits.
+
+### Added and changed
+
+- **`AddItemActor` (id 15) is now intercepted.** Dropped items spawn through it rather than `AddActor`, so retyping or hiding a drop previously only affected players already watching when the override was set; the engine's own `AddItemActor` then rewrote the item icon (capture of 2026-10-16: an `AddItemActor` with the same uniqueId arrived 13 ms after `RemoveActor` and `AddActor(cod)`). Now `hidden` drops the packet, and `identifier` drops it and writes an `AddActor` with the same `runtimeId` / `uniqueId`, using the verified health 20 / scale 1 attribute recipe.
+- **`EntityView` gained post-transformation appearance fields (appended at the tail).** `pose`, `metaScale`, `variant`, `markVariant`, `colorIndex`, `color2`, each with a `hasXxx` flag where `false` leaves the item alone. The LSE `viewEntity` spec accepts `pose=`, `scale=`, `variant=`, `mark=`, `color=`, `color2=`. Protocol IDs: `PoseIndex(79)`, `Reserved38`, `Reserved53`/`Reserved54`, `Variant(2)` as Int, `MarkVariant(43)` as Int, `ColorIndex(3)` as Byte, `Color2Index(82)` as Byte; types taken from a decoded real spawn packet.
+- **New export `viewItemSpawnHooked()`** for capability negotiation from scripts.
+
+### Fixed
+
+- `SetActorDataPacket` and `UpdateAttributesPacket` carry `mTick` on the 26.40 line and the view-override path sent 0, so the client discarded them as stale and metadata or attribute updates had no effect (captures show correct `id2`, `id43`, `id3`, `id82` in the spawn packet while the screen showed the default appearance). Both are now stamped with `currentViewTick()`, with an immediate `SetActorData` after the spawn packet and a confirmation scheduled +2 ticks later.
+- The two `ghost*` exports (`ghostPollInteractions`, `ghostClearInteractions`) were not wired into `ModEntry::exportLseFunctions()`, so `ll.import` returned `null`; they are wired back.
+
+### Recompile required
+
+`EntityView` changed size (six fields appended), so C++ consumers that construct the struct must recompile; vtable slots are unchanged.
+
+### Notes
+
+- `26.51.2` was withdrawn; use `26.51.3` or `26.51.4`.
+- The metadata and `AddItemActor` findings in 26.40.9 and 26.40.10 come from 26.40 packet captures; the 26.51 line only verified that the protocol constants match byte for byte, and was not retested on a 26.51 client.
+
+## History
+
+Earlier entries are kept verbatim as submitted.
+
 - `26.40.9` (API 1.27.0): **`EntityView::skinId` (+ `scale` / `yOffset`) — non-player entities "swapped to our model"** (the intercepted spawn
   packet + the library's own packets as the replacement, **the same runtimeId/uniqueId**): the client sees a player model with a registered
   skin (custom geometry allowed), while on the server side it is still that mob — **clicking it / hitting it / aiming at it all hit the mob

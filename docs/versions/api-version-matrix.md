@@ -39,8 +39,8 @@
 
 > **计数口径（2026-10 文档整理时的核对结论）**：表中各行行末的「总计 N」是**发布当时**的记录，其中存在一次记账漂移 ——
 > `26.40.8` 行把 `view*` 记成 `6→16`，而代码真值是 `6→17`；这一处少计的 1 个连带把当时的总计记成了 268（实际应为 269）。
-> `26.40.10` 又新增 `viewItemSpawnHooked`，于是当前源码里共有 **270 处 `exportAs`**。
-> **当前真实计数：270 处 `exportAs`，运行期全部注册**（`ghost*` 的 2 处已接回注册流程）。
+> `26.40.10` 又新增 `viewItemSpawnHooked`，于是 26.51.3 时点源码里共有 270 处 `exportAs`；`26.51.4` 再 +8（`itemDisplay*` 33→40、`view*` 18→19）。
+> **当前真实计数：278 处 `exportAs`（26.51.4），运行期全部注册**（`ghost*` 的 2 处已接回注册流程）。
 > 表中历史数字**按原文保留、未回改**。
 
 > **另有三处已知的历史不一致**（同样按原文保留，只在此登记）：
@@ -50,6 +50,7 @@
 
 | 插件发布版本 | API 版本 | `HOLOGLIB_API_VERSION` | 该版本新增的能力域 |
 |---|---|---|---|
+| `26.51.4` | 1.30.0 | `0x012400` | **只加 3 个纯原语/通知，不含任何功能实现**：`viewPollSpawnEvents`（出生事件通知） · `itemDisplayCreateFull`（建展示即带 NBT/光效） · `itemDisplayEmitForEntity`（让某玩家把某只已有实体看成 FMBE 模型）。判定/状态/策略一律留在消费方（`ItemPhys`）。只加 LSE 导出，虚表未动 → `HOLOGLIB_ABI_STAMP` 不变。 |
 | `26.51.3` | 1.29.0 | `0x012300` | **26.51 线的合并发布**：把 26.40 线上的 `26.40.8` / `26.40.9` / `26.40.10` 三个批次整体搬到 26.51 线（API 从 `26.51.2` 的 1.25.0 直接到 1.29.0；`1.28.0` 按 26.40 线约定跳过）。能力域内容与下表 `26.40.10` 行一致，差别只在协议线。**26.51 侧本次新写的适配只有一处**：`PlayerAuthInputPacketPayload::mInputData` 在 26.51 由 `std::bitset<66>` 换成 `Bedrock::EnumSet<InputData, 66>`（没有 `operator[]`），视图覆盖的输入位掩码改用 `contains()` 逐位取；`26.51.0` 的四处适配（文本 `LineGapHeight`、`ItemInstance::EMPTY_ITEM()`、容器应答 `presence=false`、形状 NetworkId 种子 `0x00FFFFFF`）在合并后逐项复核仍在。协议常量核对：`sculk/protocol/codec/actor/ActorDataIDs.hpp` 与 `sculk/protocol/codec/MinecraftPacketIds.hpp` 在 26.40 / 26.51 两个协议库里**逐字节相同**，`PrimitiveShapes.hpp` 只多 `mLineGapHeight`（已由 `kTextLineGapHeight` 发出）。构建 0 警告；离线检查全绿（`view*` 59 项 / 交易结算 43 项 / 容器 42 项 / NPC 载体 32 项 / PlayerList 与 trade-offers 逐字节对拍）。**未在 26.51 客户端复测**实体元数据与 `AddItemActor` 的真机效果（那批结论来自 26.40 抓包）。 |
 | `26.51.2` | 1.25.0 | `0x011F00` | **新增客户端视图覆盖 `IViewOverride`**（协议层拦截）。两条纪律: **只拦不发** —— 出站钩子挂在 `NetworkSystem::send` / `sendToMultiple`, 只决定「放行 / 丢弃」, **从不修改引擎包字段**; 需要改的一律丢原包 + 库**自己手写协议包**补发（sculk 构造 → 回读校验 → 原始字节发送）。**数据来源只有协议包**（入站 `PlayerAuthInput` 的位置/朝向/输入位、出生包载荷、`Animate`·`ActorEvent`），不读服务端实体状态（例外: 身份识别）。能做: 生物换类型、**玩家变生物 = 替换**（吃掉 `AddPlayer`、用**同一 runtimeId/uniqueId** 发一只该类型实体, `MovePlayer` 对该观看者吃掉、位置由 `MoveActorAbsolute` 推 → **服务端仍认他是真玩家, 打他就是打他本人**）、玩家换皮肤（重发 `PlayerList`, 可立刻撤销）、换名字牌、隐藏、方块换外观; **外加每 tick 心跳**（实体重新进入视野 / 玩家换区块时重推覆盖）。**不进库**: 背包镜像等"读引擎状态的功能项"（消费方用容器域协议能力自己拼）。LSE 导出 `view*`（6 函数）。判定逻辑独立在 `src/view/ViewOverrideLogic.h`, 离线可测（`tests/check-view-override.bat`, 54 项）。**没做的**: 逐玩家缩放/发光/隐身（26.40 线实测的元数据表里没有这些项；26.51 线未复测）。|
 | `26.51.1` | 1.24.0 | `0x011E00` | **交易菜单新增"纯协议层真结算"**：`TradeMenuSpec::settleLocally` + `ITradeMenu::setSettleLocally` / `isSettleLocally` / 结算回传（`TradeSettlementEvent` 监听 + `tradePollSettlements`）。界面仍是自建 `UpdateTrade`（服务端不放交易表），但库接住客户端的付费放置 / 取回 / 成交请求并**真的**从玩家背包扣付费、把产物写进背包（关界面退还暂存付费）；光标（"点一下拿起 / 再点一下放进槽"）由库托管。判定逻辑独立在 `src/trade/TradeSettlementLogic.h`，离线可测（`tests/check-trade-settlement.bat`，43 项）。**已知限制**：客户端要求的"交易槽槽位更正"在本协议版本与协议库线格式不一致（手写会打崩客户端），客户端可能把放料撤回 —— 稳定成交请用 `usePacketOffers=false`（真实交易表）或容器 UI。（本条功能原在 26.40 线上开发，连同 `26.51.0` 的移植一起发布）|

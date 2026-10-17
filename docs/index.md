@@ -8,8 +8,8 @@ HologramLib 是基岩版服务端（LeviLamina / BDS）的**协议层显示库**
 
 | | |
 |---|---|
-| 插件版本 | `26.51.3` |
-| API 版本 | `1.29.0`（`HOLOGLIB_API_VERSION 0x012300`） |
+| 插件版本 | `26.51.4` |
+| API 版本 | `1.30.0`（`HOLOGLIB_API_VERSION 0x012400`） |
 | 运行平台 | LeviLamina 26.51 · BDS 1.26.51（协议 2193） |
 | 脚本前置 | `lrca`（LegacyRemoteCall） |
 
@@ -40,7 +40,7 @@ HologramLib 是基岩版服务端（LeviLamina / BDS）的**协议层显示库**
 | 伪造自己的背包、硫磺立方体展示 | [背包与硫磺立方体 `fakeInv*` `sulfur*`](lse/inventory.md) |
 | 给生物换模型 / 隐藏 / 换皮、读客户端设备 | [视图覆盖与感知 `view*` `sensing*`](lse/view.md) |
 
-全部 **270 个脚本函数**见 [LSE 脚本接口](lse/index.md)；C++ 侧对应的接口（`IShapeDrawer` / `IHologramText` / `ICustomEntity` / `IViewOverride` …）见 [C++ 接口参考](reference/cpp-api.md)。
+全部 **273 个脚本函数**见 [LSE 脚本接口](lse/index.md)；C++ 侧对应的接口（`IShapeDrawer` / `IHologramText` / `ICustomEntity` / `IViewOverride` …）见 [C++ 接口参考](reference/cpp-api.md)。
 
 ---
 

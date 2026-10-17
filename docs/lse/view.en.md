@@ -289,6 +289,33 @@ When you cannot get someone else's uniqueId, use `viewTargetType`; to clear ever
 
 ## Queries and diagnostics
 
+### Drain the "entity just spawned" queue (1.30.0 / 26.51.4)
+
+`viewPollSpawnEvents()`
+
+- Parameters: none
+- Returns: an array of strings, one per entity that just spawned; reading **empties** the queue (same drain semantics as `ghost*` / `containerPollClicks`)
+  - dropped items: `drop|uid|dim|x|y|z|`
+  - everything else: `actor|uid|dim|x|y|z|identifier`
+- Return type: `Array<String>`
+- Notes: the event is recorded **inside the outbound hook** (once per entity), so scripts no longer need a periodic
+  0.5–1 s scan to find "whatever just spawned" — one tick is enough. Typical use: take over a dropped item with
+  `itemDisplayEmitForEntity(player, uid, ...)` the moment it spawns; apply disguise rules the moment a mob spawns.
+  The queue is capped (512 entries); a stalled script loses the oldest ones.
+- Example:
+
+    ```js
+    const pollSpawn = ll.import("HologramLib", "viewPollSpawnEvents");
+    const attach    = ll.import("HologramLib", "itemDisplayEmitForEntity");
+
+    function onTick() {
+        for (const ev of pollSpawn()) {
+            const [kind, uid, dim, x, y, z, identifier] = ev.split("|");
+            if (kind === "drop") attach(Number(uid), "-0.4", "0", "0", "0.375", 180, 2, "", true);
+        }
+    }
+    ```
+
 ### Look up a player's uniqueId by name
 
 `viewUniqueIdOf(playerName)`

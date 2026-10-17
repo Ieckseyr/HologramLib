@@ -517,6 +517,44 @@ const box = itemDisplayCreate(100.5, 66, -200.5, 0, "minecraft:diamond", 0);
     unfollow(box);   // 不再跟着玩家走
     ```
 
+### 建展示时直接带上物品 NBT / 附魔光效（1.30.0 / 26.51.4 起）
+
+`itemDisplayCreateFull(x, y, z, dim, itemId, aux, offX, offY, offZ, rotX, rotY, rotZ, scale, nbt, glint)`
+
+- 参数：前 13 个与 `itemDisplayCreateAdvanced` 相同，后面两个：
+  - `nbt` : `String`<br>物品 SNBT（自定义名 / 附魔等），空串 = 无
+  - `glint` : `Boolean`<br>`true` = 加附魔光效
+- 返回值：物品悬浮 id；失败返回负数
+- 说明：效果等同 `itemDisplayCreateAdvanced` + `itemDisplaySetItemWithNbt` + `itemDisplaySetGlint`，
+  但**不产生那一次"建完再改"的 respawn** —— 后者会让刚出现的展示闪一下。
+- 示例：
+
+    ```js
+    const createFull = ll.import("HologramLib", "itemDisplayCreateFull");
+    const id = createFull(0.5, 66, 0.5, 0, "minecraft:diamond_sword", 0,
+                          "0", "-4", "0", "180", "0", "180", "0.375",
+                          '{"ench":[{"id":9s,"lvl":1s}]}', true);
+    ```
+
+### 让某玩家把一只已有实体看成 FMBE 模型（1.30.0 起）
+
+`itemDisplayEmitForEntity(playerName, uniqueId, itemId, aux, offsetY, rotX, rotY, rotZ, scale, nbt, glint)`
+
+- 参数：
+  - `playerName` : `String`<br>只对这个玩家生效
+  - `uniqueId` : `Integer`<br>**已有实体**的 uniqueId（掉落物就是它自己的 id）
+  - `itemId` / `aux` / `nbt` / `glint`：要显示成什么物品
+  - `offsetY` / `rotX` / `rotY` / `rotZ` / `scale`：FMBE 外观参数（`rotY` 传 `"0"` = 用实体当前速度方向）
+- 返回值：实际渲染模式 `1`=物品平面 `2`=3D 方块；失败 `-1`
+- 说明：**一次性发** `RemoveActor + AddActor(fox) + MobEquipment + SetActorData + 动画`，用调用方给的 id，
+  **不保存任何状态**；何时发、发给谁、落地怎么躺平、尺寸多少，全由调用方决定。
+- 示例：
+
+    ```js
+    const emit = ll.import("HologramLib", "itemDisplayEmitForEntity");
+    emit("Steve", 12345, "minecraft:diamond", 0, "-4", "180", "0", "180", "0.375", "", false);
+    ```
+
 ### 给展示加可命中的判定体积
 
 `itemDisplaySetHitbox(id, width, height)`

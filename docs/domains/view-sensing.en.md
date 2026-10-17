@@ -4,7 +4,7 @@ Covers **client view override** (`IViewOverride`) and the **sensing domain** (`I
 
 | Domain | C++ | LSE | In one line |
 |---|---|---|---|
-| Client view override | `IViewOverride` | `view*` · 18 | Intercepts outbound packets per player and changes **the client view this one player sees** |
+| Client view override | `IViewOverride` | `view*` · 19 | Intercepts outbound packets per player and changes **the client view this one player sees** |
 | Sensing | `IPlayerSensing` | `sensing*` · 3 | Captures the client's device type packet by packet |
 | Per-viewer overrides | `ICustomEntity` per-viewer overrides | `entity*` tail · 4 | Overrides one entity's appearance per viewer |
 | Per-player variable holograms | `IHologramText` + `{var}` | — | Resolves per viewer when the text contains `{var}` |

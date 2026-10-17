@@ -104,6 +104,11 @@ public:
     // AABB 判定体积: R53/R54 元数据广播（即时, 无 respawn）, 数值持久入配置;
     // 0/0 = 恢复不可命中（与历史行为一致）
     bool setHitbox(int64_t id, float width, float height);
+    // 单发原语: 让 playerName 看到"uid 这只实体"被画成 FMBE 物品模型。
+    //   一次性发 RemoveActor + AddActor(fox) + MobEquipment + SetActorData + FMBE 动画, 不保存任何状态。
+    //   cfg 提供 offset/rot/scale/nbt/glint; 朝向默认取该实体当前速度方向。
+    //   返回实际渲染模式 1=item 2=block; 失败返回 -1。
+    int emitForEntity(std::string const& playerName, std::int64_t uniqueId, ItemDisplayConfig const& cfg);
 
     std::vector<int64_t> getAllIds() const;
 

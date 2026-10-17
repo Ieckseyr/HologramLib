@@ -123,14 +123,14 @@ setInterval(() => {
 |---|---|---|---|
 | 画线 / 方框 / 球 / 文字形状 | `shape*` | 39 | [形状](shapes.md) |
 | 多行悬浮字、渐变线 | `holo*` · `gradient*` | 26 + 11 | [悬浮字与渐变线](holograms.md) |
-| 显示「钻石 x64」、物品悬浮实体 | `itemDetail*` · `itemDisplay*` | 2 + 33 | [物品显示](items.md) |
+| 显示「钻石 x64」、物品悬浮实体 | `itemDetail*` · `itemDisplay*` | 2 + 40 | [物品显示](items.md) |
 | 协议层假玩家（NPC）、皮肤注册 / 采集 | `playerNpc*` | 29 | [假玩家 NPC](player-npc.md) |
 | 自定义实体、粒子形状、交互事件 | `entity*` · `particle*` · `ghost*` | 37 + 22 + 2 | [实体、粒子与交互](entities.md) |
 | 交易菜单、虚拟容器、NPC 对话框 | `trade*` · `container*` · `npcDialog*` | 10 + 10 + 9 | [界面与容器](interfaces.md) |
 | 背包虚容器、硫磺立方体展示 | `fakeInv*` · `sulfur*` | 9 + 10 | [背包伪造与硫磺立方体](inventory.md) |
-| 客户端视图覆盖（换模型/隐藏/换皮）、设备感知 | `view*` · `sensing*` | 18 + 3 | [视图覆盖与感知](view.md) |
+| 客户端视图覆盖（换模型/隐藏/换皮）、设备感知 | `view*` · `sensing*` | 19 + 3 | [视图覆盖与感知](view.md) |
 
-函数总数 270，全部在运行期注册，`ll.import` 都能拿到。
+函数总数 278（源码 `exportAs` 计数），全部在运行期注册，`ll.import` 都能拿到。
 
 ---
 
