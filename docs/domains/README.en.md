@@ -100,6 +100,7 @@ Use these values when writing `static_assert` gates:
 | `0x012000` · 1.26.0 | View-override cleanup; five new `IPlayerNpc` methods; holographic-text shrink and completion |
 | `0x012100` · 1.27.0 | `EntityView::skinId`; real-entity interaction listeners; ABI layout stamp |
 | `0x012300` · 1.29.0 | `AddItemActor` interception; `EntityView` gains pose / scale / variant / colour |
+| `26.51.5` | 1.31.0 | `0x012500` | **26.51 line merges 26.40.12 / 26.40.13**: stretch, live transforms, animation presets, stop recipe, NPC pose/equipment/ride, FMBE spawn-twitch fix, image plane with transparency, container session isolation, PlayerSkin trusted flag and skin Id rebuild. |
 | `26.51.4` | 1.30.0 | `0x012400` | **Three primitives/notifications only, no feature logic**: `viewPollSpawnEvents` (spawn notification) · `itemDisplayCreateFull` (create with NBT/glint) · `itemDisplayEmitForEntity` (render an existing entity as an FMBE model for one player). All decisions live in the consumer (`ItemPhys`). LSE exports only, vtable untouched → `HOLOGLIB_ABI_STAMP` unchanged. |
 
 > ⚠ `0x012200` (= API 1.28.0) is not in the table. That number was skipped and never shipped as a release. See the [version & ABI matrix](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.en.md).

@@ -7,10 +7,31 @@ must recompile. The full release ↔ API mapping is in the [version & ABI matrix
 
 | Release | API | Line | Contents | New exports | C++ consumers |
 |---|---|---|---|---|---|
+| `26.51.5` / `26.40.13` | 1.31.0 | 26.51 · 26.40 | Stretch / live transforms / animation presets / stop recipe / NPC pose-equipment-ride / FMBE spawn-twitch fix / image plane with transparency / container session isolation | several | Recompile recommended (tail appends) |
 | `26.40.11` / `26.51.4` | 1.30.0 | 26.40 · 26.51 | Three protocol primitives and one timing notification | 3 | No recompile (vtable unchanged) |
 | `26.40.10` / `26.51.3` | 1.29.0 | 26.40 · 26.51 | `AddItemActor` interception, pose/scale/variant/colour, metadata tick fix | 1 (`viewItemSpawnHooked`) | Recompile (`EntityView` grew) |
 | `26.40.9` | 1.27.0 | 26.40 | `EntityView::skinId` (same-id model swap), real-actor interaction events, ABI stamp | class methods | Recompile (vtable appended) |
 | `26.40.8` | 1.26.0 | 26.40 | Per-viewer overrides, four UI domains | several | Recompile |
+
+## 26.51.5 / 26.40.13 — API 1.31.0
+
+The 26.51 line merges the 26.40.12 / 26.40.13 capabilities (protocol 2193); behaviour matches 26.40.13.
+
+- **Non-uniform stretch**: `setStretch` / `setStretchLive` (XZ and Y channels); blocks use `setExtend`.
+- **Live transforms**: `setRotationLive` / `setOffsetLive` / `setScaleLive` / `setTransformLive`; animation packets only, no respawn.
+- **Animation presets**: orbit / tumble / wobble / heartbeat / pendulum / billboard pitch / LOD / first-person hide; single-channel `setAnimPreset` and LSE `itemDisplaySetPreset`.
+- **Stop recipe**: `animation.player.attack.positions` + `stopExpression=1`; `stopAnimation` / `stopAnimationTo`.
+- **NPC pose/equipment/ride**: `setPose` / `setEquipment` / `setRideUniqueId` / `setRidePlayer` / `setRideEntity` / `clearRide`.
+- **FMBE spawn-twitch fix**: equipment delayed until sleeping / swelling / posrot (item +5, block +7 ticks); live resend keeps pending equipment.
+- **Image plane**: `playerNpcRegisterImageSkin(pngPath, skinId, sizeBlocks, transparent)`; `transparent=false` composites over white, `true` thresholds alpha.
+- **Container session isolation**: `uiOpen` only refreshes open UIs; `ownerEpoch` invalidates old-session packets; `containerId` is not reused for 200 ticks.
+- **Skin semantics**: `PlayerSkin` uses `TrustedSkinFlag=true`; skin `Id` / `FullId` are rebuilt from the registry id.
+
+### 26.51 protocol line
+
+- Protocol 2193; shape text payload includes `LineGapHeight`.
+- Container success response uses `presence=false`.
+- `PlayerAuthInput` input bits read through `EnumSet::contains`.
 
 ## 26.40.11 / 26.51.4 — API 1.30.0
 

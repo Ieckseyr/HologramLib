@@ -31,6 +31,7 @@
 #include <mc/world/level/Level.h>
 
 #include <vector>
+#include <cstdlib>
 #include <exception>
 
 namespace debugshape_export::view {
@@ -113,6 +114,14 @@ bool runGuarded(char const* what, Fn&& fn) {
 } // namespace
 
 // ── 汇合点: 单收件人 ──
+static bool viewOverrideDisabled() {
+    static bool const disabled = [] {
+        char const* v = std::getenv("HLIB_NO_VIEW");
+        return v != nullptr && v[0] == '1';
+    }();
+    return disabled;
+}
+
 LL_TYPE_INSTANCE_HOOK(
     ViewNetSendHook,
     ll::memory::HookPriority::Normal,
@@ -123,7 +132,8 @@ LL_TYPE_INSTANCE_HOOK(
     ::Packet const&            packet,
     ::SubClientId              recipientSubId
 ) {
-    manager().noteHookCall(); // 诊断计数（不改变行为; 见 describeFor 的输出）
+    manager().noteHookCall();
+    if (viewOverrideDisabled() || !manager().active()) { origin(id, packet, recipientSubId); return; }
     if (!manager().active()) { // 快路径
         origin(id, packet, recipientSubId);
         return;
@@ -164,6 +174,7 @@ LL_TYPE_INSTANCE_HOOK(
     ::Packet const&                                    packet
 ) {
     manager().noteHookCall();
+    if (viewOverrideDisabled()) { origin(ids, packet); return; }
     bool dispatched = false; // 已经展开成逐收件人发（决定了中途异常时不能再走整包多播: 会重复）
     bool const ran  = runGuarded("ViewNetSendToMultipleHook", [&] {
         if (!manager().active() || !anyRecipientHasOverrides(ids)) {
@@ -192,6 +203,7 @@ LL_TYPE_INSTANCE_HOOK(
     void
 ) {
     origin();
+    if (viewOverrideDisabled()) return;
     runGuarded("ViewOverrideTickHook", [&] { manager().tickPulse(); });
 }
 

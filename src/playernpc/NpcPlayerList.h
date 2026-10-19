@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <span>
 #include <string>
 #include <string_view>
@@ -22,10 +23,28 @@ inline constexpr std::uint8_t kSkinTrustedUnset = 0;
 inline constexpr std::uint8_t kSkinTrustedFalse = 1;
 inline constexpr std::uint8_t kSkinTrustedTrue  = 2;
 
-// NPCs use one identity for the skin and its complete cached appearance, as Geyser does.
-// Rebuild FullId after capture/Persona rewriting and when restoring older blobs.
+// 按 registryId 重建 Id/FullId（26.40），避免沿用来源缓存键。
 inline void finalizeSkinIds(sculk::protocol::SerializedSkin& skin, std::string_view registryId) {
-    if (skin.mId.empty()) skin.mId = "HoloLibNpcSkin_" + std::string(registryId);
+    std::uint64_t h = 1469598103934665603ULL;
+    for (unsigned char c : registryId) {
+        h ^= static_cast<std::uint64_t>(c);
+        h *= 1099511628211ULL;
+    }
+    auto const a = static_cast<std::uint32_t>(h >> 32);
+    auto const b = static_cast<std::uint32_t>(h);
+    char uuid[80]{};
+    std::snprintf(
+        uuid,
+        sizeof(uuid),
+        "%08x-%04x-4%03x-%04x-%08x%04x",
+        a,
+        (b >> 16) & 0xFFFF,
+        b & 0x0FFF,
+        static_cast<unsigned>((b >> 28) & 0x3) | 0x8000,
+        a,
+        b & 0xFFFF
+    );
+    skin.mId     = std::string(uuid) + "." + std::string(registryId);
     skin.mFullId = skin.mId;
 }
 

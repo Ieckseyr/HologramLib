@@ -306,6 +306,85 @@ void ItemDisplayExporter::exportAll() {
         [&mgr](int64_t id, float width, float height) -> bool {
             return mgr.setHitbox(id, width, height);
         });
+
+    // ── 26.40.12: 非等比拉伸 + live 变换（只重发 FMBE 动画, 不 respawn）──
+    // itemDisplaySetStretch(id, xz: s, y: s) -> b（持久化 + 一次 respawn）
+    hologramlib::lse::exportAs(NAMESPACE, "itemDisplaySetStretch",
+        [&mgr](int64_t id, std::string const& xz, std::string const& y) -> bool {
+            return mgr.setStretch(id, xz, y);
+        });
+    // itemDisplaySetStretchLive(id, xz: s, y: s) -> b（只重发动画包, 无闪烁）
+    hologramlib::lse::exportAs(NAMESPACE, "itemDisplaySetStretchLive",
+        [&mgr](int64_t id, std::string const& xz, std::string const& y) -> bool {
+            return mgr.setStretchLive(id, xz, y);
+        });
+    // itemDisplaySetRotationLive(id, rx: s, ry: s, rz: s) -> b
+    hologramlib::lse::exportAs(NAMESPACE, "itemDisplaySetRotationLive",
+        [&mgr](int64_t id, std::string const& rx, std::string const& ry, std::string const& rz) -> bool {
+            return mgr.setRotationLive(id, rx, ry, rz);
+        });
+    // itemDisplaySetOffsetLive(id, ox: s, oy: s, oz: s) -> b
+    hologramlib::lse::exportAs(NAMESPACE, "itemDisplaySetOffsetLive",
+        [&mgr](int64_t id, std::string const& ox, std::string const& oy, std::string const& oz) -> bool {
+            return mgr.setOffsetLive(id, ox, oy, oz);
+        });
+    // itemDisplaySetScaleLive(id, scale: s) -> b
+    hologramlib::lse::exportAs(NAMESPACE, "itemDisplaySetScaleLive",
+        [&mgr](int64_t id, std::string const& scale) -> bool { return mgr.setScaleLive(id, scale); });
+    // itemDisplaySetTransformLive(id, ox,oy,oz, rx,ry,rz, scale: s×7) -> b（一次重发）
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "itemDisplaySetTransformLive",
+        [&mgr](int64_t id,
+               std::string const& ox, std::string const& oy, std::string const& oz,
+               std::string const& rx, std::string const& ry, std::string const& rz,
+               std::string const& scale) -> bool {
+            return mgr.setTransformLive(id, ox, oy, oz, rx, ry, rz, scale);
+        });
+
+    // ── 26.40.12: 动画预设（库内逻辑, 组合成 Molang 后 live 重发）──
+    // itemDisplaySetAnim(id, spinSpeed, spinAxis, bobAmp, bobPeriod, pulseAmp, pulsePeriod,
+    //                    swayAmp, swayPeriod, phase, billboard) -> b
+    //   spinSpeed 度/秒; spinAxis 0=X 1=Y 2=Z; period 秒; phase 秒; billboard 仅物品模式
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "itemDisplaySetAnim",
+        [&mgr](int64_t id,
+               float spinSpeed, int spinAxis,
+               float bobAmp, float bobPeriod,
+               float pulseAmp, float pulsePeriod,
+               float swayAmp, float swayPeriod,
+               float phase, bool billboard) -> bool {
+            ItemDisplayAnim anim;
+            anim.spinSpeed      = spinSpeed;
+            anim.spinAxis       = spinAxis;
+            anim.bobAmplitude   = bobAmp;
+            anim.bobPeriod      = bobPeriod;
+            anim.pulseAmplitude = pulseAmp;
+            anim.pulsePeriod    = pulsePeriod;
+            anim.swayAmplitude  = swayAmp;
+            anim.swayPeriod     = swayPeriod;
+            anim.phase          = phase;
+            anim.billboard      = billboard;
+            return mgr.setAnim(id, anim);
+        });
+    // itemDisplayClearAnim(id) -> b（恢复 setAnim 之前的 offset/rot/scale）
+    hologramlib::lse::exportAs(
+        NAMESPACE, "itemDisplayClearAnim", [&mgr](int64_t id) -> bool { return mgr.clearAnim(id); });
+
+    // ── 26.40.13: 单通道预设 ──
+    // itemDisplaySetPreset(id, preset, a, b, c) -> b
+    //   spin(a=度/秒, c=轴0/1/2) · bob(a=幅度, b=周期) · pulse(a=比例, b=周期)
+    //   sway(a=度, b=周期) · orbit(a=半径, b=周期, c=平面0/1/2)
+    //   tumble(a=度/秒) · wobble(a=度, b=倍率) · heartbeat(a=比例, b=周期)
+    //   pendulum(a=度, b=周期) · billboard(a=1开, c=1带俯仰)
+    //   lod(a=近格, b=远格, c=远端百分比缩放) · firstperson(a=1开) · clear
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "itemDisplaySetPreset",
+        [&mgr](int64_t id, std::string const& preset, float a, float b, int c) -> bool {
+            return mgr.setAnimPreset(id, preset, a, b, c);
+        });
 }
 
 } // namespace debugshape_export

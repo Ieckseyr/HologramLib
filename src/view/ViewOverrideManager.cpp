@@ -1,3 +1,4 @@
+#include "../DiagFlags.h"
 // ViewOverrideManager.cpp - 客户端视图覆盖: 覆盖表 + 出站拦截判定（1.25.0）
 //
 // 判定总原则（**只拦不发**）: 出站钩子只决定"这一包发给这名玩家吗"（放行 / 丢弃）——
@@ -321,6 +322,7 @@ bool ViewOverrideManager::overrideEntity(
     std::int64_t                      uniqueId,
     hologramlib::EntityView const&    view
 ) {
+    if (hlibDomainDisabled("HLIB_NO_VIEW")) return false;
     auto normalised        = view;
     normalised.identifier  = logic::normaliseType(view.identifier);
     // 全都"没设"才当撤销。**asPlayer 也必须算一项** —— 漏了它时"伪装成某个玩家"
@@ -499,6 +501,7 @@ bool ViewOverrideManager::overrideBlock(
     int                            z,
     hologramlib::BlockView const&  view
 ) {
+    if (hlibDomainDisabled("HLIB_NO_VIEW")) return false;
     auto const type = logic::normaliseType(view.type);
     if (type.empty()) return clearBlock(playerName, x, y, z);
 
@@ -632,6 +635,7 @@ void ViewOverrideManager::respawnForPlayer(
     std::string const&      identifier,
     logic::MetaPlan const&  plan
 ) {
+    if (hlibDomainDisabled("HLIB_NO_VIEW")) return;
     if (actor.isPlayer()) return; // 玩家出生包（AddPlayer）重建不了: 见 HologramLib.h 的域注释
 
     auto const uniqueId = actor.getOrCreateUniqueID().rawID;
@@ -656,6 +660,7 @@ void ViewOverrideManager::restoreEntityForPlayer(
     std::int64_t        uniqueId,
     EntityRecord const& record
 ) {
+    if (hlibDomainDisabled("HLIB_NO_VIEW")) return;
     auto* actor = liveActorNear(player, uniqueId);
     if (actor == nullptr) {
         // fetchEntity 对玩家实体不一定取得到（BDS 的实体表对玩家是分开的）—— 玩家再兜一层,

@@ -24,6 +24,8 @@
 #include <Windows.h>
 #include <objidl.h>
 #include <propidl.h>
+#include <fstream>
+#include <iterator>
 // NOMINMAX 下 GDI+ 头内裸调 min/max → 引入 std::min/std::max 到全局可见
 #include <algorithm>
 using std::max;
@@ -145,6 +147,14 @@ std::string const& pieceTypeToString(::SharedTypes::persona::PieceType type) {
 // 从 geometry JSON 提取首个模型 identifier（"identifier": "geometry.xxx"）
 // 轻量扫描（不引入 JSON 依赖）; 找不到返回空 → 调用方回退 geometry 名
 std::string parseGeometryIdentifier(std::string const& json) {
+    // 旧式 geometry.<name>（26.40）。
+    auto oldKey = json.find("\"geometry.");
+    if (oldKey != std::string::npos) {
+        auto start = oldKey + 1; // 跳过开头引号
+        auto end   = json.find('"', start);
+        if (end != std::string::npos && end > start) return json.substr(start, end - start);
+    }
+
     std::size_t pos = 0;
     while ((pos = json.find("identifier", pos)) != std::string::npos) {
         auto colon = json.find(":", pos + 10);
@@ -158,6 +168,20 @@ std::string parseGeometryIdentifier(std::string const& json) {
         pos = q2 + 1;
     }
     return {};
+}
+
+// 几何最低版本取 format_version（26.40）。
+std::string parseGeometryVersion(std::string const& json) {
+    auto key = json.find("\"format_version\"");
+    if (key == std::string::npos) return "1.14.0";
+    auto colon = json.find(':', key);
+    if (colon == std::string::npos) return "1.14.0";
+    auto q1 = json.find('"', colon + 1);
+    if (q1 == std::string::npos) return "1.14.0";
+    auto q2 = json.find('"', q1 + 1);
+    if (q2 == std::string::npos) return "1.14.0";
+    auto v = json.substr(q1 + 1, q2 - q1 - 1);
+    return v.empty() ? "1.14.0" : v;
 }
 
 // blob 序列化格式（小端, length-prefixed）: "HLNS" | u32 version | skinId | SerializedSkin 全字段
@@ -397,7 +421,12 @@ void NpcSkinRegistry::shutdown() {
     mSkins.clear(); // 纯内存; 持久化副本由消费方自行保存/恢复
 }
 
-bool NpcSkinRegistry::registerSkinFromPng(hologramlib::PlayerNpcSkin const& skin, std::string& error) {
+bool NpcSkinRegistry::registerSkinFromPng(
+    hologramlib::PlayerNpcSkin const& skin,
+    std::string&                      error,
+    bool                              forceOpaque,
+    int                               alphaMode
+) {
     std::lock_guard lock(mMutex);
     if (mGdiplusToken == nullptr) {
         error = "GDI+ not initialized";
@@ -422,13 +451,14 @@ bool NpcSkinRegistry::registerSkinFromPng(hologramlib::PlayerNpcSkin const& skin
     }
     auto width  = bitmap.GetWidth();
     auto height = bitmap.GetHeight();
-    // 方形, 边长是 2 的幂且 >= 64（64/128 是原版默认; 256/512/1024 是原版 HD 皮肤支持）
+    // 方形，2 的幂，边长 >= 64。
     auto const isPot = [](std::uint32_t v) { return v >= 64 && (v & (v - 1)) == 0; };
     if (width != height || !isPot(width)) {
         error = std::format("unsupported skin size: {}x{} (需要方形且边长是 64/128/256/512/1024)", width, height);
         return false;
     }
 
+    // 26.40：皮肤字节为原始 RGBA。
     Gdiplus::Rect       rect(0, 0, static_cast<INT>(width), static_cast<INT>(height));
     Gdiplus::BitmapData data{};
     if (bitmap.LockBits(&rect, Gdiplus::ImageLockModeRead, PixelFormat32bppARGB, &data) != Gdiplus::Ok) {
@@ -436,7 +466,7 @@ bool NpcSkinRegistry::registerSkinFromPng(hologramlib::PlayerNpcSkin const& skin
         return false;
     }
 
-    // BGRA(BYTE 序) → RGBA 字节流（SCustomNpc 同款转换）
+    // BGRA -> RGBA。
     std::string rgba;
     rgba.resize(static_cast<std::size_t>(width) * height * 4);
     auto* base = static_cast<std::uint8_t*>(data.Scan0);
@@ -447,36 +477,55 @@ bool NpcSkinRegistry::registerSkinFromPng(hologramlib::PlayerNpcSkin const& skin
         for (std::uint32_t x = 0; x < width; ++x) {
             auto source = static_cast<std::size_t>(x) * 4;
             auto target = (static_cast<std::size_t>(y) * width + x) * 4;
-            rgba[target]     = static_cast<char>(row[source + 2]); // R
-            rgba[target + 1] = static_cast<char>(row[source + 1]); // G
-            rgba[target + 2] = static_cast<char>(row[source]);     // B
-            rgba[target + 3] = static_cast<char>(row[source + 3]); // A
+            std::uint8_t r = row[source + 2];
+            std::uint8_t g = row[source + 1];
+            std::uint8_t b = row[source];
+            std::uint8_t a = row[source + 3];
+            if (alphaMode == 2) {
+                // 透明区域铺白底（a=255，RGB 与白色混合）
+                auto const mix = [a](std::uint8_t c) {
+                    return static_cast<std::uint8_t>((c * a + 255 * (255 - a)) / 255);
+                };
+                r = mix(r); g = mix(g); b = mix(b); a = 255;
+            } else if (alphaMode == 1) {
+                a = (a >= 128) ? 255 : 0; // 阈值切孔
+            } else if (forceOpaque && a != 0) {
+                a = 255;
+            }
+            rgba[target]     = static_cast<char>(r);
+            rgba[target + 1] = static_cast<char>(g);
+            rgba[target + 2] = static_cast<char>(b);
+            rgba[target + 3] = static_cast<char>(a);
         }
     }
     bitmap.UnlockBits(&data);
 
     sculk::protocol::SerializedSkin proto;
-    proto.mId             = "HoloLibNpcSkin_" + skinId;
+    proto.mId              = "HoloLibNpcSkin_" + skinId;
     proto.mSkinImageWidth  = width;
     proto.mSkinImageHeight = height;
     proto.mSkinImageBytes  = std::move(rgba);
     if (!skin.geometryData.empty()) {
-        // 自定义模型: identifier 从 JSON 提取（失败回退 geometry 名）; 全量几何随皮肤下发
+        // 自定义模型：identifier + 全量几何。
         auto identifier = parseGeometryIdentifier(skin.geometryData);
         proto.mResourcePatch = std::format(
             R"({{"geometry":{{"default":"{}"}}}})",
             identifier.empty() ? skin.geometry : identifier
         );
         proto.mGeometryData               = skin.geometryData;
-        proto.mGeometryDataMinEngineVersion = "1.21.100";
+        // 26.40：旧式 0.0.0，新式取 format_version。
+        bool const oldStyle = skin.geometryData.find("\"minecraft:geometry\"") == std::string::npos;
+        proto.mGeometryDataMinEngineVersion = oldStyle ? "0.0.0" : parseGeometryVersion(skin.geometryData);
     } else {
-        // 标准玩家模型（geometry 名走资源包内置几何, 不下发几何数据）
+        // 标准玩家模型。
         proto.mResourcePatch               = std::format(R"({{"geometry":{{"default":"{}"}}}})", skin.geometry);
         proto.mGeometryDataMinEngineVersion = "1.21.100";
     }
     proto.mArmSize                   = (skin.armSize == "slim") ? "slim" : "wide";
-    proto.mSkinColor                 = "#0";
-    proto.mOverridesPlayerAppearance = true;
+    proto.mSkinColor                 = "#00000000";
+    // 26.40：premium=1 / overrides=0。
+    proto.mIsPremiumSkin             = true;
+    proto.mOverridesPlayerAppearance = false;
     finalizeSkin(proto, skinId); // 填齐 Id / FullId，缺几何时补标准定义
 
     mSkins.insert_or_assign(std::move(skinId), std::move(proto));
@@ -573,7 +622,7 @@ bool NpcSkinRegistry::captureSkin(std::string const& skinId, std::string const& 
     proto.mId            = impl.mId;
     proto.mPlayFabId     = impl.mPlayFabId;
     proto.mResourcePatch = impl.mResourcePatch;
-    // FullId 在所有标识改写完成后统一设置，避免保留原玩家的旧缓存键。
+    // 26.40：FullId 最后统一重建。
 
     // 主皮肤贴图
     proto.mSkinImageWidth  = impl.mSkinImage.get().mWidth;

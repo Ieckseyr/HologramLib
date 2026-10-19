@@ -12,7 +12,15 @@
 #include <ll/api/service/Bedrock.h>
 
 #include <ll/api/memory/Hook.h>
+#include <mc/legacy/ActorUniqueID.h>
 #include <mc/world/level/Level.h>
+
+#include <mc/deps/core/string/HashedString.h>
+#include <mc/deps/nbt/CompoundTag.h>
+#include <mc/network/packet/MobArmorEquipmentPacket.h>
+#include <mc/network/packet/MobEquipmentPacket.h>
+#include <mc/world/ContainerID.h>
+#include <mc/world/item/ItemStack.h>
 
 #include <algorithm>
 #include <format>
@@ -21,10 +29,18 @@
 #include "NpcProtocol.h"
 #include "NpcSkinRegistry.h"
 
+#include <sculk/protocol/codec/actor/ActorDataIDs.hpp>
+#include <sculk/protocol/codec/actor/MetaData.hpp>
 #include <sculk/protocol/codec/level/MolangVersion.hpp>
 #include <sculk/protocol/codec/packet/AnimateEntityPacket.hpp>
+#include <sculk/protocol/codec/packet/SetActorDataPacket.hpp>
+#include <sculk/protocol/codec/packet/SetActorLinkPacket.hpp>
+
+#include "SculkPacketSend.h"
+#include "customentity/CustomEntityManager.h"
 
 #include "PlayerNpcManager.h"
+#include "../DiagFlags.h"
 
 namespace debugshape_export {
 
@@ -64,6 +80,101 @@ float effectiveYaw(PlayerNpcManager::Runtime const& rt, mce::UUID const& uuid, P
     return it == rt.playerRot.end() ? cfg.yaw : it->second.yaw;
 }
 
+// ── 26.40.12: 姿势 / 装备 / 骑乘 ──
+
+// 装备条目 → 原生 ItemStack（空 name = 空栈）
+::ItemStack buildNpcEquip(PlayerNpcManager::Runtime::NpcEquip const& eq) {
+    if (eq.name.empty()) return {};
+    auto level = ll::service::getLevel();
+    if (!level) return {};
+    try {
+        std::unique_ptr<::CompoundTag> tag;
+        if (!eq.nbt.empty()) {
+            if (auto parsed = ::CompoundTag::fromSnbt(eq.nbt)) {
+                tag = std::make_unique<::CompoundTag>(std::move(*parsed));
+            }
+        }
+        auto tryGet = [&](std::string const& name) -> ::ItemStack {
+            auto weak = level->getItemRegistry().getItem(::HashedString(name));
+            if (!weak) return {};
+            ::ItemStack stack{};
+            stack.reinit(*weak, 1, eq.aux);
+            if (tag) stack.setUserData(std::make_unique<::CompoundTag>(*tag));
+            return stack;
+        };
+        ::ItemStack stack = tryGet(eq.name);
+        if (stack.isNull()) {
+            auto normalized = eq.name;
+            if (normalized.find(':') == std::string::npos) normalized = "minecraft:" + normalized;
+            stack = tryGet(std::move(normalized));
+        }
+        return stack;
+    } catch (...) {
+        return {};
+    }
+}
+
+// 主/副手 + 四甲整组下发（四甲必须一次发四槽, MobArmorEquipmentPacket 是整包）
+void sendNpcEquipment(Player& player, PlayerNpcManager::Runtime const& rt) {
+    for (int slot = 0; slot <= 1; ++slot) {
+        auto stack = buildNpcEquip(rt.equip[slot]);
+        if (stack.isNull()) continue;
+        auto cid = (slot == 1) ? ::ContainerID::Offhand : ::ContainerID::Inventory;
+        ::MobEquipmentPacket pkt{::ActorRuntimeID{rt.runtimeId}, stack, static_cast<unsigned char>(slot), 0, cid};
+        pkt.sendTo(player);
+    }
+    auto head  = buildNpcEquip(rt.equip[2]);
+    auto torso = buildNpcEquip(rt.equip[3]);
+    auto legs  = buildNpcEquip(rt.equip[4]);
+    auto feet  = buildNpcEquip(rt.equip[5]);
+    if (!head.isNull() || !torso.isNull() || !legs.isNull() || !feet.isNull()) {
+        ::MobArmorEquipmentPacket armorPkt;
+        armorPkt.mRuntimeId = ::ActorRuntimeID{rt.runtimeId};
+        std::destroy_at(&armorPkt.mHead);
+        std::construct_at(&armorPkt.mHead, head);
+        std::destroy_at(&armorPkt.mTorso);
+        std::construct_at(&armorPkt.mTorso, torso);
+        std::destroy_at(&armorPkt.mLegs);
+        std::construct_at(&armorPkt.mLegs, legs);
+        std::destroy_at(&armorPkt.mFeet);
+        std::construct_at(&armorPkt.mFeet, feet);
+        armorPkt.sendTo(player);
+    }
+}
+
+// 姿势: PoseIndex(79) + 对应的 ActorFlags 位（玩家模型的姿态由客户端按这两项选动画）
+void sendNpcPose(Player& player, PlayerNpcManager::Runtime const& rt) {
+    if (rt.pose == 0 && rt.flags == 0) return;
+    std::int64_t flags = rt.flags;
+    if (rt.pose == 1) flags |= (std::int64_t(1) << 1);   // ActorFlags::Sneaking
+    if (rt.pose == 3) flags |= (std::int64_t(1) << 57);  // ActorFlags::Swimming
+    // 注意: ActorFlags::Sleeping = 76 —— 超过 64 位掩码范围, Reserved0 放不下,
+    // 只靠 PoseIndex=2 表达睡姿（不要写 1<<76, 那是 UB）。
+
+    sculk::protocol::SetActorDataPacket pkt;
+    pkt.mActorRuntimeId    = rt.runtimeId;
+    pkt.mSynchedProperties = {};
+    pkt.mTick              = currentTick();
+    pkt.mMetaData.mDataItems = {
+        {sculk::protocol::ActorDataIDs::Reserved0, flags},
+        {sculk::protocol::ActorDataIDs::PoseIndex, static_cast<std::int32_t>(rt.pose)},
+    };
+    sendSculkPacketToPlayer(player, pkt);
+}
+
+// 骑乘链接: A=载具 uniqueId, B=本 NPC uniqueId（乘客）
+void sendNpcRide(Player& player, PlayerNpcManager::Runtime const& rt) {
+    if (rt.rideVehicleUniqueId == 0) return;
+    sculk::protocol::SetActorLinkPacket pkt;
+    pkt.mLink.mType                   = sculk::protocol::ActorLinkType::Riding;
+    pkt.mLink.mTargetAUniqueId        = rt.rideVehicleUniqueId;
+    pkt.mLink.mTargetBUniqueId        = static_cast<std::int64_t>(rt.uniqueId);
+    pkt.mLink.mImmediate              = true;
+    pkt.mLink.mPassengerInitiated     = false;
+    pkt.mLink.mVehicleAngularVelocity = 0.0f;
+    sendSculkPacketToPlayer(player, pkt);
+}
+
 } // namespace
 
 PlayerNpcManager& PlayerNpcManager::getInstance() {
@@ -81,6 +192,7 @@ void PlayerNpcManager::init() {
 
     mJoinListener = ll::event::EventBus::getInstance().emplaceListener<ll::event::PlayerJoinEvent>(
         [this](ll::event::PlayerJoinEvent& ev) {
+            if (hlibDomainDisabled("HLIB_NO_NPC")) return;
             std::lock_guard lock(mMutex);
             mInitializedPlayers.insert(ev.self().getUuid());
             syncVisibilityLocked(); // 就绪立即补发（不等周期 sync）
@@ -133,6 +245,47 @@ bool PlayerNpcManager::registerSkin(hologramlib::PlayerNpcSkin const& skin) {
         return false;
     }
     return true;
+}
+
+bool PlayerNpcManager::registerSkinOpaque(hologramlib::PlayerNpcSkin const& skin) {
+    std::string error;
+    if (!NpcSkinRegistry::getInstance().registerSkinFromPng(skin, error, true)) {
+        HLIB_LOG_WARN("[PlayerNpc] registerSkinOpaque failed: {}", error);
+        return false;
+    }
+    return true;
+}
+
+bool PlayerNpcManager::registerImageSkin(std::string const& pngPath, std::string const& skinId, float sizeBlocks, bool transparent) {
+    if (sizeBlocks <= 0.0f) sizeBlocks = 1.0f;
+    float const w = 8.0f * sizeBlocks;
+    float const h = 16.0f * sizeBlocks;
+    // 几何 identifier 必须按尺寸唯一：客户端按 identifier 缓存几何，复用同一个会让 1x1/2x2 串形。
+    std::string const geoId = std::format("geometry.hlib_image_{}", static_cast<int>(sizeBlocks * 10.0f + 0.5f));
+
+    static constexpr char kTemplate[] =
+        R"({"format_version":"1.14.0","minecraft:geometry":[{"description":{"identifier":"%ID%","texture_width":128,"texture_height":128},"bones":[{"name":"root"},{"name":"body","parent":"root","pivot":[0,0,0],"poly_mesh":{"normalized_uvs":true,"positions":[[-%W%,0,-0.01],[%W%,0,-0.01],[%W%,%H%,-0.01],[-%W%,%H%,-0.01],[%W%,0,0.01],[-%W%,0,0.01],[-%W%,%H%,0.01],[%W%,%H%,0.01]],"normals":[[0,0,-1],[0,0,-1],[0,0,-1],[0,0,-1],[0,0,1],[0,0,1],[0,0,1],[0,0,1]],"uvs":[[0,0],[1,0],[1,1],[0,1],[1,0],[0,0],[0,1],[1,1]],"polys":[[[0,0,0],[1,0,1],[2,0,2],[3,0,3]],[[4,1,4],[5,1,5],[6,1,6],[7,1,7]]]}}]}]})";
+
+    auto const num = [](float v) { return std::format("{:.6g}", v); };
+    std::string geo = kTemplate;
+    auto replaceAll = [&](std::string_view key, std::string_view val) {
+        for (auto pos = geo.find(key); pos != std::string::npos; pos = geo.find(key, pos + val.size())) {
+            geo.replace(pos, key.size(), val);
+        }
+    };
+    replaceAll("%ID%", geoId);
+    replaceAll("%W%", num(w));
+    replaceAll("%H%", num(h));
+
+    hologramlib::PlayerNpcSkin skin;
+    skin.pngPath      = pngPath;
+    skin.skinId       = skinId;
+    skin.armSize      = "wide";
+    skin.geometryData = std::move(geo);
+    std::string error;
+    bool const ok = NpcSkinRegistry::getInstance().registerSkinFromPng(skin, error, false, transparent ? 1 : 2);
+    if (!ok) HLIB_LOG_WARN("[PlayerNpc] registerImageSkin failed: {}", error);
+    return ok;
 }
 
 bool PlayerNpcManager::captureSkin(std::string const& skinId, std::string const& playerName) {
@@ -206,6 +359,7 @@ int64_t PlayerNpcManager::createWithId(PlayerNpcConfig const& config, int64_t de
 }
 
 int64_t PlayerNpcManager::createLocked(PlayerNpcConfig const& config, int64_t id) {
+    if (hlibDomainDisabled("HLIB_NO_NPC")) return -1;
     if (!NpcSkinRegistry::getInstance().hasSkin(config.skinId)) return -3;
 
     Runtime rt{};
@@ -406,6 +560,16 @@ bool PlayerNpcManager::injectSkinAll(std::string const& targetName, std::string 
 
 static std::string npcAnimControllerName(int64_t id) { return "hololib.playernpc." + std::to_string(id); }
 
+// ── 26.40.12: 动画取消配方（与 CustomEntityManager 同一套）──
+// "query.any_animation" 不是合法 Molang 查询 → 当 0 处理, 旧停止包实际停不掉;
+// 改为同 controller 换播空动作 + stopExpression=1。
+constexpr char const* kStopAnimation = "animation.player.attack.positions";
+constexpr char const* kStopExpr      = "1";
+
+static bool isLegacyStopExpression(std::string const& e) {
+    return e == "query.any_animation" || e == "query.any_animation()";
+}
+
 bool PlayerNpcManager::playAnimation(
     int64_t id,
     std::string const& animation,
@@ -421,12 +585,18 @@ bool PlayerNpcManager::playAnimation(
     auto const now  = currentTick();
     auto const ctrl = npcAnimControllerName(id);
     auto const rt   = rit->second.runtimeId;
+    if (isLegacyStopExpression(stopExpression)) {
+        for (auto const& uuid : rit->second.shownPlayers) {
+            mAnimQueue.emplace(now + 2, AnimEntry{uuid, rt, id, kStopAnimation, ctrl, kStopExpr});
+        }
+        return true;
+    }
     for (auto const& uuid : rit->second.shownPlayers) {
         mAnimQueue.emplace(now + 2, AnimEntry{uuid, rt, id, animation, ctrl, stopExpression});
         if (durationTicks > 0) {
             mAnimQueue.emplace(
                 now + 2 + static_cast<std::uint64_t>(durationTicks),
-                AnimEntry{uuid, rt, id, animation, ctrl, "query.any_animation"}
+                AnimEntry{uuid, rt, id, kStopAnimation, ctrl, kStopExpr}
             );
         }
     }
@@ -453,19 +623,147 @@ bool PlayerNpcManager::playAnimationTo(
 
     auto const now  = currentTick();
     auto const ctrl = npcAnimControllerName(id);
+    if (isLegacyStopExpression(stopExpression)) {
+        mAnimQueue.emplace(now + 2, AnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, ctrl, kStopExpr});
+        return true;
+    }
     mAnimQueue.emplace(now + 2, AnimEntry{uuid, rit->second.runtimeId, id, animation, ctrl, stopExpression});
     if (durationTicks > 0) {
         mAnimQueue.emplace(
             now + 2 + static_cast<std::uint64_t>(durationTicks),
-            AnimEntry{uuid, rit->second.runtimeId, id, animation, ctrl, "query.any_animation"}
+            AnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, ctrl, kStopExpr}
         );
     }
+    return true;
+}
+
+bool PlayerNpcManager::stopAnimation(int64_t id) {
+    std::lock_guard lock(mMutex);
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end() || rit->second.shownPlayers.empty()) return false;
+    auto const now  = currentTick();
+    auto const ctrl = npcAnimControllerName(id);
+    for (auto const& uuid : rit->second.shownPlayers) {
+        mAnimQueue.emplace(now + 2, AnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, ctrl, kStopExpr});
+    }
+    return true;
+}
+
+bool PlayerNpcManager::stopAnimationTo(int64_t id, std::string const& playerName) {
+    std::lock_guard lock(mMutex);
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    auto* player = findPlayerByName(playerName);
+    if (player == nullptr) return false;
+    auto const uuid = player->getUuid();
+    if (!rit->second.shownPlayers.contains(uuid)) return false;
+    mAnimQueue.emplace(
+        currentTick() + 2,
+        AnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, npcAnimControllerName(id), kStopExpr}
+    );
     return true;
 }
 
 void PlayerNpcManager::setEntitySpawnCallback(std::function<void(int64_t, std::string const&)> callback) {
     std::lock_guard lock(mMutex);
     mSpawnCallback = std::move(callback);
+}
+
+// ── 26.40.12: 姿势 / 装备 / 骑乘 ──
+
+bool PlayerNpcManager::setPose(int64_t id, int pose) {
+    std::lock_guard lock(mMutex);
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    auto& rt = rit->second;
+    rt.pose  = std::clamp(pose, 0, 13);
+    for (auto const& uuid : rt.shownPlayers) {
+        if (auto* p = findPlayerByUuid(uuid)) sendNpcPose(*p, rt);
+    }
+    return true;
+}
+
+bool PlayerNpcManager::setEquipment(
+    int64_t id, int slot, std::string const& name, int aux, std::string const& nbt
+) {
+    if (slot < 0 || slot > 5) return false;
+    std::lock_guard lock(mMutex);
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    auto& rt = rit->second;
+    rt.equip[slot] = Runtime::NpcEquip{name, aux, nbt};
+    if (name.empty()) {
+        // 清空槽位: 空栈的 MobEquipment 不可靠 → 走一次 respawn（新实体只发非空槽）
+        mDirtyIds.insert(id);
+        return true;
+    }
+    for (auto const& uuid : rt.shownPlayers) {
+        if (auto* p = findPlayerByUuid(uuid)) sendNpcEquipment(*p, rt);
+    }
+    return true;
+}
+
+bool PlayerNpcManager::setRideUniqueId(int64_t id, std::int64_t vehicleUniqueId) {
+    std::lock_guard lock(mMutex);
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    auto& rt = rit->second;
+    if (vehicleUniqueId == static_cast<std::int64_t>(rt.uniqueId)) return false; // 不能骑自己
+
+    // 清除: 发一条 type=None 的链接包（不 respawn —— respawn 重发 PlayerList/AddPlayer
+    // 在"正骑着东西"时最容易把客户端打崩, 这里只解链接）
+    if (vehicleUniqueId == 0) {
+        if (rt.rideVehicleUniqueId == 0) return true;
+        auto const old = rt.rideVehicleUniqueId;
+        rt.rideVehicleUniqueId = 0;
+        sculk::protocol::SetActorLinkPacket pkt;
+        pkt.mLink.mType                   = sculk::protocol::ActorLinkType::None;
+        pkt.mLink.mTargetAUniqueId        = old;
+        pkt.mLink.mTargetBUniqueId        = static_cast<std::int64_t>(rt.uniqueId);
+        pkt.mLink.mImmediate              = true;
+        pkt.mLink.mPassengerInitiated     = false;
+        pkt.mLink.mVehicleAngularVelocity = 0.0f;
+        for (auto const& uuid : rt.shownPlayers) {
+            if (auto* p = findPlayerByUuid(uuid)) sendSculkPacketToPlayer(*p, pkt);
+        }
+        return true;
+    }
+
+    // 只接受**真实服务端实体**当载具: 客户端实体（库内 CustomEntity）在客户端不存在
+    // 服务端实体记录, 拿它当载具会让客户端在挂接/物理阶段崩。真实猪/马/船/矿车都可以。
+    auto level = ll::service::getLevel();
+    if (!level) return false;
+    if (!level->fetchEntity(::ActorUniqueID{vehicleUniqueId}, false)) return false;
+
+    rt.rideVehicleUniqueId = vehicleUniqueId;
+    for (auto const& uuid : rt.shownPlayers) {
+        if (auto* p = findPlayerByUuid(uuid)) sendNpcRide(*p, rt);
+    }
+    return true;
+}
+
+bool PlayerNpcManager::setRidePlayer(int64_t id, std::string const& playerName) {
+    auto* player = findPlayerByName(playerName);
+    if (player == nullptr) return false;
+    return setRideUniqueId(id, static_cast<std::int64_t>(player->getOrCreateUniqueID().rawID));
+}
+
+bool PlayerNpcManager::setRideEntity(int64_t id, int64_t vehicleEntityId) {
+    // 库内自定义实体是纯协议实体, 客户端没有它的服务端记录 —— 不作为载具（会崩客户端）。
+    // 这里保留接口只为排查: 解析到 uniqueId 后仍会被 setRideUniqueId 的真实实体校验拒绝。
+    std::uint64_t uid = 0;
+    std::uint64_t rid = 0;
+    if (!CustomEntityManager::getInstance().getIdPair(vehicleEntityId, uid, rid)) return false;
+    return setRideUniqueId(id, static_cast<std::int64_t>(uid));
+}
+
+bool PlayerNpcManager::clearRide(int64_t id) { return setRideUniqueId(id, 0); }
+
+// spawn 之后补发姿势/装备/骑乘（玩家已在 shownPlayers 里）
+void PlayerNpcManager::afterSpawnLocked(Player& player, int64_t /*id*/, Runtime const& rt) {
+    sendNpcPose(player, rt);
+    sendNpcEquipment(player, rt);
+    sendNpcRide(player, rt);
 }
 
 void PlayerNpcManager::notifySpawn(int64_t id, std::string const& playerName) const {
@@ -682,8 +980,10 @@ void PlayerNpcManager::refreshLocked(int64_t id) {
                 effectiveYaw(rt, player->getUuid(), cfg), // 逐客户端朝向覆盖
                 cfg.name,
                 cfg.scale
-            )) {
+            )
+            && npc_protocol::sendPlayerSkin(*player, id, skin)) {
             rt.shownPlayers.insert(player->getUuid());
+            afterSpawnLocked(*player, id, rt);
             mTabRemovals[id].push_back({player->getUuid(), currentTick() + 20});
             notifySpawn(id, player->getRealName());
         }
@@ -754,9 +1054,11 @@ void PlayerNpcManager::syncVisibilityLocked() {
                         effectiveYaw(rt, uuid, data), // 逐客户端朝向覆盖
                         data.name,
                         data.scale
-                    )) {
+                    )
+                    && npc_protocol::sendPlayerSkin(player, id, skin)) {
                     rt.shownPlayers.insert(uuid);
                     ++spawnedThisTick;
+                    afterSpawnLocked(player, id, rt);
                     mTabRemovals[id].push_back({uuid, currentTick() + 20});
                     notifySpawn(id, player.getRealName());
                 }
@@ -827,6 +1129,7 @@ struct PlayerNpcTickHookAccess {
 // 与 ItemDisplayTickHook 相同的挂点: Level::$tick 尾部, 主线程统一发包
 LL_TYPE_INSTANCE_HOOK(PlayerNpcTickHook, HookPriority::Normal, Level, &Level::$tick, void) {
     origin();
+    if (hlibDomainDisabled("HLIB_NO_NPC")) return;
 
     PlayerNpcTickHookAccess::processDirty(PlayerNpcManager::getInstance());
     PlayerNpcTickHookAccess::processLightDirty(PlayerNpcManager::getInstance());

@@ -175,6 +175,17 @@ inline sculk::protocol::PlayerListEntry playerListEntryForPlayer(
     return entry;
 }
 
+// 玩家皮肤（26.40）：自定义几何走 PlayerSkin；TrustedSkinFlag 必须 true。
+inline bool sendPlayerSkin(Player& player, std::int64_t id, sculk::protocol::SerializedSkin const& skin) {
+    sculk::protocol::PlayerSkinPacket packet;
+    packet.mUUID           = npcUuid(id);
+    packet.mSerializedSkin = skin;
+    packet.mSerializedSkin.mTrustedSkinFlag = 2;
+    packet.mNewSkinName    = skin.mId.empty() ? skin.mFullId : skin.mId;
+    packet.mOldSkinName    = packet.mNewSkinName;
+    return sendToPlayer(player, packet, NetworkPeer::Reliability::Reliable);
+}
+
 // 假玩家生成第二步: AddPlayer 实体化（时序上必须在 PlayerList Add 之后）
 // scale: 模型缩放（1.19.0; Reserved38=SCALE 元数据, 53/54 碰撞箱随玩家默认 0.6x1.8 等比）
 inline bool spawnPlayerBody(

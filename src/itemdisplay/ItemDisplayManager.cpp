@@ -3,6 +3,7 @@
 // 迁移自 ItemPhys FloatingDisplay（狐狸显示+发包技术）,
 // 主键改为 int64 id，去除持久化与命令层（由消费者负责）。
 #include "ItemDisplayManager.h"
+#include "../DiagFlags.h"
 
 #include "DiagLog.h"
 
@@ -100,6 +101,11 @@ struct AnimEntry {
     std::string      controller;
     std::string      stopExpression;
     bool             noAliveCheck{false};  // 一次性原语(emit)发的条目: 实体不在显示表里, 跳过活性检查
+    // 26.40.12: 延迟装备（等 sleeping/swelling/posrot 都落地后再把物品塞给狐狸）。
+    // 之前 Add 之后立刻发 MobEquipment: 物品会先以"默认嘴位/默认大小"渲染 2~4 tick,
+    // 然后被动画一下拽到配置位置/缩放 —— 表现就是生成瞬间的抽搐/移动/变大。
+    bool                       equip{false};
+    std::optional<::ItemStack> equipStack{};
 };
 
 std::multimap<std::uint64_t, AnimEntry>& animQueue() {
@@ -268,6 +274,130 @@ int effectiveMode(ItemDisplayConfig const& data, ::ItemStack const& stack) {
 
 using Runtime = ItemDisplayManager::Runtime;
 
+// ── 26.40.12: 动画预设 → Molang 表达式 ──
+// 时间基统一用 q.life_time（秒）; Molang 的 sin/cos 吃角度制, 所以 360/周期。
+std::string animNum(double v) { return std::format("{:.6g}", v); }
+std::string animParen(std::string const& s) { return "(" + s + ")"; }
+std::string animAdd(std::string const& a, std::string const& b) { return "(" + a + "+" + b + ")"; }
+std::string animMul(std::string const& a, std::string const& b) { return "(" + a + "*" + b + ")"; }
+std::string animSin(double w, std::string const& t) { return std::format("math.sin(({})*{})", animNum(w), t); }
+std::string animCos(double w, std::string const& t) { return std::format("math.cos(({})*{})", animNum(w), t); }
+
+void applyAnimToConfig(
+    ItemDisplayConfig&       d,
+    ItemDisplayAnim const&   a,
+    Runtime::AnimBase const& base,
+    bool                     itemMode
+) {
+    // 先把变换恢复到基准（避免上一次动画的表达式残留）
+    d.offsetX = base.ox;
+    d.offsetY = base.oy;
+    d.offsetZ = base.oz;
+    d.rotX    = base.rx;
+    d.rotY    = base.ry;
+    d.rotZ    = base.rz;
+    d.scale   = base.scale;
+
+    std::string const t  = std::format("(q.life_time+({}))", animNum(a.phase));
+    std::string       rx = animParen(base.rx);
+    std::string       ry = animParen(base.ry);
+    std::string       rz = animParen(base.rz);
+
+    // 1) 匀速自转: 该轴基准 + speed * t
+    if (a.spinSpeed != 0.0f) {
+        auto& axis = (a.spinAxis == 0) ? rx : ((a.spinAxis == 2) ? rz : ry);
+        axis       = animAdd(axis, animMul(animNum(a.spinSpeed), t));
+    }
+
+    // 2) 双轴翻滚: X 正向、Z 反向 0.7 倍（看起来是斜着滚）
+    if (a.tumbleSpeed != 0.0f) {
+        rx = animAdd(rx, animMul(animNum(a.tumbleSpeed), t));
+        rz = animAdd(rz, animMul(animNum(-0.7 * a.tumbleSpeed), t));
+    }
+
+    // 3) 面向相机（仅物品模式; 物品路径 builder 会自动 +205, 这里不要再加）
+    if (a.billboard && itemMode) {
+        ry = "q.rotation_to_camera(1)";
+        if (a.billboardPitch) rx = "q.rotation_to_camera(0)";
+    }
+
+    // 4) 钟摆（绕 Y）
+    if (a.pendulumAmplitude != 0.0f && a.pendulumPeriod > 0.01f) {
+        ry = animAdd(ry, animMul(animNum(a.pendulumAmplitude), animSin(360.0f / a.pendulumPeriod, t)));
+    }
+
+    // 5) 摇摆（X/Z 反相）
+    if (a.swayAmplitude != 0.0f && a.swayPeriod > 0.01f) {
+        double const w = 360.0 / a.swayPeriod;
+        rx = animAdd(rx, animMul(animNum(a.swayAmplitude), animSin(w, t)));
+        rz = animAdd(rz, animMul(animNum(a.swayAmplitude), animCos(w, t)));
+    }
+
+    // 6) 双正弦微晃（两个不谐振的频率, 看起来像噪声晃动）
+    if (a.wobbleAmplitude != 0.0f) {
+        double const w = 120.0 * (a.wobbleSpeed > 0.01f ? a.wobbleSpeed : 1.0f);
+        rx = animAdd(rx, animMul(animNum(a.wobbleAmplitude), animSin(w, t)));
+        rz = animAdd(
+            rz,
+            animMul(animNum(a.wobbleAmplitude), std::format("math.sin(({})*{}+1.1)", animNum(w * 1.37), t))
+        );
+    }
+
+    // 7) 上下浮动（orbit 若在同平面会叠加到同一条 offset 表达式上）
+    std::string oy = animParen(base.oy);
+    if (a.bobAmplitude != 0.0f && a.bobPeriod > 0.01f) {
+        oy = animAdd(oy, animMul(animNum(a.bobAmplitude), animSin(360.0f / a.bobPeriod, t)));
+    }
+    d.offsetY = oy;
+
+    // 8) 绕点画圈
+    if (a.orbitRadius != 0.0f && a.orbitPeriod > 0.01f) {
+        double const      w = 360.0 / a.orbitPeriod;
+        std::string const c = animMul(animNum(a.orbitRadius), animCos(w, t));
+        std::string const s = animMul(animNum(a.orbitRadius), animSin(w, t));
+        if (a.orbitPlane == 0) {
+            d.offsetX = animAdd(animParen(base.ox), c);
+            d.offsetY = animAdd(d.offsetY, s);
+        } else if (a.orbitPlane == 1) {
+            d.offsetZ = animAdd(animParen(base.oz), c);
+            d.offsetY = animAdd(d.offsetY, s);
+        } else {
+            d.offsetX = animAdd(animParen(base.ox), c);
+            d.offsetZ = animAdd(animParen(base.oz), s);
+        }
+    }
+
+    // 9) 缩放: pulse × heartbeat × LOD × 第一人称隐藏
+    std::string scale = animParen(base.scale);
+    if (a.pulseAmplitude != 0.0f && a.pulsePeriod > 0.01f) {
+        scale = animMul(scale, animAdd("1", animMul(animNum(a.pulseAmplitude), animSin(360.0f / a.pulsePeriod, t))));
+    }
+    if (a.heartbeatAmplitude != 0.0f && a.heartbeatPeriod > 0.01f) {
+        double const w    = 360.0 / a.heartbeatPeriod;
+        std::string  beat = std::format("math.pow((0.5+0.5*math.sin(({})*{})),4)", animNum(w), t);
+        scale             = animMul(scale, animAdd("1", animMul(animNum(a.heartbeatAmplitude), beat)));
+    }
+    if (a.lodNear > 0.0f && a.lodFar > 0.0f && a.lodMinScale > 0.0f) {
+        scale = animMul(
+            scale,
+            std::format(
+                "math.lerp(({}),1,q.camera_distance_range_lerp(({}),({})))",
+                animNum(a.lodMinScale),
+                animNum(a.lodFar),
+                animNum(a.lodNear)
+            )
+        );
+    }
+    if (a.hideInFirstPerson) {
+        scale = animMul(scale, "(1-q.is_first_person)");
+    }
+
+    d.rotX = rx;
+    d.rotY = ry;
+    d.rotZ = rz;
+    d.scale = scale;
+}
+
 void sendFoxActor(Player& player, ItemDisplayConfig const& data, Runtime const& rt) {
     sculk::protocol::AddActorPacket pkt;
     pkt.mActorUniqueId  = static_cast<std::int64_t>(rt.uniqueId);
@@ -367,14 +497,20 @@ void sendRemove(Player& player, Runtime const& rt) {
 
 // ── FMBE Molang 模板（参数化三轴旋转/函数平移/缩放）──
 
-std::string buildItemScaleExpr(ItemDisplayConfig const& d) {
+std::string buildItemScaleExpr(
+    ItemDisplayConfig const& d,
+    std::string const&       stretchXZ,
+    std::string const&       stretchY
+) {
     // 物品渲染：wiki.scale 路径（v.yrot 自动 +205 补偿狐狸头部朝向）
+    // 26.40.12: 插值一律加括号（用户表达式里的 ?: / , 不再改变整条语句的结合）;
+    //            sqrt 包 abs（负 scale 镜像时不再产生 NaN）; 增加 XZ / Y 两条拉伸通道。
     return std::format(
-        "v.scale={0};v.adscale=math.sqrt(v.scale);v.adscaled=2.1385*v.adscale;"
-        "v.xbasepos={1};v.ybasepos={2};v.zbasepos={3};"
-        "v.xpos={4};v.ypos={5};v.zpos={6};"
-        "v.xrot={7};v.yrot=({8})+205;v.zrot={9};"
-        "v.swelling_scale1=v.adscaled;v.swelling_scale2=v.adscaled;",
+        "v.scale=({0});v.adscale=math.sqrt(math.abs(v.scale));v.adscaled=2.1385*v.adscale;"
+        "v.xbasepos=({1});v.ybasepos=({2});v.zbasepos=({3});"
+        "v.xpos=({4});v.ypos=({5});v.zpos=({6});"
+        "v.xrot=({7});v.yrot=(({8})+205);v.zrot=({9});"
+        "v.swelling_scale1=v.adscaled*({10});v.swelling_scale2=v.adscaled*({11});",
         d.scale,
         d.baseOffsetX,
         d.baseOffsetY,
@@ -384,7 +520,9 @@ std::string buildItemScaleExpr(ItemDisplayConfig const& d) {
         d.offsetZ,
         d.rotX,
         d.rotY,
-        d.rotZ
+        d.rotZ,
+        stretchXZ,
+        stretchY
     );
 }
 
@@ -416,10 +554,10 @@ std::string buildBlockMatrixExpr(ItemDisplayConfig const& d) {
     char const* ypos  = (d.offsetY == "-4")    ? "0.125" : d.offsetY.c_str();
     char const* scale = (d.scale == "0.375") ? "0.5"    : d.scale.c_str();
     return std::format(
-        "v.xpos={0};v.ypos={1};v.zpos={2};"
-        "v.xrot={3};v.yrot={4};v.zrot={5};"
-        "v.scale={6};v.extend_scale={7};v.extend_xrot={8};v.extend_yrot={9};"
-        "v.xbasepos={10};v.ybasepos={11};v.zbasepos={12};"
+        "v.xpos=({0});v.ypos=({1});v.zpos=({2});"
+        "v.xrot=({3});v.yrot=({4});v.zrot=({5});"
+        "v.scale=({6});v.extend_scale=({7});v.extend_xrot=({8});v.extend_yrot=({9});"
+        "v.xbasepos=({10});v.ybasepos=({11});v.zbasepos=({12});"
         "v.F.r5=-math.sin(v.xrot);v.F.r2=-math.sin(v.yrot);v.F.r3=-math.sin(v.zrot);"
         "v.F.r4=math.cos(v.zrot);v.F.r8=math.cos(v.yrot);"
         "v.F.r0=-v.F.r5*v.F.r2*v.F.r3+v.F.r8*v.F.r4;"
@@ -457,9 +595,17 @@ std::string buildBlockMatrixExpr(ItemDisplayConfig const& d) {
     );
 }
 
-constexpr std::string_view kBlockSwellingExpr =
+std::string buildBlockSwellingExpr(std::string const& stretchXZ, std::string const& stretchY) {
     // 3D 方块渲染：立方体缩放
-    "v.swelling_scale2=v.extend_scale*(v.swelling_scale1=(v.F.s=math.sqrt(32/7*v.scale)));";
+    // v.F.s 保持"未拉伸"的基准值（头骨定位表达式拿它做除数）; 拉伸只作用在两条 swelling 通道上。
+    return std::format(
+        "v.F.s=math.sqrt(32/7*v.scale);"
+        "v.swelling_scale1=v.F.s*({0});"
+        "v.swelling_scale2=v.extend_scale*({1})*v.F.s;",
+        stretchXZ,
+        stretchY
+    );
+}
 
 constexpr std::string_view kBlockHeadPosExpr =
     // 3D 方块渲染：头骨定位（把方块放到狐狸头部位置）
@@ -520,17 +666,90 @@ void scheduleAnims(
     for (auto const pass : {std::uint64_t{0}, std::uint64_t{38}, std::uint64_t{98}}) {
         if (block) {
             push(base + pass + 2, "animation.player.sleeping", "controller.animation.fox.move" + tag, buildBlockMatrixExpr(data));
-            push(base + pass + 3, "animation.creeper.swelling", "wiki.fmbe.3d_blocks.anim1" + tag, std::string{kBlockSwellingExpr});
+            push(base + pass + 3, "animation.creeper.swelling", "wiki.fmbe.3d_blocks.anim1" + tag, buildBlockSwellingExpr(rt.stretchXZ, rt.stretchY));
             push(base + pass + 4, "animation.ender_dragon.neck_head_movement", "wiki.fmbe.3d_blocks.anim2" + tag, std::string{kBlockHeadPosExpr});
             push(base + pass + 5, "animation.warden.move", "wiki.fmbe.3d_blocks.anim3" + tag, std::string{kBlockBodyRotExpr});
             push(base + pass + 6, "animation.player.attack.rotations", "wiki.fmbe.3d_blocks.anim4" + tag, std::string{kBlockAttackRotExpr});
         } else {
             push(base + pass + 2, "animation.player.sleeping", "controller.animation.fox.move" + tag, "");
-            push(base + pass + 3, "animation.creeper.swelling", "wiki.scale" + tag, buildItemScaleExpr(data));
+            push(base + pass + 3, "animation.creeper.swelling", "wiki.scale" + tag, buildItemScaleExpr(data, rt.stretchXZ, rt.stretchY));
             push(base + pass + 4, "animation.ender_dragon.neck_head_movement", "wiki.posrot" + tag, std::string{kItemPosRotExpr});
+        }
+
+        // 26.40.12: 装备延到这一轮动画之后（物品 +5 / 方块 +7）再发 ——
+        // 狐狸是隐形的, 等姿态/缩放/位置都落地后物品才出现, 不会先以默认嘴位闪一下再被拽走。
+        // 每一轮重投都带一份（加载屏里的玩家第一轮收不到时, 2s/5s 那轮仍能把物品补上）。
+        if (rt.cachedStack) {
+            AnimEntry e{uuid, rt.runtimeId, {}, {}, {}};
+            e.noAliveCheck = noAliveCheck;
+            e.equip        = true;
+            e.equipStack   = *rt.cachedStack;
+            animQueue().emplace(base + pass + (block ? 7 : 5), std::move(e));
         }
     }
 }
+
+} // 关闭匿名命名空间: 下面的成员定义必须落在 debugshape_export 作用域（C2888）
+
+// 26.40.12: 单玩家的 FMBE 完整序列（live 更新用; 先清掉同展示的待发旧条目, 再整段重发）
+void ItemDisplayManager::enqueueFmbeAnimsLocked(
+    int64_t                  id,
+    ItemDisplayConfig const& data,
+    Runtime const&           rt,
+    mce::UUID const&         uuid,
+    std::uint64_t            base,
+    bool                     block
+) {
+    auto const tag = "." + std::to_string(id);
+    auto push = [&](std::uint64_t at, std::string anim, std::string ctrl, std::string stop) {
+        AnimEntry e{uuid, rt.runtimeId, std::move(anim), std::move(ctrl), std::move(stop)};
+        animQueue().emplace(at, std::move(e));
+    };
+    if (block) {
+        push(base + 2, "animation.player.sleeping", "controller.animation.fox.move" + tag, buildBlockMatrixExpr(data));
+        push(base + 3, "animation.creeper.swelling", "wiki.fmbe.3d_blocks.anim1" + tag, buildBlockSwellingExpr(rt.stretchXZ, rt.stretchY));
+        push(base + 4, "animation.ender_dragon.neck_head_movement", "wiki.fmbe.3d_blocks.anim2" + tag, std::string{kBlockHeadPosExpr});
+        push(base + 5, "animation.warden.move", "wiki.fmbe.3d_blocks.anim3" + tag, std::string{kBlockBodyRotExpr});
+        push(base + 6, "animation.player.attack.rotations", "wiki.fmbe.3d_blocks.anim4" + tag, std::string{kBlockAttackRotExpr});
+    } else {
+        // 物品：必须连载体 sleeping 包一起重发 —— 该包定义狐狸姿态/物品挂点;
+        // 只补 swelling/posrot 的话, 头骨缩放没有载体姿态可作用（表现为"物品拉不动"）。
+        push(base + 2, "animation.player.sleeping", "controller.animation.fox.move" + tag, "");
+        push(base + 3, "animation.creeper.swelling", "wiki.scale" + tag, buildItemScaleExpr(data, rt.stretchXZ, rt.stretchY));
+        push(base + 4, "animation.ender_dragon.neck_head_movement", "wiki.posrot" + tag, std::string{kItemPosRotExpr});
+    }
+}
+
+// 26.40.12: 原地重发（不 despawn / 不换 ID）; 调用方持锁
+bool ItemDisplayManager::resendFmbeLocked(int64_t id, ItemDisplayConfig const& data, Runtime& rt) {
+    if (rt.shownPlayers.empty()) return false;
+    // 关键: 先丢掉该展示所有尚在队列里的动画条目。
+    // spawn 的 +2s / +5s 三次投递是用**当时的**表达式构建的, 不丢的话它们会在 2s/5s 后
+    // 把新参数覆盖回去; 同一 tick 的旧条目也会先于新条目发出（multimap 同键按插入序）。
+    auto& q = animQueue();
+    for (auto it = q.begin(); it != q.end();) {
+        // 保留尚未发出的"延迟装备"条目: 它和动画不是一类东西, 丢了物品就永远不出现。
+        if (it->second.runtimeId == rt.runtimeId && !it->second.equip) {
+            it = q.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    bool block = false;
+    if (data.mode == 2) {
+        block = true;
+    } else if (data.mode == 0) {
+        if (!rt.cachedStack) return false;
+        block = (effectiveMode(data, *rt.cachedStack) == 2);
+    }
+    auto const base = currentTick();
+    for (auto const& uuid : rt.shownPlayers) {
+        enqueueFmbeAnimsLocked(id, data, rt, uuid, base, block);
+    }
+    return true;
+}
+
+namespace {
 
 // ── 生成/销毁完整序列 ──
 
@@ -563,7 +782,8 @@ bool spawnForPlayer(int64_t id, ItemDisplayConfig const& data, Runtime& rt, Play
     int const    mode  = effectiveMode(data, stack);
 
     sendFoxActor(player, data, rt);
-    sendEquipment(player, rt.runtimeId, stack);
+    // 26.40.12: 装备不再紧贴 AddActor 发 —— 延到动画序列之后（见 scheduleAnims 的 equip 条目）,
+    // 否则物品会先以默认嘴位/默认大小出现 2~4 tick 再被动画拽走, 表现为生成瞬间抽搐/变大。
     sendDataPacket(player, rt.runtimeId, data.hitboxWidth, data.hitboxHeight);
     scheduleAnims(id, data, rt, player, mode);
     HLIB_LOG_DEBUG(
@@ -610,6 +830,7 @@ void ItemDisplayManager::init() {
 
     mJoinListener = ll::event::EventBus::getInstance().emplaceListener<ll::event::PlayerJoinEvent>(
         [this](ll::event::PlayerJoinEvent& ev) {
+            if (hlibDomainDisabled("HLIB_NO_DISPLAY")) return;
             std::lock_guard lock(mMutex);
             mInitializedPlayers.insert(ev.self().getUuid());
             // 玩家就绪立即补发其可见信标（不等最多 1 秒的周期 sync——
@@ -680,6 +901,7 @@ int64_t ItemDisplayManager::createSeamless(
     std::string const&      visiblePlayer
 ) {
     std::lock_guard lock(mMutex);
+    if (hlibDomainDisabled("HLIB_NO_DISPLAY")) return -1;
     ItemDisplayConfig cfg = config;
     if (mode == 1 || mode == 2) cfg.mode = mode;
     if (viewDistance >= 0) cfg.viewDistance = viewDistance;
@@ -700,6 +922,7 @@ bool ItemDisplayManager::isIdUsed(int64_t id) const {
 }
 
 int64_t ItemDisplayManager::createLocked(ItemDisplayConfig const& config, int64_t id) {
+    if (hlibDomainDisabled("HLIB_NO_DISPLAY")) return -1;
     // 生成本次运行的唯一 Actor ID（高位标记段, 与真实实体 ID 空间隔离）
     Runtime rt{};
     rt.uniqueId  = allocUniqueIdLocked();
@@ -932,8 +1155,6 @@ bool ItemDisplayManager::scaleTo(int64_t id, double targetScale) {
     std::lock_guard lock(mMutex);
     auto it = mConfigs.find(id);
     if (it == mConfigs.end()) return false;
-    // 仅方块路径（auto 下信标类方块物品 effectiveMode=2）
-    if (it->second.mode == 1) return false;
     if (!std::isfinite(targetScale) || targetScale < 0.01) targetScale = 0.01;
 
     auto rit = mRuntimes.find(id);
@@ -942,43 +1163,197 @@ bool ItemDisplayManager::scaleTo(int64_t id, double targetScale) {
     // 新 scale 常量化入配置（respawn/查询保持一致）
     it->second.scale = std::format("{:.4f}", targetScale);
 
-    // 以新常量重发完整方块动画序列（+2..+6 一包一 tick, 与安装节奏一致）:
-    // controller 名带 ".<展示id>" 后缀 → 客户端同名原地覆盖, 不 Remove/Add、不换实体。
-    // 关键: sleeping 矩阵表达式携带 v.scale=新常量, swelling/头部定位/旋转表达式随之
-    // 全部基于新值重算——v.scale 的所有写入者立即一致, 不存在逐帧竞争（即无抖动）。
-    auto const& data = it->second;
-    auto&       rt   = rit->second;
-    auto const  base = currentTick();
-    auto const  tag  = "." + std::to_string(id);
+    // 以新常量重发 FMBE 动画序列（controller 名带 ".<展示id>" 后缀 → 客户端同名原地覆盖,
+    // 不 Remove/Add、不换实体）。26.40.12 起物品模式也走这条（此前只支持方块）。
+    return resendFmbeLocked(id, it->second, rit->second);
+}
 
-    for (auto const& uuid : rt.shownPlayers) {
-        animQueue().emplace(
-            base + 2,
-            AnimEntry{uuid, rt.runtimeId, "animation.player.sleeping",
-                      "controller.animation.fox.move" + tag, buildBlockMatrixExpr(data)}
-        );
-        animQueue().emplace(
-            base + 3,
-            AnimEntry{uuid, rt.runtimeId, "animation.creeper.swelling",
-                      "wiki.fmbe.3d_blocks.anim1" + tag, std::string{kBlockSwellingExpr}}
-        );
-        animQueue().emplace(
-            base + 4,
-            AnimEntry{uuid, rt.runtimeId, "animation.ender_dragon.neck_head_movement",
-                      "wiki.fmbe.3d_blocks.anim2" + tag, std::string{kBlockHeadPosExpr}}
-        );
-        animQueue().emplace(
-            base + 5,
-            AnimEntry{uuid, rt.runtimeId, "animation.warden.move",
-                      "wiki.fmbe.3d_blocks.anim3" + tag, std::string{kBlockBodyRotExpr}}
-        );
-        animQueue().emplace(
-            base + 6,
-            AnimEntry{uuid, rt.runtimeId, "animation.player.attack.rotations",
-                      "wiki.fmbe.3d_blocks.anim4" + tag, std::string{kBlockAttackRotExpr}}
-        );
-    }
+// ── 26.40.12: 非等比拉伸 + live 变换 ──
+
+bool ItemDisplayManager::setStretch(int64_t id, std::string const& xz, std::string const& y) {
+    std::lock_guard lock(mMutex);
+    if (!mConfigs.contains(id)) return false;
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    rit->second.stretchXZ = xz;
+    rit->second.stretchY  = y;
+    mDirtyIds.insert(id); // 持久化并 respawn（下一 tick 合并一次）
     return true;
+}
+
+bool ItemDisplayManager::setStretchLive(int64_t id, std::string const& xz, std::string const& y) {
+    std::lock_guard lock(mMutex);
+    auto it = mConfigs.find(id);
+    if (it == mConfigs.end()) return false;
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    rit->second.stretchXZ = xz;
+    rit->second.stretchY  = y;
+    return resendFmbeLocked(id, it->second, rit->second);
+}
+
+bool ItemDisplayManager::setRotationLive(
+    int64_t id, std::string const& rx, std::string const& ry, std::string const& rz
+) {
+    std::lock_guard lock(mMutex);
+    auto it = mConfigs.find(id);
+    if (it == mConfigs.end()) return false;
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    it->second.rotX = rx;
+    it->second.rotY = ry;
+    it->second.rotZ = rz;
+    return resendFmbeLocked(id, it->second, rit->second);
+}
+
+bool ItemDisplayManager::setOffsetLive(
+    int64_t id, std::string const& ox, std::string const& oy, std::string const& oz
+) {
+    std::lock_guard lock(mMutex);
+    auto it = mConfigs.find(id);
+    if (it == mConfigs.end()) return false;
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    it->second.offsetX = ox;
+    it->second.offsetY = oy;
+    it->second.offsetZ = oz;
+    return resendFmbeLocked(id, it->second, rit->second);
+}
+
+bool ItemDisplayManager::setScaleLive(int64_t id, std::string const& scale) {
+    std::lock_guard lock(mMutex);
+    auto it = mConfigs.find(id);
+    if (it == mConfigs.end()) return false;
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    it->second.scale = scale;
+    return resendFmbeLocked(id, it->second, rit->second);
+}
+
+bool ItemDisplayManager::setTransformLive(
+    int64_t id,
+    std::string const& ox, std::string const& oy, std::string const& oz,
+    std::string const& rx, std::string const& ry, std::string const& rz,
+    std::string const& scale
+) {
+    std::lock_guard lock(mMutex);
+    auto it = mConfigs.find(id);
+    if (it == mConfigs.end()) return false;
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    it->second.offsetX = ox;
+    it->second.offsetY = oy;
+    it->second.offsetZ = oz;
+    it->second.rotX    = rx;
+    it->second.rotY    = ry;
+    it->second.rotZ    = rz;
+    it->second.scale   = scale;
+    return resendFmbeLocked(id, it->second, rit->second); // 一次重发, 不叠加多次抖动
+}
+
+// ── 26.40.12: 动画预设（库内逻辑）──
+
+bool ItemDisplayManager::setAnim(int64_t id, ItemDisplayAnim const& anim) {
+    std::lock_guard lock(mMutex);
+    auto it = mConfigs.find(id);
+    if (it == mConfigs.end()) return false;
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    auto& rt = rit->second;
+
+    // 首次开动画时记录基准（之后重复 setAnim 只换参数, 不会把上一次的表达式当基准）
+    if (!rt.animActive) {
+        rt.animBase.ox    = it->second.offsetX;
+        rt.animBase.oy    = it->second.offsetY;
+        rt.animBase.oz    = it->second.offsetZ;
+        rt.animBase.rx    = it->second.rotX;
+        rt.animBase.ry    = it->second.rotY;
+        rt.animBase.rz    = it->second.rotZ;
+        rt.animBase.scale = it->second.scale;
+        rt.animActive     = true;
+    }
+    rt.anim = anim;
+
+    bool itemMode = true;
+    if (it->second.mode == 2) {
+        itemMode = false;
+    } else if (it->second.mode == 0 && rt.cachedStack) {
+        itemMode = (effectiveMode(it->second, *rt.cachedStack) == 1);
+    }
+
+    applyAnimToConfig(it->second, anim, rt.animBase, itemMode);
+    return resendFmbeLocked(id, it->second, rt);
+}
+
+// 26.40.13: 单通道预设（只改这一路, 其余保持; 立即 live 重发）
+bool ItemDisplayManager::setAnimPreset(int64_t id, std::string const& preset, float a, float b, int c) {
+    std::lock_guard lock(mMutex);
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end() || !mConfigs.contains(id)) return false;
+    auto anim = rit->second.anim;
+    if (preset == "spin") {
+        anim.spinSpeed = a;
+        anim.spinAxis  = (c >= 0 && c <= 2) ? c : 1;
+    } else if (preset == "bob") {
+        anim.bobAmplitude = a;
+        anim.bobPeriod    = b > 0.01f ? b : 2.0f;
+    } else if (preset == "pulse") {
+        anim.pulseAmplitude = a;
+        anim.pulsePeriod    = b > 0.01f ? b : 2.0f;
+    } else if (preset == "sway") {
+        anim.swayAmplitude = a;
+        anim.swayPeriod    = b > 0.01f ? b : 3.0f;
+    } else if (preset == "orbit") {
+        anim.orbitRadius = a;
+        anim.orbitPeriod = b > 0.01f ? b : 4.0f;
+        anim.orbitPlane  = (c >= 0 && c <= 2) ? c : 2;
+    } else if (preset == "tumble") {
+        anim.tumbleSpeed = a;
+    } else if (preset == "wobble") {
+        anim.wobbleAmplitude = a;
+        anim.wobbleSpeed     = b > 0.01f ? b : 1.0f;
+    } else if (preset == "heartbeat") {
+        anim.heartbeatAmplitude = a;
+        anim.heartbeatPeriod    = b > 0.01f ? b : 1.2f;
+    } else if (preset == "pendulum") {
+        anim.pendulumAmplitude = a;
+        anim.pendulumPeriod    = b > 0.01f ? b : 3.0f;
+    } else if (preset == "billboard") {
+        anim.billboard      = (a != 0.0f);
+        anim.billboardPitch = (c != 0);
+    } else if (preset == "lod") {
+        anim.lodNear     = a;
+        anim.lodFar      = b;
+        anim.lodMinScale = c > 0 ? static_cast<float>(c) / 100.0f : 0.5f;
+    } else if (preset == "firstperson") {
+        anim.hideInFirstPerson = (a != 0.0f);
+    } else if (preset == "clear") {
+        return clearAnim(id); // 递归锁, 安全
+    } else {
+        return false;
+    }
+    return setAnim(id, anim);
+}
+
+bool ItemDisplayManager::clearAnim(int64_t id) {
+    std::lock_guard lock(mMutex);
+    auto it = mConfigs.find(id);
+    if (it == mConfigs.end()) return false;
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    auto& rt = rit->second;
+    if (!rt.animActive) return true; // 本来就没动画
+
+    it->second.offsetX = rt.animBase.ox;
+    it->second.offsetY = rt.animBase.oy;
+    it->second.offsetZ = rt.animBase.oz;
+    it->second.rotX    = rt.animBase.rx;
+    it->second.rotY    = rt.animBase.ry;
+    it->second.rotZ    = rt.animBase.rz;
+    it->second.scale   = rt.animBase.scale;
+    rt.animActive      = false;
+    rt.anim            = {};
+    return resendFmbeLocked(id, it->second, rt);
 }
 
 std::string ItemDisplayManager::getDebugInfo(int64_t id) const {
@@ -1207,10 +1582,15 @@ int ItemDisplayManager::emitForEntity(std::string const& playerName, std::int64_
         rm.mActorUniqueId = uniqueId;
         sendSculkToPlayer(*player, rm);
     }
-    sendFoxActor(*player, data, Runtime{static_cast<std::uint64_t>(uniqueId), runtimeId, {}});
-    sendEquipment(*player, runtimeId, *stack);
+    // 一次性原语的临时 Runtime 也要带 cachedStack —— 装备走 scheduleAnims 的延迟条目,
+    // 否则这里不立即发装备、后面又没人补, 物品永远不出现。
+    Runtime tmpRt{};
+    tmpRt.uniqueId    = static_cast<std::uint64_t>(uniqueId);
+    tmpRt.runtimeId   = runtimeId;
+    tmpRt.cachedStack = *stack;
+    sendFoxActor(*player, data, tmpRt);
     sendDataPacket(*player, runtimeId, data.hitboxWidth, data.hitboxHeight);
-    scheduleAnims(uniqueId, data, Runtime{static_cast<std::uint64_t>(uniqueId), runtimeId, {}}, *player, mode, true);
+    scheduleAnims(uniqueId, data, tmpRt, *player, mode, true);
     return mode;
 }
 
@@ -1361,6 +1741,7 @@ struct ItemDisplayTickHookAccess {
 
 LL_TYPE_INSTANCE_HOOK(ItemDisplayTickHook, HookPriority::Normal, Level, &Level::$tick, void) {
     origin();
+    if (hlibDomainDisabled("HLIB_NO_DISPLAY")) return;
 
     // 脏刷新优先于动画 flush：本 tick 内累积的 setter 变更在此合并为单次 respawn
     // （新入队动画的 tick 均为 now+2 起步, 不会被本次 flush 发出）
@@ -1383,15 +1764,20 @@ LL_TYPE_INSTANCE_HOOK(ItemDisplayTickHook, HookPriority::Normal, Level, &Level::
                     entry.runtimeId,
                     entry.playerUuid
                 )) {
-                sculk::protocol::AnimateEntityPacket pkt;
-                pkt.mAnimation                   = entry.animation;
-                pkt.mNextState                   = "none";
-                pkt.mStopExpression              = entry.stopExpression;
-                pkt.mStopExpressionMolangVersion = sculk::protocol::MolangVersion::Initial;
-                pkt.mController                  = entry.controller;
-                pkt.mBlendOutTime                = 0;
-                pkt.mRuntimeIds                  = {entry.runtimeId};
-                sendSculkToPlayer(*player, pkt);
+                if (entry.equip) {
+                    // 延迟装备: 姿态/缩放/位置都发完之后再把物品塞给狐狸（只发装备, 不发动画）
+                    if (entry.equipStack) sendEquipment(*player, entry.runtimeId, *entry.equipStack);
+                } else {
+                    sculk::protocol::AnimateEntityPacket pkt;
+                    pkt.mAnimation                   = entry.animation;
+                    pkt.mNextState                   = "none";
+                    pkt.mStopExpression              = entry.stopExpression;
+                    pkt.mStopExpressionMolangVersion = sculk::protocol::MolangVersion::Initial;
+                    pkt.mController                  = entry.controller;
+                    pkt.mBlendOutTime                = 0;
+                    pkt.mRuntimeIds                  = {entry.runtimeId};
+                    sendSculkToPlayer(*player, pkt);
+                }
             }
         }
         it = q.erase(it);

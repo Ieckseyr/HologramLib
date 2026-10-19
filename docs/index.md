@@ -8,8 +8,8 @@ HologramLib 是基岩版服务端（LeviLamina / BDS）的**协议层显示库**
 
 | | |
 |---|---|
-| 插件版本 | `26.51.4` |
-| API 版本 | `1.30.0`（`HOLOGLIB_API_VERSION 0x012400`） |
+| 插件版本 | `26.51.5` |
+| API 版本 | `1.31.0`（`HOLOGLIB_API_VERSION 0x012500`） |
 | 运行平台 | LeviLamina 26.51 · BDS 1.26.51（协议 2193） |
 | 脚本前置 | `lrca`（LegacyRemoteCall） |
 

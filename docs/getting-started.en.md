@@ -14,7 +14,7 @@ Just using the library and not building it yourself? Skip ahead to [Deployment](
 | Visual Studio 2022 | MSVC x64 | Must include the "Desktop development with C++" workload |
 | [xmake](https://xmake.io) | latest | Build system |
 | LeviLamina | 26.40.0 | Pulled automatically by xmake |
-| [SculkCatalystMC/Protocol](https://github.com/SculkCatalystMC/Protocol) | **v2168** | You must build it with CMake and install it into `plugins/BedrockProtocol-main/install` |
+| [SculkCatalystMC/Protocol](https://github.com/SculkCatalystMC/Protocol) | **v2193** | You must build it with CMake and install it into `plugins/BedrockProtocol-main/install` |
 | Python | 3.x | Only for the local offline regression checks under `tests/`; not part of the build |
 
 The `Protocol` static library is a hard dependency: shape rendering, view override, and the hand-written container and trade-menu packet bodies all call its sculk serialisation directly.

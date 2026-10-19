@@ -13,7 +13,7 @@
 | Visual Studio 2022 | MSVC x64 | 必须带 C++ 桌面开发工作负载 |
 | [xmake](https://xmake.io) | 最新 | 构建系统 |
 | LeviLamina | 26.40.0 | xmake 会自动拉取 |
-| [SculkCatalystMC/Protocol](https://github.com/SculkCatalystMC/Protocol) | v2168 | 需要自行 CMake 构建并安装到 `plugins/BedrockProtocol-main/install` |
+| [SculkCatalystMC/Protocol](https://github.com/SculkCatalystMC/Protocol) | v2193 | 需要自行 CMake 构建并安装到 `plugins/BedrockProtocol-main/install` |
 | Python | 3.x | 仅本地离线回归检查用（`tests/`），不参与构建 |
 
 `Protocol` 静态库是硬依赖：形状渲染、视图覆盖、容器与交易菜单的手写包体都直接调它的 sculk 序列化。

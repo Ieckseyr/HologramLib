@@ -294,6 +294,42 @@ public:
     bool setHitbox(int64_t id, float width, float height) override {
         return debugshape_export::ItemDisplayManager::getInstance().setHitbox(id, width, height);
     }
+    // 1.31.0: stretch + live transform
+    bool setStretch(int64_t id, std::string const& xz, std::string const& y) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setStretch(id, xz, y);
+    }
+    bool setStretchLive(int64_t id, std::string const& xz, std::string const& y) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setStretchLive(id, xz, y);
+    }
+    bool setRotationLive(int64_t id, std::string const& rx, std::string const& ry, std::string const& rz) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setRotationLive(id, rx, ry, rz);
+    }
+    bool setOffsetLive(int64_t id, std::string const& ox, std::string const& oy, std::string const& oz) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setOffsetLive(id, ox, oy, oz);
+    }
+    bool setScaleLive(int64_t id, std::string const& scale) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setScaleLive(id, scale);
+    }
+    bool setTransformLive(
+        int64_t id,
+        std::string const& ox, std::string const& oy, std::string const& oz,
+        std::string const& rx, std::string const& ry, std::string const& rz,
+        std::string const& scale
+    ) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setTransformLive(
+            id, ox, oy, oz, rx, ry, rz, scale
+        );
+    }
+    // 26.40.12: 动画预设
+    bool setAnim(int64_t id, ItemDisplayAnim const& anim) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setAnim(id, anim);
+    }
+    bool setAnimPreset(int64_t id, std::string const& preset, float a, float b, int c) override {
+        return debugshape_export::ItemDisplayManager::getInstance().setAnimPreset(id, preset, a, b, c);
+    }
+    bool clearAnim(int64_t id) override {
+        return debugshape_export::ItemDisplayManager::getInstance().clearAnim(id);
+    }
 };
 
 
@@ -449,6 +485,13 @@ public:
     }
     bool clearPlayerAppearance(int64_t id, std::string const& playerName) override {
         return debugshape_export::CustomEntityManager::getInstance().clearPlayerAppearance(id, playerName);
+    }
+    // ── 26.40.12: 显式停止动画 ──
+    bool stopAnimation(int64_t id) override {
+        return debugshape_export::CustomEntityManager::getInstance().stopAnimation(id);
+    }
+    bool stopAnimationTo(int64_t id, std::string const& playerName) override {
+        return debugshape_export::CustomEntityManager::getInstance().stopAnimationTo(id, playerName);
     }
 };
 class ParticleShapeImpl final : public IParticleShape {

@@ -46,6 +46,26 @@ setNametag(npc, "§e小美 §7<店员>");
     reg("E:/server/skins/guard.png", "", "", "");          // skinId 留空 → 用文件名 "guard"
     ```
 
+### 注册图片平面（128 PNG，透明可选）
+
+`playerNpcRegisterImageSkin(pngPath, skinId, sizeBlocks, transparent)`
+
+- 参数：
+  - `pngPath` : `String`<br>128×128 PNG 路径
+  - `skinId` : `String`<br>皮肤名；相同名字重复注册会覆盖
+  - `sizeBlocks` : `Float`<br>平面边长（格）；`1` = 1×1 格（128 px/格），`1.25` = 1.25 格
+  - `transparent` : `Boolean`<br>`true` 保留透明（alpha ≥ 128 不透明，其余挖空）；`false` 透明区域铺白
+- 返回值：`true` = 注册成功
+- 返回值类型：`Boolean`
+- 说明：库内生成双面平面几何，几何 identifier 按尺寸唯一；拼接/摆放由调用方自己算
+- 示例：
+
+    ```js
+    const registerImage = ll.import("HologramLib", "playerNpcRegisterImageSkin");
+    registerImage("E:/server/images/logo.png", "logo", 1, true);
+    const npc = create(100.5, 64, 100.5, 0, "§bLogo", "logo");
+    ```
+
 ### 采集在线玩家的皮肤
 
 `playerNpcCaptureSkin(skinId, playerName)`

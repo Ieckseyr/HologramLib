@@ -7,10 +7,37 @@
 
 | 发布版本 | API | 协议线 | 主要内容 | 新增导出 | C++ 消费方 |
 |---|---|---|---|---|---|
+| `26.51.5` / `26.40.13` | 1.31.0 | 26.51 · 26.40 | 拉伸 / live 变换 / 动画预设扩展 / 停止配方 / 假玩家姿势装备骑乘 / FMBE 抽搐修复 / 图片平面与透明图层 / 容器会话隔离 | 若干 | 建议重新编译（虚表尾部追加） |
 | `26.40.11` / `26.51.4` | 1.30.0 | 26.40 · 26.51 | 三个协议原语 + 一个时机通知 | 3 | 无需重新编译（虚表未变） |
 | `26.40.10` / `26.51.3` | 1.29.0 | 26.40 · 26.51 | 视图覆盖补齐 `AddItemActor` 拦截、姿态/缩放/变种/颜色；修复元数据 tick | 1（`viewItemSpawnHooked`） | 需重新编译（`EntityView` 结构体变大） |
 | `26.40.9` | 1.27.0 | 26.40 | `EntityView::skinId`（同 id 换模型）、真实实体交互事件、ABI 布局戳 | 类方法 | 需重新编译（虚表追加） |
 | `26.40.8` | 1.26.0 | 26.40 | 逐观看者覆盖、四个界面域 | 若干 | 需重新编译 |
+
+## 26.51.5 / 26.40.13 — API 1.31.0
+
+26.51 线把 26.40 线 26.40.12 / 26.40.13 的能力整体搬到 26.51（协议 2193），能力与 26.40.13 一致，仅协议线不同。
+
+### 新增能力
+
+- **非等比拉伸**：`IItemDisplay` 的 `setStretch` / `setStretchLive`，XZ 与 Y 两条通道；方块任意单轴用 `setExtend`。
+- **live 变换**：`setRotationLive` / `setOffsetLive` / `setScaleLive` / `setTransformLive`，只重发动画包，不重生实体。
+- **动画预设扩展**：`ItemDisplayAnim` 增加 orbit / tumble / wobble / heartbeat / pendulum / billboard 俯仰 / LOD / 第一人称隐藏；新增单通道 `setAnimPreset` 与 LSE `itemDisplaySetPreset`。
+- **动画停止配方**：`animation.player.attack.positions` + `stopExpression=1`；`stopAnimation` / `stopAnimationTo`。
+- **假玩家姿势/装备/骑乘**：`setPose` / `setEquipment` / `setRideUniqueId` / `setRidePlayer` / `setRideEntity` / `clearRide`。
+- **FMBE 生成抽搐修复**：装备延后到 sleeping / swelling / posrot 之后（物品 +5、方块 +7 tick），live 重发保留未发装备。
+- **图片平面**：`playerNpcRegisterImageSkin(pngPath, skinId, sizeBlocks, transparent)`；`transparent=false` 时透明区域铺白，`true` 时按 alpha 阈值挖空。
+- **容器会话隔离**：`uiOpen` 只向已打开界面的玩家刷新；`ownerEpoch` 作废旧会话延迟包；`containerId` 释放后 200 tick 内不复用。
+- **皮肤语义**：`PlayerSkin` 的 `TrustedSkinFlag=true`；皮肤 `Id/FullId` 按 registryId 重建。
+
+### 26.51 协议线
+
+- 协议 2193；形状文本载荷含 `LineGapHeight`（26.51 必需）。
+- 容器成功应答按 26.51 的 `presence=false` 编码。
+- `PlayerAuthInput` 输入位用 `EnumSet::contains` 逐位读取。
+
+### 消费方
+
+虚表尾部追加，`HOLOGLIB_ABI_STAMP` 不变；直接用旧头文件编译的消费方建议重新编译以使用新方法。
 
 ## 26.40.11 / 26.51.4 — API 1.30.0
 

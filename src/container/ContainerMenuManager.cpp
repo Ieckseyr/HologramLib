@@ -1,3 +1,4 @@
+#include "../DiagFlags.h"
 // ContainerMenuManager.cpp - 虚拟容器（列表）界面实现
 //
 // 方案逐条复刻参考实现 GMLIB 的 ChestUI（src-shared/gmlib/gm/ui/ChestUI.cpp）:
@@ -79,6 +80,7 @@ Player* findPlayerByName(std::string const& name) {
 // 与交易域同款: 自己拼字节 + 经 NetworkPeer 发, 不做 BDS 回读硬校验
 template <typename PacketT>
 bool sendPacket(Player& player, PacketT const& packet) {
+    if (hlibDomainDisabled("HLIB_NO_CONTAINER")) return false;
     std::vector<std::byte>        body;
     sculk::protocol::BinaryStream bodyStream(body);
     packet.write(bodyStream);
@@ -159,16 +161,29 @@ ContainerMenuManager& ContainerMenuManager::getInstance() {
     return instance;
 }
 
+static std::uint64_t containerNowTick() {
+    auto level = ll::service::getLevel();
+    return level ? level->getCurrentTick().tickID : std::uint64_t{0};
+}
+
 int ContainerMenuManager::allocateContainerId() {
+    auto const now = containerNowTick();
+    // 26.40：释放后 200 tick 内不复用。
+    for (auto it = mIdFreedTick.begin(); it != mIdFreedTick.end();) {
+        if (now - it->second > 200) it = mIdFreedTick.erase(it);
+        else ++it;
+    }
     // 显示区间 101..199 循环; 同时占用则顺延, 全占则失败
     for (int i = 0; i < 99; ++i) {
         int const candidate = mNextContainerId;
         mNextContainerId    = (mNextContainerId >= 199) ? 101 : (mNextContainerId + 1);
-        bool used = false;
-        for (auto const& [id, menu] : mMenus) {
-            if (menu.containerId == candidate) {
-                used = true;
-                break;
+        bool used = mIdFreedTick.contains(candidate);
+        if (!used) {
+            for (auto const& [id, menu] : mMenus) {
+                if (menu.containerId == candidate) {
+                    used = true;
+                    break;
+                }
             }
         }
         if (!used) return candidate;
@@ -250,11 +265,18 @@ bool ContainerMenuManager::snapshotMenu(int64_t menuId, Menu& out) const {
     return true;
 }
 
+bool ContainerMenuManager::isCurrentEpoch(Menu const& menu) const {
+    std::lock_guard lock(mMutex);
+    auto const      it = mPlayerEpoch.find(menu.playerName);
+    return it != mPlayerEpoch.end() && it->second == menu.ownerEpoch;
+}
+
 void ContainerMenuManager::laterSendBlocks(std::string playerName, int64_t menuId) {
     auto* player = findPlayerByName(playerName);
     if (player == nullptr) return;
     Menu copy;
     if (!snapshotMenu(menuId, copy)) return; // 已关闭
+    if (!isCurrentEpoch(copy)) return;       // 玩家已退出/重开, 旧任务作废
     sendChestBlocks(*player, copy);
 }
 
@@ -263,7 +285,10 @@ void ContainerMenuManager::laterSendOpen(std::string playerName, int64_t menuId)
     if (player == nullptr) return;
     Menu copy;
     if (!snapshotMenu(menuId, copy)) return;
+    if (!isCurrentEpoch(copy)) return; // 旧会话的延迟 open 不再发
     sendContainerOpen(*player, copy);
+    std::lock_guard lock(mMutex);
+    if (auto it = mMenus.find(menuId); it != mMenus.end()) it->second.uiOpen = true;
 }
 
 void ContainerMenuManager::laterMinecartOpen(std::string playerName, int64_t menuId) {
@@ -271,10 +296,14 @@ void ContainerMenuManager::laterMinecartOpen(std::string playerName, int64_t men
     if (player == nullptr) return;
     Menu copy;
     if (!snapshotMenu(menuId, copy)) return;
+    if (!isCurrentEpoch(copy)) return;
     sendMinecartCarrier(*player, copy);
+    std::lock_guard lock(mMutex);
+    if (auto it = mMenus.find(menuId); it != mMenus.end()) it->second.uiOpen = true;
 }
 
 int64_t ContainerMenuManager::open(std::string const& playerName, hologramlib::ContainerMenuSpec const& spec) {
+    if (hlibDomainDisabled("HLIB_NO_CONTAINER")) return -1;
     auto* player = findPlayerByName(playerName);
     if (player == nullptr) {
         HLIB_LOG_WARN("[ContainerMenu] 打开失败: 玩家 {} 不在线", playerName);
@@ -301,6 +330,7 @@ int64_t ContainerMenuManager::open(std::string const& playerName, hologramlib::C
         std::lock_guard lock(mMutex);
         menu.menuId      = mNextMenuId++;
         menu.containerId = allocateContainerId();
+        menu.ownerEpoch  = ++mPlayerEpoch[playerName];
         if (menu.containerId == 0) {
             HLIB_LOG_WARN("[ContainerMenu] 容器 id 用尽（玩家 {}）", playerName);
             return -1;
@@ -373,6 +403,7 @@ void ContainerMenuManager::resendBlockActor(Player& player, Menu const& menu) {
 }
 
 bool ContainerMenuManager::update(int64_t menuId, hologramlib::ContainerMenuSpec const& spec) {
+    if (hlibDomainDisabled("HLIB_NO_CONTAINER")) return false;
     Menu  copy;
     {
         std::lock_guard lock(mMutex);
@@ -383,11 +414,25 @@ bool ContainerMenuManager::update(int64_t menuId, hologramlib::ContainerMenuSpec
     }
     auto* player = findPlayerByName(copy.playerName);
     if (player == nullptr) return false;
+    if (!isCurrentEpoch(copy)) return false; // 旧会话的刷新句柄作废
 
-    resendBlockActor(*player, copy);                        // 新内容
-    sendPacket(*player, container::makeContainerOpen(copy.containerId, copy.posX, copy.posY, copy.posZ)); // 让客户端重读
+    // 26.40：只发给 UI 开着的玩家。
+    if (!copy.uiOpen) return true;
+
+    resendBlockActor(*player, copy);
+    // 不重发 ContainerOpen，逐槽 InventorySlot。
+    int const slots = std::min<int>(copy.slotCount(), static_cast<int>(copy.spec.items.size()));
+    for (int slot = 0; slot < slots; ++slot) {
+        auto stack = item::makeMenuItemStack(copy.spec.items[slot]);
+        ::InventorySlotPacket packet{::InventorySlotPacketPayload(
+            static_cast<::ContainerID>(copy.containerId),
+            static_cast<uint>(slot),
+            stack
+        )};
+        player->sendNetworkPacket(packet);
+    }
     HLIB_LOG_INFO(
-        "[ContainerMenu] 就地换内容: player={} menuId={} 条目={} rows={}",
+        "[ContainerMenu] 就地换内容(仅开着的UI): player={} menuId={} 条目={} rows={}",
         copy.playerName,
         menuId,
         spec.items.size(),
@@ -398,6 +443,7 @@ bool ContainerMenuManager::update(int64_t menuId, hologramlib::ContainerMenuSpec
 
 // 按槽刷新: 一条 InventorySlot 换掉一格（真实箱子同步内容用的就是这种包）——无延迟、无闪烁
 bool ContainerMenuManager::setItem(int64_t menuId, int slot, hologramlib::ContainerMenuItem const& item) {
+    if (hlibDomainDisabled("HLIB_NO_CONTAINER")) return false;
     Menu  copy;
     {
         std::lock_guard lock(mMutex);
@@ -409,6 +455,9 @@ bool ContainerMenuManager::setItem(int64_t menuId, int slot, hologramlib::Contai
     }
     auto* player = findPlayerByName(copy.playerName);
     if (player == nullptr) return false;
+    if (!isCurrentEpoch(copy)) return true;
+    // 26.40：只发给 UI 开着的玩家。
+    if (!copy.uiOpen) return true;
 
     auto stack = item::makeMenuItemStack(item);
     ::InventorySlotPacket packet{::InventorySlotPacketPayload(
@@ -416,8 +465,8 @@ bool ContainerMenuManager::setItem(int64_t menuId, int slot, hologramlib::Contai
         static_cast<uint>(slot),
         stack
     )};
-    player->sendNetworkPacket(packet);
-    HLIB_LOG_INFO("[ContainerMenu] 按槽刷新: player={} menuId={} slot={} 物品={}", copy.playerName, menuId, slot, item.type);
+    player->sendNetworkPacket(packet); // native 包: BDS 自己的物品描述符序列化
+    HLIB_LOG_INFO("[ContainerMenu] 按槽刷新(UI开着): player={} menuId={} slot={} 物品={}", copy.playerName, menuId, slot, item.type);
     return true;
 }
 
@@ -549,6 +598,7 @@ bool ContainerMenuManager::close(int64_t menuId) {
         if (it == mMenus.end()) return false;
         copy = it->second;
         mMenus.erase(it);
+        mIdFreedTick[copy.containerId] = containerNowTick(); // 200 tick 内不复用
         if (auto byPlayer = mByPlayer.find(copy.playerName);
             byPlayer != mByPlayer.end() && byPlayer->second == menuId) {
             mByPlayer.erase(byPlayer);
@@ -707,6 +757,7 @@ bool ContainerMenuManager::handleContainerClose(std::string const& playerName, i
         event.playerName = playerName;
         event.menuId     = copy.menuId;
         event.closed     = true;
+        mIdFreedTick[copy.containerId] = containerNowTick();
         mMenus.erase(menuIt);
         mByPlayer.erase(byPlayer);
     }
@@ -730,6 +781,7 @@ void ContainerMenuManager::onPlayerLeave(std::string const& playerName) {
     int64_t menuId = -1;
     {
         std::lock_guard lock(mMutex);
+        ++mPlayerEpoch[playerName]; // 旧会话的延迟任务/刷新句柄全部作废
         if (auto it = mByPlayer.find(playerName); it != mByPlayer.end()) menuId = it->second;
     }
     if (menuId >= 0) close(menuId);

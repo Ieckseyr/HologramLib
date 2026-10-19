@@ -10,6 +10,9 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <fstream>
+#include <iterator>
+#include <algorithm>
 
 // ── 皮肤 blob 的 base64（LSE 字符串编组对二进制不安全: blob 内含 NUL / 任意字节）──
 // 配对: playerNpcGetSkinBlobB64 / playerNpcRegisterSkinFromBlobB64。
@@ -206,6 +209,26 @@ public:
     void setEntitySpawnCallback(std::function<void(int64_t, std::string const&)> callback) override {
         PlayerNpcManager::getInstance().setEntitySpawnCallback(std::move(callback));
     }
+    // ── 26.40.12: 显式停止动画 ──
+    bool stopAnimation(int64_t id) override { return PlayerNpcManager::getInstance().stopAnimation(id); }
+    bool stopAnimationTo(int64_t id, std::string const& playerName) override {
+        return PlayerNpcManager::getInstance().stopAnimationTo(id, playerName);
+    }
+    // ── 26.40.12: 姿势 / 装备 / 骑乘 ──
+    bool setPose(int64_t id, int pose) override { return PlayerNpcManager::getInstance().setPose(id, pose); }
+    bool setEquipment(int64_t id, int slot, std::string const& name, int aux, std::string const& nbt) override {
+        return PlayerNpcManager::getInstance().setEquipment(id, slot, name, aux, nbt);
+    }
+    bool setRideUniqueId(int64_t id, std::int64_t vehicleUniqueId) override {
+        return PlayerNpcManager::getInstance().setRideUniqueId(id, vehicleUniqueId);
+    }
+    bool setRidePlayer(int64_t id, std::string const& playerName) override {
+        return PlayerNpcManager::getInstance().setRidePlayer(id, playerName);
+    }
+    bool setRideEntity(int64_t id, int64_t vehicleEntityId) override {
+        return PlayerNpcManager::getInstance().setRideEntity(id, vehicleEntityId);
+    }
+    bool clearRide(int64_t id) override { return PlayerNpcManager::getInstance().clearRide(id); }
 };
 
 hologramlib::IPlayerNpc& playerNpcAdapter() {
@@ -231,6 +254,50 @@ void PlayerNpcExporter::exportAll() {
             if (!geometry.empty()) skin.geometry = geometry;
             if (!armSize.empty()) skin.armSize = armSize;
             return mgr.registerSkin(skin);
+        });
+
+    // 26.40.13: 带完整几何 JSON 的注册（Route A 单图路线）——
+    //   playerNpcRegisterSkinData(pngPath, skinId, armSize, geometryData) -> bool
+    //   geometryData = minecraft:geometry 数组式 JSON; identifier 自动提取并写入 ResourcePatch
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "playerNpcRegisterSkinData",
+        [&mgr](std::string const& pngPath,
+               std::string const& skinId,
+               std::string const& armSize,
+               std::string const& geometryData) -> bool {
+            hologramlib::PlayerNpcSkin skin;
+            skin.pngPath      = pngPath;
+            skin.skinId       = skinId;
+            skin.armSize      = armSize.empty() ? "wide" : armSize;
+            skin.geometryData = geometryData;
+            return mgr.registerSkin(skin);
+        });
+
+    // playerNpcRegisterSkinDataOpaque(pngPath, skinId, armSize, geometryData) -> bool
+    // 与上一条相同, 但把 0<alpha<255 的像素压成不透明: 客户端对皮肤做 alpha test,
+    // 半透明像素在展示面上会变成"缺块"; alpha=0 保留为挖孔。
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "playerNpcRegisterSkinDataOpaque",
+        [&mgr](std::string const& pngPath,
+               std::string const& skinId,
+               std::string const& armSize,
+               std::string const& geometryData) -> bool {
+            hologramlib::PlayerNpcSkin skin;
+            skin.pngPath      = pngPath;
+            skin.skinId       = skinId;
+            skin.armSize      = armSize.empty() ? "wide" : armSize;
+            skin.geometryData = geometryData;
+            return mgr.registerSkinOpaque(skin);
+        });
+
+    // playerNpcRegisterImageSkin(pngPath, skinId, sizeBlocks) -> bool（26.40：128 PNG 平面皮肤）
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "playerNpcRegisterImageSkin",
+        [&mgr](std::string const& pngPath, std::string const& skinId, float sizeBlocks, bool transparent) -> bool {
+            return mgr.registerImageSkin(pngPath, skinId, sizeBlocks, transparent);
         });
 
     // playerNpcImportSkins(dirPath) -> int（目录批量导入; skinId = 子文件夹名）
@@ -274,6 +341,33 @@ void PlayerNpcExporter::exportAll() {
             cfg.dimension = dim;
             if (!name.empty()) cfg.name = name;
             if (!skinId.empty()) cfg.skinId = skinId;
+            return mgr.create(cfg);
+        });
+
+    // playerNpcCreateEx(x, y, z, dim, name, skinId, yaw, scale) -> int64
+    // 一次成型: 创建时就带 yaw/scale, 不触发 setRotation/setScale 的 respawn。
+    // （setRotation 会 RemoveActor + PlayerList Add 重发; 客户端对同一 UUID 的第二次皮肤条目
+    //   可能直接忽略 → 假人回落默认皮肤/模型, 这正是 Route A 一开始"只看到 Alex"的原因之一。）
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "playerNpcCreateEx",
+        [&mgr](float x,
+               float y,
+               float z,
+               int   dim,
+               std::string const& name,
+               std::string const& skinId,
+               float yaw,
+               float scale) -> int64_t {
+            PlayerNpcConfig cfg;
+            cfg.x         = x;
+            cfg.y         = y;
+            cfg.z         = z;
+            cfg.dimension = dim;
+            if (!name.empty()) cfg.name = name;
+            if (!skinId.empty()) cfg.skinId = skinId;
+            cfg.yaw = yaw;
+            if (scale > 0) cfg.scale = std::clamp(scale, 0.0625f, 10.0f);
             return mgr.create(cfg);
         });
 
@@ -407,6 +501,62 @@ void PlayerNpcExporter::exportAll() {
             if (!b64Decode(b64, blob) || blob.empty()) return false;
             return mgr.registerSkinFromBlob(blob);
         });
+    // 从 HLNS blob 文件注册（26.40）。
+    hologramlib::lse::exportAs(
+        NAMESPACE, "playerNpcRegisterSkinFromBlobFile", [&mgr](std::string const& path) -> bool {
+            std::ifstream f(path, std::ios::binary);
+            if (!f) return false;
+            std::string blob((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+            if (blob.empty()) return false;
+            return mgr.registerSkinFromBlob(blob);
+        });
+
+    // ── 26.40.12: 动画（此前只有 C++ 接口; 测试批次补 LSE, 便于游戏内验证）──
+    // playerNpcPlayAnimation(id, animation, stopExpression, durationTicks) -> bool
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "playerNpcPlayAnimation",
+        [&mgr](int64_t id, std::string const& animation, std::string const& stopExpression, int durationTicks)
+            -> bool { return mgr.playAnimation(id, animation, stopExpression, durationTicks); });
+    // playerNpcStopAnimation(id) -> bool（空动作 + stopExpression=1 取消配方）
+    hologramlib::lse::exportAs(
+        NAMESPACE, "playerNpcStopAnimation", [&mgr](int64_t id) -> bool { return mgr.stopAnimation(id); });
+    // playerNpcStopAnimationTo(id, playerName) -> bool
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "playerNpcStopAnimationTo",
+        [&mgr](int64_t id, std::string const& playerName) -> bool { return mgr.stopAnimationTo(id, playerName); });
+
+    // ── 26.40.12: 姿势 / 装备 / 骑乘 ──
+    // playerNpcSetPose(id, pose) -> bool（PoseIndex: 0=站 1=潜行 2=睡 3=游泳 4=爬行）
+    hologramlib::lse::exportAs(
+        NAMESPACE, "playerNpcSetPose", [&mgr](int64_t id, int pose) -> bool { return mgr.setPose(id, pose); });
+    // playerNpcSetEquipment(id, slot, name, aux, nbt) -> bool
+    //   slot: 0=主手 1=副手 2=头 3=胸 4=腿 5=脚; name 空 = 清空该槽
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "playerNpcSetEquipment",
+        [&mgr](int64_t id, int slot, std::string const& name, int aux, std::string const& nbt) -> bool {
+            return mgr.setEquipment(id, slot, name, aux, nbt);
+        });
+    // playerNpcSetRideUniqueId(id, vehicleUniqueId) -> bool（真实实体/自定义实体/玩家都行; 0 = 清除）
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "playerNpcSetRideUniqueId",
+        [&mgr](int64_t id, int64_t vehicleUniqueId) -> bool { return mgr.setRideUniqueId(id, vehicleUniqueId); });
+    // playerNpcSetRidePlayer(id, playerName) -> bool（骑到在线玩家头上）
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "playerNpcSetRidePlayer",
+        [&mgr](int64_t id, std::string const& playerName) -> bool { return mgr.setRidePlayer(id, playerName); });
+    // playerNpcSetRideEntity(id, vehicleEntityId) -> bool（骑到库内自定义实体）
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "playerNpcSetRideEntity",
+        [&mgr](int64_t id, int64_t vehicleEntityId) -> bool { return mgr.setRideEntity(id, vehicleEntityId); });
+    // playerNpcClearRide(id) -> bool
+    hologramlib::lse::exportAs(
+        NAMESPACE, "playerNpcClearRide", [&mgr](int64_t id) -> bool { return mgr.clearRide(id); });
 }
 
 } // namespace debugshape_export
