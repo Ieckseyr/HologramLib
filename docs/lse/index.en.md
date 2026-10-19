@@ -121,13 +121,13 @@ setInterval(() => {
 
 | I want to | Prefix | Functions | Page |
 |---|---|---|---|
-| Draw lines / boxes / spheres / text shapes | `shape*` | 39 | [Shapes](shapes.md) |
-| Multi-line holograms, gradient lines | `holo*` · `gradient*` | 26 + 11 | [Holograms & gradient lines](holograms.md) |
-| Show "Diamond x64", item display entities | `itemDetail*` · `itemDisplay*` | 2 + 40 | [Item display](items.md) |
+| Draw lines / boxes / spheres / text shapes | `shape*` | 39 | [Shapes](debugshape.md) |
+| Multi-line holograms, gradient lines | `holo*` · `gradient*` | 26 + 11 | [Holograms & gradient lines](debugshape.md) |
+| Show "Diamond x64", item display entities | `itemDetail*` · `itemDisplay*` | 2 + 40 | [Item display](item-display.md) |
 | Protocol-level fake players (NPCs), skin registration / capture | `playerNpc*` | 29 | [Fake-player NPCs](player-npc.md) |
 | Custom entities, particle shapes, interaction events | `entity*` · `particle*` · `ghost*` | 37 + 22 + 2 | [Entities, particles & interaction](entities.md) |
 | Trade menu, virtual container, NPC dialogue | `trade*` · `container*` · `npcDialog*` | 10 + 10 + 9 | [Interfaces & containers](interfaces.md) |
-| Fake inventory, sulfur-cube display | `fakeInv*` · `sulfur*` | 9 + 10 | [Inventory & sulfur cube](inventory.md) |
+| Fake inventory, sulfur-cube display | `fakeInv*` · `sulfur*` | 9 + 10 | [Inventory & sulfur cube](containers.md) |
 | Client view override (swap model / hide / re-skin), device sensing | `view*` · `sensing*` | 19 + 3 | [View override & sensing](view.md) |
 
 278 functions in total (counted from `exportAs` in source), all registered at runtime, and `ll.import` can fetch every one of them.
