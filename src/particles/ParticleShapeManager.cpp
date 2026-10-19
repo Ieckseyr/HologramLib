@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <format>
 #include <sstream>
@@ -629,6 +630,12 @@ std::string ParticleShapeManager::getInfo(int64_t id) const {
 // ── tick 驱动 ──
 
 void ParticleShapeManager::tick() {
+    // HLIB_NO_PARTICLES=1 停发粒子（26.40）。
+    static bool const kParticlesDisabled = [] {
+        char const* v = std::getenv("HLIB_NO_PARTICLES");
+        return v != nullptr && v[0] == '1';
+    }();
+    if (kParticlesDisabled) return;
     auto const now = currentTick();
     std::vector<int64_t> due;
     {

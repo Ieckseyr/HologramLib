@@ -97,6 +97,9 @@ public:
         int64_t id, std::string const& playerName,
         std::string const& animation, std::string const& stopExpression, int durationTicks
     );
+    // ── 26.40.12: 显式停止（同 controller 换播空动作 + stopExpression=1 的取消配方）──
+    bool stopAnimation(int64_t id);
+    bool stopAnimationTo(int64_t id, std::string const& playerName);
     // spawn 时机通知回调（实体对玩家 spawn/respawn 完成后调用; 传 nullptr 清除）
     using EntitySpawnCallback = std::function<void(int64_t id, std::string const& playerName)>;
     void setEntitySpawnCallback(EntitySpawnCallback callback);

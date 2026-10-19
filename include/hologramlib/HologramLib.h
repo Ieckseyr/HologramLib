@@ -57,7 +57,8 @@
 //   ⚠ 尾部追加不改虚表槽位, 但**改了 EntityView 的大小** —— 直接构造该结构体的消费方要重新编译。
 //   ⚠ 与 `skinId` 搭配的"模型缩放"仍是 `EntityView::scale`（1.27.0 起）, 本版新增的**元数据缩放**叫
 //     `metaScale`（两个都在结构尾部, 别混: 前者走玩家模型出生包, 后者走元数据 + 客户端碰撞箱）。
-#define HOLOGLIB_API_VERSION 0x012400
+// 0x012500（26.40.13 / 26.51.5，API 1.31.0）：拉伸 / live 变换 / 动画预设 / 停止配方 / 假玩家姿势装备骑乘。
+#define HOLOGLIB_API_VERSION 0x012500
 
 // ── ABI 布局戳（消费方自检用; 与上面的"功能版本"是两件事, 别混）──
 // 语义: 只在**破坏虚表槽位**的改动时 +1 —— 在接口**中段**插入/删除/重排虚函数、改已发布方法的签名;
@@ -326,6 +327,41 @@ struct ItemDisplayConfig {
     float hitboxHeight{0.0f};
 };
 
+// ─────────────────────────────────────────────
+// 展示动画预设（26.40.12; 库内逻辑 —— 一次调用生成 Molang 表达式并 live 重发）
+// 单位: spin 度/秒, period 秒, phase 秒（多个展示错开相位）; 运行时客户端每帧算, 服务端零 tick。
+// 组合顺序: spin → billboard → bob / pulse / sway; clearAnim 恢复 setAnim 之前的常量。
+// ─────────────────────────────────────────────
+struct ItemDisplayAnim {
+    float spinSpeed{0.0f};      // 匀速自转（度/秒; 0 = 不转）
+    int   spinAxis{1};          // 0=X 1=Y 2=Z
+    float bobAmplitude{0.0f};   // 上下浮动幅度（模型单位; 0 = 不浮）
+    float bobPeriod{2.0f};      // 浮动周期（秒）
+    float pulseAmplitude{0.0f}; // 缩放呼吸幅度（比例; 0.2 = ±20%）
+    float pulsePeriod{2.0f};    // 呼吸周期（秒）
+    float swayAmplitude{0.0f};  // 摇摆幅度（度; 同时作用于 X/Z）
+    float swayPeriod{3.0f};     // 摇摆周期（秒）
+    float phase{0.0f};          // 相位偏移（秒）
+    bool  billboard{false};     // 面向相机（仅物品模式; q.rotation_to_camera(1)）
+
+    // ── 26.40.13 扩展预设（全部是持续循环, 不含一次性动画）──
+    float orbitRadius{0.0f};      // 绕基准点画圈（模型单位; 0 = 不绕）
+    float orbitPeriod{4.0f};      // 绕圈周期（秒）
+    int   orbitPlane{2};          // 0=XY 1=YZ 2=XZ
+    float tumbleSpeed{0.0f};      // X/Z 双轴翻滚（度/秒; 0 = 不翻）
+    float wobbleAmplitude{0.0f};  // 双正弦微晃幅度（度）
+    float wobbleSpeed{1.0f};      // 微晃倍率
+    float heartbeatAmplitude{0.0f}; // 心跳缩放（比例; 0.15 = 峰值 +15%）
+    float heartbeatPeriod{1.2f};  // 心跳周期（秒）
+    float pendulumAmplitude{0.0f}; // 绕 Y 钟摆幅度（度）
+    float pendulumPeriod{3.0f};   // 钟摆周期（秒）
+    bool  billboardPitch{false};  // 面向相机时同时跟随俯仰
+    float lodNear{0.0f};          // 距离 LOD 近端（格; 与 lodFar 同时 > 0 才生效）
+    float lodFar{0.0f};           // 距离 LOD 远端
+    float lodMinScale{1.0f};      // 远端最小缩放
+    bool  hideInFirstPerson{false}; // 第一人称隐藏（缩放乘 1-q.is_first_person）
+};
+
 class IItemDisplay {
 public:
     virtual ~IItemDisplay() = default;
@@ -390,6 +426,39 @@ public:
     // 数值持久入配置（后续 respawn 自动按当前值发包）; width/height=0 恢复不可选中;
     // id 不存在返回 false
     virtual bool setHitbox(int64_t id, float width, float height) = 0;
+
+    // ── 26.40.12 追加（冻结契约: 只在尾部追加）──
+    // 非等比拉伸: FMBE 的缩放只有两条通道 —— XZ（v.swelling_scale1）与 Y（v.swelling_scale2）。
+    //   · 值写常量或 Molang 表达式字符串（"1" = 不拉伸, 默认）; 与 scale 相乘, 不影响偏移/旋转;
+    //   · **X 与 Z 共轴**（同一个通道）—— 不能只拉伸其中一个; 平面物品看起来就是"横向拉伸";
+    //   · 方块需要"任意方向单轴拉伸（会同时改变方块朝向）"用 setExtend, 不是这里。
+    // setStretch 持久化并 respawn（有闪烁）; setStretchLive 只重发 FMBE 动画包（无闪烁）。
+    virtual bool setStretch(int64_t id, std::string const& xz, std::string const& y) = 0;
+    virtual bool setStretchLive(int64_t id, std::string const& xz, std::string const& y) = 0;
+
+    // 原地更新变换: 持久化配置并只重发 FMBE 动画包（item 2 包 / block 5 包）,
+    // **不 despawn、不换 uniqueId/runtimeId、不闪** —— 适合运行时连续改表达式/动画阶段。
+    // 与 setRotation/setScale/setOffset（标脏 → 下一 tick 单次 respawn）的区别仅此一处。
+    virtual bool setRotationLive(int64_t id, std::string const& rx, std::string const& ry, std::string const& rz) = 0;
+    virtual bool setOffsetLive(int64_t id, std::string const& ox, std::string const& oy, std::string const& oz) = 0;
+    virtual bool setScaleLive(int64_t id, std::string const& scale) = 0;
+    // 一次性改齐 offset/rot/scale（一次重发, 不叠加多次抖动）; 拉伸走 setStretchLive
+    virtual bool setTransformLive(
+        int64_t id,
+        std::string const& ox, std::string const& oy, std::string const& oz,
+        std::string const& rx, std::string const& ry, std::string const& rz,
+        std::string const& scale
+    ) = 0;
+
+    // 动画预设（库内逻辑）: 把 spin/bob/pulse/sway/billboard 组合成 Molang 表达式,
+    // 写入配置并 live 重发（不 despawn）。重复调用只更新参数, 基准值仍是第一次 setAnim 时的。
+    virtual bool setAnim(int64_t id, ItemDisplayAnim const& anim) = 0;
+    // 单通道预设（26.40.13）: preset = spin/bob/pulse/sway/orbit/tumble/wobble/heartbeat/
+    //   pendulum/billboard/lod/firstperson/clear; 只改这一路, 其余保持; 立即 live 重发。
+    //   a/b/c 含义随 preset 变（见 README）; clear = 等价 clearAnim。
+    virtual bool setAnimPreset(int64_t id, std::string const& preset, float a, float b, int c) = 0;
+    // 停止动画, 恢复 setAnim 之前的 offset/rot/scale（同样是 live 重发）
+    virtual bool clearAnim(int64_t id) = 0;
 };
 
 // ─────────────────────────────────────────────
@@ -532,6 +601,15 @@ public:
     ) = 0;
     // 清除该玩家对实体的全部外观覆盖（名字/缩放/装备; 朝向覆盖单独由 clearPlayerRotation 管理）
     virtual bool clearPlayerAppearance(int64_t id, std::string const& playerName) = 0;
+
+    // ── 26.40.12 追加: 显式停止动画 ──
+    // 取消配方: 同一个 controller 换播"空动作" animation.player.attack.positions,
+    // stopExpression 为常量 1（客户端当帧判定为真 → transition 到 none → 原动画被取消）。
+    // 说明: 旧文档推荐的 "query.any_animation" 不是合法 Molang 查询, 实际会按 0 处理、停不掉;
+    // 为兼容旧调用, playAnimation 收到该字符串时仍按"立刻停"处理（内部走本配方）。
+    // 无观察者 / id 不存在返回 false。
+    virtual bool stopAnimation(int64_t id) = 0;
+    virtual bool stopAnimationTo(int64_t id, std::string const& playerName) = 0;
 };
 // ─────────────────────────────────────────────
 // 通用协议层粒子形状系统（1.14.0 追加; 1.15.0 发送通道升级 + moveTo）
@@ -778,8 +856,10 @@ public:
     // 与 ICustomEntity::playAnimation 同一套机制: 库对"已见过该 NPC 的玩家"发一条
     // AnimateEntityPacket（animation = 资源包里的动画标识符, 如 animation.ms.xxx.idle）,
     // controller 名库内按 NPC id 自动唯一化（不需要资源包里预先存在同名控制器）。
-    //   · stopExpression 空串 = 常驻循环; "query.any_animation" = 立刻停;
-    //   · durationTicks > 0 时到期自动补发一条停止包（stopExpression = query.any_animation）;
+    //   · stopExpression 空串 = 常驻循环; "1" = 立刻停（推荐, 见下）;
+    //     "query.any_animation" 为历史写法, **不是合法查询**（文档只有 any_animation_finished）——
+    //     本版起库识别该字符串并按"立刻停"处理, 内部走真正的取消配方;
+    //   · durationTicks > 0 时到期自动补发取消包（空动作 + stopExpression=1）;
     //   · 动画名必须是**客户端能解析的**（原版动画名, 或随资源包下发的自定义动画）——
     //     皮肤几何里内嵌的 animations 段不参与解析（见 README 的说明）。
     //   · 无观察者 / NPC 不存在时返回 false; 新观察者的补发由消费方经 EntitySpawnCallback 自行处理。
@@ -797,6 +877,28 @@ public:
     // 同一套 EntitySpawnCallback 语义: NPC 对某玩家出生完成后回调（补发动画/状态用）
     using EntitySpawnCallback = std::function<void(int64_t id, std::string const& playerName)>;
     virtual void setEntitySpawnCallback(EntitySpawnCallback callback) = 0;
+
+    // ── 26.40.12 追加: 显式停止动画 ──
+    // 与 ICustomEntity::stopAnimation 同一配方（空动作 + stopExpression=1, 同 controller 覆盖）。
+    // 无观察者 / NPC 不存在返回 false。
+    virtual bool stopAnimation(int64_t id) = 0;
+    virtual bool stopAnimationTo(int64_t id, std::string const& playerName) = 0;
+
+    // ── 26.40.12 追加: 假玩家姿势 / 装备 / 骑乘 ──
+    // 姿势: PoseIndex（ActorPose）0=站 1=潜行 2=睡 3=游泳 4=爬行; 库内同时补 ActorFlags 位
+    // （Sneaking/Sleeping/Swimming）。只发 SetActorData, 不重建实体; 客户端是否按玩家模型摆姿势需实测。
+    virtual bool setPose(int64_t id, int pose) = 0;
+    // 装备槽: 0=主手 1=副手 2=头 3=胸 4=腿 5=脚; name 空 = 清空该槽（走一次 respawn）。
+    // 主/副手走 MobEquipmentPacket, 四甲走 MobArmorEquipmentPacket; 非空变更即时生效, 无闪烁。
+    virtual bool setEquipment(int64_t id, int slot, std::string const& name, int aux, std::string const& nbt) = 0;
+    // 骑乘: 载具用 **ActorUniqueID**, 且必须是**真实服务端实体**（猪/马/船/矿车/在线玩家）。
+    // 库内纯协议实体（ICustomEntity）不能当载具 —— 客户端没有它的服务端记录, 挂接会崩;
+    // 0 = 解除链接（发 type=None 的链接包, 不 respawn）。
+    virtual bool setRideUniqueId(int64_t id, std::int64_t vehicleUniqueId) = 0;
+    virtual bool setRidePlayer(int64_t id, std::string const& playerName) = 0; // 骑到在线玩家头上
+    // 仅排查用: 自定义实体 id → uniqueId 后仍会被"必须是真实实体"的校验拒绝
+    virtual bool setRideEntity(int64_t id, int64_t vehicleEntityId) = 0;
+    virtual bool clearRide(int64_t id) = 0;
 };
 
 // ─────────────────────────────────────────────
@@ -1461,7 +1563,7 @@ public:
     // LSE 兼容层是否可用（LegacyRemoteCall 运行时检测成功）
     virtual bool isLseAvailable() = 0;
 
-    // 库版本（BCD: 0x012400 = 1.30.0, 与 HOLOGLIB_API_VERSION 同值）
+    // 库版本（0x012500 = 1.31.0, 与 HOLOGLIB_API_VERSION 同值）
     virtual uint32_t version() = 0;
 
     // ── 1.6.0 追加（冻结契约: 只在尾部追加）──

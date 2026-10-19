@@ -12,6 +12,7 @@
 #include <mutex>
 #include <string>
 #include <functional>
+#include <array>
 #include <map>
 #include <unordered_map>
 #include <unordered_set>
@@ -39,6 +40,10 @@ public:
 
     // 皮肤（委托 NpcSkinRegistry; 返回值语义见 IPlayerNpc 注释）
     bool registerSkin(hologramlib::PlayerNpcSkin const& skin);
+    // PNG 注册并把半透明像素压成不透明（展示面用; 防止客户端 alpha test 出现缺块）
+    bool registerSkinOpaque(hologramlib::PlayerNpcSkin const& skin);
+    // 26.40：128×128 PNG -> 单面/双面平面皮肤（sizeBlocks 为边长格数，1 = 128 px/格）。
+    bool registerImageSkin(std::string const& pngPath, std::string const& skinId, float sizeBlocks, bool transparent);
     bool captureSkin(std::string const& skinId, std::string const& playerName);
     bool hasSkin(std::string const& skinId) const;
     bool unregisterSkin(std::string const& skinId); // 有 NPC 引用时拒绝
@@ -106,6 +111,22 @@ public:
         std::string const& stopExpression,
         int durationTicks
     );
+    // ── 26.40.12: 显式停止（同 controller 换播空动作 + stopExpression=1 的取消配方）──
+    bool stopAnimation(int64_t id);
+    bool stopAnimationTo(int64_t id, std::string const& playerName);
+    // ── 26.40.12: 姿势 / 装备 / 骑乘 ──
+    // pose: PoseIndex(ActorPose) 0=站 1=潜行 2=睡 3=游泳 4=爬行（客户端对玩家模型生效, 需实测）
+    // 只发 SetActorData（不重建实体, 无闪烁）; 同时按 pose 自动叠 ActorFlags 位
+    bool setPose(int64_t id, int pose);
+    // 装备槽: 0=主手 1=副手 2=头 3=胸 4=腿 5=脚; name 空 = 清空该槽
+    // 主/副手走 MobEquipmentPacket, 四甲走 MobArmorEquipmentPacket（不重建实体）
+    bool setEquipment(int64_t id, int slot, std::string const& name, int aux, std::string const& nbt);
+    // 骑乘: 载具用 **ActorUniqueID**（真实实体/自定义实体/玩家都可以）; 0 = 清除
+    // 链接包 A=载具 B=本 NPC（乘客）; 清除走 respawn（新实体不带链接）
+    bool setRideUniqueId(int64_t id, std::int64_t vehicleUniqueId);
+    bool setRidePlayer(int64_t id, std::string const& playerName);   // 骑到在线玩家头上
+    bool setRideEntity(int64_t id, int64_t vehicleEntityId);         // 骑到库内自定义实体
+    bool clearRide(int64_t id);
     void setEntitySpawnCallback(std::function<void(int64_t, std::string const&)> callback);
     // 出生完成通知（内部: 可见性同步里调用; 公开是为了不依赖后置定义的 TickHookAccess）
     void notifySpawn(int64_t id, std::string const& playerName) const;
@@ -123,6 +144,17 @@ public:
         // 逐客户端朝向覆盖（玩家 uuid → 朝向; 缺省 = 用 config 的 yaw）
         // 玩家 uuid 不随 respawn 变化, 覆盖自动跨 respawn 保留
         std::unordered_map<mce::UUID, hologramlib::PerPlayerRotation> playerRot;
+
+        // ── 26.40.12: 姿势 / 装备 / 骑乘（不放进 PlayerNpcConfig, 避免改公开结构体大小）──
+        int          pose{0};          // PoseIndex（ActorPose）
+        std::int64_t flags{0};         // 额外 ActorFlags（按 pose 自动叠加 Sneaking/Swimming/Sleeping）
+        struct NpcEquip {
+            std::string name{};
+            int         aux{0};
+            std::string nbt{};
+        };
+        std::array<NpcEquip, 6> equip{};      // 0=主手 1=副手 2=头 3=胸 4=腿 5=脚
+        std::int64_t            rideVehicleUniqueId{0}; // 0 = 未骑乘
     };
 
     // 待处理 Tab 移除（spawn 后 20 tick; NPC id -> 条目列表）
@@ -140,6 +172,8 @@ private:
     void    flushAnimsLocked();                   // 到期的动画包发出（AnimateEntityPacket）
     int64_t createLocked(PlayerNpcConfig const& config, int64_t id);
     bool    skinReferencedLocked(std::string const& skinId) const; // 是否有 NPC 在用
+    // 26.40.12: spawn 之后补发姿势/装备/骑乘（调用方持锁且玩家已 insert 进 shownPlayers）
+    void    afterSpawnLocked(Player& player, int64_t id, Runtime const& rt);
 
     friend struct PlayerNpcTickHookAccess;
 

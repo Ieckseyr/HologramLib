@@ -385,7 +385,12 @@ RTN extractValue(Value&& value) {
                       BlockType,
                       NbtType>)
         return std::get<Type>(value);
-    else if constexpr (std::is_assignable_v<NumberType, RTN>) return std::get<NumberType>(value).get<Type>();
+    else if constexpr (std::is_assignable_v<NumberType, RTN>) {
+        // JS 的 undefined / null（例如写错属性名 player.dimid）在 RemoteCall 里是 nullptr_t:
+        // 按 0 处理而不是抛 bad_variant_access —— 否则一条脚本笔误会让整个指令调用炸掉。
+        if (std::holds_alternative<std::nullptr_t>(value)) return RTN{};
+        return std::get<NumberType>(value).get<Type>();
+    }
     else if constexpr (std::is_assignable_v<NbtType, RTN>) return std::get<NbtType>(value).get<Type>();
     else if constexpr (std::is_assignable_v<ItemType, RTN>) return std::get<ItemType>(value).get<Type>();
     else if constexpr (std::is_assignable_v<BlockType, RTN>) return std::get<BlockType>(value).get<Type>();

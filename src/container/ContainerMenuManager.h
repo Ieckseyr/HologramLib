@@ -105,7 +105,10 @@ private:
         std::uint64_t                          carrierUniqueId{0};
         std::uint64_t                          carrierRuntimeId{0};
         hologramlib::ContainerMenuSpec         spec;
-        // 可交互模式下的"光标物品"（客户端手持的那一份; 只在容器内部移动时维护）
+        // 26.40：UI 是否打开；刷新只发给 open 的玩家。
+        bool                                    uiOpen{false};
+        // 26.40：玩家会话序号，退出/重进后旧任务作废。
+        std::uint64_t                           ownerEpoch{0};
         hologramlib::ContainerMenuItem         cursor;
 
         [[nodiscard]] bool isBig() const { return spec.rows >= 6; }
@@ -132,6 +135,8 @@ private:
     void laterSendOpen(std::string playerName, int64_t menuId);
     void laterMinecartOpen(std::string playerName, int64_t menuId);
     [[nodiscard]] bool snapshotMenu(int64_t menuId, Menu& out) const;
+    // 该菜单是否属于玩家当前会话（退出/重进/重开菜单后旧菜单作废）
+    [[nodiscard]] bool isCurrentEpoch(Menu const& menu) const;
 
     mutable std::mutex                        mMutex;
     std::unordered_map<int64_t, Menu>         mMenus;
@@ -139,7 +144,9 @@ private:
     std::unordered_map<uint64_t, std::function<void(hologramlib::ContainerClickEvent const&)>> mListeners;
     std::deque<hologramlib::ContainerClickEvent> mClickQueue; // LSE 轮询队列
     int64_t  mNextMenuId{1};
-    int      mNextContainerId{101}; // 显示区间: 避开真实容器的 1..100
+    int      mNextContainerId{101}; // 1..100 留给真实容器
+    std::unordered_map<std::string, std::uint64_t> mPlayerEpoch; // 26.40：会话序号
+    std::unordered_map<int, std::uint64_t>         mIdFreedTick; // 26.40：200 tick 内不复用
     uint64_t mNextListenerToken{1};
 };
 

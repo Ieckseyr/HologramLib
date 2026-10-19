@@ -575,14 +575,7 @@ inline bool sendSkinnedSpawn(
     sculk::protocol::SerializedSkin skin;
     if (!NpcSkinRegistry::getInstance().getSkin(skinId, skin)) return false;
 
-    // 皮肤身份**按库的 API 重建**（npc_protocol::finalizeSkinIds）:
-    // 不能沿用皮肤来源的 Id/FullId —— 客户端按 Id 查皮肤缓存, 残留了"原玩家/旧 NPC 的缓存键"
-    // 时会**不渲染所设皮肤、外观回退默认模型**（26.40.2 修过同款, 库 README 有记录）。
-    // 这里按"替换目标实体"生成专属 Id, 每只实体一份, 缓存互不串。
-    // 皮肤身份按**库自己的规则**给每只实体一份（npc_protocol::finalizeSkinIds —— PlayerNpc 域同款）:
-    // 皮肤条目身份若沿用来源（原玩家 UUID / 旧 NPC 的 hl_npc_*）, 客户端会命中那份缓存 ——
-    // 库 README 26.40.2 记过同款现象: "客户端不渲染所设皮肤、外观回退默认模型"（= 丢皮肤）。
-    // 这里先清来源身份, 再生成 mskin_<实体uniqueId> 专属 id: 每只实体一份、重复套用幂等、缓存互不串。
+    // 26.40：按实体 uniqueId 重建皮肤 Id/FullId。
     {
         std::string const perEntity = "mskin_" + std::to_string(static_cast<unsigned long long>(uniqueId));
         skin.mId                  = "HoloLibNpcSkin_" + perEntity;

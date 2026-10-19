@@ -1,4 +1,5 @@
-﻿// PacketDebugRenderer.cpp - 基于 BedrockProtocol v2168 的形状渲染器实现
+#include "DiagFlags.h"
+// PacketDebugRenderer.cpp - 基于 BedrockProtocol v2168 的形状渲染器实现
 //
 // 直接持有 v2168 PrimitiveShapes，通过 PrimitiveShapesPacket + NetworkPeer::sendPacket 发送。
 #include "PacketDebugRenderer.h"
@@ -490,6 +491,7 @@ void PacketDebugRenderer::init() {
 
     mJoinListener = ll::event::EventBus::getInstance().emplaceListener<ll::event::PlayerJoinEvent>(
         [this](ll::event::PlayerJoinEvent& ev) {
+            if (hlibDomainDisabled("HLIB_NO_SHAPE")) return;
             // PlayerJoinEvent 时客户端仍在加载世界, 立即发送的包会丢失;
             // 1s + 5s 双重发兜底（大世界/慢机器加载超 1s 时 5s 补救）
             auto playerKey = ev.self().getNetworkIdentifier().getIPAndPort();

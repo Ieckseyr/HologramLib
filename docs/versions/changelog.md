@@ -7,10 +7,35 @@
 
 | 发布版本 | API | 协议线 | 主要内容 | 新增导出 | C++ 消费方 |
 |---|---|---|---|---|---|
+| `26.40.13` / `26.51.5` | 1.31.0 | 26.40 · 26.51 | FMBE 生成抽搐修复 · 动画预设扩展 · 拉伸/live 变换 · 停止配方 · 假玩家姿势/装备/骑乘 | 20 | 尾部追加，旧二进制无需重编 |
 | `26.40.11` / `26.51.4` | 1.30.0 | 26.40 · 26.51 | 三个协议原语 + 一个时机通知 | 3 | 无需重新编译（虚表未变） |
 | `26.40.10` / `26.51.3` | 1.29.0 | 26.40 · 26.51 | 视图覆盖补齐 `AddItemActor` 拦截、姿态/缩放/变种/颜色；修复元数据 tick | 1（`viewItemSpawnHooked`） | 需重新编译（`EntityView` 结构体变大） |
 | `26.40.9` | 1.27.0 | 26.40 | `EntityView::skinId`（同 id 换模型）、真实实体交互事件、ABI 布局戳 | 类方法 | 需重新编译（虚表追加） |
 | `26.40.8` | 1.26.0 | 26.40 | 逐观看者覆盖、四个界面域 | 若干 | 需重新编译 |
+
+## 26.40.13 / 26.51.5 — API 1.31.0
+
+`26.40.13` 与 `26.51.5` 是同一批能力在两条协议线上的版本号；本工作区构建/验证的是 `26.40.13`。
+
+### 修复
+
+- **FMBE 生成抽搐（物品先按默认嘴位/大小出现，再被动画拽到配置位置）**：装备不再紧跟 `AddActor` 发，改为等 `sleeping` / `swelling` / `posrot` 三包落地后再发（物品 +5 tick、方块 +7 tick）；2s/5s 的重投轮次各带一份延迟装备；live 更新清队列时保留未发出的装备条目。
+- **物品/方块拉伸被旧包覆盖**：`setStretchLive` 等 live 更新先清掉该展示待发的旧动画条目，再按当前参数整段重排；物品 live 序列补回载体 `sleeping` 包。
+- **`query.any_animation` 停止包无效**：该查询不存在（文档只有 `any_animation_finished`），按 0 处理停不掉。改为同 controller 播空动作 `animation.player.attack.positions` + `stopExpression="1"` 的取消配方；`durationTicks` 到期与旧字符串调用都走这条。
+- **LSE 数字参数收到 `undefined/null` 时抛 `bad_variant_access`**：桥按 0 处理（脚本写错属性名不再打崩指令）。
+
+### 新增
+
+- **非等比拉伸**：`setStretch` / `setStretchLive`（XZ、Y 两条通道；X/Z 共轴）。LSE：`itemDisplaySetStretch` / `itemDisplaySetStretchLive`。
+- **live 变换**：`setRotationLive` / `setOffsetLive` / `setScaleLive` / `setTransformLive`，只重发 FMBE 动画包，不 despawn、不换实体 ID；`scaleTo` 支持物品模式。LSE 对应 5 个导出。
+- **动画预设（库内逻辑）**：`ItemDisplayAnim` + `setAnim` / `clearAnim`；单通道 `setAnimPreset`（spin/bob/pulse/sway/orbit/tumble/wobble/heartbeat/pendulum/billboard/lod/firstperson/clear）。全部由客户端 Molang 求值，服务端零 tick。LSE：`itemDisplaySetAnim` / `itemDisplaySetPreset` / `itemDisplayClearAnim`。
+- **假玩家姿势 / 装备 / 骑乘**：`setPose`（PoseIndex + ActorFlags，只发 SetActorData）、`setEquipment`（主/副手 + 四甲）、`setRideUniqueId` / `setRidePlayer` / `setRideEntity` / `clearRide`（载具必须是真实服务端实体；解除用 `ActorLinkType::None`，不 respawn）。LSE：6 个 `playerNpcSet*` 导出 + `playerNpcPlayAnimation` / `playerNpcStopAnimation(To)`。
+- **显式停止动画**：`ICustomEntity` / `IPlayerNpc` 尾部追加 `stopAnimation` / `stopAnimationTo`。LSE：`entityStopAnimation` / `entityStopAnimationTo`。
+
+### 兼容性
+
+- 三个接口均为**尾部追加**，`HOLOGLIB_ABI_STAMP` 不变；用旧头文件编译的消费方无需重编（要用新方法才需要）。
+- `ItemDisplayAnim` 是新结构体；`ItemDisplayConfig` / `PlayerNpcConfig` **未改大小**（拉伸/姿势/装备/骑乘状态存在运行时表里）。
 
 ## 26.40.11 / 26.51.4 — API 1.30.0
 

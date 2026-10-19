@@ -4,6 +4,7 @@
 // despawn 序列: RemoveActorPacket
 // 可见性: 玩家入服/每 20 tick 同步 + 视距/维度过滤（与 ItemDisplay 同模式）
 #include "CustomEntityManager.h"
+#include "../DiagFlags.h"
 
 #include "DiagLog.h"
 
@@ -82,6 +83,19 @@ namespace {
 std::uint64_t currentTick() {
     auto level = ll::service::getLevel();
     return level ? level->getCurrentTick().tickID : 0;
+}
+
+// ── 26.40.12: 动画取消配方 ──
+// 客户端对带 stopExpression 的动画每 tick 求值; 为真则把当前动画 transition 到 nextState
+// （"none" = 取消）。旧写法 "query.any_animation" 不是合法 Molang 查询（文档里只有
+// any_animation_finished）, 会被当 0 处理 → 取消包实际停不掉。改用社区验证过的配方:
+// 同一个 controller 换播"空动作"（animation.player.attack.positions 不驱动任何骨骼）,
+// stopExpression 恒为 1 → 当帧 transition 到 none, 原动画被取消。
+constexpr char const* kStopAnimation = "animation.player.attack.positions";
+constexpr char const* kStopExpr      = "1";
+
+bool isLegacyStopExpression(std::string const& e) {
+    return e == "query.any_animation" || e == "query.any_animation()";
 }
 
 Player* findPlayerByUuid(mce::UUID const& uuid) {
@@ -399,6 +413,7 @@ void CustomEntityManager::init() {
 
     mJoinListener = ll::event::EventBus::getInstance().emplaceListener<ll::event::PlayerJoinEvent>(
         [this](ll::event::PlayerJoinEvent& ev) {
+            if (hlibDomainDisabled("HLIB_NO_ENTITY")) return;
             std::lock_guard lock(mMutex);
             mInitializedPlayers.insert(ev.self().getUuid());
         }
@@ -468,6 +483,7 @@ bool CustomEntityManager::isIdUsed(int64_t id) const {
 }
 
 int64_t CustomEntityManager::createLocked(CustomEntityConfig const& config, int64_t id) {
+    if (hlibDomainDisabled("HLIB_NO_ENTITY")) return -1;
     // identifier 必须非空（客户端无类型可渲染的实体会被丢弃）
     if (config.identifier.empty()) {
         HLIB_LOG_WARN("[CustomEntity] create rejected: empty identifier");
@@ -1031,18 +1047,28 @@ bool CustomEntityManager::playAnimation(
 
     auto const now  = currentTick();
     auto const ctrl = "wiki.customentity." + std::to_string(id); // 稳定名: respawn 同名原地覆盖, 零注册表泄漏
+    // 旧约定 "query.any_animation" 不是合法查询（文档只有 any_animation_finished）→ 真取消包
+    if (isLegacyStopExpression(stopExpression)) {
+        for (auto const& uuid : rit->second.shownPlayers) {
+            mAnimQueue.emplace(
+                now + 2,
+                EntityAnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, ctrl, kStopExpr}
+            );
+        }
+        return true;
+    }
     for (auto const& uuid : rit->second.shownPlayers) {
         mAnimQueue.emplace(
             now + 2, // 与 ItemDisplay 同节奏: 入队 +2 tick 后发出
             EntityAnimEntry{uuid, rit->second.runtimeId, id, animation, ctrl, stopExpression}
         );
     }
-    // 限时动画: 到期补发一包 stopExpression="query.any_animation"（立即为真 → 停止）
+    // 限时动画: 到期补发取消包（空动作 + stopExpression=1; 见 kStopAnimation 注释）
     if (durationTicks > 0) {
         for (auto const& uuid : rit->second.shownPlayers) {
             mAnimQueue.emplace(
                 now + 2 + static_cast<std::uint64_t>(durationTicks),
-                EntityAnimEntry{uuid, rit->second.runtimeId, id, animation, ctrl, "query.any_animation"}
+                EntityAnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, ctrl, kStopExpr}
             );
         }
     }
@@ -1078,13 +1104,53 @@ bool CustomEntityManager::playAnimationTo(
 
     auto const now  = currentTick();
     auto const ctrl = "wiki.customentity." + std::to_string(id);
+    if (isLegacyStopExpression(stopExpression)) {
+        mAnimQueue.emplace(now + 2, EntityAnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, ctrl, kStopExpr});
+        return true;
+    }
     mAnimQueue.emplace(now + 2, EntityAnimEntry{uuid, rit->second.runtimeId, id, animation, ctrl, stopExpression});
     if (durationTicks > 0) {
         mAnimQueue.emplace(
             now + 2 + static_cast<std::uint64_t>(durationTicks),
-            EntityAnimEntry{uuid, rit->second.runtimeId, id, animation, ctrl, "query.any_animation"}
+            EntityAnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, ctrl, kStopExpr}
         );
     }
+    return true;
+}
+
+bool CustomEntityManager::stopAnimation(int64_t id) {
+    std::lock_guard lock(mMutex);
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end() || rit->second.shownPlayers.empty()) return false;
+    auto const now  = currentTick();
+    auto const ctrl = "wiki.customentity." + std::to_string(id);
+    for (auto const& uuid : rit->second.shownPlayers) {
+        mAnimQueue.emplace(now + 2, EntityAnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, ctrl, kStopExpr});
+    }
+    return true;
+}
+
+bool CustomEntityManager::stopAnimationTo(int64_t id, std::string const& playerName) {
+    std::lock_guard lock(mMutex);
+    auto rit = mRuntimes.find(id);
+    if (rit == mRuntimes.end()) return false;
+    auto level = ll::service::getLevel();
+    if (!level) return false;
+    Player*   target = nullptr;
+    mce::UUID uuid{};
+    level->forEachPlayer([&](Player& p) {
+        if (p.getRealName() == playerName) {
+            target = &p;
+            uuid   = p.getUuid();
+            return false;
+        }
+        return true;
+    });
+    if (!target || !rit->second.shownPlayers.contains(uuid)) return false;
+    mAnimQueue.emplace(
+        currentTick() + 2,
+        EntityAnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, "wiki.customentity." + std::to_string(id), kStopExpr}
+    );
     return true;
 }
 
@@ -1405,6 +1471,7 @@ struct CustomEntityTickHookAccess {
 
 LL_TYPE_INSTANCE_HOOK(CustomEntityTickHook, HookPriority::Normal, Level, &Level::$tick, void) {
     origin();
+    if (hlibDomainDisabled("HLIB_NO_ENTITY")) return;
 
     // 脏刷新: 本 tick 内累积的 setter 变更合并为单次 respawn
     CustomEntityTickHookAccess::processDirty(CustomEntityManager::getInstance());

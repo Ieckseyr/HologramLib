@@ -1,3 +1,4 @@
+#include "../DiagFlags.h"
 // FakeInventoryManager.cpp - 背包虚容器实现（协议层手写包）
 #include "FakeInventoryManager.h"
 
@@ -69,6 +70,7 @@ bool FakeInventoryManager::slotIsFaked(Session const& session, int slot) {
 }
 
 bool FakeInventoryManager::apply(std::string const& playerName, hologramlib::FakeInventorySpec const& spec) {
+    if (hlibDomainDisabled("HLIB_NO_CONTAINER")) return false;
     auto* player = findPlayerByName(playerName);
     if (player == nullptr) return false;
 
@@ -92,6 +94,7 @@ bool FakeInventoryManager::apply(std::string const& playerName, hologramlib::Fak
 }
 
 bool FakeInventoryManager::setSlot(std::string const& playerName, int slot, hologramlib::ContainerMenuItem const& item) {
+    if (hlibDomainDisabled("HLIB_NO_CONTAINER")) return false;
     if (slot < 0 || slot >= hologramlib::kFakeInventorySlots) return false;
     auto* player = findPlayerByName(playerName);
     if (player == nullptr) return false;
@@ -111,6 +114,7 @@ bool FakeInventoryManager::setSlot(std::string const& playerName, int slot, holo
 }
 
 bool FakeInventoryManager::refresh(std::string const& playerName) {
+    if (hlibDomainDisabled("HLIB_NO_CONTAINER")) return false;
     hologramlib::FakeInventorySpec spec;
     {
         std::lock_guard lock(mMutex);

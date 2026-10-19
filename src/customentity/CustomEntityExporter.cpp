@@ -193,6 +193,16 @@ void CustomEntityExporter::exportAll() {
         [&mgr](int64_t id, std::string const& animation, std::string const& stopExpression, int durationTicks)
             -> bool { return mgr.playAnimation(id, animation, stopExpression, durationTicks); });
 
+    // 26.40.12: 显式停止（空动作 + stopExpression=1 的取消配方; 旧 "query.any_animation" 停不掉）
+    // entityStopAnimation(id) -> bool
+    hologramlib::lse::exportAs(
+        NAMESPACE, "entityStopAnimation", [&mgr](int64_t id) -> bool { return mgr.stopAnimation(id); });
+    // entityStopAnimationTo(id, playerName) -> bool
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "entityStopAnimationTo",
+        [&mgr](int64_t id, std::string const& playerName) -> bool { return mgr.stopAnimationTo(id, playerName); });
+
     // ── 千人千面（逐客户端渲染; 按观看者覆盖外观）──
     // entitySetPlayerNametag(id, playerName, text) -> bool（text 空 = 清除该玩家的名字牌覆盖）
     hologramlib::lse::exportAs(

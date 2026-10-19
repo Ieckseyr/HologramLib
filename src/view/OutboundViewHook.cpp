@@ -112,6 +112,15 @@ bool runGuarded(char const* what, Fn&& fn) {
 
 } // namespace
 
+// HLIB_NO_VIEW=1 绕过出站改写（26.40）。
+static bool viewOverrideDisabled() {
+    static bool const disabled = [] {
+        char const* v = std::getenv("HLIB_NO_VIEW");
+        return v != nullptr && v[0] == '1';
+    }();
+    return disabled;
+}
+
 // ── 汇合点: 单收件人 ──
 LL_TYPE_INSTANCE_HOOK(
     ViewNetSendHook,
@@ -124,7 +133,7 @@ LL_TYPE_INSTANCE_HOOK(
     ::SubClientId              recipientSubId
 ) {
     manager().noteHookCall(); // 诊断计数（不改变行为; 见 describeFor 的输出）
-    if (!manager().active()) { // 快路径
+    if (viewOverrideDisabled() || !manager().active()) { // 快路径
         origin(id, packet, recipientSubId);
         return;
     }
@@ -164,6 +173,10 @@ LL_TYPE_INSTANCE_HOOK(
     ::Packet const&                                    packet
 ) {
     manager().noteHookCall();
+    if (viewOverrideDisabled()) {
+        origin(ids, packet);
+        return;
+    }
     bool dispatched = false; // 已经展开成逐收件人发（决定了中途异常时不能再走整包多播: 会重复）
     bool const ran  = runGuarded("ViewNetSendToMultipleHook", [&] {
         if (!manager().active() || !anyRecipientHasOverrides(ids)) {
@@ -192,6 +205,7 @@ LL_TYPE_INSTANCE_HOOK(
     void
 ) {
     origin();
+    if (viewOverrideDisabled()) return;
     runGuarded("ViewOverrideTickHook", [&] { manager().tickPulse(); });
 }
 

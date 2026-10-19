@@ -24,7 +24,9 @@ public:
     void shutdown();
 
     // 用 PNG 注册皮肤；geometryData 非空则启用自定义模型。重复 skinId 覆盖。
-    bool registerSkinFromPng(hologramlib::PlayerNpcSkin const& skin, std::string& error);
+    // forceOpaque: 把 alpha 0<a<255 的像素压成不透明（客户端对皮肤做 alpha test,
+    // 半透明像素在展示面上会变成"缺块"）。alpha=0 仍保持全透明（保留挖孔）。
+    bool registerSkinFromPng(hologramlib::PlayerNpcSkin const& skin, std::string& error, bool forceOpaque = false, int alphaMode = 0);
 
     // 批量导入目录：一个子文件夹 = 一套皮肤（PNG 必需，.json 几何可选）。
     // skinId 取子文件夹名。返回导入数量，目录无效返回 -1。

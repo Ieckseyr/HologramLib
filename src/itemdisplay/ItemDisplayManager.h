@@ -30,6 +30,7 @@ class Player; // ::Player
 namespace debugshape_export {
 
 using ItemDisplayConfig = hologramlib::ItemDisplayConfig;
+using ItemDisplayAnim   = hologramlib::ItemDisplayAnim;
 
 class ItemDisplayManager {
 public:
@@ -104,6 +105,27 @@ public:
     // AABB 判定体积: R53/R54 元数据广播（即时, 无 respawn）, 数值持久入配置;
     // 0/0 = 恢复不可命中（与历史行为一致）
     bool setHitbox(int64_t id, float width, float height);
+
+    // ── 26.40.12 追加 ──
+    // 非等比拉伸: XZ（swelling_scale1）/ Y（swelling_scale2）两条通道; X 与 Z 共轴。
+    // 值写常量或 Molang 表达式（"1" = 不拉伸）。setStretch 走 respawn; setStretchLive 只重发动画包。
+    bool setStretch(int64_t id, std::string const& xz, std::string const& y);
+    bool setStretchLive(int64_t id, std::string const& xz, std::string const& y);
+    // live 变换: 改配置后只重发 FMBE 动画包（item 2 / block 5）, 不换实体 ID、不闪。
+    bool setRotationLive(int64_t id, std::string const& rx, std::string const& ry, std::string const& rz);
+    bool setOffsetLive(int64_t id, std::string const& ox, std::string const& oy, std::string const& oz);
+    bool setScaleLive(int64_t id, std::string const& scale);
+    bool setTransformLive(
+        int64_t id,
+        std::string const& ox, std::string const& oy, std::string const& oz,
+        std::string const& rx, std::string const& ry, std::string const& rz,
+        std::string const& scale
+    );
+    // 动画预设（库内逻辑; 组合成 Molang 并 live 重发）
+    bool setAnim(int64_t id, ItemDisplayAnim const& anim);
+    // 单通道预设: spin/bob/pulse/sway/orbit/tumble/wobble/heartbeat/pendulum/billboard/lod/firstperson/clear
+    bool setAnimPreset(int64_t id, std::string const& preset, float a, float b, int c);
+    bool clearAnim(int64_t id);
     // 单发原语: 让 playerName 看到"uid 这只实体"被画成 FMBE 物品模型。
     //   一次性发 RemoveActor + AddActor(fox) + MobEquipment + SetActorData + FMBE 动画, 不保存任何状态。
     //   cfg 提供 offset/rot/scale/nbt/glint; 朝向默认取该实体当前速度方向。
@@ -136,6 +158,20 @@ public:
         std::string                   cachedItemNbt{};  // 缓存键含 NBT（换附魔时重解析）
         bool                          cachedGlint{false}; // 缓存键含光效开关
         bool                          itemWarned{false}; // 解析失败只告警一次（换物品后重置）
+
+        // 26.40.12: 非等比拉伸（XZ / Y 两条缩放通道; "1" = 不拉伸）。
+        // 不放进 ItemDisplayConfig 是为了不改公开结构体大小（旧编译的 C++ 消费方不会读到界外）。
+        std::string                   stretchXZ{"1"};
+        std::string                   stretchY{"1"};
+
+        // 26.40.12: 动画预设状态（基准 = 首次 setAnim 时的 config; clearAnim 恢复）
+        bool                          animActive{false};
+        ItemDisplayAnim               anim{};
+        struct AnimBase {
+            std::string ox{"0"}, oy{"-4"}, oz{"0"};
+            std::string rx{"180"}, ry{"0"}, rz{"180"};
+            std::string scale{"0.375"};
+        }                             animBase;
     };
 
 private:
@@ -148,6 +184,13 @@ private:
     void followTickLocked();
     // 持锁状态下的创建主体（id 已查重）; 失败返回 < 0
     int64_t createLocked(ItemDisplayConfig const& config, int64_t id);
+    // 26.40.12: 只重发 FMBE 动画包（调用方持锁; 不 despawn/不换 ID）
+    bool resendFmbeLocked(int64_t id, ItemDisplayConfig const& data, Runtime& rt);
+    // 把一套 FMBE 动画按 +2..+6 排进队列（调用方持锁; 单玩家）
+    void enqueueFmbeAnimsLocked(
+        int64_t id, ItemDisplayConfig const& data, Runtime const& rt,
+        mce::UUID const& uuid, std::uint64_t base, bool block
+    );
     // 实体 ID 分配（respawn 换新 ID, 防客户端"同帧 Remove+Add 同 ID"重映射串台）
     [[nodiscard]] std::uint64_t allocUniqueIdLocked();
     [[nodiscard]] std::uint64_t allocRuntimeIdLocked();

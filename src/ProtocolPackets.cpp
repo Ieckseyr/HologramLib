@@ -1,3 +1,4 @@
+#include "DiagFlags.h"
 #include "ProtocolPackets.h"
 
 #include <ll/api/service/Bedrock.h>
@@ -8,6 +9,9 @@
 #include "sculk/protocol/utility/BinaryStream.hpp"
 
 namespace debugshape_export {
+
+// 形状/悬浮字发包（26.40）；HLIB_NO_SHAPE=1 可关。
+static bool shapePacketsEnabled() { return !hlibDomainDisabled("HLIB_NO_SHAPE"); }
 
 //   VarUInt(header) + VarUInt(shapeCount) + [shape...]
 std::string ProtocolPacketWriter::buildDebugDrawerPacket(std::vector<DebugShape> const& shapes) {
@@ -36,6 +40,7 @@ static NetworkPeer* getPlayerPeer(::Player& player) {
 
 bool ProtocolPacketWriter::sendToPlayer(::Player& player, std::vector<DebugShape> const& shapes) {
     if (shapes.empty()) return true;
+    if (!shapePacketsEnabled()) return true; // 见文件头热修说明
     auto* peer = getPlayerPeer(player);
     if (!peer) return false;
     std::string packetData = buildDebugDrawerPacket(shapes);
@@ -49,6 +54,7 @@ bool ProtocolPacketWriter::sendToPlayer(::Player& player, std::vector<DebugShape
 
 bool ProtocolPacketWriter::sendToAll(std::vector<DebugShape> const& shapes) {
     if (shapes.empty()) return true;
+    if (!shapePacketsEnabled()) return true;
     std::string packetData = buildDebugDrawerPacket(shapes);
 
     auto level = ll::service::getLevel();
@@ -74,6 +80,7 @@ bool ProtocolPacketWriter::sendToAll(std::vector<DebugShape> const& shapes) {
 
 bool ProtocolPacketWriter::sendToDimension(int dimId, std::vector<DebugShape> const& shapes) {
     if (shapes.empty()) return true;
+    if (!shapePacketsEnabled()) return true;
     std::string packetData = buildDebugDrawerPacket(shapes);
 
     auto level = ll::service::getLevel();

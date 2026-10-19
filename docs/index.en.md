@@ -10,8 +10,8 @@ The same capabilities are reachable two ways: from **C++ plugins** (frozen pure-
 
 | | |
 |---|---|
-| Plugin version | `26.40.11` |
-| API version | `1.30.0` (`HOLOGLIB_API_VERSION 0x012400`) |
+| Plugin version | `26.40.13` |
+| API version | `1.31.0` (`HOLOGLIB_API_VERSION 0x012500`) |
 | Platform | LeviLamina 26.40 · BDS 1.26.40 (protocol 2168) |
 | Script prerequisite | `lrca` (LegacyRemoteCall) |
 
