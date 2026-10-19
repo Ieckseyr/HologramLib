@@ -131,12 +131,18 @@ nav:
       - 背包与硫磺立方体: lse/inventory.md
       - 视图覆盖与感知: lse/view.md
   - C++ 接口参考: reference/cpp-api.md
-  - 能力域指南:
+  - 能力域:
       - 总览: domains/README.md
-      - 渲染与文本: domains/rendering.md
-      - 实体与 NPC: domains/entities-npc.md
-      - 界面与容器: domains/interfaces.md
-      - 视图覆盖与感知: domains/view-sensing.md
+      - DebugShape（悬浮字与形状）: domains/debugshape.md
+      - 物品显示: domains/item-display.md
+      - 粒子: domains/particles.md
+      - 实体与交互: domains/entities.md
+      - 假玩家 NPC: domains/player-npc.md
+      - 容器与背包: domains/containers.md
+      - 界面: domains/interfaces.md
+      - 硫磺立方体: domains/sulfur.md
+      - 视图覆盖: domains/view.md
+      - 客户端感知: domains/sensing.md
   - 更新日志: versions/changelog.md
 
 markdown_extensions:

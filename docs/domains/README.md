@@ -2,12 +2,18 @@
 
 HologramLib 的 18 个能力域分成四组。这一页管选型：先确定用哪个域，再进对应的域指南看怎么用。把某个东西摆到世界里在本库里有六条不同的路（形状渲染、悬浮字全息、渐变线、FMBE 物品悬浮、硫磺立方体展示、自定义实体），观感、开销与能力各不相同，先看下面这张表：
 
-| 分组 | 域 | 指南 |
-|---|---|---|
-| 渲染与文本 | 形状渲染 · 悬浮字全息 · 渐变线 · 物品详情 · FMBE 物品悬浮 · 粒子形状 | [rendering.md](rendering.md) |
-| 实体与 NPC | 自定义实体 · Ghost 交互 · 假玩家 NPC · 硫磺立方体展示 | [entities-npc.md](entities-npc.md) |
-| 界面与容器 | 村民交易菜单 · 虚拟容器 · 背包虚容器 · NPC 对话框 | [interfaces.md](interfaces.md) |
-| 视图覆盖与感知 | 客户端视图覆盖 · 感知域 · 千人千面 · 逐玩家变量全息 | [view-sensing.md](view-sensing.md) |
+| 页 | 内容 |
+|---|---|
+| [DebugShape（悬浮字与形状）](debugshape.md) | 形状渲染 · 悬浮字全息 · 渐变线 |
+| [物品显示](item-display.md) | FMBE 物品悬浮 · 物品详情 · 拉伸 / live 变换 / 动画预设 |
+| [粒子](particles.md) | 粒子形状 |
+| [实体与交互](entities.md) | 自定义实体 · Ghost 交互 · 真实实体交互事件 |
+| [假玩家 NPC](player-npc.md) | 假玩家 · 皮肤 / 图片平面 · 姿势 / 装备 / 骑乘 · 交互 |
+| [容器与背包](containers.md) | 虚拟容器 · 背包虚容器 · 动态刷新会话隔离 |
+| [界面](interfaces.md) | 村民交易菜单 · NPC 对话框 |
+| [硫磺立方体](sulfur.md) | 硫磺立方体展示 |
+| [视图覆盖](view.md) | 客户端视图覆盖 · 千人千面 |
+| [客户端感知](sensing.md) | 输入设备感知 |
 
 ---
 
