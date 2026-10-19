@@ -96,7 +96,7 @@ HologramLib 的 18 个能力域分成四组。这一页管选型：先确定用�
 | `0x012000` · 1.26.0 | 视图覆盖残骸清理；`IPlayerNpc` 追加五方法；悬浮字收缩与补全 |
 | `0x012100` · 1.27.0 | `EntityView::skinId`；真实实体交互监听；ABI 布局戳 |
 | `0x012300` · 1.29.0 | `AddItemActor` 纳入拦截；`EntityView` 补姿态 / 缩放 / 变种 / 颜色 |
-| `26.51.5` | 1.31.0 | `0x012500` | **26.51 线合并 26.40.12 / 26.40.13**：拉伸、live 变换、动画预设、停止配方、假玩家姿势/装备/骑乘、FMBE 抽搐修复、图片平面与透明图层、容器会话隔离、PlayerSkin trusted 与皮肤 Id 重建。 |
+| `26.51.5` | 1.31.0 | `0x012500` | **26.51 线合并 26.40.12**：拉伸、live 变换、动画预设、停止配方、假玩家姿势/装备/骑乘、FMBE 抽搐修复、图片平面与透明图层、容器会话隔离、PlayerSkin trusted 与皮肤 Id 重建。 |
 | `26.51.4` | 1.30.0 | `0x012400` | **只加 3 个纯原语/通知，不含任何功能实现**：`viewPollSpawnEvents`（出生事件通知） · `itemDisplayCreateFull`（建展示即带 NBT/光效） · `itemDisplayEmitForEntity`（让某玩家把某只已有实体看成 FMBE 模型）。判定/状态/策略一律留在消费方（`ItemPhys`）。只加 LSE 导出，虚表未动 → `HOLOGLIB_ABI_STAMP` 不变。 |
 
 注：`0x012200`（= API 1.28.0）没有出现在上表里，该编号被跳过、从未作为发布版本出现过。原因与说明见 [版本与 ABI 对照](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.md)。

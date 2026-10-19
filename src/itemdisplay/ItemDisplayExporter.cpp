@@ -372,7 +372,7 @@ void ItemDisplayExporter::exportAll() {
     hologramlib::lse::exportAs(
         NAMESPACE, "itemDisplayClearAnim", [&mgr](int64_t id) -> bool { return mgr.clearAnim(id); });
 
-    // ── 26.40.13: 单通道预设 ──
+    // ── 26.40.12: 单通道预设 ──
     // itemDisplaySetPreset(id, preset, a, b, c) -> b
     //   spin(a=度/秒, c=轴0/1/2) · bob(a=幅度, b=周期) · pulse(a=比例, b=周期)
     //   sway(a=度, b=周期) · orbit(a=半径, b=周期, c=平面0/1/2)
