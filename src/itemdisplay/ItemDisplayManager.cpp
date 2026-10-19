@@ -1285,7 +1285,7 @@ bool ItemDisplayManager::setAnim(int64_t id, ItemDisplayAnim const& anim) {
     return resendFmbeLocked(id, it->second, rt);
 }
 
-// 26.40.13: 单通道预设（只改这一路, 其余保持; 立即 live 重发）
+// 26.40.12: 单通道预设（只改这一路, 其余保持; 立即 live 重发）
 bool ItemDisplayManager::setAnimPreset(int64_t id, std::string const& preset, float a, float b, int c) {
     std::lock_guard lock(mMutex);
     auto rit = mRuntimes.find(id);

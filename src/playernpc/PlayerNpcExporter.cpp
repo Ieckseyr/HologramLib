@@ -256,7 +256,7 @@ void PlayerNpcExporter::exportAll() {
             return mgr.registerSkin(skin);
         });
 
-    // 26.40.13: 带完整几何 JSON 的注册（Route A 单图路线）——
+    // 26.40.12: 带完整几何 JSON 的注册（Route A 单图路线）——
     //   playerNpcRegisterSkinData(pngPath, skinId, armSize, geometryData) -> bool
     //   geometryData = minecraft:geometry 数组式 JSON; identifier 自动提取并写入 ResourcePatch
     hologramlib::lse::exportAs(

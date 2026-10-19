@@ -11,7 +11,7 @@ HologramLib 把 18 个「往客户端塞东西」的能力域收进一个前置�
 
 | | |
 |---|---|
-| 插件发布版本 | `26.40.13` |
+| 插件发布版本 | `26.40.12` |
 | API 版本 | `1.31.0`（`HOLOGLIB_API_VERSION 0x012500`） |
 | 运行平台 | LeviLamina 26.40 · BDS 1.26.40 · 协议 2168 |
 | 对外接口 | 唯一公开头 `include/hologramlib/HologramLib.h` + LSE 命名空间 `HologramLib`（271 个运行期导出） |
@@ -152,7 +152,7 @@ if (sensingIsTouch("Steve")) {
 
 | 编号 | 位置 | 用途 |
 |---|---|---|
-| 插件发布版本 | `manifest.json` 的 `version` | 部署用，与 git tag 同名（形如 `26.40.13`） |
+| 插件发布版本 | `manifest.json` 的 `version` | 部署用，与 git tag 同名（形如 `26.40.12`） |
 | API 版本 | 本文档上方的 `1.31.0` | 人读的能力版本 |
 | `HOLOGLIB_API_VERSION` | `include/hologramlib/HologramLib.h` | 代码里唯一的版本依据，`0x012500` |
 

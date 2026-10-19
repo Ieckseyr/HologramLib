@@ -57,7 +57,7 @@
 //   ⚠ 尾部追加不改虚表槽位, 但**改了 EntityView 的大小** —— 直接构造该结构体的消费方要重新编译。
 //   ⚠ 与 `skinId` 搭配的"模型缩放"仍是 `EntityView::scale`（1.27.0 起）, 本版新增的**元数据缩放**叫
 //     `metaScale`（两个都在结构尾部, 别混: 前者走玩家模型出生包, 后者走元数据 + 客户端碰撞箱）。
-// 0x012500（26.40.13 / 26.51.5，API 1.31.0）：拉伸 / live 变换 / 动画预设 / 停止配方 / 假玩家姿势装备骑乘。
+// 0x012500（26.40.12 / 26.51.5，API 1.31.0）：拉伸 / live 变换 / 动画预设 / 停止配方 / 假玩家姿势装备骑乘。
 #define HOLOGLIB_API_VERSION 0x012500
 
 // ── ABI 布局戳（消费方自检用; 与上面的"功能版本"是两件事, 别混）──
@@ -344,7 +344,7 @@ struct ItemDisplayAnim {
     float phase{0.0f};          // 相位偏移（秒）
     bool  billboard{false};     // 面向相机（仅物品模式; q.rotation_to_camera(1)）
 
-    // ── 26.40.13 扩展预设（全部是持续循环, 不含一次性动画）──
+    // ── 26.40.12 扩展预设（全部是持续循环, 不含一次性动画）──
     float orbitRadius{0.0f};      // 绕基准点画圈（模型单位; 0 = 不绕）
     float orbitPeriod{4.0f};      // 绕圈周期（秒）
     int   orbitPlane{2};          // 0=XY 1=YZ 2=XZ
@@ -453,7 +453,7 @@ public:
     // 动画预设（库内逻辑）: 把 spin/bob/pulse/sway/billboard 组合成 Molang 表达式,
     // 写入配置并 live 重发（不 despawn）。重复调用只更新参数, 基准值仍是第一次 setAnim 时的。
     virtual bool setAnim(int64_t id, ItemDisplayAnim const& anim) = 0;
-    // 单通道预设（26.40.13）: preset = spin/bob/pulse/sway/orbit/tumble/wobble/heartbeat/
+    // 单通道预设（26.40.12）: preset = spin/bob/pulse/sway/orbit/tumble/wobble/heartbeat/
     //   pendulum/billboard/lod/firstperson/clear; 只改这一路, 其余保持; 立即 live 重发。
     //   a/b/c 含义随 preset 变（见 README）; clear = 等价 clearAnim。
     virtual bool setAnimPreset(int64_t id, std::string const& preset, float a, float b, int c) = 0;
