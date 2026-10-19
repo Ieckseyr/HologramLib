@@ -1,4 +1,4 @@
-# 视图覆盖与感知 · 让某个玩家看到不一样的东西 / 判断他用什么设备
+# 视图覆盖 · LSE
 
 `view*` 只改**客户端视图**：某个玩家（或所有玩家）客户端上的某只实体、某个方块换个样子，
 而服务端世界、存档、碰撞、其他玩家看到的都是原样。`sensing*` 用来查玩家当前的输入设备
@@ -6,6 +6,7 @@
 
 覆盖只存在服务器的内存里：重启就没了，但按玩家名记的覆盖在该玩家重进后仍然有效。
 `view*` 与 `sensing*` 都**没有事件、也没有轮询队列**，直接调用直接拿结果。
+
 
 ## 快速开始
 
@@ -29,8 +30,6 @@ if (uid !== -1) viewEntity("", uid, "type=minecraft:cow");   // 所有人都看�
 
 viewClearAll("");   // 收工：清掉所有玩家的覆盖
 ```
-
-> 另有 `viewPollSpawnEvents()`：出生事件通知（`drop|uid|dim|x|y|z|` / `actor|uid|dim|x|y|z|identifier`），读完清空。
 
 ## spec 串
 
@@ -290,6 +289,32 @@ viewClearAll("");   // 收工：清掉所有玩家的覆盖
 
 ## 查询与诊断
 
+### 取走「刚出生的实体」事件（1.30.0 / 26.51.4 起）
+
+`viewPollSpawnEvents()`
+
+- 参数：无
+- 返回值：字符串数组，每条是一只要么刚出生的实体，读一次**清空**（取走语义，与 `ghost*` / `containerPollClicks` 一致）
+  - 掉落物：`drop|uid|dim|x|y|z|`
+  - 其它实体：`actor|uid|dim|x|y|z|identifier`
+- 返回值类型：`Array<String>`
+- 说明：出生包在**出站钩子里**就记一条（每只实体只记一次），所以脚本不需要再靠定时扫描（0.5~1s 一轮）去找"刚刷出来的东西"，
+  最晚**一拍**就能拿到。典型用法：掉落物一出生就 `itemDisplayEmitForEntity(玩家, uid, ...)` 让这名玩家看到模型；生物一出生就套伪装规则。
+  队列有上限（512 条），脚本停摆太久会丢掉最早的几条。
+- 示例：
+
+    ```js
+    const pollSpawn = ll.import("HologramLib", "viewPollSpawnEvents");
+    const emitOne   = ll.import("HologramLib", "itemDisplayEmitForEntity");
+
+    function onTick() {
+        for (const ev of pollSpawn()) {
+            const [kind, uid, dim, x, y, z, identifier] = ev.split("|");
+            if (kind === "drop") attach(Number(uid), "-0.4", "0", "0", "0.375", 180, 2, "", true);
+        }
+    }
+    ```
+
 ### 按玩家名取他的 uniqueId
 
 `viewUniqueIdOf(playerName)`
@@ -366,62 +391,6 @@ viewClearAll("");   // 收工：清掉所有玩家的覆盖
 
 ---
 
-## 感知（sensing*）
-
-数据源是客户端每 tick 上报的输入方式，库记在内存里。**没有事件、不用轮询**，需要时直接查。
-
-### 查玩家当前用什么设备
-
-`sensingDeviceOf(playerName)`
-
-- 参数：
-  - `playerName` : `String`<br>玩家名
-- 返回值：`keyboardMouse` / `touch` / `gamepad` / `motionController` / `unknown`（玩家不在线或还没上报过输入时是 `unknown`）
-- 返回值类型：`String`
-- 示例：
-
-    ```js
-    const sensingDeviceOf = ll.import("HologramLib", "sensingDeviceOf");
-    logger.info(`Steve 的设备：${sensingDeviceOf("Steve")}`);
-    ```
-
-### 查玩家是不是触屏
-
-`sensingIsTouch(playerName)`
-
-- 参数：
-  - `playerName` : `String`<br>玩家名
-- 返回值：`true` = 触屏；`false` = 不是触屏，或玩家不在线
-- 返回值类型：`Boolean`
-- 示例：
-
-    ```js
-    const sensingIsTouch = ll.import("HologramLib", "sensingIsTouch");
-    const containerOpen  = ll.import("HologramLib", "containerOpen");
-    const tradeOpen      = ll.import("HologramLib", "tradeOpen");
-
-    // 触屏用容器列表（点击必然发包），键鼠用交易菜单
-    if (sensingIsTouch("Steve")) containerOpen("Steve", "§8任务列表", 3);
-    else tradeOpen("Steve", "entity.villager.butcher", 1, 0, false, "");
-    ```
-
-### 取设备编号的数字版本
-
-`sensingDeviceCode(playerName)`
-
-- 参数：
-  - `playerName` : `String`<br>玩家名
-- 返回值：`0` = Unknown `1` = 键鼠 `2` = 触屏 `3` = 手柄 `4` = 体感（方便存进计分板或配置）
-- 返回值类型：`Integer`
-- 示例：
-
-    ```js
-    const sensingDeviceCode = ll.import("HologramLib", "sensingDeviceCode");
-    logger.info(`设备码：${sensingDeviceCode("Steve")}`);
-    ```
-
----
-
 ## 注意事项
 
 - **只改客户端视图**：服务端世界、存档、碰撞、其他玩家看到的都是原样。把某个玩家显示成一头牛时，
@@ -437,9 +406,3 @@ viewClearAll("");   // 收工：清掉所有玩家的覆盖
   逐玩家的实体缩放要用 `scale=`（`0.0625~10`），不要和 `skin=` 那档的模型缩放混用。
 - **`sensing*` 不用轮询**：换设备后下一个输入包就更新，玩家离线即清零。
 - 界面类域（容器 / 对话 / 交易）的事件才需要轮询，见[界面与容器](interfaces.md)。
-
-## 相关
-
-- 域指南：[视图覆盖与感知](../domains/view-sensing.md)（能做什么 / 做不到什么、逐玩家隔离与恢复规则）
-- 假的玩家实体：[假玩家 NPC](player-npc.md)（皮肤注册表就是 `skin=` 的来源）
-- 完整的 C++ 侧说明：[C++ 接口参考](../reference/cpp-api.md)

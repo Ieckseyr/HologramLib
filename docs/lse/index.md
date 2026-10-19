@@ -119,18 +119,20 @@ setInterval(() => {
 
 ## 7. 按域查函数
 
-| 想做什么 | 前缀 | 函数数 | 看哪页 |
-|---|---|---|---|
-| 画线 / 方框 / 球 / 文字形状 | `shape*` | 39 | [形状](shapes.md) |
-| 多行悬浮字、渐变线 | `holo*` · `gradient*` | 26 + 11 | [悬浮字与渐变线](holograms.md) |
-| 显示「钻石 x64」、物品悬浮实体 | `itemDetail*` · `itemDisplay*` | 2 + 33 | [物品显示](items.md) |
-| 协议层假玩家（NPC）、皮肤注册 / 采集 | `playerNpc*` | 29 | [假玩家 NPC](player-npc.md) |
-| 自定义实体、粒子形状、交互事件 | `entity*` · `particle*` · `ghost*` | 37 + 22 + 2 | [实体、粒子与交互](entities.md) |
-| 交易菜单、虚拟容器、NPC 对话框 | `trade*` · `container*` · `npcDialog*` | 10 + 10 + 9 | [界面与容器](interfaces.md) |
-| 背包虚容器、硫磺立方体展示 | `fakeInv*` · `sulfur*` | 9 + 10 | [背包伪造与硫磺立方体](inventory.md) |
-| 客户端视图覆盖（换模型/隐藏/换皮）、设备感知 | `view*` · `sensing*` | 18 + 3 | [视图覆盖与感知](view.md) |
+| 想做什么 | 前缀 | 看哪页 |
+|---|---|---|
+| 画线 / 方框 / 球 / 形状、多行悬浮字、渐变线 | `shape*` · `holo*` · `gradient*` | [DebugShape（悬浮字与形状）](debugshape.md) |
+| 显示物品名、物品悬浮实体 | `itemDetail*` · `itemDisplay*` | [物品显示](item-display.md) |
+| 粒子形状 | `particle*` | [粒子](particles.md) |
+| 自定义实体、真实实体交互、ghost 事件 | `entity*` · `ghost*` | [实体与交互](entities.md) |
+| 协议层假玩家（NPC）、皮肤 / 图片平面 / 姿势 / 装备 / 骑乘 | `playerNpc*` | [假玩家 NPC](player-npc.md) |
+| 虚拟容器、背包虚容器 | `container*` · `fakeInv*` | [容器与背包](containers.md) |
+| 交易菜单、NPC 对话框 | `trade*` · `npcDialog*` | [界面](interfaces.md) |
+| 硫磺立方体展示 | `sulfur*` | [硫磺立方体](sulfur.md) |
+| 客户端视图覆盖（换模型 / 隐藏 / 换皮） | `view*` | [视图覆盖](view.md) |
+| 设备感知 | `sensing*` | [客户端感知](sensing.md) |
 
-函数总数 270，其中 `ghost*` 的 2 个未接入注册流程 —— 运行期实际注册 268 个，`ghost*` 侧 `ll.import` 得 `null`（原因见 [实体、粒子与交互](entities.md#交互事件ghost)）。
+函数总数 278（源码 `exportAs` 计数），全部在运行期注册，`ll.import` 都能拿到。
 
 ---
 

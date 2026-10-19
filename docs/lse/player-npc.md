@@ -1,10 +1,11 @@
-# 假玩家 NPC · 在服务端造一个能换肤、能被点击的假玩家
+# 假玩家 NPC · LSE
 
 `playerNpc*` 造出来的是**纯协议假玩家**：客户端看到一个完整的玩家模型，有名字牌、会出现在 Tab 列表里，但服务端**并没有这个玩家** —— 没有 AI、不占实体系统、不写存档。适合做商店老板、任务发布人、雕像、人形立牌这类「站在那里的角色」。
 
 皮肤有四条来路：PNG 文件注册、从在线玩家采集、目录批量导入、base64 blob 恢复。**皮肤必须先注册、再创建 NPC**，否则创建会失败。库不落盘：重启后要自己重新注册皮肤、按自己的存档重建 NPC。
 
 点击这个假玩家不进回调，要用 `ghost*` 轮询取（条目里 `domain=npc`）。
+
 
 ## 快速开始
 
@@ -44,6 +45,26 @@ setNametag(npc, "§e小美 §7<店员>");
     const reg = ll.import("HologramLib", "playerNpcRegisterSkin");
     reg("E:/server/skins/girl.png", "girl", "", "slim");   // slim = 细手臂
     reg("E:/server/skins/guard.png", "", "", "");          // skinId 留空 → 用文件名 "guard"
+    ```
+
+### 注册图片平面（128 PNG，透明可选）
+
+`playerNpcRegisterImageSkin(pngPath, skinId, sizeBlocks, transparent)`
+
+- 参数：
+  - `pngPath` : `String`<br>128×128 PNG 路径
+  - `skinId` : `String`<br>皮肤名；相同名字重复注册会覆盖
+  - `sizeBlocks` : `Float`<br>平面边长（格）；`1` = 1×1 格（128 px/格），`1.25` = 1.25 格
+  - `transparent` : `Boolean`<br>`true` 保留透明（alpha ≥ 128 不透明，其余挖空）；`false` 透明区域铺白
+- 返回值：`true` = 注册成功
+- 返回值类型：`Boolean`
+- 说明：库内生成双面平面几何，几何 identifier 按尺寸唯一；拼接/摆放由调用方自己算
+- 示例：
+
+    ```js
+    const registerImage = ll.import("HologramLib", "playerNpcRegisterImageSkin");
+    registerImage("E:/server/images/logo.png", "logo", 1, true);
+    const npc = create(100.5, 64, 100.5, 0, "§bLogo", "logo");
     ```
 
 ### 采集在线玩家的皮肤
