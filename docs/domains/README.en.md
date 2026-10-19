@@ -1,13 +1,19 @@
 # Capability domains
 
-HologramLib's 18 capability domains fall into four groups. The tables below are for picking one; each group guide covers how to use it.
+The capability domains are split into ten pages.
 
-| Group | Domains | Guide |
-|---|---|---|
-| Rendering & text | Shapes · Holographic text · Gradient lines · Item detail · FMBE item display · Particle shapes | [Rendering & text](rendering.md) |
-| Entities & NPCs | Custom entities · Ghost interaction · Fake-player NPCs · Sulfur-cube display | [Entities & NPCs](entities-npc.md) |
-| Interfaces & containers | Trade menu · Virtual container · Fake inventory · NPC dialogue | [Interfaces & containers](interfaces.md) |
-| View override & sensing | Client view override · Player sensing · Per-viewer appearance · Per-viewer text variables | [View override & sensing](view-sensing.md) |
+| Page | Content |
+|---|---|
+| [DebugShape (holograms & shapes)](debugshape.md) | Shapes · holograms · gradient lines |
+| [Item display](item-display.md) | FMBE · item detail · stretch / live transforms / presets |
+| [Particles](particles.md) | Particle shapes |
+| [Entities & interaction](entities.md) | Custom entities · ghost interaction · actor interaction events |
+| [Fake-player NPC](player-npc.md) | NPCs · skins / image plane · pose / equipment / ride · interaction |
+| [Containers & inventory](containers.md) | Virtual containers · fake inventory · session isolation |
+| [Interfaces](interfaces.md) | Trade menu · NPC dialogue |
+| [Sulfur cube](sulfur.md) | Sulfur-cube display |
+| [View override](view.md) | Client view override · per-viewer rendering |
+| [Client sensing](sensing.md) | Input-device sensing |
 
 Every page in this set now has an English version, including the four group guides. The selection tables below are the fastest way to pick a domain, and the API references cover the signatures.
 
