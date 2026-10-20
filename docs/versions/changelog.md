@@ -13,6 +13,22 @@
 | `26.40.9` | 1.27.0 | 26.40 | `EntityView::skinId`（同 id 换模型）、真实实体交互事件、ABI 布局戳 | 类方法 | 需重新编译（虚表追加） |
 | `26.40.8` | 1.26.0 | 26.40 | 逐观看者覆盖、四个界面域 | 若干 | 需重新编译 |
 
+## 未发布 — 内部重构（无 API 变化）
+
+API 版本与虚表槽位都没动，C++ 消费方**无需重新编译**。
+
+- **发包收敛**：三份等价实现合一为 `src/core/PacketSink.h`（`SculkPacketSend.h` 降为两行转发）。此前 `ItemDisplayManager.cpp` 里那份匿名副本**不计数、不告警**，现在统一计入失败计数。
+- **tick 收敛**：5 个 `Level::$tick` detour 收成 1 个（`src/core/TickDriver.h`），执行顺序改为显式声明，不再依赖跨 TU 的静态初始化顺序。
+- **构建**：`xmake.lua` 改用 `src/**.cpp` 通配；`ghost/GhostInteractRouter.cpp` 恢复独立编译单元（此前被 `#include` 进另一个 `.cpp`）。
+- **生命周期**：域注册收敛到 `src/core/ServiceHost.h`。启动按声明顺序、关停反向、LSE 导出一遍，新增域只改一处。
+  顺带修好一个既有缺陷：`ContainerMenu` / `NpcDialogue` / `PlayerSensing` / `FakeInventory` 四个域的 `shutdown()`
+  早就写好，但 `ModEntry::disable()` 从来没有调用过 —— 关插件时已打开的虚拟容器 / NPC 对话框不会关闭、
+  伪造背包不会还原，客户端要重连才恢复。现在随 `IDomain::stop` 一起被调用。
+  关停顺序因此改为启动的**逆序**（此前是另一份手工清单）；各域清理互相独立，无顺序依赖。
+- **契约工具**：新增 `tools/abi_tool.py` 与 `abi/` 基线，`abi.yml` 在 CI 上拦「中段插槽」。
+
+接口与虚表未变，C++ 消费方**无需重新编译**。
+
 ## 26.51.5 / 26.40.12 — API 1.31.0
 
 26.51 线把 26.40 线 26.40.12 的能力整体搬到 26.51（协议 2193），能力与 26.40.12 一致，仅协议线不同。

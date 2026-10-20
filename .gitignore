@@ -9,6 +9,8 @@
 !/.github/
 !/src/
 !/include/
+# 冻结契约基线（abi/vX.Y.Z.json + slots.md）：CI 与消费方对拍用, 必须入库
+!/abi/
 !/xmake.lua
 !/manifest.json
 

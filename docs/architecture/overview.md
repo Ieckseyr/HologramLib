@@ -22,6 +22,11 @@
 │ src/HologramLibImpl.cpp    纯转发，无业务逻辑                 │
 │ src/lse/LseBridge.h        exportAs → LegacyRemoteCall       │
 │ src/*Exporter.cpp          统一命名空间 "HologramLib"，前缀分域│
+├─ 内核层（跨域地基, 不含业务语义）─────────────────────────────┤
+│ core/PacketSink.h    全库唯一发包出口: 编码 / 回读校验 / peer  │
+│                      / 可靠性 / 失败计数 —— 域不自己碰 peer    │
+│ core/TickDriver.h    全库唯一 Level::$tick hook + 显式顺序表   │
+│ core/ServiceHost.h   域注册 / 启动 / 反向关停 / LSE 导出遍历   │
 ├─ 领域层 ────────────────────────────────────────────────────┤
 │ PacketDebugRenderer        形状域，持有形状表 + 重发机制       │
 │ FloatingTextManager        悬浮字（复用形状域，不直接发协议包）│
@@ -30,10 +35,10 @@
 │ itemdisplay / playernpc / view / trade / container /          │
 │ npcdialog / sensing / fakeinv / sulfur / itemdetail / ghost   │
 ├─ 协议层 ────────────────────────────────────────────────────┤
-│ ProtocolPackets.h    DebugShape 列表 → PrimitiveShapesPacket  │
-│ SculkPacketSend.h    发送原语（全库共享）                      │
+│ ProtocolPackets.cpp   DebugShape 列表 → PrimitiveShapesPacket │
+│ SculkPacketSend.h     兼容层（两行转发到 core/PacketSink.h）   │
 │ view/OutboundViewHook  NetworkSystem::send 钩子（只拦不发）    │
-│                        + Level::$tick 心跳                    │
+│                        心跳已并入 core/TickDriver             │
 └──────────────────────────────────────────────────────────────┘
 事件层: ll::event::EventBus (PlayerJoin / Disconnect / ServerLevelTick / ServerStarted)
         + LL_TYPE_INSTANCE_HOOK 实例钩子（出站发送 / 入站 AuthInput 等）
@@ -43,7 +48,9 @@
 
 - 桥接层无状态：接口调用直接落领域层；LSE 导出与 C++ 接口走的是同一条路径，不存在「JS 专用逻辑」。
 - 形状域是唯一「包里写形状」的出口：悬浮字、渐变线都复用形状域（悬浮字 = 一个多行文本形状；渐变线 = 一批线段形状）。
-- 发送原语唯一：除 ItemDisplay 有一份独立副本（已知技术债）外，全库共用 `SculkPacketSend.h`。
+- 发送原语唯一：全库共用 `core/PacketSink.h`（`SculkPacketSend.h` 已是两行转发）。ItemDisplay 那份不计数、不告警的副本已删除 —— 收敛前它是唯一让「全库发包失败数」统计漏掉一整域的缺口。
+- 每 tick 的驱动唯一：5 个 `Level::$tick` detour 收成一个（`core/TickDriver.*`），执行顺序由 `Order` 显式决定，不再依赖跨 TU 的静态初始化顺序。
+- 生命周期唯一：每个域实现 `core::IDomain`（`start` / `stop` / `exportLse`），由 `core/ServiceHost` 统一遍历 —— 启动按声明顺序、关停反向、导出一遍。新增域只改 `ModEntry::enable()` 里的 `add` 一行。此前三张手工清单漏过一次导出（ghost），还有四个域的 `shutdown()` 从未被调用过。
 
 ---
 
@@ -56,7 +63,11 @@ HologramLib/
 │   ├── HologramLibImpl.cpp             #   接口实现（委托各 Manager 单例）
 │   ├── EventIdCompat.h                 #   事件 ID 对齐（MSVC 编译必需）
 │   ├── DiagLog.*                       #   诊断日志开关（默认编译期关闭）
-│   ├── SculkPacketSend.h               #   协议层发包原语
+│   ├── core/                           #   内核层（跨域地基, 不含业务语义）
+│   │   ├── PacketSink.*                #     全库唯一发包出口
+│   │   ├── TickDriver.*                #     全库唯一 Level::$tick hook
+│   │   └── ServiceHost.h               #     域注册与生命周期（启动顺序 = 声明顺序）
+│   ├── SculkPacketSend.h               #   兼容层（转发到 core/PacketSink.h, 下个大版本删）
 │   ├── PacketDebugRenderer.*           #   形状渲染（协议层）
 │   ├── ProtocolShape.h / ProtocolPackets.*
 │   ├── FloatingTextManager.*           #   悬浮字（整块单形状 + 逐观看者形状）
@@ -78,6 +89,8 @@ HologramLib/
 │   ├── lse/                            #   LSE 兼容层（运行时挂载 lrca）
 │   ├── MemoryOperators.cpp             #   跨 DLL 内存配对
 │   └── ModEntry.*                      #   生命周期 + LSE 双时机挂载
+├── abi/                                # 冻结契约基线（槽位表 JSON + slots.md），CI 比对
+├── tools/abi_tool.py                   # 契约提取 / 比对（python 标准库，无第三方依赖）
 ├── tests/                              # 离线字节级回归检查（本地工具，不随库发布）
 ├── docs/                               # 本套文档
 ├── xmake.lua · manifest.json
@@ -145,7 +158,7 @@ HologramLib/
 ## 视图覆盖的运行时结构
 
 - 出站钩子：`NetworkSystem::send` / `sendToMultiple`，只决定放行 / 丢弃，从不修改引擎包字段。
-- 心跳：`Level::$tick` 每 tick `tickPulse()`（实体重新进入视野 / 玩家换区块时重推覆盖）。
+- 心跳：`Level::$tick` 每 tick `tickPulse()`（实体重新进入视野 / 玩家换区块时重推覆盖）；挂点是全库唯一的 `core/TickDriver.cpp`，本域注册为 `Order::ViewOverride`（最后跑，覆盖套在已落地的实体状态上）。
 - 数据来源只有协议包（入站 AuthInput、出生包载荷、Animate / ActorEvent），不读服务端实体状态（身份识别除外）。
 - 判定逻辑独立在 `src/view/ViewOverrideLogic.h`，不碰 BDS 类型，离线可测（`tests/check-view-override.bat`，59 项）。
 
@@ -169,6 +182,21 @@ HologramLib/
 > 已移到类尾部，并在头文件里留了 ⚠ 说明。
 
 `26.40.9` 起头文件携带虚表布局描述符 + 消费方编译期自检，库侧在运行期拦截布局不一致的消费方：把「中段挪槽」这类崩溃固化成机制化防护，而不是靠人记住。
+
+### 机器守契约（26.51.5 起）
+
+「只在尾部追加」不再只靠注释、版本表与记忆力 —— 契约有了基线文件和一个退出码：
+
+| 命令 | 作用 |
+|---|---|
+| `python tools/abi_tool.py check` | 与 `abi/v1.31.0.json` 比对；中段插入 / 删除 / 改签名 / 改结构体 / 改枚举值 → **非 0 退出** |
+| `python tools/abi_tool.py extract --json-out abi/v1.32.0.json` | 发版后固化新基线 |
+| `python tools/abi_tool.py extract --md-out abi/slots.md` | 生成人读槽位表（消费方可以直接 diff 自己的镜像） |
+| `python tools/abi_tool.py check -H <某份头文件>` | 拿任意一份头文件对基线（例：确认消费方手里的镜像是否还跟得上） |
+
+`.github/workflows/abi.yml` 在每次 push / PR 上跑第一条。尾部追加会打印新增槽位并通过；
+只要动了既有槽位，它在 CI 上红 —— 而不是在用户机器上 `0xC0000005`。
+破坏槽位时如果 `HOLOGLIB_ABI_STAMP` 没跟着 +1，也判失败：那道运行期自检是最后一道防线，它失效必须先被发现。
 
 ### 收缩时怎么办
 

@@ -1,0 +1,28 @@
+name: abi
+
+# 冻结契约检查：HologramLib.h 的虚表槽位序 = 消费方编译期固化的槽位号。
+# 中段插入/删除/重排会让消费方静默跳到别的方法（2026-10-09/10-10 两次 0xC0000005 就是这么来的）。
+# 本 workflow 只跑 python 标准库，无外部依赖，几秒出结果。
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  abi-contract:
+    name: 冻结契约（虚表槽位）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 与 abi/ 基线比对
+        run: python tools/abi_tool.py check
+
+      - name: 打印槽位表摘要
+        if: always()
+        run: python tools/abi_tool.py extract | head -40

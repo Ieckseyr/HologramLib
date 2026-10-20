@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core/ServiceHost.h"
+
 #include <ll/api/mod/NativeMod.h>
 
 namespace debugshape_export {
@@ -23,6 +25,8 @@ public:
 
 private:
     ll::mod::NativeMod& mSelf;
+    // 域注册与生命周期（core/ServiceHost.h）: 新增域只改 ModEntry.cpp 的 add 一处
+    core::ServiceHost mHost;
 };
 
 } // namespace debugshape_export
