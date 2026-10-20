@@ -32,7 +32,11 @@
 - 有新增槽位但 `HOLOGLIB_API_VERSION` 没抬 → 警告（发版时必须抬）。
 
 基线快照与槽位表放在 `abi/`，每次发版固化一份。消费方（MeowMenu 的 ABI 镜像、Mtps 的头文件副本）
-可以直接用 `abi/slots.md` 对拍，不必再手工数槽位。
+不必再手工数槽位：
+
+- 已经手写了镜像的，用 `abi/slots.md` 对拍，或直接 `abi_tool.py check -H <你的镜像>`；
+- 想摆脱手工维护，用 `abi_tool.py mirror --namespace-macro <你的宏> --out HologramLibAbi.h` 生成一份 ——
+  它由真头文件逐行转换而来（只把命名空间换成宏、把 `HOLOGLIB_API` 置空），生成时自证槽位表与真头文件逐槽一致。
 
 两次收缩的原因和迁移方式见 [版本与 ABI 对照](versions/api-version-matrix.md)。
 

@@ -23,6 +23,9 @@ jobs:
       - name: 与 abi/ 基线比对
         run: python tools/abi_tool.py check
 
+      - name: 工具自测（16 项）
+        run: python tools/test_abi_tool.py
+
       - name: 打印槽位表摘要
         if: always()
         run: python tools/abi_tool.py extract | head -40

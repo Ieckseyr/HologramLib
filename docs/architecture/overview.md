@@ -193,6 +193,8 @@ HologramLib/
 | `python tools/abi_tool.py extract --json-out abi/v1.32.0.json` | 发版后固化新基线 |
 | `python tools/abi_tool.py extract --md-out abi/slots.md` | 生成人读槽位表（消费方可以直接 diff 自己的镜像） |
 | `python tools/abi_tool.py check -H <某份头文件>` | 拿任意一份头文件对基线（例：确认消费方手里的镜像是否还跟得上） |
+| `python tools/abi_tool.py mirror --out HologramLibAbi.h` | 给消费方生成镜像头（同槽位序、`HOLOGLIB_API` 置空、命名空间可换成宏），生成后自证槽位表一致 |
+| `python tools/test_abi_tool.py` | 工具自身的 16 项自测（中段插入/尾部追加/结构体/枚举/镜像），CI 一起跑 |
 
 `.github/workflows/abi.yml` 在每次 push / PR 上跑第一条。尾部追加会打印新增槽位并通过；
 只要动了既有槽位，它在 CI 上红 —— 而不是在用户机器上 `0xC0000005`。

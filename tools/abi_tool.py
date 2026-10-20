@@ -515,6 +515,78 @@ def cmd_check(args):
     return 0
 
 
+# ─────────────────────────────────────────────────────────────── 消费方镜像
+
+MIRROR_BANNER = """// {out} —— 由 tools/abi_tool.py mirror 生成，**不要手改**
+//
+// 用途: 消费方需要"同一份虚表布局、但不要 dllimport"的声明（否则 HologramLib 会变成
+// 加载期硬前置）。这份镜像由真头文件逐行转换而来，槽位序因此不可能漂移:
+//   python tools/abi_tool.py mirror --namespace-macro MEOW_HOLOGRAM_ABI_NAMESPACE --out HologramLibAbi.h
+//   python tools/abi_tool.py check -H HologramLibAbi.h    # 与基线对拍，槽位序应完全一致
+//
+// 转换只做两件事: 命名空间换成宏、HOLOGLIB_API 置空。其余逐字保留。
+#pragma once
+"""
+
+EXPORT_BLOCK_RE = re.compile(
+    r"#ifdef\s+HOLOGLIB_EXPORTS\s*"
+    r"\n#define\s+HOLOGLIB_API\s+__declspec\(dllexport\)\s*"
+    r"\n#else\s*"
+    r"\n#define\s+HOLOGLIB_API\s+__declspec\(dllimport\)\s*"
+    r"\n#endif"
+)
+
+MIRROR_EXPORT_REPLACEMENT = (
+    "// 导出宏置空: 消费方只想要布局，不想留下导入项（否则库变成加载期硬前置）\n"
+    "#ifndef HOLOGLIB_API\n#define HOLOGLIB_API\n#endif"
+)
+
+
+def make_mirror(text, namespace_macro, out_name):
+    """真头文件 -> 消费方镜像。只换命名空间与导出宏，其余逐字保留。"""
+    mirror, n_ns = re.subn(
+        r"^namespace\s+hologramlib\s*\{",
+        "namespace " + namespace_macro + " {",
+        text,
+        count=1,
+        flags=re.M,
+    )
+    if n_ns != 1:
+        raise SystemExit("MIRROR-ERROR: 找不到 `namespace hologramlib {`")
+
+    mirror, n_exp = EXPORT_BLOCK_RE.subn(MIRROR_EXPORT_REPLACEMENT, mirror, count=1)
+    if n_exp != 1:
+        raise SystemExit("MIRROR-ERROR: 找不到 HOLOGLIB_API 的 dllexport/dllimport 分支")
+
+    return MIRROR_BANNER.format(out=out_name) + mirror
+
+
+def cmd_mirror(args):
+    global HEADER
+    with open(HEADER, "r", encoding="utf-8") as f:
+        text = f.read()
+    out = make_mirror(text, args.namespace_macro, os.path.basename(args.out))
+    with open(args.out, "w", encoding="utf-8", newline="\n") as f:
+        f.write(out)
+    print(f"[ok] 写出镜像 {args.out}（命名空间宏 {args.namespace_macro}）")
+
+    # 自证: 镜像的槽位表必须与真头文件逐槽相同
+    real = extract()
+    saved, HEADER = HEADER, os.path.abspath(args.out)
+    try:
+        mirrored = extract()
+    finally:
+        HEADER = saved
+    a = json.dumps(real["interfaces"], sort_keys=True)
+    b = json.dumps(mirrored["interfaces"], sort_keys=True)
+    if a != b:
+        print("[FAIL] 镜像与真头文件的槽位表不一致")
+        return 1
+    total = sum(len(v) for v in real["interfaces"].values())
+    print(f"[ok] 槽位表自证一致（{total} 槽 / {len(real['interfaces'])} 接口）")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description="HologramLib ABI 契约工具")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -531,6 +603,16 @@ def main():
     p.add_argument("--write-snapshot", action="store_true", help="通过后把当前快照写成新基线")
     p.add_argument("--release", help="新基线文件名里的版本号（默认沿用）")
     p.set_defaults(func=cmd_check)
+
+    p = sub.add_parser("mirror", help="生成消费方镜像头（同布局、无 dllimport）")
+    p.add_argument("-H", "--header", help="源头文件（默认 include/hologramlib/HologramLib.h）")
+    p.add_argument(
+        "--namespace-macro",
+        default="MEOW_HOLOGRAM_ABI_NAMESPACE",
+        help="替代 hologramlib 的宏名（消费方自用改名）",
+    )
+    p.add_argument("--out", required=True, help="输出路径")
+    p.set_defaults(func=cmd_mirror)
 
     p = sub.add_parser("diff", help="打印两份快照的差异")
     p.add_argument("-H", "--header", help="待解析的头文件")
