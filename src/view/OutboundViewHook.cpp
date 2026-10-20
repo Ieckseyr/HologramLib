@@ -3,6 +3,7 @@
 #include "ViewOverrideManager.h"
 
 #include "DiagLog.h"
+#include "core/TickDriver.h" // 每 tick 驱动（全库唯一 Level::$tick hook）
 
 #include <ll/api/event/EventBus.h>
 #include <ll/api/event/player/PlayerDisconnectEvent.h>
@@ -195,19 +196,12 @@ static ll::memory::HookRegistrar<ViewNetSendToMultipleHook> gViewNetSendToMultip
 // 出生包不走按玩家发包函数（实测), 所以"实体重新进入视野 / 玩家换了区块"这两件事只能靠心跳兜:
 // 心跳里发现"刚才看不见、现在看得见"就把覆盖重新套用一遍; 换了区块就把方块覆盖重推一遍。
 // 这层与上面的钩子互为保险 —— 钩子命中时它是空转, 钩子没命中时它保证功能仍然成立。
-LL_TYPE_INSTANCE_HOOK(
-    ViewOverrideTickHook,
-    ll::memory::HookPriority::Normal,
-    Level,
-    &Level::$tick,
-    void
-) {
-    origin();
+void viewOverrideTick() {
     if (viewOverrideDisabled()) return;
     runGuarded("ViewOverrideTickHook", [&] { manager().tickPulse(); });
 }
 
-static ll::memory::HookRegistrar<ViewOverrideTickHook> gViewOverrideTickHook;
+tick::AutoRegister gViewOverrideTickHook{"viewOverride", &viewOverrideTick, tick::Order::ViewOverride};
 
 // ── 入站: A 的输入包（PlayerAuthInput）—— "输入操作"的协议层真相 ──
 // 位置/朝向/头顶朝向/输入位（跳跃、潜行、疾跑、游泳、爬行…）/界面状态（ClientPlayMode）全在这一包里。

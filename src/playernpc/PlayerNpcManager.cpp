@@ -3,6 +3,7 @@
 #include "EventIdCompat.h"
 
 #include "DiagLog.h"
+#include "core/TickDriver.h" // 每 tick 驱动（全库唯一 Level::$tick hook）
 
 #include <ll/api/event/EventBus.h>
 #include <ll/api/event/player/PlayerDisconnectEvent.h>
@@ -1126,9 +1127,8 @@ struct PlayerNpcTickHookAccess {
     }
 };
 
-// 与 ItemDisplayTickHook 相同的挂点: Level::$tick 尾部, 主线程统一发包
-LL_TYPE_INSTANCE_HOOK(PlayerNpcTickHook, HookPriority::Normal, Level, &Level::$tick, void) {
-    origin();
+// 由 core/TickDriver.h 的统一 Level::$tick hook 驱动（order=PlayerNpc, 最先跑）; 主线程统一发包
+void playerNpcTick() {
     if (hlibDomainDisabled("HLIB_NO_NPC")) return;
 
     PlayerNpcTickHookAccess::processDirty(PlayerNpcManager::getInstance());
@@ -1148,6 +1148,6 @@ LL_TYPE_INSTANCE_HOOK(PlayerNpcTickHook, HookPriority::Normal, Level, &Level::$t
 // 该 hook 此前从未注册（对比 CustomEntity/ItemDisplay/ParticleShape 均有 Registrar）,
 // 导致: 视距动态裁剪/周期可见性同步/脏刷新(setViewDistance/setSkin 等)/Tab 移除队列
 // 全部只在玩家进服或 NPC 创建时执行一次 —— 表现为"视距不生效"。
-static ll::memory::HookRegistrar<PlayerNpcTickHook> gPlayerNpcTickHookRegistrar;
+tick::AutoRegister gPlayerNpcTickHookRegistrar{"playernpc", &playerNpcTick, tick::Order::PlayerNpc};
 
 } // namespace debugshape_export

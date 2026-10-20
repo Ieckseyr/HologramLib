@@ -26,10 +26,7 @@ void checkCaller(void const* returnAddress) noexcept;
 #include "trade/TradeMenuManager.h" // tradeMenuAdapter()
 #include "npcdialog/NpcDialogueManager.h" // npcDialogueAdapter()
 #include "view/ViewOverrideManager.h" // viewOverrideAdapter()
-#include "ghost/GhostInteractRouter.h"
-// 单元合并：ghost/GhostInteractRouter.cpp 并入本编译单元
-// （沙箱内无法重配置 xmake.lua 注册新源文件；脱离沙箱后可拆回 add_files("src/ghost/GhostInteractRouter.cpp")）
-#include "ghost/GhostInteractRouter.cpp"
+#include "ghost/GhostInteractRouter.h" // 独立编译单元（xmake: add_files("src/**.cpp")）
 #include "lse/LseBridge.h"
 
 #include <format>

@@ -1,5 +1,6 @@
 // ParticleShapeManager.cpp - 通用协议层粒子形状系统实现
 #include "ParticleShapeManager.h"
+#include "core/TickDriver.h" // 每 tick 驱动（全库唯一 Level::$tick hook）
 
 #include <ll/api/memory/Hook.h>
 #include <ll/api/service/Bedrock.h>
@@ -820,11 +821,10 @@ bool ParticleShapeManager::emitShape(Shape& s, std::uint64_t now) {
 }
 
 
-LL_TYPE_INSTANCE_HOOK(ParticleShapeTickHook, HookPriority::Normal, Level, &Level::$tick, void) {
-    origin();
+void particleShapeTick() {
     ParticleShapeManager::getInstance().tick();
 }
 
-static ll::memory::HookRegistrar<ParticleShapeTickHook> gParticleShapeTickHookRegistrar;
+tick::AutoRegister gParticleShapeTickHookRegistrar{"particles", &particleShapeTick, tick::Order::ParticleShape};
 
 } // namespace debugshape_export

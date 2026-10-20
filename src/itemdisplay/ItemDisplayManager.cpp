@@ -7,7 +7,10 @@
 
 #include "DiagLog.h"
 
+#include "core/PacketSink.h"
+
 #include "../EventIdCompat.h"
+#include "core/TickDriver.h" // 每 tick 驱动（全库唯一 Level::$tick hook）
 
 #include <random>
 
@@ -57,40 +60,6 @@
 namespace debugshape_export {
 
 namespace {
-
-// ── sculk 协议包通用发送（验证 + 头部封装 + peer 发送）──
-
-template <typename PacketT>
-void sendSculkToPlayer(Player& player, PacketT const& packet) {
-    std::vector<std::byte>        bodyBuffer;
-    sculk::protocol::BinaryStream bodyStream(bodyBuffer);
-    packet.write(bodyStream);
-
-    std::string          checkBuffer(reinterpret_cast<char const*>(bodyBuffer.data()), bodyBuffer.size());
-    ReadOnlyBinaryStream checkStream(checkBuffer, true);
-    auto                 checkPacket = MinecraftPackets::createPacket(static_cast<MinecraftPacketIds>(packet.getId()));
-    if (!checkPacket || !checkPacket->read(checkStream)) {
-        HLIB_LOG_WARN("Sculk packet validation failed for {}", packet.getName());
-        return;
-    }
-
-    BinaryStream sendStream;
-    sendStream.writeUnsignedVarInt(
-        (static_cast<int>(packet.getId()) & 0x3FF) | ((0 & 3) << 10) | ((0 & 3) << 12),
-        nullptr,
-        nullptr
-    );
-    sendStream.mBuffer.append(reinterpret_cast<char const*>(bodyBuffer.data()), bodyBuffer.size());
-
-    auto networkSystem = ll::service::getNetworkSystem();
-    if (networkSystem) {
-        auto const& networkId = player.getNetworkIdentifier();
-        auto*       peer      = networkSystem->getPeerForUser(networkId);
-        if (peer != nullptr) {
-            peer->sendPacket(sendStream.mBuffer, NetworkPeer::Reliability::Reliable, Compressibility::Compressible);
-        }
-    }
-}
 
 // ── 动画调度队列（tick 延迟发送 AnimateEntityPacket）──
 
@@ -430,7 +399,7 @@ void sendFoxActor(Player& player, ItemDisplayConfig const& data, Runtime const& 
         {sculk::protocol::ActorDataIDs::Reserved53, data.hitboxWidth},
         {sculk::protocol::ActorDataIDs::Reserved54, data.hitboxHeight},
     };
-    sendSculkToPlayer(player, pkt);
+    wire::send(player, pkt);
 }
 
 void sendEquipment(Player& player, std::uint64_t runtimeId, ::ItemStack const& stack) {
@@ -457,7 +426,7 @@ void sendDataPacket(Player& player, std::uint64_t runtimeId, float hitboxWidth, 
         {sculk::protocol::ActorDataIDs::Reserved53, hitboxWidth},
         {sculk::protocol::ActorDataIDs::Reserved54, hitboxHeight},
     };
-    sendSculkToPlayer(player, pkt);
+    wire::send(player, pkt);
 }
 
 // 1.17.0: AABB 判定体积即时广播（轻量元数据更新, 无 respawn）
@@ -473,7 +442,7 @@ void sendHitboxPacket(Player& player, std::uint64_t runtimeId, float width, floa
         {sculk::protocol::ActorDataIDs::Reserved53, width},
         {sculk::protocol::ActorDataIDs::Reserved54, height},
     };
-    sendSculkToPlayer(player, pkt);
+    wire::send(player, pkt);
 }
 
 // 1.17.0: 跟随位移包 —— MoveActorAbsolute 非 teleport 标志（客户端平滑插值, 与原版
@@ -486,13 +455,13 @@ void sendFollowMove(Player& player, std::uint64_t runtimeId, float x, float y, f
     pkt.mRotationX      = 0;
     pkt.mRotationY      = 0;
     pkt.mRotationYHead  = 0;
-    sendSculkToPlayer(player, pkt);
+    wire::send(player, pkt);
 }
 
 void sendRemove(Player& player, Runtime const& rt) {
     sculk::protocol::RemoveActorPacket pkt;
     pkt.mActorUniqueId = static_cast<std::int64_t>(rt.uniqueId);
-    sendSculkToPlayer(player, pkt);
+    wire::send(player, pkt);
 }
 
 // ── FMBE Molang 模板（参数化三轴旋转/函数平移/缩放）──
@@ -1580,7 +1549,7 @@ int ItemDisplayManager::emitForEntity(std::string const& playerName, std::int64_
     {
         sculk::protocol::RemoveActorPacket rm;
         rm.mActorUniqueId = uniqueId;
-        sendSculkToPlayer(*player, rm);
+        wire::send(*player, rm);
     }
     // 一次性原语的临时 Runtime 也要带 cachedStack —— 装备走 scheduleAnims 的延迟条目,
     // 否则这里不立即发装备、后面又没人补, 物品永远不出现。
@@ -1739,8 +1708,7 @@ struct ItemDisplayTickHookAccess {
     }
 };
 
-LL_TYPE_INSTANCE_HOOK(ItemDisplayTickHook, HookPriority::Normal, Level, &Level::$tick, void) {
-    origin();
+void itemDisplayTick() {
     if (hlibDomainDisabled("HLIB_NO_DISPLAY")) return;
 
     // 脏刷新优先于动画 flush：本 tick 内累积的 setter 变更在此合并为单次 respawn
@@ -1776,7 +1744,7 @@ LL_TYPE_INSTANCE_HOOK(ItemDisplayTickHook, HookPriority::Normal, Level, &Level::
                     pkt.mController                  = entry.controller;
                     pkt.mBlendOutTime                = 0;
                     pkt.mRuntimeIds                  = {entry.runtimeId};
-                    sendSculkToPlayer(*player, pkt);
+                    wire::send(*player, pkt);
                 }
             }
         }
@@ -1791,6 +1759,6 @@ LL_TYPE_INSTANCE_HOOK(ItemDisplayTickHook, HookPriority::Normal, Level, &Level::
 }
 
 // hook 生命周期（静态注册即可; 无显示时为空转 no-op）
-static ll::memory::HookRegistrar<ItemDisplayTickHook> gTickHookRegistrar;
+tick::AutoRegister gTickHookRegistrar{"itemdisplay", &itemDisplayTick, tick::Order::ItemDisplay};
 
 } // namespace debugshape_export

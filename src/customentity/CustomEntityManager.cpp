@@ -9,6 +9,7 @@
 #include "DiagLog.h"
 
 #include "../EventIdCompat.h"
+#include "core/TickDriver.h" // 每 tick 驱动（全库唯一 Level::$tick hook）
 
 #include <random>
 
@@ -72,11 +73,6 @@ sculk::protocol::Attribute makeAttribute(
     return a;
 }
 } // namespace
-
-// SculkPacketSend.h 的失败日志落点（模板内 extern 声明, 此处定义）
-void logSculkPacketSendFailure(char const* name) {
-    HLIB_LOG_WARN("[CustomEntity] sculk packet validation failed for {}", name);
-}
 
 namespace {
 
@@ -1469,8 +1465,7 @@ struct CustomEntityTickHookAccess {
     }
 };
 
-LL_TYPE_INSTANCE_HOOK(CustomEntityTickHook, HookPriority::Normal, Level, &Level::$tick, void) {
-    origin();
+void customEntityTick() {
     if (hlibDomainDisabled("HLIB_NO_ENTITY")) return;
 
     // 脏刷新: 本 tick 内累积的 setter 变更合并为单次 respawn
@@ -1485,6 +1480,6 @@ LL_TYPE_INSTANCE_HOOK(CustomEntityTickHook, HookPriority::Normal, Level, &Level:
 }
 
 // hook 生命周期（静态注册即可; 无实体时为空转 no-op）
-static ll::memory::HookRegistrar<CustomEntityTickHook> gCustomEntityTickHookRegistrar;
+tick::AutoRegister gCustomEntityTickHookRegistrar{"customentity", &customEntityTick, tick::Order::CustomEntity};
 
 } // namespace debugshape_export

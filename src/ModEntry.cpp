@@ -31,6 +31,7 @@
 #include "hologramlib/HologramLib.h"
 
 #include "EventIdCompat.h"
+#include "core/TickDriver.h"
 
 #include <ll/api/event/EventBus.h>
 #include <ll/api/event/server/ServerStartedEvent.h>
@@ -77,6 +78,10 @@ bool ModEntry::load() {
 bool ModEntry::enable() {
     // 构建时间戳: 与磁盘 DLL 的 LastWriteTime 对比即可确认部署的是否为当前构建
     HLIB_LOG_INFO("HologramLib enabling... (API 0x{:06X}, build {} {})", HOLOGLIB_API_VERSION, __DATE__, __TIME__);
+
+    // 每 tick 驱动的执行顺序在这里可见（顺序由 core/TickDriver.h 的 Order 显式决定,
+    // 不再依赖各 TU 的静态初始化顺序）
+    HLIB_LOG_INFO("[tick] order: {}", tick::TickDriver::getInstance().describe());
 
     ItemDisplayManager::getInstance().init();
     CustomEntityManager::getInstance().init();
