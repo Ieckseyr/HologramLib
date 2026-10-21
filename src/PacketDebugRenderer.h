@@ -93,8 +93,6 @@ public:
     bool destroyBatch(const std::vector<int64_t>& ids);
     void destroyAll();
 
-    void tick(float deltaTime);
-
     // 获取形状的 networkId（供高级管理器使用）
     uint64_t getNetworkId(int64_t id);
 

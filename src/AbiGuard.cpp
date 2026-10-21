@@ -2,7 +2,7 @@
 //
 // 做法: 在库的唯一入口（IHologramLib::getInstance）处认出**调用方模块**, 读它导出的布局戳
 //   （HologramLib.h 的 hologramlib_consumerAbiStamp —— 每个包含该头文件的模块都会导出自己那份),
-//   与库自己的 HOLOGLIB_ABI_STAMP 比对。结果按模块缓存, 之后每次入口调用只多一次原子读。
+//   与库自己的 HOLOGLIB_ABI_STAMP 比对。结果按模块缓存; 每次入口仍需解析调用方模块并查表。
 // 为什么只记录、不在这里拒绝:
 //   · 戳不一致的消费方**可能**没用到错位的那些槽（例如只用 shapes/holograms 的插件）——
 //     在这里杀进程会误伤一批本来能跑的插件;
@@ -62,7 +62,7 @@ std::uint32_t classify(HMODULE mod) noexcept {
 std::uint32_t verdictOf(HMODULE mod) noexcept {
     auto const key = reinterpret_cast<std::uint64_t>(mod);
 
-    // 快路径: 已分类过（热路径 —— 每次入口调用都走这里, 只有原子读）
+    // 已分类模块只查缓存; 调用方地址到模块的解析仍由 checkCaller 执行。
     unsigned const n = gCount.load(std::memory_order_acquire);
     for (unsigned i = 0; i < n; ++i) {
         if (gEntries[i].mod.load(std::memory_order_relaxed) == key) {
@@ -90,7 +90,7 @@ std::uint32_t verdictOf(HMODULE mod) noexcept {
 // 入口处调用（HologramLibImpl 的 getInstance 里传入 _ReturnAddress() —— 即**调用方**模块里的返回地址）。
 // 注意: 这个函数**不能**自己调 _ReturnAddress()（那拿到的是库内部的地址）; 必须由调用点传进来。
 void checkCaller(void const* returnAddress) noexcept {
-    auto const self   = moduleOf(reinterpret_cast<void const*>(&hologramlib_consumerAbiStamp));
+    static auto const self = moduleOf(reinterpret_cast<void const*>(&hologramlib_consumerAbiStamp));
     auto const caller = moduleOf(returnAddress);
     if (caller == nullptr || caller == self) return; // 库自身 / 认不出模块 → 不查
 

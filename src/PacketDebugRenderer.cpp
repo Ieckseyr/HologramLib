@@ -467,9 +467,6 @@ void PacketDebugRenderer::destroyAll() {
     ProtocolPacketWriter::sendToAll(removes);
 }
 
-void PacketDebugRenderer::tick(float /*deltaTime*/) {
-}
-
 uint64_t PacketDebugRenderer::getNetworkId(int64_t id) {
     std::lock_guard<std::mutex> lock(mMutex);
     auto* shape = getShape(id);

@@ -664,19 +664,7 @@ public:
         auto events = debugshape_export::GhostInteractRouter::getInstance().poll();
         std::vector<std::string> out;
         out.reserve(events.size());
-        for (auto const& ev : events) {
-            auto line = std::format(
-                "player={} action={} domain={} id={}",
-                ev.playerName,
-                ev.action,
-                ev.domain,
-                ev.id
-            );
-            if (ev.hasPos) {
-                line += std::format(" pos=({:.2f},{:.2f},{:.2f})", ev.x, ev.y, ev.z);
-            }
-            out.push_back(std::move(line));
-        }
+        for (auto const& ev : events) out.push_back(debugshape_export::GhostInteractRouter::formatEvent(ev));
         return out;
     }
 
@@ -712,7 +700,7 @@ private:
 
 HOLOGLIB_API IHologramLib& IHologramLib::getInstance() {
     static HologramLibImpl instance;
-    // 调用前检查消费方: 认出发起这次调用的模块, 读它导出的布局描述, 与库自己的比对（结果缓存, 热路径只有原子读）。
+    // 调用前检查消费方: 解析调用方模块, 从缓存查找布局戳判定。
     // _ReturnAddress() 必须在这里取: 它给的是**调用方**的返回地址（在 checkCaller 里取会拿到库内部的地址）。
     debugshape_export::abi::checkCaller(_ReturnAddress());
     return instance;

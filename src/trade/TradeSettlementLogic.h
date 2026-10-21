@@ -187,16 +187,17 @@ struct HeldPayment {
     std::vector<HeldPayment>&          outTaken
 ) {
     outTaken.clear();
-    std::vector<std::pair<std::string, int>> need;
-    if (!offer.buyA.type.empty()) need.emplace_back(offer.buyA.type, std::max(1, offer.buyA.count));
-    if (!offer.buyB.type.empty()) need.emplace_back(offer.buyB.type, std::max(1, offer.buyB.count));
-
-    for (auto const& [type, count] : need) {
-        int remaining = count;
+    bool const sameType = !offer.buyA.type.empty() && offer.buyA.type == offer.buyB.type;
+    for (auto const* cost : {&offer.buyA, &offer.buyB}) {
+        if (cost->type.empty() || (sameType && cost == &offer.buyB)) continue;
+        // 同类型的两笔费用合并后只遍历账本一次, 防止重复消费同一份数量。
+        // 两个 int 计数相加可能超出 int, 需求量在 64 位域累计。
+        std::int64_t remaining = std::max(1, cost->count);
+        if (sameType) remaining += std::max(1, offer.buyB.count);
         for (auto const& h : held) {
             if (remaining <= 0) break;
-            if (h.item.type != type) continue;
-            int const take = std::min(remaining, std::max(0, h.item.count));
+            if (h.item.type != cost->type) continue;
+            int const take = static_cast<int>(std::min<std::int64_t>(remaining, std::max(0, h.item.count)));
             if (take <= 0) continue;
             HeldPayment taken = h;
             taken.item.count  = take;

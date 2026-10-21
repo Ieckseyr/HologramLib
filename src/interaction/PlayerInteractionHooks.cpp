@@ -126,16 +126,15 @@ struct RequestCollector {
     std::vector<ContainerMenuManager::RequestSlot> slots;
     int                                            amount{1};
 
-    void add(::ItemStackRequestCereal::SlotInfoData const& slotInfo, bool isSource) {
+    void add(::ItemStackRequestCereal::SlotInfoData const& slotInfo) {
         auto const ref = readSlot(slotInfo);
         slots.push_back(ContainerMenuManager::RequestSlot{ref.container, ref.containerId, ref.slot});
-        (void)isSource;
     }
 
     template <typename ActionDataT>
     void operator()(ActionDataT const& data) {
-        if constexpr (requires { data.mSource; }) add(data.mSource.get(), true);
-        if constexpr (requires { data.mDestination; }) add(data.mDestination.get(), false);
+        if constexpr (requires { data.mSource; }) add(data.mSource.get());
+        if constexpr (requires { data.mDestination; }) add(data.mDestination.get());
         if constexpr (requires { data.mAmount; }) amount = static_cast<int>(data.mAmount);
     }
 };
@@ -304,8 +303,9 @@ LL_TYPE_INSTANCE_HOOK(
     TradeActionCollector trade;
     for (auto const& actionPtr : packet.mItemStackRequest->mActions.get()) {
         if (actionPtr != nullptr) {
-            std::visit(collector, ::ItemStackRequestCereal::toActionData(*actionPtr));
-            std::visit(trade, ::ItemStackRequestCereal::toActionData(*actionPtr));
+            auto const data = ::ItemStackRequestCereal::toActionData(*actionPtr);
+            std::visit(collector, data);
+            std::visit(trade, data);
         }
     }
     if (ContainerMenuManager::getInstance().handleInteractiveRequest(

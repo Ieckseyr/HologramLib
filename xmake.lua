@@ -90,6 +90,7 @@ target("HologramLib")
     -- 于是它被 #include 进了 HologramLibImpl.cpp（见 git log 与 docs/architecture/overview.md）。
     add_headerfiles("src/**.h")
     add_files("src/**.cpp")
+
     add_includedirs("src", "include")
     set_symbols("debug") -- 崩溃栈符号化（部署链已含 PDB; 原值 hidden）
     add_ldflags("/OPT:REF", "/OPT:ICF")
