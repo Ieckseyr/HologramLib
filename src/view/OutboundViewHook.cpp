@@ -133,8 +133,7 @@ LL_TYPE_INSTANCE_HOOK(
     ::SubClientId              recipientSubId
 ) {
     manager().noteHookCall();
-    if (viewOverrideDisabled() || !manager().active()) { origin(id, packet, recipientSubId); return; }
-    if (!manager().active()) { // 快路径
+    if (viewOverrideDisabled() || !manager().active()) {
         origin(id, packet, recipientSubId);
         return;
     }

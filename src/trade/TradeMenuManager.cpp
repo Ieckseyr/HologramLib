@@ -1251,7 +1251,6 @@ bool TradeMenuManager::handleItemRequest(
         changed    = true;
         needResync = true; // 退还落点是我们挑的空位, 未必等于客户端预测的那一格
     }
-    bool dealt         = false;
     int  dealtOffer    = -1;
     for (auto const& c : classified) {
         if (!ok || c.kind != ActionKind::Deal) continue;
@@ -1261,7 +1260,6 @@ bool TradeMenuManager::handleItemRequest(
         }
         changed    = true;
         needResync = true; // 产物落点同样以服务端为准
-        dealt      = true;
         dealtOffer = c.offerIndex;
         emit(hologramlib::TradeSettlementEvent{
             player.getRealName(),
@@ -1329,7 +1327,6 @@ bool TradeMenuManager::handleItemRequest(
         // 有东西真的动了、且落点可能和客户端预测不同: 推一次权威背包, 两端对齐
         player.sendInventory(false);
     }
-    (void)dealt;
     return true; // 接管这条请求（调用方回成功应答、不交给 BDS）
 }
 
