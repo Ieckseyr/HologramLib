@@ -1,0 +1,81 @@
+name: build
+
+# 构建 CI。static-checks 无需私有产物, 永远跑; build 需要 BedrockProtocol 的 install 包
+# 在仓库 Variables 里配 HOLO_PROTOCOL_URL（install 的 zip 直链）, 没配就跳过
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  static-checks:
+    name: 静态检查
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: ABI 契约
+        run: python tools/abi_tool.py check
+
+      - name: 工具自测
+        run: python tools/test_abi_tool.py
+
+      - name: 装 clang-format
+        run: sudo apt-get update && sudo apt-get install -y clang-format
+
+      - name: 格式检查（只查改动文件）
+        run: |
+          set -euo pipefail
+          base="${{ github.event.pull_request.base.sha || github.event.before || 'HEAD~1' }}"
+          mapfile -t files < <(git diff --name-only "$base"...HEAD -- '*.cpp' '*.h' '*.hpp' | sed 's#^#./#' || true)
+          if [ ${#files[@]} -eq 0 ]; then echo "没有 C++ 改动"; exit 0; fi
+          clang-format --dry-run --Werror "${files[@]}"
+
+  build:
+    name: 编译
+    runs-on: windows-latest
+    needs: static-checks
+    if: ${{ vars.HOLO_PROTOCOL_URL != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: xmake-io/github-action-setup-xmake@v2
+        with:
+          xmake-version: latest
+
+      - name: 取 BedrockProtocol
+        shell: pwsh
+        env:
+          URL: ${{ vars.HOLO_PROTOCOL_URL }}
+        run: |
+          Invoke-WebRequest -Uri $env:URL -OutFile "$env:RUNNER_TEMP\protocol.zip"
+          Expand-Archive "$env:RUNNER_TEMP\protocol.zip" -DestinationPath "$env:RUNNER_TEMP\protocol"
+          if (!(Test-Path "$env:RUNNER_TEMP\protocol\install\include")) {
+            New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\protocol\install" | Out-Null
+            Copy-Item "$env:RUNNER_TEMP\protocol\*" "$env:RUNNER_TEMP\protocol\install\" -Recurse -Force
+          }
+          "HOLO_PROTOCOL_DIR=$env:RUNNER_TEMP\protocol\install" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: 配置
+        run: xmake f -c --holo_werror=y -y
+
+      - name: 构建
+        run: xmake build -y
+
+  build-skipped:
+    name: 编译（跳过）
+    runs-on: ubuntu-latest
+    needs: static-checks
+    if: ${{ vars.HOLO_PROTOCOL_URL == '' }}
+    steps:
+      - name: 说明
+        run: |
+          echo "::notice::没配 HOLO_PROTOCOL_URL, 跳过编译。"
+          echo "Settings → Secrets and variables → Actions → Variables → HOLO_PROTOCOL_URL = install 的 zip 直链"
