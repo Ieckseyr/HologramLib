@@ -158,7 +158,7 @@ There are two failure modes, both explicit and neither silent:
 | Function name does not exist (older library) | `ll.import` returns `null` |
 
 So "I got `null`" always means "you do not have this capability right now", never "it was called but did nothing".
-All 278 functions are listed by domain in the [LSE scripting API](lse/index.md).
+All 273 functions are listed by domain in the [LSE scripting API](lse/index.md).
 
 ---
 

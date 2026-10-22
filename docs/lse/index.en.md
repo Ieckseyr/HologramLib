@@ -119,18 +119,20 @@ setInterval(() => {
 
 ## 7. Look up functions by domain
 
-| I want to | Prefix | Functions | Page |
-|---|---|---|---|
-| Draw lines / boxes / spheres / text shapes | `shape*` | 39 | [Shapes](debugshape.md) |
-| Multi-line holograms, gradient lines | `holo*` · `gradient*` | 26 + 11 | [Holograms & gradient lines](debugshape.md) |
-| Show "Diamond x64", item display entities | `itemDetail*` · `itemDisplay*` | 2 + 40 | [Item display](item-display.md) |
-| Protocol-level fake players (NPCs), skin registration / capture | `playerNpc*` | 29 | [Fake-player NPCs](player-npc.md) |
-| Custom entities, particle shapes, interaction events | `entity*` · `particle*` · `ghost*` | 37 + 22 + 2 | [Entities, particles & interaction](entities.md) |
-| Trade menu, virtual container, NPC dialogue | `trade*` · `container*` · `npcDialog*` | 10 + 10 + 9 | [Interfaces & containers](interfaces.md) |
-| Fake inventory, sulfur-cube display | `fakeInv*` · `sulfur*` | 9 + 10 | [Inventory & sulfur cube](containers.md) |
-| Client view override (swap model / hide / re-skin), device sensing | `view*` · `sensing*` | 19 + 3 | [View override & sensing](view.md) |
+| I want to | Prefix | Page |
+|---|---|---|
+| Lines / boxes / spheres / shapes, multi-line holograms, gradient lines | `shape*` · `holo*` · `gradient*` | [DebugShape](debugshape.md) |
+| Item names, item display entities | `itemDetail*` · `itemDisplay*` | [Item display](item-display.md) |
+| Particle shapes | `particle*` | [Particles](particles.md) |
+| Custom entities, real-entity interaction, ghost events | `entity*` · `ghost*` | [Entities & interaction](entities.md) |
+| Protocol fake players (NPCs), skins / image planes / poses / equipment / riding | `playerNpc*` | [Fake-player NPCs](player-npc.md) |
+| Virtual containers, fake inventory | `container*` · `fakeInv*` | [Containers & inventory](containers.md) |
+| Trade menu, NPC dialogue | `trade*` · `npcDialog*` | [Interfaces](interfaces.md) |
+| Sulfur-cube display | `sulfur*` | [Sulfur cube](sulfur.md) |
+| Client view override (swap model / hide / re-skin) | `view*` | [View override](view.md) |
+| Device sensing | `sensing*` | [Client sensing](sensing.md) |
 
-278 functions in total (counted from `exportAs` in source), all registered at runtime, and `ll.import` can fetch every one of them.
+273 functions in total, all registered at runtime, and `ll.import` can fetch every one of them.
 
 ---
 

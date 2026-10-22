@@ -11,10 +11,10 @@ The same capabilities are reachable two ways: **C++ plugins** (frozen pure-virtu
 
 | | |
 |---|---|
-| Plugin release | `26.51.4` |
+| Plugin release | `26.51.6` |
 | API version | `1.30.0` (`HOLOGLIB_API_VERSION 0x012400`) |
 | Platform | LeviLamina 26.51 · BDS 1.26.51 (protocol 2193) |
-| Public surface | One public header, `include/hologramlib/HologramLib.h`, plus the LSE namespace `HologramLib` (278 exports) |
+| Public surface | One public header, `include/hologramlib/HologramLib.h`, plus the LSE namespace `HologramLib` (273 exports) |
 | Script prerequisite | `lrca` (LegacyRemoteCall); when absent every export call is a safe no-op and the C++ interface is unaffected |
 | License | MIT (the floating-text "dynamic lines" feature is derived from Phantom, LGPL-3.0) |
 
@@ -105,7 +105,7 @@ Release builds are completely silent: all diagnostic logging is disabled at comp
 
 | Number | Where | Purpose |
 |---|---|---|
-| Plugin release | `version` in `manifest.json` | For deployment; matches the git tag (e.g. `26.51.4`) |
+| Plugin release | `version` in `manifest.json` | For deployment; matches the git tag (e.g. `26.51.6`) |
 | API version | `1.30.0` above | Human-readable capability version |
 | `HOLOGLIB_API_VERSION` | `include/hologramlib/HologramLib.h` | The only version source in code, `0x012400` |
 

@@ -40,7 +40,7 @@
 > **计数口径（2026-10 文档整理时的核对结论）**：表中各行行末的「总计 N」是**发布当时**的记录，其中存在一次记账漂移 ——
 > `26.40.8` 行把 `view*` 记成 `6→16`，而代码真值是 `6→17`；这一处少计的 1 个连带把当时的总计记成了 268（实际应为 269）。
 > `26.40.10` 又新增 `viewItemSpawnHooked`，于是 26.51.3 时点源码里共有 270 处 `exportAs`；`26.51.4` 再 +8（`itemDisplay*` 33→40、`view*` 18→19）。
-> **当前真实计数：278 处 `exportAs`（26.51.4），运行期全部注册**（`ghost*` 的 2 处已接回注册流程）。
+> **当前计数：273（26.51.4）**（`ghost*` 的 2 处已接回注册流程）。
 > 表中历史数字**按原文保留、未回改**。
 
 > **另有三处已知的历史不一致**（同样按原文保留，只在此登记）：
@@ -50,6 +50,7 @@
 
 | 插件发布版本 | API 版本 | `HOLOGLIB_API_VERSION` | 该版本新增的能力域 |
 |---|---|---|---|
+| `26.51.6` | 1.31.0 | `0x012500` | **内部重构与修复，API 与虚表均未变**：发包收敛（`core/PacketSink.h`）、tick 收敛（`core/TickDriver.h`，5 个 `Level::$tick` detour → 1 个）、域生命周期收敛（`core/ServiceHost.h`，顺带补上 `ContainerMenu` / `NpcDialogue` / `PlayerSensing` / `FakeInventory` 四个域从未被调用的 `shutdown()`）、ABI 契约工具与基线（`abi/v1.31.0.json` / `abi/slots.md` / `tools/abi_tool.py`，CI 拦中段插槽）。**修复**：交易 `planConsumption` 对同类型双费用（`buyA` / `buyB` 同一物品）会各扣一次同一份余额，现改为先合并再消费、需求量 64 位累计。构建改 `src/**.cpp` 通配，`GhostInteractRouter.cpp` 恢复独立编译单元。工程化：`tests/` 入库、构建 CI（静态检查必跑，`/W4`+`/WX` 真编译可选）、`.clang-format` / `.clang-tidy` / `.editorconfig`、异常语义去掉 `/EHa` 与「禁用异常」的矛盾组合（C4530 属未定义行为）、悬浮字管理器改递归锁（发包钩子同线程回环）。 |
 | `26.51.5` | 1.31.0 | `0x012500` | **26.51 线合并 26.40.12**：非等比拉伸、live 变换、动画预设扩展与单通道预设、停止配方、假玩家姿势/装备/骑乘、FMBE 生成抽搐修复、图片平面与透明图层、容器会话隔离（uiOpen / ownerEpoch / id 防复用）、PlayerSkin trusted 与皮肤 Id 重建。协议 2193；形状文本含 `LineGapHeight`。虚表尾部追加，`HOLOGLIB_ABI_STAMP` 不变。 |
 | `26.51.4` | 1.30.0 | `0x012400` | **只加 3 个纯原语/通知，不含任何功能实现**：`viewPollSpawnEvents`（出生事件通知） · `itemDisplayCreateFull`（建展示即带 NBT/光效） · `itemDisplayEmitForEntity`（让某玩家把某只已有实体看成 FMBE 模型）。判定/状态/策略一律留在消费方（`ItemPhys`）。只加 LSE 导出，虚表未动 → `HOLOGLIB_ABI_STAMP` 不变。 |
 | `26.51.3` | 1.29.0 | `0x012300` | **26.51 线的合并发布**：把 26.40 线上的 `26.40.8` / `26.40.9` / `26.40.10` 三个批次整体搬到 26.51 线（API 从 `26.51.2` 的 1.25.0 直接到 1.29.0；`1.28.0` 按 26.40 线约定跳过）。能力域内容与下表 `26.40.10` 行一致，差别只在协议线。**26.51 侧本次新写的适配只有一处**：`PlayerAuthInputPacketPayload::mInputData` 在 26.51 由 `std::bitset<66>` 换成 `Bedrock::EnumSet<InputData, 66>`（没有 `operator[]`），视图覆盖的输入位掩码改用 `contains()` 逐位取；`26.51.0` 的四处适配（文本 `LineGapHeight`、`ItemInstance::EMPTY_ITEM()`、容器应答 `presence=false`、形状 NetworkId 种子 `0x00FFFFFF`）在合并后逐项复核仍在。协议常量核对：`sculk/protocol/codec/actor/ActorDataIDs.hpp` 与 `sculk/protocol/codec/MinecraftPacketIds.hpp` 在 26.40 / 26.51 两个协议库里**逐字节相同**，`PrimitiveShapes.hpp` 只多 `mLineGapHeight`（已由 `kTextLineGapHeight` 发出）。构建 0 警告；离线检查全绿（`view*` 59 项 / 交易结算 43 项 / 容器 42 项 / NPC 载体 32 项 / PlayerList 与 trade-offers 逐字节对拍）。**未在 26.51 客户端复测**实体元数据与 `AddItemActor` 的真机效果（那批结论来自 26.40 抓包）。 |

@@ -7,11 +7,38 @@ must recompile. The full release ↔ API mapping is in the [version & ABI matrix
 
 | Release | API | Line | Contents | New exports | C++ consumers |
 |---|---|---|---|---|---|
+| `26.51.6` | 1.31.0 | 26.51 | Internal refactor (packet / tick / lifecycle), ABI contract tooling, payment planning fix, engineering | 0 | No recompile (vtable unchanged) |
 | `26.51.5` / `26.40.12` | 1.31.0 | 26.51 · 26.40 | Stretch / live transforms / animation presets / stop recipe / NPC pose-equipment-ride / FMBE spawn-twitch fix / image plane with transparency / container session isolation | several | Recompile recommended (tail appends) |
 | `26.40.11` / `26.51.4` | 1.30.0 | 26.40 · 26.51 | Three protocol primitives and one timing notification | 3 | No recompile (vtable unchanged) |
 | `26.40.10` / `26.51.3` | 1.29.0 | 26.40 · 26.51 | `AddItemActor` interception, pose/scale/variant/colour, metadata tick fix | 1 (`viewItemSpawnHooked`) | Recompile (`EntityView` grew) |
 | `26.40.9` | 1.27.0 | 26.40 | `EntityView::skinId` (same-id model swap), real-actor interaction events, ABI stamp | class methods | Recompile (vtable appended) |
 | `26.40.8` | 1.26.0 | 26.40 | Per-viewer overrides, four UI domains | several | Recompile |
+
+## 26.51.6 — API 1.31.0 (internal refactor and fixes, no API change)
+
+The API version and the vtable slots are unchanged: C++ consumers do **not** need to recompile.
+
+### Refactor
+
+- **Packet path**: three equivalent implementations merged into `src/core/PacketSink.h` (`SculkPacketSend.h` becomes a two-line forwarder). The anonymous copy in `ItemDisplayManager.cpp` used to skip counting and warning; it now feeds the same drop counters.
+- **Tick driver**: five `Level::$tick` detours collapsed into one (`src/core/TickDriver.h`) with an explicit order table, so execution order no longer depends on cross-TU static initialisation order.
+- **Build**: `xmake.lua` uses a `src/**.cpp` glob; `ghost/GhostInteractRouter.cpp` is a standalone translation unit again (it used to be `#include`d into another `.cpp`).
+- **Lifecycle**: domain registration moved into `src/core/ServiceHost.h` — start in declaration order, stop in reverse, LSE export in one pass. This also fixes an existing defect: `ContainerMenu` / `NpcDialogue` / `PlayerSensing` / `FakeInventory` had written `shutdown()` implementations that `ModEntry::disable()` never called, so open virtual containers, NPC dialogues and fake inventories survived plugin unload until the client reconnected.
+- **Contract tooling**: new `tools/abi_tool.py`, `abi/v1.31.0.json` and `abi/slots.md` baseline; `abi.yml` blocks mid-class slot insertion in CI. The `mirror` subcommand generates a consumer mirror from the real header and proves slot-by-slot equality (312 slots / 15 interfaces).
+
+### Fixes
+
+- **Trade payment planning**: `planConsumption` walked the ledger separately for each cost, so two costs of the same item type (`buyA` / `buyB`) could both be satisfied by one balance. Same-type costs are now merged before consuming, and demand accumulates in 64 bits. Offline fixtures cover both same-type and mixed-type paths.
+- **Hot paths**: the ABI check caches the module handle; ghost event formatting and request-action conversion are reused; unused internal state and an empty renderer tick are gone.
+
+### Engineering
+
+- `tests/` is under version control now (the byte-level C++ fixtures and Python assertions), with `tests/README.md` explaining how to run them and what is skipped when a local capture is missing.
+- New build workflow: static checks (ABI contract, tool self-test, format check on changed files only) always run; the real compile needs the `HOLO_PROTOCOL_URL` repository variable and skips explicitly when absent instead of pretending to pass.
+- Added `.editorconfig`, `.clang-format`, `.clang-tidy`; xmake gained `--holo_werror` (`/WX`) and `--holo_asan` (`/fsanitize=address`).
+- Build closure: `HOLO_PROTOCOL_DIR` / `HOLO_REPO_DIR` environment variables; a missing protocol library fails fast with instructions.
+- Exception semantics: `/EHa` removed, standard C++ exceptions (`set_exceptions("cxx")`). The old combination enabled `/EHa` while disabling exceptions, which made throws inside `<chrono>` degrade to no stack unwinding (C4530) — undefined behaviour.
+- The holographic-text manager now uses a recursive mutex: the outbound packet hook calls back into the manager **on the same thread**, which self-deadlocks with a non-recursive lock.
 
 ## 26.51.5 / 26.40.12 — API 1.31.0
 
