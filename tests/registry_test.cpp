@@ -3,7 +3,7 @@
 // 为什么独立: Registry 只依赖标准库, 所以它可以在 CI 里用 g++ 单独编译运行,
 // 不需要 levilamina 包、不需要起服。内核层能这样测的只有它和 ABI 工具。
 //
-// 跑法:  g++ -std=c++23 -I src tests/registry_test.cpp -o registry_test && ./registry_test
+// 跑法:  g++ -std=c++20 -I src tests/registry_test.cpp -o registry_test && ./registry_test
 //        (Windows 本地: clang-cl /std:c++latest /EHsc /I src tests/registry_test.cpp)
 #include "core/Registry.h"
 

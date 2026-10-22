@@ -489,16 +489,17 @@ def cmd_diff(args):
 MANIFEST = os.path.join(ROOT, "manifest.json")
 
 
-def verify_manifest(snapshot):
+def verify_manifest(snapshot, manifest_path=None):
     """manifest.json 的 extraInfo 必须与头文件一致。
 
     LeviLamina 的 Manifest.extraInfo 是自由字符串表（SmallStringMap<std::string>），所以能放
     自定义元数据而不影响加载; 这里只保证它不会和头文件漂移。
     """
-    if not os.path.isfile(MANIFEST):
+    manifest_path = manifest_path or MANIFEST
+    if not os.path.isfile(manifest_path):
         return ["manifest.json 不存在（应带 extraInfo: apiVersion / apiVersionSemver / abiStamp）"]
     try:
-        with open(MANIFEST, encoding="utf-8-sig") as f:
+        with open(manifest_path, encoding="utf-8-sig") as f:
             manifest = json.load(f)
     except Exception as exc:  # noqa: BLE001 - 坏 JSON 就是错误
         return [f"manifest.json 解析失败: {exc}"]
@@ -540,7 +541,9 @@ def cmd_check(args):
         return 0
 
     errors, warnings, lines = compare(base, cur)
-    errors += verify_manifest(cur)
+    # manifest 描述的是**本仓库这次构建**：用 -H 检查别的头文件（单测夹具/消费方镜像）时不比它
+    if not getattr(args, "header", None):
+        errors += verify_manifest(cur, getattr(args, "manifest", None))
     print(f"[abi] 基线 {os.path.relpath(base_path, ROOT)}  ({base['apiVersion']}, 戳 {base['abiStamp']})")
     print(f"[abi] 当前      {cur['apiVersion']}, 戳 {cur['abiStamp']}")
     for l in lines:
@@ -659,6 +662,7 @@ def main():
 
     p = sub.add_parser("check", help="与 abi/ 基线比对（CI 用）")
     p.add_argument("-H", "--header", help="待解析的头文件（默认 include/hologramlib/HologramLib.h）")
+    p.add_argument("--manifest", help="要校验的 manifest（默认仓库根 manifest.json）")
     p.add_argument("--baseline")
     p.add_argument("--write-snapshot", action="store_true", help="通过后把当前快照写成新基线")
     p.add_argument("--release", help="新基线文件名里的版本号（默认沿用）")

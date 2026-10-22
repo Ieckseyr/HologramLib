@@ -6,6 +6,7 @@
 覆盖:  通过 / 中段插入 / 尾部追加(抬版本) / 尾部追加(未抬版本) / 结构体变更 /
        枚举值变更 / 破坏槽位但布局戳没抬 / 消费方镜像生成与自证
 """
+import json
 import os
 import re
 import subprocess
@@ -107,6 +108,27 @@ def main():
         mirror_text = f.read()
     expect("命名空间已宏化", "namespace TEST_NS {" in mirror_text, "")
     expect("没有 dllimport", "__declspec(dllimport)" not in mirror_text, "")
+
+    print("[9] manifest 的 ABI 字段与头文件不一致 → 必须失败")
+    with open(os.path.join(ROOT, "manifest.json"), encoding="utf-8-sig") as f:
+        manifest = json.load(f)
+    drifted = json.loads(json.dumps(manifest))
+    drifted.setdefault("extraInfo", {})["abiStamp"] = "99"
+    drifted_path = os.path.join(tmp, "manifest_drift.json")
+    with open(drifted_path, "w", encoding="utf-8") as f:
+        json.dump(drifted, f, ensure_ascii=False, indent=4)
+    r = run("check", "--manifest", drifted_path)
+    expect("退出码 1", r.returncode == 1, f"got {r.returncode}")
+    expect("指出 abiStamp", "abiStamp" in r.stdout, r.stdout)
+
+    print("[10] manifest 缺 extraInfo → 必须失败")
+    bare = {k: v for k, v in manifest.items() if k != "extraInfo"}
+    bare_path = os.path.join(tmp, "manifest_bare.json")
+    with open(bare_path, "w", encoding="utf-8") as f:
+        json.dump(bare, f, ensure_ascii=False, indent=4)
+    r = run("check", "--manifest", bare_path)
+    expect("退出码 1", r.returncode == 1, f"got {r.returncode}")
+    expect("提示怎么补", "extraInfo" in r.stdout, r.stdout)
 
     print()
     if failures:
