@@ -1,6 +1,10 @@
 # 严格白名单: 源码、公开文档与项目配置
 /*
 !/.gitignore
+!/.editorconfig
+!/.clang-format
+!/.clang-tidy
+!/CONTRIBUTING.md
 !/README.md
 !/README.en.md
 !/LICENSE
@@ -9,6 +13,8 @@
 !/.github/
 !/src/
 !/include/
+# tests 入库（字节级对拍）
+!/tests/
 # 冻结契约基线（abi/vX.Y.Z.json + slots.md）：CI 与消费方对拍用, 必须入库
 !/abi/
 !/xmake.lua
@@ -40,8 +46,19 @@ build/
 .xmake/
 .vscode/
 /*.dll
-tests/
 
-# 本地工具与文档(不随库发布; tests/ = 离线回归检查脚本, 需要本机抓包/编译环境)
+# tests 的产物
+tests/__pycache__/
+tests/*.obj
+tests/*.exe
+tests/*.pdb
+tests/*.ilk
+tests/*.log
+tests/*.bin
+tests/*.hex
+tests/build/
+tests/work/
+
+# 本地工具与文档(不随库发布)
 # 注: 设计约定、架构开销评估与 API 稳定性契约已迁入 docs/internal/(见上方规则)
 shelf/
