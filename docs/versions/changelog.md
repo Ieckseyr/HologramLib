@@ -31,11 +31,11 @@ API 版本与虚表槽位都没动，C++ 消费方**无需重新编译**。
 - **契约工具**：新增 `tools/abi_tool.py`、`abi/v1.31.0.json` 与 `abi/slots.md` 基线，`abi.yml` 在 CI 上拦「中段插槽」。
   `mirror` 子命令可由真头文件生成消费方镜像，并自证槽位表与头文件逐槽一致（312 槽 / 15 接口）。
 - **对象表内核化**：新增 `src/core/Registry.h`（id 分配 / runtimeId 与维度索引 / 脏集 / 快照遍历，
-  只依赖标准库）+ `tests/registry_test.cpp`（28 项断言，含并发与 `withObject` 返回值语义；CI 里用 g++ 直接跑）。
-  `Registry` 同时补了 `clear()` / `empty()`、锁策略（`std::mutex` / `std::recursive_mutex` / `NoLock`）与
+  只依赖标准库）+ `tests/registry_test.cpp`（36 项断言，含并发、锁策略、`peek` 与 `withObject` 返回值语义；CI 里用 g++ 直接跑）。
+  `Registry` 同时补了 `clear()` / `empty()` / `peek()`、锁策略（`std::mutex` / `std::recursive_mutex` / `NoLock`）与
   「回调返回 bool 就原样透传」的 `withObject`，域迁移才能保持
   "找不到" / "参数不合法" 两种失败各自 return 的写法。
-  `sulfur` / `gradientline` / `particles` / `shape` / `npcdialog` / `container` 六个域已迁。`particles` 把按值的
+  `sulfur` / `gradientline` / `particles` / `shape` / `npcdialog` / `container` / `hologramtext` 七个域已迁。`particles` 把按值的
   `Shape` 换成 `unique_ptr`、`tick` 改成 forEachLocked + 到期集；`shape`（`PacketDebugRenderer`）把 `networkId`
   分配换成原子递减；`npcdialog` / `container` 用新增的 `NoLock` 锁策略 —— 主表进 Registry，但临界区仍由域
   自己持有（`mByPlayer` / `mCarriers` / `mPlayerEpoch` 等旁表要和主表一起改，这个不变量不能拆）。`sulfur` 原先 `setInvisible` /

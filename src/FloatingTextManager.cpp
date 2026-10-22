@@ -42,32 +42,34 @@ int64_t FloatingTextManager::create(float x, float y, float z) {
     std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto ft = std::make_unique<FloatingText>();
-    ft->id = mNextId++;
-    ft->x = x;
-    ft->y = y;
-    ft->z = z;
+    ft->x   = x;
+    ft->y   = y;
+    ft->z   = z;
 
-    int64_t id = ft->id;
-    mFloatingTexts[id] = std::move(ft);
+    int64_t const id = mFloatingTexts.insert(std::move(ft));
+    if (auto* inserted = mFloatingTexts.peek(id))
+        inserted->id = id;
     return id;
 }
 
 bool FloatingTextManager::destroy(int64_t id) {
     std::lock_guard<std::recursive_mutex> lock(mMutex);
 
-    auto it = mFloatingTexts.find(id);
-    if (it == mFloatingTexts.end()) return false;
+    auto* ft = mFloatingTexts.peek(id);
+    if (ft == nullptr)
+        return false;
 
-    destroyTextShape(*it->second);
-    mFloatingTexts.erase(it);
+    destroyTextShape(*ft);
+    mFloatingTexts.erase(id);
     return true;
 }
 
 void FloatingTextManager::destroyAll() {
     std::lock_guard<std::recursive_mutex> lock(mMutex);
 
-    for (auto& [id, ft] : mFloatingTexts) {
-        destroyTextShape(*ft);
+    for (auto const id : mFloatingTexts.snapshotAll()) {
+        if (auto* ft = mFloatingTexts.peek(id))
+            destroyTextShape(*ft);
     }
     mFloatingTexts.clear();
 }
@@ -426,7 +428,10 @@ void FloatingTextManager::tickDynamic() {
     std::lock_guard<std::recursive_mutex> lock(mMutex);
     auto const                  ts = steadyMs();
 
-    for (auto& [id, ftPtr] : mFloatingTexts) {
+    for (auto const id : mFloatingTexts.snapshotAll()) {
+        auto* ftPtr = mFloatingTexts.peek(id);
+        if (ftPtr == nullptr)
+            continue; // 快照之后被销毁
         auto& ft = *ftPtr;
         if (!ft.isDrawn || !hasDynamicLines(ft)) continue;
 
@@ -740,8 +745,7 @@ std::string FloatingTextManager::processVariables(const std::string& text, const
 }
 // 内部辅助方法
 FloatingText* FloatingTextManager::getFloatingText(int64_t id) {
-    auto it = mFloatingTexts.find(id);
-    return (it != mFloatingTexts.end()) ? it->second.get() : nullptr;
+    return mFloatingTexts.peek(id);
 }
 
 // 销毁文本形状 (发送移除包 + 删除内存)

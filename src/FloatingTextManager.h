@@ -10,6 +10,8 @@
 //   版权归 Phantom 贡献者（GroupMountain）所有；本库其余部分为 MIT（见 LICENSE）。
 // ─────────────────────────────────────────────────────────────
 
+#include "core/Registry.h" // 内核层: 对象表（NoLock：临界区由本域的 recursive_mutex 持有）
+
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -221,12 +223,11 @@ private:
     // 组装整块共享文本（\n 合并所有行）
     std::string composeText(FloatingText const& ft, const std::string& playerContext, std::uint64_t nowMs);
 
-    std::unordered_map<int64_t, std::unique_ptr<FloatingText>> mFloatingTexts;
+    core::Registry<FloatingText, core::NoLock>        mFloatingTexts;
     std::unordered_map<std::string, VariableProvider> mVariables;
     // 上次下发的文本（形状 id → 文本）—— 驱动比对用; 形状销毁时同步清理
     std::unordered_map<int64_t, std::string> mLastSentText;
     std::uint64_t mDynamicTickCounter = 0; // 节流用（0.5s = 10 tick）
-    int64_t mNextId = 1;
     // 发包钩子会同步回调进本类, 用递归锁免得自死锁
     std::recursive_mutex mMutex;
 };

@@ -151,6 +151,13 @@ void testLockPolicies() {
     core::Registry<Item, core::NoLock> external;
     auto const                         a = external.insert(std::make_unique<Item>(Item{0, "a"}));
     check(external.exists(a), "NoLock 表能正常增删查");
+    // peek 只在 NoLock 表上编译（加锁由调用方负责）
+    auto* peeked = external.peek(a);
+    check(peeked != nullptr, "NoLock 表可以用 peek 取裸指针");
+    if (peeked)
+        peeked->dim = 3;
+    check(external.peek(a)->dim == 3, "peek 出来的指针可写");
+    check(external.peek(-1) == nullptr, "peek 不存在时返回 nullptr");
 
     // recursive: 回调里再访问同一张表不会死锁（悬浮字域的发包钩子会重入）
     core::Registry<Item, std::recursive_mutex> reentrant;

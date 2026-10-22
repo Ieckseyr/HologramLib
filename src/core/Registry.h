@@ -162,6 +162,20 @@ public:
         }
     }
 
+    /// **NoLock 专用**：不加锁返回裸指针，调用方必须已经持有域锁。
+    /// 给那些"锁在外层、只把表搬进内核"的域用（编译期限制只有 NoLock 表能调）。
+    T* peek(Id id) noexcept {
+        static_assert(std::is_same_v<Mutex, NoLock>, "peek() 只适用于 NoLock 表：加锁由调用方负责");
+        auto it = mById.find(id);
+        return it == mById.end() ? nullptr : it->second.get();
+    }
+
+    T const* peek(Id id) const noexcept {
+        static_assert(std::is_same_v<Mutex, NoLock>, "peek() 只适用于 NoLock 表：加锁由调用方负责");
+        auto it = mById.find(id);
+        return it == mById.end() ? nullptr : it->second.get();
+    }
+
     // ── 索引 ──────────────────────────────────────────────────────────────────
     std::optional<Id> findByRuntimeId(std::uint64_t runtimeId) const {
         std::lock_guard lock(mMutex);
