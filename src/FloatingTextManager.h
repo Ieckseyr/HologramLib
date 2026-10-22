@@ -227,7 +227,8 @@ private:
     std::unordered_map<int64_t, std::string> mLastSentText;
     std::uint64_t mDynamicTickCounter = 0; // 节流用（0.5s = 10 tick）
     int64_t mNextId = 1;
-    std::mutex mMutex;
+    // 发包钩子会同步回调进本类, 用递归锁免得自死锁
+    std::recursive_mutex mMutex;
 };
 
 } // namespace debugshape_export

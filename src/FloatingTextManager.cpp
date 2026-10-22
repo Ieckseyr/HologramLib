@@ -39,7 +39,7 @@ FloatingTextManager::FloatingTextManager() {
 }
 // 创建与销毁
 int64_t FloatingTextManager::create(float x, float y, float z) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto ft = std::make_unique<FloatingText>();
     ft->id = mNextId++;
@@ -53,7 +53,7 @@ int64_t FloatingTextManager::create(float x, float y, float z) {
 }
 
 bool FloatingTextManager::destroy(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto it = mFloatingTexts.find(id);
     if (it == mFloatingTexts.end()) return false;
@@ -64,7 +64,7 @@ bool FloatingTextManager::destroy(int64_t id) {
 }
 
 void FloatingTextManager::destroyAll() {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     for (auto& [id, ft] : mFloatingTexts) {
         destroyTextShape(*ft);
@@ -74,7 +74,7 @@ void FloatingTextManager::destroyAll() {
 // 行管理（行只负责文本; 行级样式差异请在文本内嵌 § 颜色代码）
 // 文本更新后自动 rebuild + redraw (同 networkId 客户端原地覆盖, 无闪烁)
 bool FloatingTextManager::addLine(int64_t id, const std::string& text) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft) return false;
@@ -89,7 +89,7 @@ bool FloatingTextManager::addLine(int64_t id, const std::string& text) {
 }
 
 bool FloatingTextManager::setLineText(int64_t id, int lineIndex, const std::string& text) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft || lineIndex < 0 || lineIndex >= (int)ft->lines.size()) return false;
@@ -104,7 +104,7 @@ bool FloatingTextManager::setLineText(int64_t id, int lineIndex, const std::stri
 }
 
 bool FloatingTextManager::removeLine(int64_t id, int lineIndex) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft || lineIndex < 0 || lineIndex >= (int)ft->lines.size()) return false;
@@ -119,7 +119,7 @@ bool FloatingTextManager::removeLine(int64_t id, int lineIndex) {
 }
 
 bool FloatingTextManager::clearLines(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft) return false;
@@ -130,14 +130,14 @@ bool FloatingTextManager::clearLines(int64_t id) {
 }
 
 int FloatingTextManager::getLineCount(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     return ft ? (int)ft->lines.size() : 0;
 }
 // 整块样式（单形状方案: 整块文本一种颜色 / 一份缩放 / 一个背景框）
 bool FloatingTextManager::setColor(int64_t id, float r, float g, float b, float a) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft) return false;
@@ -152,7 +152,7 @@ bool FloatingTextManager::setColor(int64_t id, float r, float g, float b, float 
 }
 
 bool FloatingTextManager::setScale(int64_t id, float scale) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft) return false;
@@ -168,7 +168,7 @@ bool FloatingTextManager::setScale(int64_t id, float scale) {
 }
 
 bool FloatingTextManager::setBackgroundColor(int64_t id, float r, float g, float b, float a) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft) return false;
@@ -183,7 +183,7 @@ bool FloatingTextManager::setBackgroundColor(int64_t id, float r, float g, float
 }
 
 bool FloatingTextManager::clearBackgroundColor(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft) return false;
@@ -198,7 +198,7 @@ bool FloatingTextManager::clearBackgroundColor(int64_t id) {
 }
 
 bool FloatingTextManager::setDepthTest(int64_t id, bool enabled) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft) return false;
@@ -213,7 +213,7 @@ bool FloatingTextManager::setDepthTest(int64_t id, bool enabled) {
 }
 
 bool FloatingTextManager::setRotation(int64_t id, float pitch, float yaw, float roll) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft) return false;
@@ -231,7 +231,7 @@ bool FloatingTextManager::setRotation(int64_t id, float pitch, float yaw, float 
 }
 
 bool FloatingTextManager::clearRotation(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft) return false;
@@ -248,7 +248,7 @@ bool FloatingTextManager::clearRotation(int64_t id) {
 // ── 动态行（内容池轮播 + 行级变量开关; 重构自 Phantom, LGPL-3.0 —— 见文件头标注）──
 
 bool FloatingTextManager::setLinePool(int64_t id, int lineIndex, const std::vector<std::string>& content, int intervalMs) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft || lineIndex < 0 || lineIndex >= (int)ft->lines.size()) return false;
@@ -264,7 +264,7 @@ bool FloatingTextManager::setLinePool(int64_t id, int lineIndex, const std::vect
 }
 
 bool FloatingTextManager::setLineParseVariables(int64_t id, int lineIndex, bool enabled) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft || lineIndex < 0 || lineIndex >= (int)ft->lines.size()) return false;
@@ -280,7 +280,7 @@ bool FloatingTextManager::setLineParseVariables(int64_t id, int lineIndex, bool 
 
 // 位置与跟随
 bool FloatingTextManager::setLocation(int64_t id, float x, float y, float z) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft) return false;
@@ -297,7 +297,7 @@ bool FloatingTextManager::setLocation(int64_t id, float x, float y, float z) {
 }
 
 bool FloatingTextManager::setDimension(int64_t id, int dimId) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft) return false;
@@ -313,7 +313,7 @@ bool FloatingTextManager::setDimension(int64_t id, int dimId) {
 }
 
 bool FloatingTextManager::setFollowPlayer(int64_t id, const std::string& playerName, float offsetY) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft) return false;
@@ -326,7 +326,7 @@ bool FloatingTextManager::setFollowPlayer(int64_t id, const std::string& playerN
 }
 
 bool FloatingTextManager::clearFollowPlayer(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft) return false;
@@ -336,7 +336,7 @@ bool FloatingTextManager::clearFollowPlayer(int64_t id) {
 }
 // 显示控制
 bool FloatingTextManager::draw(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft) return false;
@@ -352,7 +352,7 @@ bool FloatingTextManager::draw(int64_t id) {
 }
 
 bool FloatingTextManager::drawToDimension(int64_t id, int dimId) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft) return false;
@@ -369,7 +369,7 @@ bool FloatingTextManager::drawToDimension(int64_t id, int dimId) {
 }
 
 bool FloatingTextManager::drawToPlayer(int64_t id, const std::string& playerName) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft) return false;
@@ -386,7 +386,7 @@ bool FloatingTextManager::drawToPlayer(int64_t id, const std::string& playerName
 }
 
 bool FloatingTextManager::remove(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft) return false;
@@ -401,7 +401,7 @@ bool FloatingTextManager::remove(int64_t id) {
 }
 
 bool FloatingTextManager::refresh(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
 
     auto* ft = getFloatingText(id);
     if (!ft || !ft->isDrawn) return false;
@@ -423,7 +423,7 @@ bool FloatingTextManager::refresh(int64_t id) {
 void FloatingTextManager::tickDynamic() {
     if (++mDynamicTickCounter % 10 != 0) return; // 0.5s 一拍（与 Phantom 的默认 10 tick 一致）
 
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::recursive_mutex> lock(mMutex);
     auto const                  ts = steadyMs();
 
     for (auto& [id, ftPtr] : mFloatingTexts) {

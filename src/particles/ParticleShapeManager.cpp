@@ -724,7 +724,8 @@ bool ParticleShapeManager::buildFrameTemplate(Shape& s) {
     return true;
 }
 
-bool ParticleShapeManager::emitShape(Shape& s, std::uint64_t now) {
+// now 目前只在调用方用, 保留参数给以后的时间戳补偿
+bool ParticleShapeManager::emitShape(Shape& s, [[maybe_unused]] std::uint64_t now) {
     auto level = ll::service::getLevel();
     if (!level) return true; // level 未就绪: 保留待发
 
