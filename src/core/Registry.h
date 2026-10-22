@@ -22,6 +22,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
@@ -91,21 +92,36 @@ public:
         return mById.contains(id);
     }
 
+    /// 清空全部对象与索引（停服/关域清理）
+    void clear() {
+        std::lock_guard lock(mMutex);
+        mById.clear();
+        mByRuntimeId.clear();
+        mByDimension.clear();
+        mDirty.clear();
+    }
+
     std::size_t size() const {
         std::lock_guard lock(mMutex);
         return mById.size();
     }
 
     // ── 查询（指针只在锁内有效: 要跨调用用就拷值）────────────────────────────
-    /// 在锁内访问单个对象; fn 返回 false 时表示"不需要再继续"（这里是单对象, 仅作语义统一）
+    /// 在锁内访问单个对象。
+    /// 回调返回 bool 时**原样透传**（"找不到" 与 "参数不合法" 可以各自 return），
+    /// 回调返回 void 时返回值表示"对象是否存在"。
     template <class Fn>
     bool withObject(Id id, Fn&& fn) {
         std::lock_guard lock(mMutex);
         auto            it = mById.find(id);
         if (it == mById.end())
             return false;
-        fn(*it->second);
-        return true;
+        if constexpr (std::is_void_v<std::invoke_result_t<Fn&, T&>>) {
+            fn(*it->second);
+            return true;
+        } else {
+            return static_cast<bool>(fn(*it->second));
+        }
     }
 
     template <class Fn>
@@ -114,8 +130,12 @@ public:
         auto            it = mById.find(id);
         if (it == mById.end())
             return false;
-        fn(*it->second);
-        return true;
+        if constexpr (std::is_void_v<std::invoke_result_t<Fn&, T const&>>) {
+            fn(*it->second);
+            return true;
+        } else {
+            return static_cast<bool>(fn(*it->second));
+        }
     }
 
     /// 遍历全部（**在锁内**）; 只做纯计算/写快照, 不要在这里发包

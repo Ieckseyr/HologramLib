@@ -117,6 +117,18 @@ void testSnapshotAndForEach() {
     }
     check(sum == 0 + 1 + 2 + 3 + 4, "按快照逐个 withObject 汇总正确");
 
+    // withObject 的返回值语义: void 回调 -> 找到与否; bool 回调 -> 原样透传
+    check(reg.withObject(ids[0], [](Item const&) {}), "void 回调: 存在 -> true");
+    check(!reg.withObject(-1, [](Item const&) {}), "void 回调: 不存在 -> false");
+    check(!reg.withObject(ids[0], [](Item const&) {
+        return false;
+    }),
+          "bool 回调: 回调说 false -> false");
+    check(reg.withObject(ids[0], [](Item const&) {
+        return true;
+    }),
+          "bool 回调: 回调说 true -> true");
+
     reg.erase(ids[0]);
     int visited = 0;
     reg.forEachLocked([&](core::Registry<Item>::Id, Item const&) {

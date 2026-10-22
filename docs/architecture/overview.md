@@ -59,13 +59,13 @@
 ## 内核化进度
 
 `core/Registry.h` 把「id 分配 / 索引同生共死 / 脏集 / 快照遍历 / 锁」这套板子收敛成一个模板。
-但**只有主表就是全部状态的域才能直接换**：下面 10 个域有主表，已迁 2 个。
+但**只有主表就是全部状态的域才能直接换**：下面 10 个域有主表，已迁 3 个。
 
 | 域 | 状态 | 说明 |
 |---|---|---|
 | `sulfur` | ✅ 已迁 | 主表只有 `{entityId}`，无二级索引 |
 | `gradientline` | ✅ 已迁 | 主表只有线段批 + 绘制标志 |
-| `particles` | ⬜ 待迁 | 主表按值存 `Shape`（需换 `unique_ptr`）+ 逐 tick emit |
+| `particles` | ✅ 已迁 | 主表按值存 `Shape`，迁移时换成 `unique_ptr`；`tick` 改成 forEachLocked + 到期集 |
 | `shape`（`PacketDebugRenderer`） | ⬜ 待迁 | 主表 + `networkId` 分配 + 进服/周期重发监听；热路径 |
 | `hologramtext` | ⬜ 待迁 | 主表 + 变量表 + `lastSentText` + 逐观看者形状 |
 | `itemdisplay` | ⬜ 待迁 | 主表 + 逐玩家可见集 / 动画队列 / 跟随 |
@@ -75,7 +75,7 @@
 | `npcdialog` | ⬜ 待迁 | 主表 + 按玩家名索引 + 共用载体 |
 | `fakeinv` | — 不适用 | 主键是玩家名（`string`），不是 `int64` id |
 
-待迁的 8 个域都不是机械替换：每个还带二级索引或逐玩家子表，且多数当前是**持锁调下游**（发包重入风险）。
+待迁的 7 个域都不是机械替换：每个还带二级索引或逐玩家子表，且多数当前是**持锁调下游**（发包重入风险）。
 迁移时要顺带改成「锁内取快照 → 锁外发包」，所以每一次都需要一次起服验证，不能只靠编译。
 
 ---
@@ -94,7 +94,7 @@ HologramLib/
 │   │   ├── TickDriver.*                #     全库唯一 Level::$tick hook
 │   │   ├── ServiceHost.h               #     域注册与生命周期（启动顺序 = 声明顺序）
 │   │   ├── VirtualActorIds.h           #     0x6D/0x6E/0x6F 号段 + 不重叠 static_assert
-│   │   └── Registry.h                  #     id 分配 / 索引 / 脏集 / 快照（sulfur / gradientline 已迁）
+│   │   └── Registry.h                  #     id 分配 / 索引 / 脏集 / 快照（3 个域已迁，见「内核化进度」）
 │   ├── SculkPacketSend.h               #   兼容层（转发到 core/PacketSink.h, 下个大版本删）
 │   ├── PacketDebugRenderer.*           #   形状渲染（协议层）
 │   ├── ProtocolShape.h / ProtocolPackets.*
