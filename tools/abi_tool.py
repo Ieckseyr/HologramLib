@@ -30,6 +30,14 @@ import os
 import re
 import sys
 
+# Windows 控制台默认 cp936: 直接 print 中文或 —/→ 这类字符会 UnicodeEncodeError，
+# 让 check 在输出阶段假失败（退出码 1，契约其实没动）。固定成 UTF-8。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:  # noqa: BLE001 - 老 Python / 非标准流: 保持原样
+        pass
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HEADER = os.path.join(ROOT, "include", "hologramlib", "HologramLib.h")
 ABI_DIR = os.path.join(ROOT, "abi")
