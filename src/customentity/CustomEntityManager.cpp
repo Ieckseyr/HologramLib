@@ -455,7 +455,7 @@ int64_t CustomEntityManager::createRandom(CustomEntityConfig const& config) {
     // 随机 ID 段 [0x10000000,0x7FFFFFFF): 与自增段(从 1 起)长期隔离, 不会撞车
     static std::mt19937_64 rng{std::random_device{}()};
     std::lock_guard       lock(mMutex);
-    constexpr std::int64_t kBase = 0x10000000, kSpan = 0x70000000;
+    constexpr std::int64_t kBase = core::actorIds::randomIdBase, kSpan = core::actorIds::randomIdSpan;
     for (int tries = 0; tries < 128; ++tries) {
         auto const id = kBase + static_cast<std::int64_t>(rng() % static_cast<std::uint64_t>(kSpan));
         if (mConfigs.contains(id)) continue;

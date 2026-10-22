@@ -27,6 +27,7 @@
 │                      / 可靠性 / 失败计数 —— 域不自己碰 peer    │
 │ core/TickDriver.h    全库唯一 Level::$tick hook + 显式顺序表   │
 │ core/ServiceHost.h   域注册 / 启动 / 反向关停 / LSE 导出遍历   │
+│ core/VirtualActorIds.h 虚拟 actor 的 runtimeId 号段（唯一定义）  │
 ├─ 领域层 ────────────────────────────────────────────────────┤
 │ PacketDebugRenderer        形状域，持有形状表 + 重发机制       │
 │ FloatingTextManager        悬浮字（复用形状域，不直接发协议包）│
@@ -66,7 +67,8 @@ HologramLib/
 │   ├── core/                           #   内核层（跨域地基, 不含业务语义）
 │   │   ├── PacketSink.*                #     全库唯一发包出口
 │   │   ├── TickDriver.*                #     全库唯一 Level::$tick hook
-│   │   └── ServiceHost.h               #     域注册与生命周期（启动顺序 = 声明顺序）
+│   │   ├── ServiceHost.h               #     域注册与生命周期（启动顺序 = 声明顺序）
+│   │   └── VirtualActorIds.h           #     0x6D/0x6E/0x6F 号段 + 不重叠 static_assert
 │   ├── SculkPacketSend.h               #   兼容层（转发到 core/PacketSink.h, 下个大版本删）
 │   ├── PacketDebugRenderer.*           #   形状渲染（协议层）
 │   ├── ProtocolShape.h / ProtocolPackets.*

@@ -10,6 +10,8 @@
 // 主键为 int64 id（库统一），配置持久化由消费者负责。
 #pragma once
 
+#include "core/VirtualActorIds.h" // runtimeId 号段（唯一出处）
+
 #include <cstdint>
 #include <mutex>
 #include <optional>
@@ -216,7 +218,7 @@ private:
     std::unordered_map<int64_t, FollowState>            mFollowers;
 
     std::uint64_t                                       mNextActorUniqueId{0x6D00000000000001ULL};
-    std::uint64_t                                       mNextRuntimeId{0x6D000000ULL};
+    std::uint64_t                                       mNextRuntimeId{core::actorIds::itemDisplay.first};
     std::unordered_set<mce::UUID>                       mInitializedPlayers;
     ll::event::ListenerPtr                              mJoinListener;
     ll::event::ListenerPtr                              mDisconnectListener;

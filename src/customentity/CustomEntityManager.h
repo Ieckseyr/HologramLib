@@ -13,6 +13,8 @@
 // respawn 必换新 uniqueId/runtimeId（防客户端同帧 Remove+Add 同 ID 重映射串台）。
 #pragma once
 
+#include "core/VirtualActorIds.h" // runtimeId 号段（唯一出处）
+
 #include <array>
 #include <cstdint>
 #include <functional>
@@ -201,7 +203,7 @@ private:
     EntitySpawnCallback                               mSpawnCallback; // 消费方补发钩子（无库内状态）
     // Actor ID 段: 0x6E 前缀（与 ItemDisplay 的 0x6D 段隔离, 客户端 ID 空间全局不撞）
     std::uint64_t                                    mNextActorUniqueId{0x6E00000000000001ULL};
-    std::uint64_t                                    mNextRuntimeId{0x6E000000ULL};
+    std::uint64_t                                    mNextRuntimeId{core::actorIds::customEntity.first};
     std::unordered_set<mce::UUID>                    mInitializedPlayers;
     ll::event::ListenerPtr                           mJoinListener;
     ll::event::ListenerPtr                           mDisconnectListener;

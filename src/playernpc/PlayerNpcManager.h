@@ -8,6 +8,8 @@
 // 属性变更经脏刷新合并为单次 respawn（对齐 ItemDisplay/CustomEntity 模式）
 #pragma once
 
+#include "core/VirtualActorIds.h" // runtimeId 号段（唯一出处）
+
 #include <cstdint>
 #include <mutex>
 #include <string>
@@ -206,7 +208,7 @@ private:
     // Actor ID 段：uniqueId 用 0x1F600000 起（安全量级），runtimeId 用 0x6F 段
     // （ghost 交互路由按段分发，且要避开真实实体的 runtimeId 区间）
     std::uint64_t                                             mNextActorUniqueId{0x1F600000ULL};
-    std::uint64_t                                             mNextRuntimeId{0x6F000000ULL};
+    std::uint64_t                                             mNextRuntimeId{core::actorIds::playerNpc.first};
 
     std::unordered_set<mce::UUID>                             mInitializedPlayers;
     ll::event::ListenerPtr                                    mJoinListener;
