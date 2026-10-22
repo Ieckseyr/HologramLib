@@ -7,7 +7,8 @@
 // 展示 id → 实体 id 的映射, 所以这里没有新的钩子、包体只有那个属性包
 // （sulfur/SulfurDisplayPackets.h）, 装备与隐身走库里既有的通路。
 //
-// 26.51.6 起映射表改用内核层 core/Registry.h: id 分配 / 索引同生共死 / 快照式遍历由内核保证。
+// 本轮（26.51.6，**尚未发布正式版**）起映射表改用内核层 core/Registry.h:
+// id 分配 / 索引同生共死 / 快照式遍历由内核保证。
 // 迁移前 setInvisible / setScale 是**持着自己的锁**去调 CustomEntityManager 的（嵌套加锁，
 // 而那条路径会发包 → 钩子重入），现在统一成"锁内取快照 → 解锁 → 调下游"。
 #pragma once
@@ -28,16 +29,16 @@ public:
     static SulfurDisplayManager& getInstance();
 
     int64_t create(hologramlib::SulfurDisplaySpec const& spec);
-    bool setBlock(int64_t id, hologramlib::ContainerMenuItem const& item);
-    bool setArchetype(int64_t id, std::string const& archetype);
-    bool setInvisible(int64_t id, bool on);
-    bool setScale(int64_t id, float scale);
-    bool destroy(int64_t id);
-    void destroyAll();
+    bool    setBlock(int64_t id, hologramlib::ContainerMenuItem const& item);
+    bool    setArchetype(int64_t id, std::string const& archetype);
+    bool    setInvisible(int64_t id, bool on);
+    bool    setScale(int64_t id, float scale);
+    bool    destroy(int64_t id);
+    void    destroyAll();
 
-    [[nodiscard]] bool exists(int64_t id) const;
+    [[nodiscard]] bool                 exists(int64_t id) const;
     [[nodiscard]] std::vector<int64_t> getAllIds() const;
-    [[nodiscard]] int64_t entityIdOf(int64_t id) const;
+    [[nodiscard]] int64_t              entityIdOf(int64_t id) const;
 
 private:
     SulfurDisplayManager() = default;

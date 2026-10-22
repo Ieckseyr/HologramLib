@@ -172,11 +172,10 @@ static void routeGhostInteract(
     bool               hasPos,
     float              x,
     float              y,
-    float              z
-) {
+    float              z) {
     bool const isDisplay = core::actorIds::itemDisplay.contains(runtimeId);
-    bool const isEntity = core::actorIds::customEntity.contains(runtimeId);
-    bool const isNpc = core::actorIds::playerNpc.contains(runtimeId);
+    bool const isEntity  = core::actorIds::customEntity.contains(runtimeId);
+    bool const isNpc     = core::actorIds::playerNpc.contains(runtimeId);
     if (!isDisplay && !isEntity && !isNpc) {
         // 真实实体（原版生物 / 自定义生物 / 玩家）: 派发给"实体交互"监听器（1.27.0）。
         // 消费方因此不必自己挂钩子 —— 挂到 BDS 热路径上的 detour 层叠多了会毁掉 trampoline。
@@ -240,9 +239,10 @@ LL_TYPE_INSTANCE_HOOK(
     // 快速过滤: 目标不在库内 Actor ID 段（真实实体）→ 不产生事件
     auto const runtimeId = static_cast<std::uint64_t>(packet.mTargetId.get().rawID);
     bool const isDisplay = core::actorIds::itemDisplay.contains(runtimeId);
-    bool const isEntity = core::actorIds::customEntity.contains(runtimeId);
-    bool const isNpc = core::actorIds::playerNpc.contains(runtimeId);
-    if (!isDisplay && !isEntity && !isNpc) return;
+    bool const isEntity  = core::actorIds::customEntity.contains(runtimeId);
+    bool const isNpc     = core::actorIds::playerNpc.contains(runtimeId);
+    if (!isDisplay && !isEntity && !isNpc)
+        return;
 
     // 点击者解析（按 NetworkIdentifier 匹配在线玩家）
     Player* actor = nullptr;

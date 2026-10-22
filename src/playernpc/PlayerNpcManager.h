@@ -207,7 +207,7 @@ private:
     //   runtimeId 用 0x6F 段，ghost 交互路由依赖该段做分发
     // Actor ID 段：uniqueId 用 0x1F600000 起（安全量级），runtimeId 用 0x6F 段
     // （ghost 交互路由按段分发，且要避开真实实体的 runtimeId 区间）
-    std::uint64_t                                             mNextActorUniqueId{0x1F600000ULL};
+    std::uint64_t mNextActorUniqueId{0x1F600000ULL};
     std::uint64_t mNextRuntimeId{core::actorIds::playerNpc.first};
 
     std::unordered_set<mce::UUID>                             mInitializedPlayers;

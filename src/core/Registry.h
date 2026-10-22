@@ -31,7 +31,7 @@ namespace core {
 template <class T>
 class Registry {
 public:
-    using Id = std::int64_t;
+    using Id     = std::int64_t;
     using IdList = std::vector<Id>;
 
     /// dirtyOnInsert = true 时每次插入自动标脏（逐 tick 刷新的渲染域用）；
@@ -39,15 +39,15 @@ public:
     explicit Registry(bool dirtyOnInsert = false)
         : mDirtyOnInsert(dirtyOnInsert) {}
 
-    Registry(Registry const&) = delete;
+    Registry(Registry const&)            = delete;
     Registry& operator=(Registry const&) = delete;
 
     // ── 生命周期 ──────────────────────────────────────────────────────────────
     /// 分配新 id 并插入。runtimeId/dimId 为 0 表示"不进索引"（多数域只在需要反查时才给）。
     Id insert(std::unique_ptr<T> object, std::uint64_t runtimeId = 0, int dimId = 0) {
         std::lock_guard lock(mMutex);
-        Id const id = mNextId++;
-        mById[id] = std::move(object);
+        Id const        id = mNextId++;
+        mById[id]          = std::move(object);
         if (runtimeId != 0) {
             mByRuntimeId[runtimeId] = id;
         }
@@ -78,7 +78,7 @@ public:
 
     bool erase(Id id) {
         std::lock_guard lock(mMutex);
-        auto it = mById.find(id);
+        auto            it = mById.find(id);
         if (it == mById.end())
             return false;
         eraseIndexesLocked(id);
@@ -101,7 +101,7 @@ public:
     template <class Fn>
     bool withObject(Id id, Fn&& fn) {
         std::lock_guard lock(mMutex);
-        auto it = mById.find(id);
+        auto            it = mById.find(id);
         if (it == mById.end())
             return false;
         fn(*it->second);
@@ -111,7 +111,7 @@ public:
     template <class Fn>
     bool withObject(Id id, Fn&& fn) const {
         std::lock_guard lock(mMutex);
-        auto it = mById.find(id);
+        auto            it = mById.find(id);
         if (it == mById.end())
             return false;
         fn(*it->second);
@@ -130,7 +130,7 @@ public:
     // ── 索引 ──────────────────────────────────────────────────────────────────
     std::optional<Id> findByRuntimeId(std::uint64_t runtimeId) const {
         std::lock_guard lock(mMutex);
-        auto it = mByRuntimeId.find(runtimeId);
+        auto            it = mByRuntimeId.find(runtimeId);
         if (it == mByRuntimeId.end())
             return std::nullopt;
         return it->second;
@@ -139,7 +139,7 @@ public:
     /// 改维度时同步索引（漏调 = 按维度重发会漏对象）
     void setDimension(Id id, int newDim) {
         std::lock_guard lock(mMutex);
-        auto it = mById.find(id);
+        auto            it = mById.find(id);
         if (it == mById.end())
             return;
         for (auto& [dim, ids] : mByDimension) {
@@ -155,7 +155,7 @@ public:
 
     IdList snapshotByDimension(int dimId) const {
         std::lock_guard lock(mMutex);
-        auto it = mByDimension.find(dimId);
+        auto            it = mByDimension.find(dimId);
         if (it == mByDimension.end())
             return {};
         return it->second;
@@ -164,7 +164,7 @@ public:
     /// 全量 id 快照（进服重发/关停清理用）—— 拿到之后在锁外逐个 withObject + 发包
     IdList snapshotAll() const {
         std::lock_guard lock(mMutex);
-        IdList out;
+        IdList          out;
         out.reserve(mById.size());
         for (auto const& [id, _] : mById) {
             out.push_back(id);
@@ -188,7 +188,7 @@ public:
     /// 取走脏集（每 tick 一次）; 已销毁的 id 在这里被过滤掉
     IdList takeDirty() {
         std::lock_guard lock(mMutex);
-        IdList out;
+        IdList          out;
         out.reserve(mDirty.size());
         for (Id id : mDirty) {
             if (mById.contains(id))
@@ -219,13 +219,13 @@ private:
         }
     }
 
-    mutable std::mutex mMutex;
-    Id mNextId{1};
-    bool mDirtyOnInsert{false};
+    mutable std::mutex                         mMutex;
+    Id                                         mNextId{1};
+    bool                                       mDirtyOnInsert{false};
     std::unordered_map<Id, std::unique_ptr<T>> mById;
-    std::unordered_map<std::uint64_t, Id> mByRuntimeId;
-    std::unordered_map<int, IdList> mByDimension;
-    IdList mDirty;
+    std::unordered_map<std::uint64_t, Id>      mByRuntimeId;
+    std::unordered_map<int, IdList>            mByDimension;
+    IdList                                     mDirty;
 };
 
 } // namespace core

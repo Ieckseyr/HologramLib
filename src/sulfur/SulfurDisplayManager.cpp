@@ -21,8 +21,8 @@ constexpr int kMainhandSlot = 0;
 std::string buildDisplaySnbt(hologramlib::ContainerMenuItem const& item) {
     if (item.name.empty() && item.lore.empty())
         return {};
-    std::string out = "{display:{";
-    bool first = true;
+    std::string out   = "{display:{";
+    bool        first = true;
     if (!item.name.empty()) {
         out += std::format(R"x(Name:"{}")x", item.name);
         first = false;
@@ -47,8 +47,8 @@ hologramlib::CustomEntityEquipment toEquipment(hologramlib::ContainerMenuItem co
     if (item.type.empty())
         return eq; // 空手
     eq.name = item.type;
-    eq.aux = item.damage;
-    eq.nbt = buildDisplaySnbt(item);
+    eq.aux  = item.damage;
+    eq.nbt  = buildDisplaySnbt(item);
     return eq;
 }
 
@@ -61,15 +61,15 @@ SulfurDisplayManager& SulfurDisplayManager::getInstance() {
 
 int64_t SulfurDisplayManager::create(hologramlib::SulfurDisplaySpec const& spec) {
     hologramlib::CustomEntityConfig cfg;
-    cfg.identifier = kSulfurIdentifier;
-    cfg.x = spec.x;
-    cfg.y = spec.y;
-    cfg.z = spec.z;
-    cfg.dimension = spec.dim;
-    cfg.scale = spec.scale;
-    cfg.viewDistance = spec.viewDistance;
-    cfg.variant = spec.variant;
-    cfg.invisible = spec.invisible;
+    cfg.identifier               = kSulfurIdentifier;
+    cfg.x                        = spec.x;
+    cfg.y                        = spec.y;
+    cfg.z                        = spec.z;
+    cfg.dimension                = spec.dim;
+    cfg.scale                    = spec.scale;
+    cfg.viewDistance             = spec.viewDistance;
+    cfg.variant                  = spec.variant;
+    cfg.invisible                = spec.invisible;
     cfg.equipment[kMainhandSlot] = toEquipment(spec.block);
     if (!spec.archetype.empty()) {
         cfg.mobProperties.push_back(hologramlib::EntityMobProperty{sulfur::kArchetypeProperty, spec.archetype});
@@ -186,8 +186,8 @@ public:
     bool setScale(int64_t id, float scale) override {
         return SulfurDisplayManager::getInstance().setScale(id, scale);
     }
-    bool destroy(int64_t id) override { return SulfurDisplayManager::getInstance().destroy(id); }
-    void destroyAll() override { SulfurDisplayManager::getInstance().destroyAll(); }
+    bool               destroy(int64_t id) override { return SulfurDisplayManager::getInstance().destroy(id); }
+    void               destroyAll() override { SulfurDisplayManager::getInstance().destroyAll(); }
     [[nodiscard]] bool exists(int64_t id) const override {
         return SulfurDisplayManager::getInstance().exists(id);
     }

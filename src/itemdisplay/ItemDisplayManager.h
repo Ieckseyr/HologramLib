@@ -215,10 +215,10 @@ private:
     // 可见玩家白名单（id -> 玩家名集合; 无条目 = 全员可见, 兼容默认行为）
     std::unordered_map<int64_t, std::unordered_set<std::string>> mVisibleFilter;
     // 1.17.0: 跟随登记表（id -> 跟随状态; destroy/下线/setPosition 时清除）
-    std::unordered_map<int64_t, FollowState>            mFollowers;
+    std::unordered_map<int64_t, FollowState> mFollowers;
 
     std::uint64_t                                       mNextActorUniqueId{0x6D00000000000001ULL};
-    std::uint64_t mNextRuntimeId{core::actorIds::itemDisplay.first};
+    std::uint64_t                                       mNextRuntimeId{core::actorIds::itemDisplay.first};
     std::unordered_set<mce::UUID>                       mInitializedPlayers;
     ll::event::ListenerPtr                              mJoinListener;
     ll::event::ListenerPtr                              mDisconnectListener;

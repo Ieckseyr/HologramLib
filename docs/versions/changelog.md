@@ -16,6 +16,8 @@
 
 ## 26.51.6 — API 1.31.0（内部重构与修复，无 API 变化）
 
+> **状态：未发布。** 代码已推送 GitHub，但还没有打 tag / 上传正式发行版；对外引用版本号前先确认已发布。
+
 API 版本与虚表槽位都没动，C++ 消费方**无需重新编译**。
 
 ### 重构
@@ -58,6 +60,9 @@ API 版本与虚表槽位都没动，C++ 消费方**无需重新编译**。
   读配置就报 `unknown enumerated scalar` —— 格式检查在检查任何文件之前就失败。改为 `c++20`。
 - 格式门禁改成只看改动的行（`tools/check_format.py`）：仓库没做过一次性格式化，整文件 `--Werror` 会被
   历史 violation 顶红（`CustomEntityManager.cpp` 单文件 298 处、`ItemDisplayManager.cpp` 377 处）。
+- `.clang-format` 打开 `AlignConsecutiveDeclarations` / `AlignConsecutiveAssignments`：原来两项是 false，
+  与代码里手写的成员列表对齐冲突 —— 任何被改动到的对齐行都会被拆成单空格（内核层那几行就踩过）。
+  打开后 clang-format 按手写风格对齐，不再破坏周围排版。
 - CI 补一步内核层单测：`g++ -std=c++23 -I src tests/registry_test.cpp`，不需要 levilamina / BDS。
 
 ## 26.51.5 / 26.40.12 — API 1.31.0

@@ -24,7 +24,7 @@ struct Range {
     std::uint64_t first;
     std::uint64_t last;
 
-    constexpr bool contains(std::uint64_t value) const noexcept { return value >= first && value < last; }
+    constexpr bool          contains(std::uint64_t value) const noexcept { return value >= first && value < last; }
     constexpr std::uint64_t size() const noexcept { return last - first; }
 };
 

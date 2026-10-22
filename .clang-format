@@ -24,10 +24,11 @@ PointerAlignment: Left
 ReferenceAlignment: Left
 SpaceAfterCStyleCast: false
 
-# 不做跨行对齐
+# 跨行对齐: 保持手写风格（成员列表 / 连续赋值本来就对齐）。
+# 关掉这两项时, 任何被改动到的对齐行都会被 clang-format 拆成单空格, 与周围代码不一致。
 AlignAfterOpenBracket: Align
-AlignConsecutiveAssignments: false
-AlignConsecutiveDeclarations: false
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
 AlignEscapedNewlines: Left
 
 # 访问修饰符顶格

@@ -30,15 +30,15 @@ void check(bool cond, char const* what) {
 }
 
 struct Item {
-    int dim{0};
+    int         dim{0};
     std::string name;
 };
 
 void testIdAllocation() {
     std::printf("[1] id 分配: 递增 / 不复用\n");
     core::Registry<Item> reg;
-    auto const a = reg.insert(std::make_unique<Item>(Item{0, "a"}));
-    auto const b = reg.insert(std::make_unique<Item>(Item{0, "b"}));
+    auto const           a = reg.insert(std::make_unique<Item>(Item{0, "a"}));
+    auto const           b = reg.insert(std::make_unique<Item>(Item{0, "b"}));
     check(b == a + 1, "连续 insert 的 id 递增 1");
     check(reg.erase(a), "erase 存在的 id 返回 true");
     auto const c = reg.insert(std::make_unique<Item>(Item{0, "c"}));
@@ -50,8 +50,8 @@ void testIdAllocation() {
 void testRuntimeIdIndex() {
     std::printf("[2] runtimeId 索引与主表同生共死\n");
     core::Registry<Item> reg;
-    auto const id = reg.insert(std::make_unique<Item>(Item{0, "x"}), 0x6D000001ULL);
-    auto const found = reg.findByRuntimeId(0x6D000001ULL);
+    auto const           id    = reg.insert(std::make_unique<Item>(Item{0, "x"}), 0x6D000001ULL);
+    auto const           found = reg.findByRuntimeId(0x6D000001ULL);
     check(found.has_value() && *found == id, "按 runtimeId 能查到 id");
     check(!reg.findByRuntimeId(0x6D000002ULL).has_value(), "未登记的 runtimeId 返回 nullopt");
     reg.erase(id);
@@ -61,8 +61,8 @@ void testRuntimeIdIndex() {
 void testDimensionIndex() {
     std::printf("[3] 维度索引: 分桶 / 迁移 / 删除\n");
     core::Registry<Item> reg;
-    auto const a = reg.insert(std::make_unique<Item>(Item{1, "a"}), 0, 1);
-    auto const b = reg.insert(std::make_unique<Item>(Item{2, "b"}), 0, 2);
+    auto const           a = reg.insert(std::make_unique<Item>(Item{1, "a"}), 0, 1);
+    auto const           b = reg.insert(std::make_unique<Item>(Item{2, "b"}), 0, 2);
     check(reg.snapshotByDimension(1).size() == 1, "维度 1 只有 1 个");
     check(reg.snapshotByDimension(1)[0] == a, "维度 1 里是 a");
 
@@ -82,8 +82,8 @@ void testDirtySet() {
     check(plain.dirtyCount() == 0, "默认配置下 insert 不标脏");
 
     core::Registry<Item> ticking{true}; // 逐 tick 刷新的渲染域
-    auto const a = ticking.insert(std::make_unique<Item>(Item{0, "a"}));
-    auto const b = ticking.insert(std::make_unique<Item>(Item{0, "b"}));
+    auto const           a = ticking.insert(std::make_unique<Item>(Item{0, "a"}));
+    auto const           b = ticking.insert(std::make_unique<Item>(Item{0, "b"}));
     check(ticking.dirtyCount() == 2, "dirtyOnInsert 配置下 insert 自动标脏");
 
     auto first = ticking.takeDirty();
@@ -128,11 +128,11 @@ void testSnapshotAndForEach() {
 void testConcurrentAccess() {
     std::printf("[6] 并发: 多线程 insert/erase 不崩且计数自洽\n");
     core::Registry<Item> reg;
-    constexpr int kThreads = 4;
-    constexpr int kPerThread = 500;
+    constexpr int        kThreads   = 4;
+    constexpr int        kPerThread = 500;
 
     std::vector<std::thread> threads;
-    std::atomic<int> inserted{0};
+    std::atomic<int>         inserted{0};
     threads.reserve(kThreads);
     for (int t = 0; t < kThreads; ++t) {
         threads.emplace_back([&reg, &inserted] {
@@ -147,7 +147,7 @@ void testConcurrentAccess() {
     for (auto& th : threads)
         th.join();
 
-    auto const total = reg.size();
+    auto const total  = reg.size();
     auto const dimSum = reg.snapshotByDimension(1).size() + reg.snapshotByDimension(2).size() +
                         reg.snapshotByDimension(3).size();
     check(total == static_cast<std::size_t>(inserted.load() - (kThreads * (kPerThread / 4))),
