@@ -58,9 +58,12 @@ constexpr bool anyContains(std::uint64_t value) noexcept {
 
 // 号段名（诊断/日志用；返回 nullptr 表示不在任何虚拟段内）
 constexpr char const* domainOf(std::uint64_t value) noexcept {
-    if (itemDisplay.contains(value)) return "itemDisplay";
-    if (customEntity.contains(value)) return "customEntity";
-    if (playerNpc.contains(value)) return "playerNpc";
+    if (itemDisplay.contains(value))
+        return "itemDisplay";
+    if (customEntity.contains(value))
+        return "customEntity";
+    if (playerNpc.contains(value))
+        return "playerNpc";
     return nullptr;
 }
 
