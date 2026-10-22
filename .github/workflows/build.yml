@@ -29,7 +29,7 @@ jobs:
 
       - name: 内核层单测（不依赖 BDS）
         run: |
-          g++ -std=c++20 -O1 -I src tests/registry_test.cpp -o /tmp/registry_test
+          g++ -std=c++20 -pthread -O1 -I src tests/registry_test.cpp -o /tmp/registry_test
           /tmp/registry_test
 
       - name: 装 clang-format
