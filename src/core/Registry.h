@@ -29,7 +29,16 @@
 namespace debugshape_export {
 namespace core {
 
-template <class T>
+/// 空锁: 表由**外部的**域锁保护时用（多张表共享一个临界区的域）。
+/// std::lock_guard<NoLock> 合法，只是什么都不做 —— 临界区仍然在调用方手里。
+struct NoLock {
+    constexpr void lock() noexcept {}
+    constexpr void unlock() noexcept {}
+};
+
+/// T = 表里存的类型；Mutex = 锁策略（默认自持 std::mutex）。
+/// 需要可重入的域传 std::recursive_mutex；多张表共享一个临界区的域传 NoLock 并自己加锁。
+template <class T, class Mutex = std::mutex>
 class Registry {
 public:
     using Id     = std::int64_t;
@@ -245,7 +254,7 @@ private:
         }
     }
 
-    mutable std::mutex                         mMutex;
+    mutable Mutex                              mMutex;
     Id                                         mNextId{1};
     bool                                       mDirtyOnInsert{false};
     std::unordered_map<Id, std::unique_ptr<T>> mById;

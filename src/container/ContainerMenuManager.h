@@ -16,6 +16,8 @@
 // 容器 id 用 100 以上的显示区间, 避开 BDS 给真实容器分配的动态 id（1..100）。
 #pragma once
 
+#include "core/Registry.h" // 内核层: 对象表（NoLock：临界区由本域的 mMutex 持有）
+
 #include "hologramlib/HologramLib.h"
 
 #include <ll/api/io/Logger.h>
@@ -139,11 +141,10 @@ private:
     [[nodiscard]] bool isCurrentEpoch(Menu const& menu) const;
 
     mutable std::mutex                        mMutex;
-    std::unordered_map<int64_t, Menu>         mMenus;
+    core::Registry<Menu, core::NoLock>                                                         mMenus;
     std::unordered_map<std::string, int64_t>  mByPlayer;
     std::unordered_map<uint64_t, std::function<void(hologramlib::ContainerClickEvent const&)>> mListeners;
     std::deque<hologramlib::ContainerClickEvent> mClickQueue; // LSE 轮询队列
-    int64_t  mNextMenuId{1};
     int      mNextContainerId{101}; // 1..100 留给真实容器
     std::unordered_map<std::string, std::uint64_t> mPlayerEpoch; // 26.40：会话序号
     std::unordered_map<int, std::uint64_t>         mIdFreedTick; // 26.40：200 tick 内不复用

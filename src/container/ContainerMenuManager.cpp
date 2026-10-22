@@ -179,12 +179,10 @@ int ContainerMenuManager::allocateContainerId() {
         mNextContainerId    = (mNextContainerId >= 199) ? 101 : (mNextContainerId + 1);
         bool used = mIdFreedTick.contains(candidate);
         if (!used) {
-            for (auto const& [id, menu] : mMenus) {
-                if (menu.containerId == candidate) {
+            mMenus.forEachLocked([&](int64_t, Menu const& menu) {
+                if (menu.containerId == candidate)
                     used = true;
-                    break;
-                }
-            }
+            });
         }
         if (!used) return candidate;
     }
@@ -259,10 +257,9 @@ void ContainerMenuManager::sendMinecartCarrier(Player& player, Menu const& menu)
 
 bool ContainerMenuManager::snapshotMenu(int64_t menuId, Menu& out) const {
     std::lock_guard lock(mMutex);
-    auto            it = mMenus.find(menuId);
-    if (it == mMenus.end()) return false;
-    out = it->second;
-    return true;
+    return mMenus.withObject(menuId, [&](Menu const& menu) {
+        out = menu;
+    });
 }
 
 bool ContainerMenuManager::isCurrentEpoch(Menu const& menu) const {
@@ -288,7 +285,9 @@ void ContainerMenuManager::laterSendOpen(std::string playerName, int64_t menuId)
     if (!isCurrentEpoch(copy)) return; // 旧会话的延迟 open 不再发
     sendContainerOpen(*player, copy);
     std::lock_guard lock(mMutex);
-    if (auto it = mMenus.find(menuId); it != mMenus.end()) it->second.uiOpen = true;
+    mMenus.withObject(menuId, [&](Menu& menu) {
+        menu.uiOpen = true;
+    });
 }
 
 void ContainerMenuManager::laterMinecartOpen(std::string playerName, int64_t menuId) {
@@ -299,7 +298,9 @@ void ContainerMenuManager::laterMinecartOpen(std::string playerName, int64_t men
     if (!isCurrentEpoch(copy)) return;
     sendMinecartCarrier(*player, copy);
     std::lock_guard lock(mMutex);
-    if (auto it = mMenus.find(menuId); it != mMenus.end()) it->second.uiOpen = true;
+    mMenus.withObject(menuId, [&](Menu& menu) {
+        menu.uiOpen = true;
+    });
 }
 
 int64_t ContainerMenuManager::open(std::string const& playerName, hologramlib::ContainerMenuSpec const& spec) {
@@ -328,15 +329,15 @@ int64_t ContainerMenuManager::open(std::string const& playerName, hologramlib::C
     }
     {
         std::lock_guard lock(mMutex);
-        menu.menuId      = mNextMenuId++;
         menu.containerId = allocateContainerId();
         menu.ownerEpoch  = ++mPlayerEpoch[playerName];
         if (menu.containerId == 0) {
             HLIB_LOG_WARN("[ContainerMenu] 容器 id 用尽（玩家 {}）", playerName);
             return -1;
         }
-        mMenus.emplace(menu.menuId, menu);
-        mByPlayer[playerName] = menu.menuId;
+        int64_t const menuId  = mMenus.insert(std::make_unique<Menu>(menu));
+        menu.menuId           = menuId;
+        mByPlayer[playerName] = menuId;
     }
 
     // 节奏与参考实现一致: ① 先摆方块 + 方块实体（客户端要先知道有这个容器）→ ② 等 10 tick
@@ -407,10 +408,12 @@ bool ContainerMenuManager::update(int64_t menuId, hologramlib::ContainerMenuSpec
     Menu  copy;
     {
         std::lock_guard lock(mMutex);
-        auto            it = mMenus.find(menuId);
-        if (it == mMenus.end()) return false;
-        it->second.spec = spec;
-        copy            = it->second;
+        if (!mMenus.withObject(menuId, [&](Menu& menu) {
+                menu.spec = spec;
+                copy      = menu;
+            })) {
+            return false;
+        }
     }
     auto* player = findPlayerByName(copy.playerName);
     if (player == nullptr) return false;
@@ -447,11 +450,16 @@ bool ContainerMenuManager::setItem(int64_t menuId, int slot, hologramlib::Contai
     Menu  copy;
     {
         std::lock_guard lock(mMutex);
-        auto            it = mMenus.find(menuId);
-        if (it == mMenus.end()) return false;
-        if (slot < 0 || slot >= it->second.slotCount()) return false;
-        if (slot < static_cast<int>(it->second.spec.items.size())) it->second.spec.items[slot] = item;
-        copy = it->second;
+        bool const      patched = mMenus.withObject(menuId, [&](Menu& menu) -> bool {
+            if (slot < 0 || slot >= menu.slotCount())
+                return false;
+            if (slot < static_cast<int>(menu.spec.items.size()))
+                menu.spec.items[slot] = item;
+            copy = menu;
+            return true;
+        });
+        if (!patched)
+            return false;
     }
     auto* player = findPlayerByName(copy.playerName);
     if (player == nullptr) return false;
@@ -475,11 +483,13 @@ bool ContainerMenuManager::setTitle(int64_t menuId, std::string const& title) {
     std::string                  playerName;
     {
         std::lock_guard lock(mMutex);
-        auto            it = mMenus.find(menuId);
-        if (it == mMenus.end()) return false;
-        it->second.spec.title = title;
-        spec                  = it->second.spec;
-        playerName            = it->second.playerName;
+        if (!mMenus.withObject(menuId, [&](Menu& menu) {
+                menu.spec.title = title;
+                spec            = menu.spec;
+                playerName      = menu.playerName;
+            })) {
+            return false;
+        }
     }
     auto* player = findPlayerByName(playerName);
     if (player == nullptr) return false;
@@ -489,10 +499,9 @@ bool ContainerMenuManager::setTitle(int64_t menuId, std::string const& title) {
 
 bool ContainerMenuManager::setInteractive(int64_t menuId, bool on) {
     std::lock_guard lock(mMutex);
-    auto            it = mMenus.find(menuId);
-    if (it == mMenus.end()) return false;
-    it->second.spec.interactive = on;
-    return true;
+    return mMenus.withObject(menuId, [&](Menu& menu) {
+        menu.spec.interactive = on;
+    });
 }
 
 // 可交互模式: 一条请求的槽位序列 → 条目表。
@@ -556,29 +565,33 @@ bool ContainerMenuManager::handleInteractiveRequest(
         std::lock_guard lock(mMutex);
         auto            byPlayer = mByPlayer.find(playerName);
         if (byPlayer == mByPlayer.end()) return false;
-        auto menuIt = mMenus.find(byPlayer->second);
-        if (menuIt == mMenus.end()) return false;
-        auto& menu = menuIt->second;
-        if (!menu.spec.interactive) return false; // 默认只回传, 不接
+        bool const handled = mMenus.withObject(byPlayer->second, [&](Menu& menu) -> bool {
+            if (!menu.spec.interactive)
+                return false; // 默认只回传, 不接
 
-        // 每个槽位都必须落在本容器内（外部槽位 = 玩家背包/光标等, 一律不接）
-        int const slotCount = menu.slotCount();
-        for (auto const& ref : slots) {
-            bool const inContainer = (ref.container == static_cast<int>(ContainerEnumName::LevelEntityContainer))
-                                  || (ref.containerId >= 101 && ref.containerId <= 199);
-            if (!inContainer) return false;
-            if (ref.slot < 0 || ref.slot >= slotCount) return false;
-        }
+            // 每个槽位都必须落在本容器内（外部槽位 = 玩家背包/光标等, 一律不接）
+            int const slotCount = menu.slotCount();
+            for (auto const& ref : slots) {
+                bool const inContainer = (ref.container == static_cast<int>(ContainerEnumName::LevelEntityContainer)) || (ref.containerId >= 101 && ref.containerId <= 199);
+                if (!inContainer)
+                    return false;
+                if (ref.slot < 0 || ref.slot >= slotCount)
+                    return false;
+            }
 
-        applyInteractiveSlots(menu, slots, amount);
+            applyInteractiveSlots(menu, slots, amount);
 
-        for (std::size_t i = 0; i < slots.size(); ++i) {
-            hologramlib::ContainerClickEvent event;
-            event.playerName = playerName;
-            event.menuId     = menu.menuId;
-            event.slot       = slots[i].slot;
-            events.push_back(event);
-        }
+            for (std::size_t i = 0; i < slots.size(); ++i) {
+                hologramlib::ContainerClickEvent event;
+                event.playerName = playerName;
+                event.menuId     = menu.menuId;
+                event.slot       = slots[i].slot;
+                events.push_back(event);
+            }
+            return true;
+        });
+        if (!handled)
+            return false;
     }
     for (auto const& event : events) dispatch(event);
     HLIB_LOG_INFO(
@@ -594,10 +607,11 @@ bool ContainerMenuManager::close(int64_t menuId) {
     Menu copy;
     {
         std::lock_guard lock(mMutex);
-        auto            it = mMenus.find(menuId);
-        if (it == mMenus.end()) return false;
-        copy = it->second;
-        mMenus.erase(it);
+        if (!mMenus.withObject(menuId, [&](Menu const& menu) {
+                copy = menu;
+            }))
+            return false;
+        mMenus.erase(menuId);
         mIdFreedTick[copy.containerId] = containerNowTick(); // 200 tick 内不复用
         if (auto byPlayer = mByPlayer.find(copy.playerName);
             byPlayer != mByPlayer.end() && byPlayer->second == menuId) {
@@ -620,25 +634,16 @@ bool ContainerMenuManager::close(int64_t menuId) {
 }
 
 void ContainerMenuManager::closeAll() {
-    std::vector<int64_t> ids;
-    {
-        std::lock_guard lock(mMutex);
-        for (auto const& [id, menu] : mMenus) ids.push_back(id);
-    }
-    for (auto const id : ids) close(id);
+    for (auto const id : mMenus.snapshotAll())
+        close(id);
 }
 
 bool ContainerMenuManager::isOpen(int64_t menuId) const {
-    std::lock_guard lock(mMutex);
-    return mMenus.contains(menuId);
+    return mMenus.exists(menuId);
 }
 
 std::vector<int64_t> ContainerMenuManager::getAllIds() const {
-    std::lock_guard      lock(mMutex);
-    std::vector<int64_t> out;
-    out.reserve(mMenus.size());
-    for (auto const& [id, menu] : mMenus) out.push_back(id);
-    return out;
+    return mMenus.snapshotAll();
 }
 
 uint64_t ContainerMenuManager::addClickListener(
@@ -729,15 +734,17 @@ bool ContainerMenuManager::handleSlotAction(
         std::lock_guard lock(mMutex);
         auto            byPlayer = mByPlayer.find(playerName);
         if (byPlayer == mByPlayer.end()) return false;
-        auto menuIt = mMenus.find(byPlayer->second);
-        if (menuIt == mMenus.end()) return false;
-        auto const& menu = menuIt->second;
+        bool const hit = mMenus.withObject(byPlayer->second, [&](Menu const& menu) -> bool {
+            if (slot < 0 || slot >= menu.slotCount())
+                return false; // 越界（不是本容器的格子）
 
-        if (slot < 0 || slot >= menu.slotCount()) return false; // 越界（不是本容器的格子）
-
-        event.playerName = playerName;
-        event.menuId     = menu.menuId;
-        event.slot       = slot;
+            event.playerName = playerName;
+            event.menuId     = menu.menuId;
+            event.slot       = slot;
+            return true;
+        });
+        if (!hit)
+            return false;
     }
     dispatch(event);
     return true;
@@ -750,15 +757,19 @@ bool ContainerMenuManager::handleContainerClose(std::string const& playerName, i
         std::lock_guard lock(mMutex);
         auto            byPlayer = mByPlayer.find(playerName);
         if (byPlayer == mByPlayer.end()) return false;
-        auto menuIt = mMenus.find(byPlayer->second);
-        if (menuIt == mMenus.end()) return false;
-        if (menuIt->second.containerId != containerId) return false; // 不是本域的容器
-        copy             = menuIt->second;
+        bool const hit = mMenus.withObject(byPlayer->second, [&](Menu const& menu) -> bool {
+            if (menu.containerId != containerId)
+                return false; // 不是本域的容器
+            copy = menu;
+            return true;
+        });
+        if (!hit)
+            return false;
         event.playerName = playerName;
         event.menuId     = copy.menuId;
         event.closed     = true;
         mIdFreedTick[copy.containerId] = containerNowTick();
-        mMenus.erase(menuIt);
+        mMenus.erase(byPlayer->second);
         mByPlayer.erase(byPlayer);
     }
     dispatch(event);

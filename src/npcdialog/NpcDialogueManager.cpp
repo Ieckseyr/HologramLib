@@ -319,9 +319,10 @@ int64_t NpcDialogueManager::open(std::string const& playerName, hologramlib::Npc
         if (auto prev = mByPlayer.find(playerName); prev != mByPlayer.end()) {
             mDialogs.erase(prev->second);
         }
-        dialogId        = mNextDialogId++;
-        dialog.dialogId = dialogId;
-        mDialogs[dialogId]    = dialog;
+        dialogId = mDialogs.insert(std::make_unique<Dialog>(dialog));
+        mDialogs.withObject(dialogId, [&](Dialog& d) {
+            d.dialogId = dialogId;
+        });
         mByPlayer[playerName] = dialogId;
     }
 
@@ -349,10 +350,12 @@ bool NpcDialogueManager::setAvatar(int64_t dialogId, int skinVariant, std::strin
     hologramlib::NpcDialogSpec spec;
     {
         std::lock_guard lock(mMutex);
-        auto const      it = mDialogs.find(dialogId);
-        if (it == mDialogs.end()) return false;
-        playerName = it->second.playerName;
-        spec       = it->second.spec;
+        if (!mDialogs.withObject(dialogId, [&](Dialog const& d) {
+                playerName = d.playerName;
+                spec       = d.spec;
+            })) {
+            return false;
+        }
     }
     spec.avatarSkinVariant = skinVariant;
     spec.avatarViewSpec    = avatarViewSpec;
@@ -363,11 +366,13 @@ bool NpcDialogueManager::update(int64_t dialogId, hologramlib::NpcDialogSpec con
     Dialog copy;
     {
         std::lock_guard lock(mMutex);
-        auto            it = mDialogs.find(dialogId);
-        if (it == mDialogs.end()) return false;
-        it->second.spec    = spec;
-        it->second.touched = true; // 本次点击已由调用方接管: 库里不再自动拆这个对话
-        copy               = it->second;
+        if (!mDialogs.withObject(dialogId, [&](Dialog& d) {
+                d.spec    = spec;
+                d.touched = true; // 本次点击已由调用方接管: 库里不再自动拆这个对话
+                copy      = d;
+            })) {
+            return false;
+        }
     }
     auto* player = findPlayerByName(copy.playerName);
     if (player == nullptr) return false;
@@ -385,20 +390,20 @@ bool NpcDialogueManager::update(int64_t dialogId, hologramlib::NpcDialogSpec con
 
 bool NpcDialogueManager::getSpec(int64_t dialogId, hologramlib::NpcDialogSpec& out) const {
     std::lock_guard lock(mMutex);
-    auto            it = mDialogs.find(dialogId);
-    if (it == mDialogs.end()) return false;
-    out = it->second.spec;
-    return true;
+    return mDialogs.withObject(dialogId, [&](Dialog const& d) {
+        out = d.spec;
+    });
 }
 
 bool NpcDialogueManager::close(int64_t dialogId) {
     Dialog copy;
     {
         std::lock_guard lock(mMutex);
-        auto            it = mDialogs.find(dialogId);
-        if (it == mDialogs.end()) return false;
-        copy = it->second;
-        mDialogs.erase(it);
+        if (!mDialogs.withObject(dialogId, [&](Dialog const& d) {
+                copy = d;
+            }))
+            return false;
+        mDialogs.erase(dialogId);
         if (auto byPlayer = mByPlayer.find(copy.playerName);
             byPlayer != mByPlayer.end() && byPlayer->second == dialogId) {
             mByPlayer.erase(byPlayer);
@@ -422,25 +427,16 @@ bool NpcDialogueManager::close(int64_t dialogId) {
 }
 
 void NpcDialogueManager::closeAll() {
-    std::vector<int64_t> ids;
-    {
-        std::lock_guard lock(mMutex);
-        for (auto const& [id, dialog] : mDialogs) ids.push_back(id);
-    }
-    for (auto const id : ids) close(id);
+    for (auto const id : mDialogs.snapshotAll())
+        close(id);
 }
 
 bool NpcDialogueManager::isOpen(int64_t dialogId) const {
-    std::lock_guard lock(mMutex);
-    return mDialogs.contains(dialogId);
+    return mDialogs.exists(dialogId);
 }
 
 std::vector<int64_t> NpcDialogueManager::getAllIds() const {
-    std::lock_guard      lock(mMutex);
-    std::vector<int64_t> out;
-    out.reserve(mDialogs.size());
-    for (auto const& [id, dialog] : mDialogs) out.push_back(id);
-    return out;
+    return mDialogs.snapshotAll();
 }
 
 uint64_t NpcDialogueManager::addClickListener(
@@ -522,32 +518,34 @@ bool NpcDialogueManager::handleNpcRequest(
         std::lock_guard lock(mMutex);
         auto            byPlayer = mByPlayer.find(playerName);
         if (byPlayer == mByPlayer.end()) return false;
-        auto dialogIt = mDialogs.find(byPlayer->second);
-        if (dialogIt == mDialogs.end()) return false;
-        auto& dialog = dialogIt->second;
-        dialog.touched = false; // 本次回传开始; 调用方在回调里 update 会重新置位
-        // 回传的 mId 是 ActorUniqueID —— 两个 id 都比一遍（客户端回传的不一定用哪一个）
-        if (npcId != dialog.carrierUniqueId && npcId != dialog.carrierRuntimeId) return false;
+        bool const hit = mDialogs.withObject(byPlayer->second, [&](Dialog& dialog) -> bool {
+            dialog.touched = false; // 本次回传开始; 调用方在回调里 update 会重新置位
+            // 回传的 mId 是 ActorUniqueID —— 两个 id 都比一遍（客户端回传的不一定用哪一个）
+            if (npcId != dialog.carrierUniqueId && npcId != dialog.carrierRuntimeId)
+                return false;
 
-        event.playerName  = playerName;
-        event.dialogId    = dialog.dialogId;
-        event.sceneName   = sceneName.empty() ? dialog.spec.sceneName : sceneName;
-        event.buttonIndex = -1;
-        if (requestType == static_cast<int>(::NpcRequestPacket::RequestType::ExecuteAction)) {
-            event.buttonIndex = actionIndex;
-            if (actionIndex >= 0 && static_cast<std::size_t>(actionIndex) < dialog.spec.buttons.size()) {
-                auto const& btn = dialog.spec.buttons[actionIndex];
-                event.actionId  = btn.actionId; // 回填调用方的标识
-                event.commands  = btn.commands; // 合成 NPC 不由 BDS 代跑命令, 交给调用方处理
+            event.playerName  = playerName;
+            event.dialogId    = dialog.dialogId;
+            event.sceneName   = sceneName.empty() ? dialog.spec.sceneName : sceneName;
+            event.buttonIndex = -1;
+            if (requestType == static_cast<int>(::NpcRequestPacket::RequestType::ExecuteAction)) {
+                event.buttonIndex = actionIndex;
+                if (actionIndex >= 0 && static_cast<std::size_t>(actionIndex) < dialog.spec.buttons.size()) {
+                    auto const& btn = dialog.spec.buttons[actionIndex];
+                    event.actionId  = btn.actionId; // 回填调用方的标识
+                    event.commands  = btn.commands; // 合成 NPC 不由 BDS 代跑命令, 交给调用方处理
+                }
+                finished = true;
+            } else if (requestType == static_cast<int>(::NpcRequestPacket::RequestType::ExecuteClosingCommands)) {
+                event.closed = true;
+                finished     = true;
             }
-            finished = true;
-        } else if (requestType
-                   == static_cast<int>(::NpcRequestPacket::RequestType::ExecuteClosingCommands)) {
-            event.closed = true;
-            finished     = true;
-        }
-        // 其余回传类型（SetActions/SetName/SetSkin/SetInteractText…）是客户端编辑器回写,
-        // 对合成 NPC 无意义, 不结束对话。
+            // 其余回传类型（SetActions/SetName/SetSkin/SetInteractText…）是客户端编辑器回写,
+            // 对合成 NPC 无意义, 不结束对话。
+            return true;
+        });
+        if (!hit)
+            return false;
     }
 
     // dispatch 之前先记下当前载体: 回调里若换成另一个对话（open）, 旧载体实体要由这里收尾
@@ -568,8 +566,10 @@ bool NpcDialogueManager::handleNpcRequest(
         std::uint64_t removeCarrierUid = 0;
         {
             std::lock_guard lock(mMutex);
-            auto            it           = mDialogs.find(event.dialogId);
-            bool const      tookOver     = (it != mDialogs.end() && it->second.touched);
+            bool            tookOver = false;
+            mDialogs.withObject(event.dialogId, [&](Dialog const& d) {
+                tookOver = d.touched;
+            });
             auto            byPlayer     = mByPlayer.find(playerName);
             bool const      stillCurrent = (byPlayer != mByPlayer.end() && byPlayer->second == event.dialogId);
 
@@ -580,7 +580,7 @@ bool NpcDialogueManager::handleNpcRequest(
                     removeCarrierUid = car->second.uniqueId;
                     mCarriers.erase(car);
                 }
-                if (it != mDialogs.end()) mDialogs.erase(it);
+                mDialogs.erase(event.dialogId);
                 mByPlayer.erase(byPlayer);
             } else {
                 // 回调里开了新对话: 只清掉旧载体实体, 新对话保持不动

@@ -145,6 +145,28 @@ void testSnapshotAndForEach() {
     check(visited == 4, "forEachLocked 只遍历活着的对象");
 }
 
+void testLockPolicies() {
+    std::printf("[7] 锁策略: NoLock / recursive_mutex\n");
+    // NoLock: 表自己不加锁, 由调用方保证串行（多张表共享一个临界区的域用）
+    core::Registry<Item, core::NoLock> external;
+    auto const                         a = external.insert(std::make_unique<Item>(Item{0, "a"}));
+    check(external.exists(a), "NoLock 表能正常增删查");
+
+    // recursive: 回调里再访问同一张表不会死锁（悬浮字域的发包钩子会重入）
+    core::Registry<Item, std::recursive_mutex> reentrant;
+    auto const                                 b  = reentrant.insert(std::make_unique<Item>(Item{7, "b"}));
+    bool const                                 ok = reentrant.withObject(b, [&](Item& item) {
+        item.dim = 9;
+        return reentrant.exists(b); // 持锁再进来一次
+    });
+    check(ok, "recursive_mutex 下重入不死锁");
+    int dim = 0;
+    reentrant.withObject(b, [&](Item const& item) {
+        dim = item.dim;
+    });
+    check(dim == 9, "重入时的修改生效");
+}
+
 void testConcurrentAccess() {
     std::printf("[6] 并发: 多线程 insert/erase 不崩且计数自洽\n");
     core::Registry<Item> reg;
@@ -183,6 +205,7 @@ int main() {
     testDimensionIndex();
     testDirtySet();
     testSnapshotAndForEach();
+    testLockPolicies();
     testConcurrentAccess();
 
     if (gFailures != 0) {

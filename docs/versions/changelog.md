@@ -32,11 +32,13 @@ API 版本与虚表槽位都没动，C++ 消费方**无需重新编译**。
   `mirror` 子命令可由真头文件生成消费方镜像，并自证槽位表与头文件逐槽一致（312 槽 / 15 接口）。
 - **对象表内核化**：新增 `src/core/Registry.h`（id 分配 / runtimeId 与维度索引 / 脏集 / 快照遍历，
   只依赖标准库）+ `tests/registry_test.cpp`（28 项断言，含并发与 `withObject` 返回值语义；CI 里用 g++ 直接跑）。
-  `Registry` 同时补了 `clear()` / `empty()` 与「回调返回 bool 就原样透传」的 `withObject`，域迁移才能保持
+  `Registry` 同时补了 `clear()` / `empty()`、锁策略（`std::mutex` / `std::recursive_mutex` / `NoLock`）与
+  「回调返回 bool 就原样透传」的 `withObject`，域迁移才能保持
   "找不到" / "参数不合法" 两种失败各自 return 的写法。
-  `sulfur` / `gradientline` / `particles` / `shape` 四个域已迁。`particles` 顺带把按值的 `Shape` 换成
-  `unique_ptr`、`tick` 改成 forEachLocked + 到期集；`shape`（`PacketDebugRenderer`）把 `networkId` 分配
-  换成原子递减，进服/周期重发改成先取快照再发包。`sulfur` 原先 `setInvisible` /
+  `sulfur` / `gradientline` / `particles` / `shape` / `npcdialog` / `container` 六个域已迁。`particles` 把按值的
+  `Shape` 换成 `unique_ptr`、`tick` 改成 forEachLocked + 到期集；`shape`（`PacketDebugRenderer`）把 `networkId`
+  分配换成原子递减；`npcdialog` / `container` 用新增的 `NoLock` 锁策略 —— 主表进 Registry，但临界区仍由域
+  自己持有（`mByPlayer` / `mCarriers` / `mPlayerEpoch` 等旁表要和主表一起改，这个不变量不能拆）。`sulfur` 原先 `setInvisible` /
   `setScale` 是**持锁调 `CustomEntityManager`** 的（嵌套加锁 + 发包可重入），现在统一成锁内取快照、锁外调下游。
   其余 6 个域带二级索引或逐玩家子表，迁移清单与原因见架构总览的「内核化进度」。
 - **虚拟 actor 号段**：`0x6D/0x6E/0x6F` 三段 runtimeId 原先散在三个 Manager 的初始值里，ghost 路由又抄了一遍 6 个 constexpr 做判别；现在唯一出处是 `src/core/VirtualActorIds.h` —— 分配起点取 `.first`、判别用 `.contains()`，三段相接 / 等长 / 落在 `[0x60000000,0x70000000)` 由 `static_assert` 守住。改号段再也不会出现「分配端改了、路由端没改」的静默派发失败。数值未变。

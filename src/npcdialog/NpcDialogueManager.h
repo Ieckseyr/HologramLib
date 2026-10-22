@@ -12,6 +12,8 @@
 // RemoveActor 删掉客户端实体。identifier 必须是 NPC 家族（默认 minecraft:npc）。
 #pragma once
 
+#include "core/Registry.h" // 内核层: 对象表（NoLock：临界区由本域的 mMutex 持有）
+
 #include <cstdint>
 #include <deque>
 #include <format>
@@ -104,13 +106,13 @@ private:
     void    sendDialog(::Player& player, Dialog const& dialog, bool open);  // 下发 Open/Close
     void    dispatch(hologramlib::NpcDialogClickEvent const& event);
 
+    // 三张表共享同一个临界区: dialogs / byPlayer / carriers 必须一起改
     mutable std::mutex                        mMutex;
-    std::unordered_map<int64_t, Dialog>       mDialogs;    // dialogId → 对话
+    core::Registry<Dialog, core::NoLock>                                                       mDialogs;    // dialogId → 对话
     std::unordered_map<std::string, int64_t>  mByPlayer;   // 玩家名 → dialogId
     std::unordered_map<std::string, Carrier>  mCarriers;   // 玩家名 → 共用载体
     std::unordered_map<uint64_t, std::function<void(hologramlib::NpcDialogClickEvent const&)>> mListeners;
     std::deque<hologramlib::NpcDialogClickEvent> mClickQueue; // LSE 轮询队列
-    int64_t  mNextDialogId{1};
     uint64_t mNextListenerToken{1};
 };
 

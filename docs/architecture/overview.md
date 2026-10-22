@@ -59,7 +59,8 @@
 ## 内核化进度
 
 `core/Registry.h` 把「id 分配 / 索引同生共死 / 脏集 / 快照遍历 / 锁」这套板子收敛成一个模板。
-但**只有主表就是全部状态的域才能直接换**：下面 10 个域有主表，已迁 4 个。
+`Registry<T, Mutex>` 的锁策略默认自持 `std::mutex`；多表共享临界区的域传 `core::NoLock`，临界区仍由域自己持有。
+下面 10 个域有主表，已迁 6 个。
 
 | 域 | 状态 | 说明 |
 |---|---|---|
@@ -67,21 +68,21 @@
 | `gradientline` | ✅ 已迁 | 主表只有线段批 + 绘制标志 |
 | `particles` | ✅ 已迁 | 主表按值存 `Shape`，迁移时换成 `unique_ptr`；`tick` 改成 forEachLocked + 到期集 |
 | `shape`（`PacketDebugRenderer`） | ✅ 已迁 | 主表 + `networkId` 分配 + 进服/周期重发；`networkId` 换原子递减 |
-| `hologramtext` | ⛔ 先改内核 | 用的是 **`std::recursive_mutex`**（674c7b3 修的发包钩子自死锁）—— `Registry` 是普通 `std::mutex`，硬迁会把那次死锁修回来。要么给 Registry 加锁策略，要么这域不上 Registry。 |
+| `hologramtext` | ⬜ 待迁 | 用 `std::recursive_mutex`（674c7b3 修的发包钩子自死锁）—— 内核现在支持 `Registry<T, std::recursive_mutex>`，可以迁了；但它还有 `mVariables` / `mLastSentText` 两张同临界区的表，迁移时要一起守。 |
 | `itemdisplay` | ⛔ 先重构 | 与 id 同键的 **`mConfigs` + `mRuntimes` 两张并行表** + 脏集 + 跟随。只换容器不减少复杂度，真正的重构是把两张表并成一个 Entry。 |
 | `customentity` | ⛔ 先重构 | 同上：`mConfigs` + `mRuntimes` + 脏集 + 逐玩家外观覆盖。 |
 | `playernpc` | ⛔ 先重构 | 同上，另有 Tab 移除队列与逐玩家朝向/装备。 |
-| `container` | ⚠ 收益为负 | `mMenus` + `mByPlayer` + `mPlayerEpoch` + `mIdFreedTick` **四张表共享一个临界区**（26 处 `mMutex`）。Registry 只会多一层锁，不减少任何不变量。 |
-| `npcdialog` | ⚠ 收益为负 | `mDialogs` + `mByPlayer` + `mCarriers` 三张表共享一个临界区（22 处 `mMutex`），一致性要求跨表。同上。 |
+| `container` | ✅ 已迁 | `NoLock` 策略：`mMenus` 进 Registry，`mByPlayer` / `mPlayerEpoch` / `mIdFreedTick` 仍在域自己的临界区里 |
+| `npcdialog` | ✅ 已迁 | `NoLock` 策略：`mDialogs` 进 Registry，`mByPlayer` / `mCarriers` 同上 |
 | `fakeinv` | — 不适用 | 主键是玩家名（`string`），不是 `int64` id。 |
 
-**后 6 个不是「还没迁」，而是「按现在的代码形态迁过去会更差」。** 分三类：
+剩下的 4 个分两类：
 
-1. **需要先改内核**（`hologramtext`）：`Registry` 得先支持可配置的锁（递归/普通），否则等于撤销 674c7b3。
-2. **需要先做域内重构**（`itemdisplay` / `customentity` / `playernpc`）：瓶颈是两张 id 同键的并行表，不是容器本身。
-3. **收益为负**（`container` / `npcdialog`）：三到四张表共享一个临界区，跨表一致性才是难点；换成 Registry 只增加一层锁。
+1. **可以迁，但要一起守**（`hologramtext`）：实例的锁是 `recursive_mutex`，`mVariables` / `mLastSentText` 与主表同临界区 —— 用 `Registry<FloatingText, std::recursive_mutex>` 可迁，但两张旁表要跟着一起改。
+2. **需要先做域内重构**（`itemdisplay` / `customentity` / `playernpc`）：瓶颈是**两张 id 同键的并行表**（`mConfigs` + `mRuntimes`），不是容器本身。只换容器会得到一个 Registry 加一张仍手写的 `mRuntimes`，反而更难维护。
 
-已迁的 4 个共同点：**主表就是该域的全部状态**，或者状态能整块搬进 `Entry`。这是 `Registry` 的适用边界。
+**`Registry` 的适用边界**：主表就是该域的全部状态（或状态能整块搬进 `Entry`），且锁可以自持（默认策略）或由域持有（`NoLock`）。
+不满足这两条的域，(a) 前提件（`hologramtext` 的旁表），或 (b) 先并表（那三个大域）。
 
 ---
 
