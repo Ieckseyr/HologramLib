@@ -1,0 +1,51 @@
+# clang-format
+# 暂时不动长行（ColumnLimit 0）: 全仓没格式化过, 直接收 120 会产生几千行纯格式 diff
+BasedOnStyle: LLVM
+Language: Cpp
+Standard: c++23
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 0
+
+# 花括号左贴
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortLambdasOnASingleLine: Empty
+
+# 指针/引用贴类型
+PointerAlignment: Left
+ReferenceAlignment: Left
+SpaceAfterCStyleCast: false
+
+# 不做跨行对齐
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignEscapedNewlines: Left
+
+# 访问修饰符顶格
+AccessModifierOffset: -4
+EmptyLineBeforeAccessModifier: Always
+
+# include 分组保持原样, 组内排序
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve
+
+# 换行
+BinPackArguments: true
+BinPackParameters: true
+AllowAllArgumentsOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: true
+BreakConstructorInitializers: BeforeComma
+PackConstructorInitializers: Never
+
+# 其它
+SpaceBeforeParens: ControlStatements
+SpacesBeforeTrailingComments: 1
+FixNamespaceComments: true
+InsertBraces: false
+QualifierAlignment: Leave

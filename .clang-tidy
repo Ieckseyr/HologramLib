@@ -1,0 +1,25 @@
+# clang-tidy
+# 协议层有 27 处 reinterpret_cast, 所以不开 pro-type-reinterpret-cast（开了全红且改不了）
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-macro-parentheses,
+  clang-analyzer-*,
+  performance-*,
+  -performance-inefficient-vector-operation,
+  modernize-use-nullptr,
+  modernize-use-override,
+  modernize-use-emplace,
+  cppcoreguidelines-init-variables,
+  readability-container-size-empty,
+  google-explicit-constructor
+
+WarningsAsErrors: ''
+HeaderFilterRegex: '(include|src)/.*\.(h|hpp)$'
+FormatStyle: file
+CheckOptions:
+  - key: readability-identifier-naming.MemberPrefix
+    value: m
+  - key: modernize-use-override.IgnoreDestructors
+    value: 'true'

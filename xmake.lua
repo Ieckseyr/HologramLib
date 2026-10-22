@@ -6,17 +6,20 @@ if is_mode("release") then
     add_ldflags("/DEBUG:FULL", {force = true})
 end
 
--- 优先使用本地缓存的 liteldev-repo（含 26.51.0 登记以匹配全局包缓存），回退远程
+-- 本地 liteldev-repo 缓存
 local function find_local_repo()
-    local candidates = {
-        path.join(os.projectdir(), ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"),
-        path.join(os.projectdir(), "..", "MeowMenu", ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"),
-        path.join(os.projectdir(), "..", "MeowKb", ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"),
-        path.join(os.projectdir(), "..", "MeowPAPI", ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"),
-        path.join(os.projectdir(), "..", "MeowSidebar", ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"),
-        path.join(os.projectdir(), "..", "ItemPhys-main", ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"),
-    }
-    -- 必须含 levilamina 26.51.0 版本登记, 防止捡到旧版缓存 repo 导致解析回退到旧版本
+    local candidates = {}
+    -- 换机器/CI 用这个指过来
+    local env_repo = os.getenv("HOLO_REPO_DIR")
+    if env_repo and env_repo ~= "" then
+        table.insert(candidates, env_repo)
+    end
+    -- 本机缓存, 再退到兄弟工程
+    table.insert(candidates, path.join(os.projectdir(), ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"))
+    for _, sibling in ipairs({ "MeowMenu", "MeowKb", "MeowPAPI", "MeowSidebar", "ItemPhys-main" }) do
+        table.insert(candidates, path.join(os.projectdir(), "..", sibling, ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"))
+    end
+    -- 只认带 26.51.0 登记的那份, 别捡到旧缓存
     for _, p in ipairs(candidates) do
         if os.exists(path.join(p, "packages", "l", "levilamina", "versions", "26_51_0.lua")) then
             return p
@@ -59,24 +62,58 @@ option("holo_diag")
     set_description("把 HologramLib 的诊断日志编进产物（排障用; 正式发布必须保持关闭）")
 option_end()
 
+-- 警告当错误, CI 用; xmake f --holo_werror=y
+option("holo_werror")
+    set_default(false)
+    set_showmenu(true)
+    set_description("警告当错误 /WX")
+option_end()
+
+-- ASan（MSVC 只有 address, 没有 UBSan）; xmake f --holo_asan=y
+option("holo_asan")
+    set_default(false)
+    set_showmenu(true)
+    set_description("AddressSanitizer /fsanitize=address")
+option_end()
+
 target("HologramLib")
     add_rules("@levibuildscript/linkrule")
     add_rules("@levibuildscript/modpacker")
-    add_cxflags("/EHa", "/utf-8", "/W4")
+    -- 不加 /EHa, 与 set_exceptions 冲突
+    add_cxflags("/utf-8", "/W4")
+    if has_config("holo_werror") then
+        add_cxflags("/WX")
+    end
+    if has_config("holo_asan") then
+        add_cxflags("/fsanitize=address")
+        add_ldflags("/fsanitize=address")
+    end
     add_defines("NOMINMAX", "UNICODE", "HOLOGLIB_EXPORTS")
+    -- getenv 这类告警项目级关掉
+    add_defines("_CRT_SECURE_NO_WARNINGS")
     if has_config("holo_diag") then
         add_defines("HOLOGLIB_DIAG_LOG=1")
     end
     add_packages("levilamina")
     add_packages("magic_enum")
-    set_exceptions("none")
+    -- 标准 C++ 异常 /EHsc
+    set_exceptions("cxx")
     set_kind("shared")
     set_languages("c++23")
 
-    -- BedrockProtocol-main 静态库（CMake 构建后安装到本地, 26.51 补丁: TextDataPayload.LineGapHeight
-    -- 插在 BackgroundColor 与 DepthTest 之间, ItemStackResponseInfo.Containers 改 optional 编码）
-    add_includedirs("../BedrockProtocol-main/install/include")
-    add_linkdirs("../BedrockProtocol-main/install/lib")
+    -- BedrockProtocol 静态库
+    -- 26.51 补丁: TextDataPayload.LineGapHeight 插在 BackgroundColor 与 DepthTest 之间,
+    -- ItemStackResponseInfo.Containers 改 optional 编码
+    -- 目录可用 HOLO_PROTOCOL_DIR 覆盖
+    local protocol_install = os.getenv("HOLO_PROTOCOL_DIR")
+    if not protocol_install or protocol_install == "" then
+        protocol_install = path.join(os.projectdir(), "..", "BedrockProtocol-main", "install")
+    end
+    if not os.isdir(path.join(protocol_install, "include")) then
+        raise(format("找不到 BedrockProtocol: %s\n用 HOLO_PROTOCOL_DIR 指向 install/ 目录", protocol_install))
+    end
+    add_includedirs(path.join(protocol_install, "include"))
+    add_linkdirs(path.join(protocol_install, "lib"))
     add_links("Protocol")
 
     -- GDI+（NPC 皮肤 PNG 解码）
