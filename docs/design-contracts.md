@@ -31,6 +31,9 @@
 - 破坏槽位但 `HOLOGLIB_ABI_STAMP` 没 +1 → 失败；
 - 有新增槽位但 `HOLOGLIB_API_VERSION` 没抬 → 警告（发版时必须抬）。
 
+`manifest.json` 的 `extraInfo` 也带着同一组值（`apiVersion` / `apiVersionSemver` / `abiStamp`），
+工具会一并校验 —— 加载前的静态比对可以只读 manifest，不必先 `#include`。
+
 基线快照与槽位表放在 `abi/`，每次发版固化一份。消费方（MeowMenu 的 ABI 镜像、Mtps 的头文件副本）
 不必再手工数槽位：
 

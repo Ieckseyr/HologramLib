@@ -1,10 +1,9 @@
 #pragma once
 
+#include "core/Registry.h" // 内核层: 对象表 / id 分配 / 快照遍历
+
 #include <cstdint>
-#include <memory>
-#include <mutex>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace debugshape_export {
@@ -96,14 +95,12 @@ private:
     GradientLineManager() = default;
     ~GradientLineManager() = default;
     
-    GradientLine* getLine(int64_t id);
     void rebuildSegments(GradientLine& line);
     void destroySegments(GradientLine& line);
     void updateSegmentColors(GradientLine& line);
-    
-    std::unordered_map<int64_t, std::unique_ptr<GradientLine>> mLines;
-    int64_t mNextId = 1;
-    std::mutex mMutex;
+
+    // 只存线条: id 分配 / 锁 / 遍历都在 core::Registry 里，本类不再有自己的 mutex
+    core::Registry<GradientLine> mLines;
 };
 
 } // namespace debugshape_export

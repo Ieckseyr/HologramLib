@@ -46,13 +46,37 @@
         + LL_TYPE_INSTANCE_HOOK 实例钩子（出站发送 / 入站 AuthInput 等）
 ```
 
-三个要点：
+五个要点：
 
 - 桥接层无状态：接口调用直接落领域层；LSE 导出与 C++ 接口走的是同一条路径，不存在「JS 专用逻辑」。
 - 形状域是唯一「包里写形状」的出口：悬浮字、渐变线都复用形状域（悬浮字 = 一个多行文本形状；渐变线 = 一批线段形状）。
 - 发送原语唯一：全库共用 `core/PacketSink.h`（`SculkPacketSend.h` 已是两行转发）。ItemDisplay 那份不计数、不告警的副本已删除 —— 收敛前它是唯一让「全库发包失败数」统计漏掉一整域的缺口。
 - 每 tick 的驱动唯一：5 个 `Level::$tick` detour 收成一个（`core/TickDriver.*`），执行顺序由 `Order` 显式决定，不再依赖跨 TU 的静态初始化顺序。
 - 生命周期唯一：每个域实现 `core::IDomain`（`start` / `stop` / `exportLse`），由 `core/ServiceHost` 统一遍历 —— 启动按声明顺序、关停反向、导出一遍。新增域只改 `ModEntry::enable()` 里的 `add` 一行。此前三张手工清单漏过一次导出（ghost），还有四个域的 `shutdown()` 从未被调用过。
+
+---
+
+## 内核化进度
+
+`core/Registry.h` 把「id 分配 / 索引同生共死 / 脏集 / 快照遍历 / 锁」这套板子收敛成一个模板。
+但**只有主表就是全部状态的域才能直接换**：下面 10 个域有主表，已迁 2 个。
+
+| 域 | 状态 | 说明 |
+|---|---|---|
+| `sulfur` | ✅ 已迁 | 主表只有 `{entityId}`，无二级索引 |
+| `gradientline` | ✅ 已迁 | 主表只有线段批 + 绘制标志 |
+| `particles` | ⬜ 待迁 | 主表按值存 `Shape`（需换 `unique_ptr`）+ 逐 tick emit |
+| `shape`（`PacketDebugRenderer`） | ⬜ 待迁 | 主表 + `networkId` 分配 + 进服/周期重发监听；热路径 |
+| `hologramtext` | ⬜ 待迁 | 主表 + 变量表 + `lastSentText` + 逐观看者形状 |
+| `itemdisplay` | ⬜ 待迁 | 主表 + 逐玩家可见集 / 动画队列 / 跟随 |
+| `customentity` | ⬜ 待迁 | 主表 + 逐玩家外观覆盖 + 脏流水线 |
+| `playernpc` | ⬜ 待迁 | 主表 + Tab 列表 + 逐玩家朝向/装备 |
+| `container` | ⬜ 待迁 | 主表 + 按玩家名索引 + 会话 epoch + id 释放冷却 |
+| `npcdialog` | ⬜ 待迁 | 主表 + 按玩家名索引 + 共用载体 |
+| `fakeinv` | — 不适用 | 主键是玩家名（`string`），不是 `int64` id |
+
+待迁的 8 个域都不是机械替换：每个还带二级索引或逐玩家子表，且多数当前是**持锁调下游**（发包重入风险）。
+迁移时要顺带改成「锁内取快照 → 锁外发包」，所以每一次都需要一次起服验证，不能只靠编译。
 
 ---
 
@@ -70,7 +94,7 @@ HologramLib/
 │   │   ├── TickDriver.*                #     全库唯一 Level::$tick hook
 │   │   ├── ServiceHost.h               #     域注册与生命周期（启动顺序 = 声明顺序）
 │   │   ├── VirtualActorIds.h           #     0x6D/0x6E/0x6F 号段 + 不重叠 static_assert
-│   │   └── Registry.h                  #     id 分配 / 索引 / 脏集 / 快照（sulfur 已迁）
+│   │   └── Registry.h                  #     id 分配 / 索引 / 脏集 / 快照（sulfur / gradientline 已迁）
 │   ├── SculkPacketSend.h               #   兼容层（转发到 core/PacketSink.h, 下个大版本删）
 │   ├── PacketDebugRenderer.*           #   形状渲染（协议层）
 │   ├── ProtocolShape.h / ProtocolPackets.*
@@ -84,6 +108,7 @@ HologramLib/
 │   ├── trade/                          #   村民交易菜单
 │   ├── container/                      #   虚拟容器
 │   ├── interaction/                    #   物品请求钩子（容器域与背包域共用）
+│   ├── item/                           #   菜单条目栈（MenuItemStack，容器/交易共用）
 │   ├── npcdialog/                      #   NPC 对话框
 │   ├── sensing/                        #   感知域
 │   ├── playernpc/                      #   假玩家 NPC（皮肤注册表 / PlayerList）
@@ -94,8 +119,13 @@ HologramLib/
 │   ├── MemoryOperators.cpp             #   跨 DLL 内存配对
 │   └── ModEntry.*                      #   生命周期 + LSE 双时机挂载
 ├── abi/                                # 冻结契约基线（槽位表 JSON + slots.md），CI 比对
-├── tools/abi_tool.py                   # 契约提取 / 比对（python 标准库，无第三方依赖）
-├── tests/                              # 离线字节级回归检查（本地工具，不随库发布）
+├── tools/                              # 纯 python 标准库工具（无第三方依赖）
+│   ├── abi_tool.py                     #   契约提取 / 比对 / 消费方镜像生成
+│   ├── test_abi_tool.py                #   契约工具自测（21 项）
+│   └── check_format.py                 #   只查改动行的 clang-format 门禁
+├── tests/                              # 离线检查与单测（已纳入版本库）
+│   ├── registry_test.cpp               #   内核层 Registry 单测（g++ 直接跑，不依赖 BDS）
+│   └── check-*.bat / *.py              #   字节级对拍夹具（需本机抓包/编译环境）
 ├── docs/                               # 本套文档
 ├── xmake.lua · manifest.json
 └── README.md
@@ -187,7 +217,7 @@ HologramLib/
 
 `26.40.9` 起头文件携带虚表布局描述符 + 消费方编译期自检，库侧在运行期拦截布局不一致的消费方：把「中段挪槽」这类崩溃固化成机制化防护，而不是靠人记住。
 
-### 机器守契约（26.51.5 起）
+### 机器守契约（26.51.6 起）
 
 「只在尾部追加」不再只靠注释、版本表与记忆力 —— 契约有了基线文件和一个退出码：
 
@@ -198,9 +228,9 @@ HologramLib/
 | `python tools/abi_tool.py extract --md-out abi/slots.md` | 生成人读槽位表（消费方可以直接 diff 自己的镜像） |
 | `python tools/abi_tool.py check -H <某份头文件>` | 拿任意一份头文件对基线（例：确认消费方手里的镜像是否还跟得上） |
 | `python tools/abi_tool.py mirror --out HologramLibAbi.h` | 给消费方生成镜像头（同槽位序、`HOLOGLIB_API` 置空、命名空间可换成宏），生成后自证槽位表一致 |
-| `python tools/test_abi_tool.py` | 工具自身的 16 项自测（中段插入/尾部追加/结构体/枚举/镜像），CI 一起跑 |
+| `python tools/test_abi_tool.py` | 工具自身的 21 项自测（中段插入 / 尾部追加 ±抬版本 / 结构体 / 枚举 / 镜像 / manifest 漂移），CI 一起跑 |
 
-`.github/workflows/abi.yml` 在每次 push / PR 上跑第一条。尾部追加会打印新增槽位并通过；
+`.github/workflows/build.yml` 的 static-checks 在每次 push / PR 上跑前两条（ABI 契约 + 工具自测，外加内核层单测与格式门禁）。尾部追加会打印新增槽位并通过；
 只要动了既有槽位，它在 CI 上红 —— 而不是在用户机器上 `0xC0000005`。
 破坏槽位时如果 `HOLOGLIB_ABI_STAMP` 没跟着 +1，也判失败：那道运行期自检是最后一道防线，它失效必须先被发现。
 
@@ -221,7 +251,8 @@ HologramLib/
 
 HologramLib 不以 LegacyRemoteCall（`lrca`）/ MeowPAPI 为前置依赖：无链接时符号、无 manifest 声明。
 
-它在运行时通过 `GetModuleHandle` + `GetProcAddress` 解析 `lrca` 导出的 7 个 C++ 函数（MSVC mangled 符号，与导出表逐字一致）：
+它在运行时通过 `GetModuleHandle` + `GetProcAddress` 解析 `lrca` 导出的 **6 个** C++ 函数（`exportFunc` / `importFunc` / `hasFunc` / `removeFunc` / `removeNameSpace` / `onCallError`）。
+解析分两级：先按精确的 MSVC mangled 符号取，取不到再按导出表前缀模糊匹配（跨 lrca 编译版本的 STL mangling 有差异）；`exportFunc` + `importFunc` 两个取到即算挂载成功。
 
 | 情况 | 行为 |
 |---|---|
