@@ -218,7 +218,7 @@ private:
     std::unordered_map<int64_t, FollowState>            mFollowers;
 
     std::uint64_t                                       mNextActorUniqueId{0x6D00000000000001ULL};
-    std::uint64_t                                       mNextRuntimeId{core::actorIds::itemDisplay.first};
+    std::uint64_t mNextRuntimeId{core::actorIds::itemDisplay.first};
     std::unordered_set<mce::UUID>                       mInitializedPlayers;
     ll::event::ListenerPtr                              mJoinListener;
     ll::event::ListenerPtr                              mDisconnectListener;

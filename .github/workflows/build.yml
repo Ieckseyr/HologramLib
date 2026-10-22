@@ -27,16 +27,20 @@ jobs:
       - name: 工具自测
         run: python tools/test_abi_tool.py
 
+      - name: 内核层单测（不依赖 BDS）
+        run: |
+          g++ -std=c++23 -O1 -I src tests/registry_test.cpp -o /tmp/registry_test
+          /tmp/registry_test
+
       - name: 装 clang-format
         run: sudo apt-get update && sudo apt-get install -y clang-format
 
-      - name: 格式检查（只查改动文件）
+      # 只查**改动的行**：本仓库没做过一次性格式化，整文件 --Werror 会被历史 violation 顶红
+      # （实测 CustomEntityManager.cpp 单文件 298 处）。细节见 tools/check_format.py 文件头。
+      - name: 格式检查（只查改动行）
         run: |
-          set -euo pipefail
           base="${{ github.event.pull_request.base.sha || github.event.before || 'HEAD~1' }}"
-          mapfile -t files < <(git diff --name-only "$base"...HEAD -- '*.cpp' '*.h' '*.hpp' | sed 's#^#./#' || true)
-          if [ ${#files[@]} -eq 0 ]; then echo "没有 C++ 改动"; exit 0; fi
-          clang-format --dry-run --Werror "${files[@]}"
+          python tools/check_format.py --base "$base"
 
   build:
     name: 编译

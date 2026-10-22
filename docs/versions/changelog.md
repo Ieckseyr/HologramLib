@@ -30,6 +30,11 @@ API 版本与虚表槽位都没动，C++ 消费方**无需重新编译**。
   关停顺序因此改为启动的**逆序**（此前是另一份手工清单）；各域清理互相独立，无顺序依赖。
 - **契约工具**：新增 `tools/abi_tool.py`、`abi/v1.31.0.json` 与 `abi/slots.md` 基线，`abi.yml` 在 CI 上拦「中段插槽」。
   `mirror` 子命令可由真头文件生成消费方镜像，并自证槽位表与头文件逐槽一致（312 槽 / 15 接口）。
+- **对象表内核化**：新增 `src/core/Registry.h`（id 分配 / runtimeId 与维度索引 / 脏集 / 快照遍历，
+  只依赖标准库）+ `tests/registry_test.cpp`（24 项断言，含并发；CI 里用 g++ 直接跑，不需要 BDS）。
+  `sulfur` 域先迁过去：它原先自己维护 map + id + mutex，其中 `setInvisible` / `setScale` 是**持锁调
+  `CustomEntityManager`** 的（嵌套加锁 + 发包可重入），现在统一成锁内取快照、锁外调下游。其余 7 个域待迁，
+  模式相同。
 - **虚拟 actor 号段**：`0x6D/0x6E/0x6F` 三段 runtimeId 原先散在三个 Manager 的初始值里，ghost 路由又抄了一遍 6 个 constexpr 做判别；现在唯一出处是 `src/core/VirtualActorIds.h` —— 分配起点取 `.first`、判别用 `.contains()`，三段相接 / 等长 / 落在 `[0x60000000,0x70000000)` 由 `static_assert` 守住。改号段再也不会出现「分配端改了、路由端没改」的静默派发失败。数值未变。
 
 ### 修复
@@ -42,13 +47,18 @@ API 版本与虚表槽位都没动，C++ 消费方**无需重新编译**。
 ### 工程化
 
 - `tests/` 纳入版本控制（字节级对拍的 C++ 夹具与 Python 断言），补 `tests/README.md` 说明怎么跑、缺什么会跳过。
-- 新增构建 CI：静态检查（ABI 契约 + 工具自测 + 只检查改动文件的格式）必跑；真编译需要仓库变量
+- 新增构建 CI：静态检查（ABI 契约 + 工具自测 + 内核层单测 + 只检查改动**行**的格式）必跑；真编译需要仓库变量
   `HOLO_PROTOCOL_URL`，未配置时显式跳过，不伪装成绿。
 - 新增 `.editorconfig` / `.clang-format` / `.clang-tidy`；xmake 增加 `--holo_werror`（`/WX`）与 `--holo_asan`（`/fsanitize=address`）。
 - 构建封闭性：`HOLO_PROTOCOL_DIR` / `HOLO_REPO_DIR` 两个环境变量，缺协议库时直接报错并说明怎么设。
 - 异常语义：去掉 `/EHa`，统一为标准 C++ 异常（`set_exceptions("cxx")`）。旧配置同时开了 `/EHa` 与「禁用异常」，
   会让 `<chrono>` 等标准库里的 throw 退化成不展开栈（C4530），行为未定义。
 - 悬浮字管理器改用递归锁：发包钩子会**同线程**回调进本类，非递归锁会自死锁。
+- `.clang-format` 的 `Standard: c++23` **不是合法枚举值**（只有 c++03/11/14/17/20/Latest/Auto），clang-format
+  读配置就报 `unknown enumerated scalar` —— 格式检查在检查任何文件之前就失败。改为 `c++20`。
+- 格式门禁改成只看改动的行（`tools/check_format.py`）：仓库没做过一次性格式化，整文件 `--Werror` 会被
+  历史 violation 顶红（`CustomEntityManager.cpp` 单文件 298 处、`ItemDisplayManager.cpp` 377 处）。
+- CI 补一步内核层单测：`g++ -std=c++23 -I src tests/registry_test.cpp`，不需要 levilamina / BDS。
 
 ## 26.51.5 / 26.40.12 — API 1.31.0
 

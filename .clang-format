@@ -2,7 +2,10 @@
 # 暂时不动长行（ColumnLimit 0）: 全仓没格式化过, 直接收 120 会产生几千行纯格式 diff
 BasedOnStyle: LLVM
 Language: Cpp
-Standard: c++23
+# Standard: 只能是 c++03/11/14/17/20/Latest/Auto —— **没有 c++23 这个枚举值**,
+# 写上会让 clang-format 直接 "unknown enumerated scalar", 配置读不进去（CI 格式检查因此必红）。
+# 取 c++20: 与目标语言版本的实际差异只涉及 requires / 折叠表达式等少数场景。
+Standard: c++20
 
 IndentWidth: 4
 TabWidth: 4

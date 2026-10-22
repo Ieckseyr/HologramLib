@@ -38,6 +38,15 @@
 - 想摆脱手工维护，用 `abi_tool.py mirror --namespace-macro <你的宏> --out HologramLibAbi.h` 生成一份 ——
   它由真头文件逐行转换而来（只把命名空间换成宏、把 `HOLOGLIB_API` 置空），生成时自证槽位表与真头文件逐槽一致。
 
+## 锁与回调
+
+域自己的 mutex 只保护**自己那张表**。规则是：锁内改状态、取快照，**解锁后再调下游**（发包、调别的域）。
+反例是持锁调 `CustomEntityManager` —— 那条路径会发包，出站钩子可能重入回本域，死锁就是这样来的
+（悬浮字域因此改成了递归锁）。`core/Registry.h` 把这条规则做成默认路径：对外只给 id 快照和
+`withObject` 回调，想持有引用跨调用是做不到的。
+
+域之间不直接调用，跨域一律经内核层（`PacketSink` / `Registry` / `VirtualActorIds`）。
+
 两次收缩的原因和迁移方式见 [版本与 ABI 对照](versions/api-version-matrix.md)。
 
 ## 功能边界
