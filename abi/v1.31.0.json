@@ -2,6 +2,7 @@
   "header": "include/hologramlib/HologramLib.h",
   "apiVersion": "0x012500",
   "apiVersionNumber": 75008,
+  "apiVersionSemver": null,
   "abiStamp": 1,
   "interfaces": {
     "IShapeDrawer": [

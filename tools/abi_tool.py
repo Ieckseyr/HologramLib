@@ -272,6 +272,11 @@ def extract():
         raise SystemExit("ABI-ERROR: HOLOGLIB_ABI_STAMP not found")
     abi_stamp = int(m.group(1))
 
+    # 人类可读版本: 头文件顶部有一行 "0x012500（26.40.12 / 26.51.5，API 1.31.0）：..."
+    # 中间字节只是十六进制计数器, 与 semver 不是简单换算（0x1A 对应的是 1.20.0），所以只认这一处注释。
+    m = re.search(r"API\s+(\d+\.\d+\.\d+)", text)
+    api_semver = m.group(1) if m else None
+
     interfaces, structs, enums = {}, {}, {}
 
     # 接口类：class IXxx { ... };
@@ -308,6 +313,7 @@ def extract():
         "header": header_rel,
         "apiVersion": api_version,
         "apiVersionNumber": api_version_num,
+        "apiVersionSemver": api_semver,
         "abiStamp": abi_stamp,
         "interfaces": interfaces,
         "structs": structs,
@@ -480,6 +486,51 @@ def cmd_diff(args):
     return 0
 
 
+MANIFEST = os.path.join(ROOT, "manifest.json")
+
+
+def verify_manifest(snapshot):
+    """manifest.json 的 extraInfo 必须与头文件一致。
+
+    LeviLamina 的 Manifest.extraInfo 是自由字符串表（SmallStringMap<std::string>），所以能放
+    自定义元数据而不影响加载; 这里只保证它不会和头文件漂移。
+    """
+    if not os.path.isfile(MANIFEST):
+        return ["manifest.json 不存在（应带 extraInfo: apiVersion / apiVersionSemver / abiStamp）"]
+    try:
+        with open(MANIFEST, encoding="utf-8-sig") as f:
+            manifest = json.load(f)
+    except Exception as exc:  # noqa: BLE001 - 坏 JSON 就是错误
+        return [f"manifest.json 解析失败: {exc}"]
+
+    info = manifest.get("extraInfo")
+    if not isinstance(info, dict):
+        suggestion = (
+            '"extraInfo": {'
+            f'"apiVersion": "{snapshot["apiVersion"]}", '
+            f'"apiVersionSemver": "{snapshot.get("apiVersionSemver") or "?"}", '
+            f'"abiStamp": "{snapshot["abiStamp"]}"'
+            "}"
+        )
+        return [f"manifest.json 缺 extraInfo（ABI 版本展示），应加: {suggestion}"]
+
+    want = {
+        "apiVersion": snapshot["apiVersion"],
+        "abiStamp": str(snapshot["abiStamp"]),
+    }
+    if snapshot.get("apiVersionSemver"):
+        want["apiVersionSemver"] = snapshot["apiVersionSemver"]
+
+    errors = []
+    for key, expected in want.items():
+        actual = info.get(key)
+        if actual is None:
+            errors.append(f'manifest.json extraInfo 缺 "{key}"（应为 "{expected}"）')
+        elif str(actual) != expected:
+            errors.append(f'manifest.json extraInfo.{key} = "{actual}"，与头文件 "{expected}" 不一致')
+    return errors
+
+
 def cmd_check(args):
     base, base_path = load_baseline(args.baseline)
     cur = extract()
@@ -489,6 +540,7 @@ def cmd_check(args):
         return 0
 
     errors, warnings, lines = compare(base, cur)
+    errors += verify_manifest(cur)
     print(f"[abi] 基线 {os.path.relpath(base_path, ROOT)}  ({base['apiVersion']}, 戳 {base['abiStamp']})")
     print(f"[abi] 当前      {cur['apiVersion']}, 戳 {cur['abiStamp']}")
     for l in lines:

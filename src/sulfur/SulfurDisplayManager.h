@@ -7,8 +7,7 @@
 // 展示 id → 实体 id 的映射, 所以这里没有新的钩子、包体只有那个属性包
 // （sulfur/SulfurDisplayPackets.h）, 装备与隐身走库里既有的通路。
 //
-// 本轮（26.51.6，**尚未发布正式版**）起映射表改用内核层 core/Registry.h:
-// id 分配 / 索引同生共死 / 快照式遍历由内核保证。
+// 26.51.6 起映射表改用内核层 core/Registry.h: id 分配 / 索引同生共死 / 快照式遍历由内核保证。
 // 迁移前 setInvisible / setScale 是**持着自己的锁**去调 CustomEntityManager 的（嵌套加锁，
 // 而那条路径会发包 → 钩子重入），现在统一成"锁内取快照 → 解锁 → 调下游"。
 #pragma once

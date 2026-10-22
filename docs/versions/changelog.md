@@ -16,8 +16,6 @@
 
 ## 26.51.6 — API 1.31.0（内部重构与修复，无 API 变化）
 
-> **状态：未发布。** 代码已推送 GitHub，但还没有打 tag / 上传正式发行版；对外引用版本号前先确认已发布。
-
 API 版本与虚表槽位都没动，C++ 消费方**无需重新编译**。
 
 ### 重构
@@ -64,6 +62,10 @@ API 版本与虚表槽位都没动，C++ 消费方**无需重新编译**。
   与代码里手写的成员列表对齐冲突 —— 任何被改动到的对齐行都会被拆成单空格（内核层那几行就踩过）。
   打开后 clang-format 按手写风格对齐，不再破坏周围排版。
 - CI 补一步内核层单测：`g++ -std=c++23 -I src tests/registry_test.cpp`，不需要 levilamina / BDS。
+- **manifest 增加 ABI 版本展示**：`extraInfo.apiVersion` / `apiVersionSemver` / `abiStamp`。放在 `extraInfo`
+  是因为 LeviLamina 的 `Manifest` 里它是自由字符串表（LL 自己的 manifest 就用它带 `sentryDsn`）——
+  顶层自定义键会被反序列化忽略，任何工具都读不到。`tools/abi_tool.py check` 现在一并校验这三项：
+  改头文件却忘改 manifest 会在 CI 上红。
 
 ## 26.51.5 / 26.40.12 — API 1.31.0
 
