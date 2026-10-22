@@ -29,425 +29,429 @@ PacketDebugRenderer& PacketDebugRenderer::getInstance() {
 }
 
 uint64_t PacketDebugRenderer::generateNetworkId() {
-    return mNextNetworkId--;
+    return mNextNetworkId.fetch_sub(1, std::memory_order_relaxed);
 }
 
 // 创建形状 - 直接构建 v944 DebugShape
 
 int64_t PacketDebugRenderer::createText(float x, float y, float z, const std::string& text) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto shape = std::make_unique<ShapeData>();
-    shape->id = mNextId++;
-    shape->type = LSEShapeType::Text;
+    auto shape   = std::make_unique<ShapeData>();
+    shape->type  = LSEShapeType::Text;
     shape->proto = makeTextShape(generateNetworkId(), Vec3{x, y, z}, text);
-    int64_t id = shape->id;
-    mShapes[id] = std::move(shape);
+
+    int64_t const id = mShapes.insert(std::move(shape));
+    mShapes.withObject(id, [&](ShapeData& s) {
+        s.id = id;
+    });
     return id;
 }
 
 int64_t PacketDebugRenderer::createLine(float x1, float y1, float z1, float x2, float y2, float z2) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto shape = std::make_unique<ShapeData>();
-    shape->id = mNextId++;
-    shape->type = LSEShapeType::Line;
+    auto shape   = std::make_unique<ShapeData>();
+    shape->type  = LSEShapeType::Line;
     shape->proto = makeLineShape(generateNetworkId(), Vec3{x1, y1, z1}, Vec3{x2, y2, z2});
-    int64_t id = shape->id;
-    mShapes[id] = std::move(shape);
+
+    int64_t const id = mShapes.insert(std::move(shape));
+    mShapes.withObject(id, [&](ShapeData& s) {
+        s.id = id;
+    });
     return id;
 }
 
 int64_t PacketDebugRenderer::createBox(float x1, float y1, float z1, float x2, float y2, float z2) {
-    std::lock_guard<std::mutex> lock(mMutex);
     Vec3 center{(x1 + x2) / 2.0f, (y1 + y2) / 2.0f, (z1 + z2) / 2.0f};
     Vec3 bound{std::abs(x2 - x1), std::abs(y2 - y1), std::abs(z2 - z1)};
-    auto shape = std::make_unique<ShapeData>();
-    shape->id = mNextId++;
-    shape->type = LSEShapeType::Box;
+
+    auto shape   = std::make_unique<ShapeData>();
+    shape->type  = LSEShapeType::Box;
     shape->proto = makeBoxShape(generateNetworkId(), center, bound);
-    int64_t id = shape->id;
-    mShapes[id] = std::move(shape);
+
+    int64_t const id = mShapes.insert(std::move(shape));
+    mShapes.withObject(id, [&](ShapeData& s) {
+        s.id = id;
+    });
     return id;
 }
 
 int64_t PacketDebugRenderer::createCircle(float x, float y, float z, float scale) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto shape = std::make_unique<ShapeData>();
-    shape->id = mNextId++;
-    shape->type = LSEShapeType::Circle;
+    auto shape   = std::make_unique<ShapeData>();
+    shape->type  = LSEShapeType::Circle;
     shape->proto = makeCircleShape(generateNetworkId(), Vec3{x, y, z}, scale);
-    int64_t id = shape->id;
-    mShapes[id] = std::move(shape);
+
+    int64_t const id = mShapes.insert(std::move(shape));
+    mShapes.withObject(id, [&](ShapeData& s) {
+        s.id = id;
+    });
     return id;
 }
 
 int64_t PacketDebugRenderer::createSphere(float x, float y, float z, float scale) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto shape = std::make_unique<ShapeData>();
-    shape->id = mNextId++;
-    shape->type = LSEShapeType::Sphere;
+    auto shape   = std::make_unique<ShapeData>();
+    shape->type  = LSEShapeType::Sphere;
     shape->proto = makeSphereShape(generateNetworkId(), Vec3{x, y, z}, scale);
-    int64_t id = shape->id;
-    mShapes[id] = std::move(shape);
+
+    int64_t const id = mShapes.insert(std::move(shape));
+    mShapes.withObject(id, [&](ShapeData& s) {
+        s.id = id;
+    });
     return id;
 }
 
 int64_t PacketDebugRenderer::createArrow(float x1, float y1, float z1, float x2, float y2, float z2) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto shape = std::make_unique<ShapeData>();
-    shape->id = mNextId++;
-    shape->type = LSEShapeType::Arrow;
+    auto shape   = std::make_unique<ShapeData>();
+    shape->type  = LSEShapeType::Arrow;
     shape->proto = makeArrowShape(generateNetworkId(), Vec3{x1, y1, z1}, Vec3{x2, y2, z2});
-    int64_t id = shape->id;
-    mShapes[id] = std::move(shape);
+
+    int64_t const id = mShapes.insert(std::move(shape));
+    mShapes.withObject(id, [&](ShapeData& s) {
+        s.id = id;
+    });
     return id;
 }
 
 // 属性设置 - 直接修改 DebugShape
 
 bool PacketDebugRenderer::setText(int64_t id, const std::string& text) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    auto* textData = std::get_if<DebugText>(&shape->proto.mShape);
-    if (textData) {
-        textData->mText = text;
-    }
-    return true;
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        auto* textData = std::get_if<DebugText>(&shape.proto.mShape);
+        if (textData) {
+            textData->mText = text;
+        }
+    });
 }
 
 bool PacketDebugRenderer::setLocation(int64_t id, float x, float y, float z) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    shape->proto.mLocation = Vec3{x, y, z};
-    return true;
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        shape.proto.mLocation = Vec3{x, y, z};
+    });
 }
 
 bool PacketDebugRenderer::setColor(int64_t id, float r, float g, float b, float a) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    shape->proto.mColor = ProtoColor::fromFloat(r, g, b, a).toPacked();
-    return true;
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        shape.proto.mColor = ProtoColor::fromFloat(r, g, b, a).toPacked();
+    });
 }
 
 bool PacketDebugRenderer::setScale(int64_t id, float scale) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    shape->proto.mScale = scale;
-    return true;
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        shape.proto.mScale = scale;
+    });
 }
 
 bool PacketDebugRenderer::setDuration(int64_t id, float seconds) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    shape->proto.mTotalTimeLeft = seconds;
-    return true;
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        shape.proto.mTotalTimeLeft = seconds;
+    });
 }
 
 bool PacketDebugRenderer::setDimension(int64_t id, int dimId) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    shape->proto.mDimensionId = dimId;
-    return true;
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        shape.proto.mDimensionId = dimId;
+    });
 }
 
 bool PacketDebugRenderer::setRotation(int64_t id, float pitch, float yaw, float roll) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    shape->proto.mRotation = Vec3{pitch, yaw, roll};
-    // 文本形状: 旋转要生效必须同时开 useRotation（否则客户端永远让它面向相机）,
-    // 并按官方脚本 API 的默认行为打开双面渲染（否则转到背面就看不见）
-    if (auto* textData = std::get_if<DebugText>(&shape->proto.mShape)) {
-        textData->mUseRotation = true;
-        textData->mShowBackface = true;
-        textData->mShowTextBackface = true;
-    }
-    return true;
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        shape.proto.mRotation = Vec3{pitch, yaw, roll};
+        // 文本形状: 旋转要生效必须同时开 useRotation（否则客户端永远让它面向相机）,
+        // 并按官方脚本 API 的默认行为打开双面渲染（否则转到背面就看不见）
+        if (auto* textData = std::get_if<DebugText>(&shape.proto.mShape)) {
+            textData->mUseRotation      = true;
+            textData->mShowBackface     = true;
+            textData->mShowTextBackface = true;
+        }
+    });
 }
 
 bool PacketDebugRenderer::clearRotation(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    shape->proto.mRotation = std::nullopt;
-    if (auto* textData = std::get_if<DebugText>(&shape->proto.mShape)) {
-        textData->mUseRotation = false; // 回到面向相机（billboard）
-        textData->mShowBackface = false;
-        textData->mShowTextBackface = false;
-    }
-    return true;
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        shape.proto.mRotation = std::nullopt;
+        if (auto* textData = std::get_if<DebugText>(&shape.proto.mShape)) {
+            textData->mUseRotation      = false; // 回到面向相机（billboard）
+            textData->mShowBackface     = false;
+            textData->mShowTextBackface = false;
+        }
+    });
 }
 
 // 文本专属: 背景框颜色 / 清除回默认 / 穿墙开关（其余形状没有这些字段）
 bool PacketDebugRenderer::setBackgroundColor(int64_t id, float r, float g, float b, float a) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    auto* textData = std::get_if<DebugText>(&shape->proto.mShape);
-    if (!textData) return false;
-    textData->mBackgroundColor = ProtoColor::fromFloat(r, g, b, a).toPacked();
-    return true;
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        auto* textData = std::get_if<DebugText>(&shape.proto.mShape);
+        if (!textData)
+            return false;
+        textData->mBackgroundColor = ProtoColor::fromFloat(r, g, b, a).toPacked();
+        return true;
+    });
 }
 
 bool PacketDebugRenderer::clearBackgroundColor(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    auto* textData = std::get_if<DebugText>(&shape->proto.mShape);
-    if (!textData) return false;
-    textData->mBackgroundColor = std::nullopt; // 不设 = 客户端默认背景色
-    return true;
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        auto* textData = std::get_if<DebugText>(&shape.proto.mShape);
+        if (!textData)
+            return false;
+        textData->mBackgroundColor = std::nullopt; // 不设 = 客户端默认背景色
+        return true;
+    });
 }
 
 bool PacketDebugRenderer::setDepthTest(int64_t id, bool enabled) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    auto* textData = std::get_if<DebugText>(&shape->proto.mShape);
-    if (!textData) return false;
-    textData->mDepthTest = enabled; // true = 被方块/实体遮挡; false = 始终渲染（穿墙可见）
-    return true;
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        auto* textData = std::get_if<DebugText>(&shape.proto.mShape);
+        if (!textData)
+            return false;
+        textData->mDepthTest = enabled; // true = 被方块/实体遮挡; false = 始终渲染（穿墙可见）
+        return true;
+    });
 }
 
 // 属性获取
 
 std::string PacketDebugRenderer::getText(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return "";
-    auto* textData = std::get_if<DebugText>(&shape->proto.mShape);
-    return textData ? textData->mText : "";
+    std::string out;
+    mShapes.withObject(id, [&](ShapeData const& shape) {
+        auto const* textData = std::get_if<DebugText>(&shape.proto.mShape);
+        out                  = textData ? textData->mText : "";
+    });
+    return out;
 }
 
 std::vector<float> PacketDebugRenderer::getLocation(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape || !shape->proto.mLocation.has_value()) return {};
-    auto& loc = *shape->proto.mLocation;
-    return {loc.mX, loc.mY, loc.mZ};
+    std::vector<float> out;
+    mShapes.withObject(id, [&](ShapeData const& shape) {
+        if (!shape.proto.mLocation.has_value())
+            return;
+        auto const& loc = *shape.proto.mLocation;
+        out             = {loc.mX, loc.mY, loc.mZ};
+    });
+    return out;
 }
 
 std::vector<float> PacketDebugRenderer::getColor(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape || !shape->proto.mColor.has_value()) return {};
-    // 从 int32 打包颜色解包（ARGB: A 最高字节, R 次之, G 再次, B 最低 —— 与 ProtoColor::toPacked 对应）
-    std::uint32_t packed = static_cast<std::uint32_t>(*shape->proto.mColor);
-    float r = static_cast<std::uint8_t>((packed >> 16) & 0xFF) / 255.0f;
-    float g = static_cast<std::uint8_t>((packed >> 8) & 0xFF) / 255.0f;
-    float b = static_cast<std::uint8_t>(packed & 0xFF) / 255.0f;
-    float a = static_cast<std::uint8_t>((packed >> 24) & 0xFF) / 255.0f;
-    return {r, g, b, a};
+    std::vector<float> out;
+    mShapes.withObject(id, [&](ShapeData const& shape) {
+        if (!shape.proto.mColor.has_value())
+            return;
+        // 从 int32 打包颜色解包（ARGB: A 最高字节, R 次之, G 再次, B 最低 —— 与 ProtoColor::toPacked 对应）
+        std::uint32_t packed = static_cast<std::uint32_t>(*shape.proto.mColor);
+        float         r      = static_cast<std::uint8_t>((packed >> 16) & 0xFF) / 255.0f;
+        float         g      = static_cast<std::uint8_t>((packed >> 8) & 0xFF) / 255.0f;
+        float         b      = static_cast<std::uint8_t>(packed & 0xFF) / 255.0f;
+        float         a      = static_cast<std::uint8_t>((packed >> 24) & 0xFF) / 255.0f;
+        out                  = {r, g, b, a};
+    });
+    return out;
 }
 
 int PacketDebugRenderer::getShapeType(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    return shape ? static_cast<int>(shape->type) : -1;
+    int out = -1;
+    mShapes.withObject(id, [&](ShapeData const& shape) {
+        out = static_cast<int>(shape.type);
+    });
+    return out;
 }
 
 std::vector<float> PacketDebugRenderer::getRotation(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape || !shape->proto.mRotation.has_value()) return {};
-    auto& rot = *shape->proto.mRotation;
-    return {rot.mX, rot.mY, rot.mZ};
+    std::vector<float> out;
+    mShapes.withObject(id, [&](ShapeData const& shape) {
+        if (!shape.proto.mRotation.has_value())
+            return;
+        auto const& rot = *shape.proto.mRotation;
+        out             = {rot.mX, rot.mY, rot.mZ};
+    });
+    return out;
 }
 
 // 显示控制 - 通过 NetworkPeer::sendPacket 发送
 
 bool PacketDebugRenderer::draw(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    shape->visible = true;
-    shape->target = ShapeData::Target::All;
-    shape->targetPlayer.clear();
-    return ProtocolPacketWriter::sendToAll({shape->proto});
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        shape.visible = true;
+        shape.target  = ShapeData::Target::All;
+        shape.targetPlayer.clear();
+        return ProtocolPacketWriter::sendToAll({shape.proto});
+    });
 }
 
 bool PacketDebugRenderer::drawToPlayer(int64_t id, const std::string& playerName) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    shape->visible = true;
-    shape->target = ShapeData::Target::Player;
-    shape->targetPlayer = playerName;
-    auto level = ll::service::getLevel();
-    if (!level.has_value()) return false;
-    auto* player = level->getPlayer(playerName);
-    if (!player) return false;
-    return ProtocolPacketWriter::sendToPlayer(*player, {shape->proto});
+    return mShapes.withObject(id, [&](ShapeData& shape) -> bool {
+        shape.visible      = true;
+        shape.target       = ShapeData::Target::Player;
+        shape.targetPlayer = playerName;
+        auto level         = ll::service::getLevel();
+        if (!level.has_value())
+            return false;
+        auto* player = level->getPlayer(playerName);
+        if (!player)
+            return false;
+        return ProtocolPacketWriter::sendToPlayer(*player, {shape.proto});
+    });
 }
 
 bool PacketDebugRenderer::drawToDimension(int64_t id, int dimId) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    shape->visible = true;
-    shape->proto.mDimensionId = dimId;
-    shape->target = ShapeData::Target::Dimension;
-    shape->targetPlayer.clear();
-    return ProtocolPacketWriter::sendToDimension(dimId, {shape->proto});
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        shape.visible            = true;
+        shape.proto.mDimensionId = dimId;
+        shape.target             = ShapeData::Target::Dimension;
+        shape.targetPlayer.clear();
+        return ProtocolPacketWriter::sendToDimension(dimId, {shape.proto});
+    });
 }
 
 bool PacketDebugRenderer::drawBatch(const std::vector<int64_t>& ids) {
-    std::lock_guard<std::mutex> lock(mMutex);
     std::vector<ProtoShape> shapesList;
+    shapesList.reserve(ids.size());
     for (int64_t id : ids) {
-        auto* shape = getShape(id);
-        if (shape) {
-            shape->visible = true;
-            shape->target = ShapeData::Target::All;
-            shape->targetPlayer.clear();
-            shapesList.push_back(shape->proto);
-        }
+        mShapes.withObject(id, [&](ShapeData& shape) {
+            shape.visible = true;
+            shape.target  = ShapeData::Target::All;
+            shape.targetPlayer.clear();
+            shapesList.push_back(shape.proto);
+        });
     }
     if (shapesList.empty()) return true;
     return ProtocolPacketWriter::sendToAll(shapesList);
 }
 
 bool PacketDebugRenderer::remove(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    shape->visible = false;
-    auto removeShape = makeRemoveShape(shape->proto.mNetworkId);
-    return ProtocolPacketWriter::sendToAll({removeShape});
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        shape.visible    = false;
+        auto removeShape = makeRemoveShape(shape.proto.mNetworkId);
+        return ProtocolPacketWriter::sendToAll({removeShape});
+    });
 }
 
 bool PacketDebugRenderer::removeToPlayer(int64_t id, const std::string& playerName) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    shape->visible = false;
-    auto level = ll::service::getLevel();
-    if (!level.has_value()) return false;
-    auto* player = level->getPlayer(playerName);
-    if (!player) return false;
-    auto removeShape = makeRemoveShape(shape->proto.mNetworkId);
-    return ProtocolPacketWriter::sendToPlayer(*player, {removeShape});
+    return mShapes.withObject(id, [&](ShapeData& shape) -> bool {
+        shape.visible = false;
+        auto level    = ll::service::getLevel();
+        if (!level.has_value())
+            return false;
+        auto* player = level->getPlayer(playerName);
+        if (!player)
+            return false;
+        auto removeShape = makeRemoveShape(shape.proto.mNetworkId);
+        return ProtocolPacketWriter::sendToPlayer(*player, {removeShape});
+    });
 }
 
 bool PacketDebugRenderer::removeToDimension(int64_t id, int dimId) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    shape->visible = false;
-    auto removeShape = makeRemoveShape(shape->proto.mNetworkId);
-    return ProtocolPacketWriter::sendToDimension(dimId, {removeShape});
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        shape.visible    = false;
+        auto removeShape = makeRemoveShape(shape.proto.mNetworkId);
+        return ProtocolPacketWriter::sendToDimension(dimId, {removeShape});
+    });
 }
 
 bool PacketDebugRenderer::update(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    if (shape->visible) {
-        // 协议语义: 同 networkId 的完整形状 = 客户端原地替换 (原子更新)
-        // 不能先发移除包再重建 —— 倒计时每秒刷新会导致整个文本框闪烁
-        ProtocolPacketWriter::sendToAll({shape->proto});
-    }
-    return true;
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        if (shape.visible) {
+            // 协议语义: 同 networkId 的完整形状 = 客户端原地替换 (原子更新)
+            // 不能先发移除包再重建 —— 倒计时每秒刷新会导致整个文本框闪烁
+            ProtocolPacketWriter::sendToAll({shape.proto});
+        }
+    });
 }
 
 bool PacketDebugRenderer::updateToPlayer(int64_t id, const std::string& playerName) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    if (shape->visible) {
+    return mShapes.withObject(id, [&](ShapeData& shape) -> bool {
+        if (!shape.visible)
+            return true;
         auto level = ll::service::getLevel();
-        if (!level.has_value()) return false;
+        if (!level.has_value())
+            return false;
         auto* player = level->getPlayer(playerName);
-        if (!player) return false;
+        if (!player)
+            return false;
         // 同 networkId 原地替换, 不先删后建 (防闪烁)
-        ProtocolPacketWriter::sendToPlayer(*player, {shape->proto});
-    }
-    return true;
+        return ProtocolPacketWriter::sendToPlayer(*player, {shape.proto});
+    });
 }
 
 bool PacketDebugRenderer::updateToDimension(int64_t id, int dimId) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    if (!shape) return false;
-    if (shape->visible) {
-        // 同 networkId 原地替换, 不先删后建 (防闪烁)
-        ProtocolPacketWriter::sendToDimension(dimId, {shape->proto});
-    }
-    return true;
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        if (shape.visible) {
+            // 同 networkId 原地替换, 不先删后建 (防闪烁)
+            ProtocolPacketWriter::sendToDimension(dimId, {shape.proto});
+        }
+    });
 }
 
 // 查询
 
 std::vector<int64_t> PacketDebugRenderer::findTextByLocation(float x, float y, float z, float radius) {
-    std::lock_guard<std::mutex> lock(mMutex);
     std::vector<int64_t> result;
-    float radiusSq = radius * radius;
-    for (const auto& [id, shape] : mShapes) {
-        if (shape->type != LSEShapeType::Text) continue;
-        if (!shape->proto.mLocation.has_value()) continue;
-        auto& loc = *shape->proto.mLocation;
-        float dx = loc.mX - x, dy = loc.mY - y, dz = loc.mZ - z;
-        if (dx * dx + dy * dy + dz * dz <= radiusSq) result.push_back(id);
-    }
+    float const          radiusSq = radius * radius;
+    mShapes.forEachLocked([&](int64_t id, ShapeData const& shape) {
+        if (shape.type != LSEShapeType::Text)
+            return;
+        if (!shape.proto.mLocation.has_value())
+            return;
+        auto const& loc = *shape.proto.mLocation;
+        float       dx = loc.mX - x, dy = loc.mY - y, dz = loc.mZ - z;
+        if (dx * dx + dy * dy + dz * dz <= radiusSq)
+            result.push_back(id);
+    });
     return result;
 }
 
 int64_t PacketDebugRenderer::findTextByLocationAndContent(float x, float y, float z, float radius, const std::string& text) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    float radiusSq = radius * radius;
-    for (const auto& [id, shape] : mShapes) {
-        if (shape->type != LSEShapeType::Text) continue;
-        auto* textData = std::get_if<DebugText>(&shape->proto.mShape);
-        if (!textData || textData->mText != text) continue;
-        if (!shape->proto.mLocation.has_value()) continue;
-        auto& loc = *shape->proto.mLocation;
-        float dx = loc.mX - x, dy = loc.mY - y, dz = loc.mZ - z;
-        if (dx * dx + dy * dy + dz * dz <= radiusSq) return id;
-    }
-    return -1;
+    float const radiusSq = radius * radius;
+    int64_t     found    = -1;
+    mShapes.forEachLocked([&](int64_t id, ShapeData const& shape) {
+        if (found >= 0)
+            return; // 已命中, 不再扫描
+        if (shape.type != LSEShapeType::Text)
+            return;
+        auto const* textData = std::get_if<DebugText>(&shape.proto.mShape);
+        if (!textData || textData->mText != text)
+            return;
+        if (!shape.proto.mLocation.has_value())
+            return;
+        auto const& loc = *shape.proto.mLocation;
+        float       dx = loc.mX - x, dy = loc.mY - y, dz = loc.mZ - z;
+        if (dx * dx + dy * dy + dz * dz <= radiusSq)
+            found = id;
+    });
+    return found;
 }
 
 std::vector<int64_t> PacketDebugRenderer::getAllShapeIds() {
-    std::lock_guard<std::mutex> lock(mMutex);
-    std::vector<int64_t> ids;
-    ids.reserve(mShapes.size());
-    for (const auto& [id, shape] : mShapes) ids.push_back(id);
-    return ids;
+    return mShapes.snapshotAll();
 }
 
 bool PacketDebugRenderer::exists(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    return mShapes.find(id) != mShapes.end();
+    return mShapes.exists(id);
 }
 
 // 生命周期
 
 bool PacketDebugRenderer::destroy(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto it = mShapes.find(id);
-    if (it == mShapes.end()) return false;
+    std::uint64_t networkId = 0;
+    if (!mShapes.withObject(id, [&](ShapeData const& shape) {
+            networkId = shape.proto.mNetworkId;
+        })) {
+        return false;
+    }
     // 先发移除包再删内存 (否则客户端残留显示, 悬浮字不消失)
     // 未知 networkId 的移除包对未收到过该形状的客户端无副作用
-    auto removeShape = makeRemoveShape(it->second->proto.mNetworkId);
-    ProtocolPacketWriter::sendToAll({removeShape});
-    mShapes.erase(it);
+    ProtocolPacketWriter::sendToAll({makeRemoveShape(networkId)});
+    mShapes.erase(id);
     return true;
 }
 
 bool PacketDebugRenderer::destroyBatch(const std::vector<int64_t>& ids) {
-    std::lock_guard<std::mutex> lock(mMutex);
     std::vector<ProtoShape> removes;
     removes.reserve(ids.size());
     for (int64_t id : ids) {
-        auto it = mShapes.find(id);
-        if (it == mShapes.end()) continue;
-        removes.push_back(makeRemoveShape(it->second->proto.mNetworkId));
-        mShapes.erase(it);
+        std::uint64_t networkId = 0;
+        if (!mShapes.withObject(id, [&](ShapeData const& shape) {
+                networkId = shape.proto.mNetworkId;
+            })) {
+            continue;
+        }
+        removes.push_back(makeRemoveShape(networkId));
+        mShapes.erase(id);
     }
     if (removes.empty()) return true;
     // 先发移除包再清内存 (与 destroy 一致; 未知 networkId 的移除包对客户端无副作用)
@@ -455,22 +459,23 @@ bool PacketDebugRenderer::destroyBatch(const std::vector<int64_t>& ids) {
 }
 
 void PacketDebugRenderer::destroyAll() {
-    std::lock_guard<std::mutex> lock(mMutex);
     if (mShapes.empty()) return;
     std::vector<ProtoShape> removes;
     removes.reserve(mShapes.size());
-    for (auto const& [id, shape] : mShapes) {
-        removes.push_back(makeRemoveShape(shape->proto.mNetworkId));
-    }
+    mShapes.forEachLocked([&](int64_t, ShapeData const& shape) {
+        removes.push_back(makeRemoveShape(shape.proto.mNetworkId));
+    });
     mShapes.clear();
     // 客户端与内存同批清理 (此前只清内存 → 客户端残留显示)
     ProtocolPacketWriter::sendToAll(removes);
 }
 
 uint64_t PacketDebugRenderer::getNetworkId(int64_t id) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    auto* shape = getShape(id);
-    return shape ? shape->proto.mNetworkId : 0;
+    std::uint64_t networkId = 0;
+    mShapes.withObject(id, [&](ShapeData const& shape) {
+        networkId = shape.proto.mNetworkId;
+    });
+    return networkId;
 }
 
 // 进服重发：玩家加入后将所有可见形状按绘制目标过滤后补发。
@@ -483,7 +488,6 @@ uint64_t PacketDebugRenderer::getNetworkId(int64_t id) {
 //   3. 同 networkId 重复发送 = 客户端原地覆盖, 幂等无副作用
 
 void PacketDebugRenderer::init() {
-    std::lock_guard<std::mutex> lock(mMutex);
     if (mJoinListener) return; // 已初始化
 
     mJoinListener = ll::event::EventBus::getInstance().emplaceListener<ll::event::PlayerJoinEvent>(
@@ -521,7 +525,6 @@ void PacketDebugRenderer::init() {
 }
 
 void PacketDebugRenderer::shutdown() {
-    std::lock_guard<std::mutex> lock(mMutex);
     if (mJoinListener) {
         ll::event::EventBus::getInstance().removeListener(mJoinListener);
         mJoinListener = nullptr;
@@ -539,10 +542,8 @@ void PacketDebugRenderer::tickResend(float deltaTime) {
     mResendTimer = 0.0f;
 
     // 无可见形状时跳过（不持锁快查）
-    {
-        std::lock_guard<std::mutex> lock(mMutex);
-        if (mShapes.empty()) return;
-    }
+    if (mShapes.empty())
+        return;
 
     auto level = ll::service::getLevel();
     if (!level.has_value()) return;
@@ -554,41 +555,29 @@ void PacketDebugRenderer::tickResend(float deltaTime) {
 
 void PacketDebugRenderer::resendVisibleToPlayer(::Player& player, bool log) {
     std::vector<ProtoShape> toSend;
-    auto const playerName = player.mName.get();
-    {
-        std::lock_guard<std::mutex> lock(mMutex);
-        auto const playerDim = ((int)player.getDimensionId());
-        toSend.reserve(mShapes.size());
-        for (auto const& [id, shape] : mShapes) {
-            if (!shape->visible) continue;
-            if (shape->target == ShapeData::Target::Player) {
-                // 私有形状只发给目标玩家
-                if (shape->targetPlayer != playerName) continue;
-            } else if (shape->proto.mDimensionId.has_value()) {
-                // 维度限定形状: 服务端按玩家当前维度过滤(与 drawToDimension 语义一致)
-                if (*shape->proto.mDimensionId != playerDim) continue;
-            }
-            toSend.push_back(shape->proto);
+    auto const              playerName = player.mName.get();
+    auto const              playerDim  = ((int)player.getDimensionId());
+    toSend.reserve(mShapes.size());
+    mShapes.forEachLocked([&](int64_t, ShapeData const& shape) {
+        if (!shape.visible)
+            return;
+        if (shape.target == ShapeData::Target::Player) {
+            // 私有形状只发给目标玩家
+            if (shape.targetPlayer != playerName)
+                return;
+        } else if (shape.proto.mDimensionId.has_value()) {
+            // 维度限定形状: 服务端按玩家当前维度过滤(与 drawToDimension 语义一致)
+            if (*shape.proto.mDimensionId != playerDim)
+                return;
         }
-    }
+        toSend.push_back(shape.proto);
+    });
     if (!toSend.empty()) {
         ProtocolPacketWriter::sendToPlayer(player, toSend);
         if (log) {
             HLIB_LOG_INFO("[DebugDrawer] 进服重发: 玩家 {} 补发 {} 个形状", playerName, toSend.size());
         }
     }
-}
-
-// 内部方法
-
-ShapeData* PacketDebugRenderer::getShape(int64_t id) {
-    auto it = mShapes.find(id);
-    return it != mShapes.end() ? it->second.get() : nullptr;
-}
-
-const ShapeData* PacketDebugRenderer::getShape(int64_t id) const {
-    auto it = mShapes.find(id);
-    return it != mShapes.end() ? it->second.get() : nullptr;
 }
 
 } // namespace debugshape_export

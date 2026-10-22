@@ -78,6 +78,7 @@ def main():
     ap.add_argument("--base", default="HEAD~1", help="与哪个起点比较（默认 HEAD~1）")
     ap.add_argument("--staged", action="store_true", help="检查暂存区而不是 base...HEAD")
     ap.add_argument("--all", action="store_true", help="整文件检查（默认只查改动行）")
+    ap.add_argument("--fix", action="store_true", help="就地只格式化改动的行（不做整文件重排）")
     args = ap.parse_args()
 
     exe = shutil.which("clang-format")
@@ -111,13 +112,26 @@ def main():
             detail = (res.stdout + res.stderr).strip()
             failed.append((path, detail))
 
+    if failed and args.fix:
+        # 只把**改动的行**就地格式化（不动文件其余部分，避免整文件重排的噪音）
+        for path, _detail in failed:
+            full = os.path.join(ROOT, path)
+            fix = [exe, "-i", "--style=file"]
+            if not args.all:
+                for s, e in changed_line_ranges(args.base, args.staged, path):
+                    fix.append(f"--lines={s}:{e}")
+            subprocess.run(fix + [full], capture_output=True, text=True, encoding="utf-8", errors="replace")
+            print(f"[format] 已就地格式化改动行: {path}")
+        print("[format] 修完请重新 `git add` 后再跑一次门禁")
+        return 0
+
     if failed:
         print(f"[format] {len(failed)} 个文件有格式问题（只看改动行）：")
         for path, detail in failed:
             print(f"\n--- {path}")
             for line in detail.split("\n")[:20]:
                 print(f"    {line}")
-        print("\n修法: 对上面文件跑 clang-format -i <file>（或只格式化改动行）后重新提交")
+        print("\n修法: python tools/check_format.py --fix（只改改动的行）后重新提交")
         return 1
 
     print(f"[format] 通过（{len(files)} 个文件，{'整文件' if args.all else '仅改动行'}）")

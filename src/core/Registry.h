@@ -101,6 +101,12 @@ public:
         mDirty.clear();
     }
 
+    /// 表是否为空（热路径快查用）
+    bool empty() const {
+        std::lock_guard lock(mMutex);
+        return mById.empty();
+    }
+
     std::size_t size() const {
         std::lock_guard lock(mMutex);
         return mById.size();

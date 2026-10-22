@@ -45,6 +45,14 @@ void testIdAllocation() {
     check(c > b, "erase 之后新 id 不回填（迟到的包不会打到新对象上）");
     check(!reg.erase(a), "重复 erase 返回 false");
     check(reg.size() == 2, "erase 后 size 正确");
+
+    check(!reg.empty(), "非空时 empty() == false");
+
+    reg.clear();
+
+    check(reg.empty(), "clear() 之后 empty() == true");
+
+    reg.insert(std::make_unique<Item>(Item{0, "z"}));
 }
 
 void testRuntimeIdIndex() {
