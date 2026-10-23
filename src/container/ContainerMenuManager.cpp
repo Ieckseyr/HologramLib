@@ -337,6 +337,11 @@ int64_t ContainerMenuManager::open(std::string const& playerName, hologramlib::C
         }
         int64_t const menuId  = mMenus.insert(std::make_unique<Menu>(menu));
         menu.menuId           = menuId;
+        // 表里那份 Menu 也要带上自己的 id —— 点击回传的 menuId 取的就是它。
+        // （漏了这一步 → 回传恒为 0，调用方按 id 匹配就全对不上）
+        mMenus.withObject(menuId, [&](Menu& stored) {
+            stored.menuId = menuId;
+        });
         mByPlayer[playerName] = menuId;
     }
 
