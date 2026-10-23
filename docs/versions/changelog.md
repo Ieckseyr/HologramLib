@@ -31,19 +31,16 @@ API 版本与虚表槽位都没动，C++ 消费方**无需重新编译**。
 - **契约工具**：新增 `tools/abi_tool.py`、`abi/v1.31.0.json` 与 `abi/slots.md` 基线，`abi.yml` 在 CI 上拦「中段插槽」。
   `mirror` 子命令可由真头文件生成消费方镜像，并自证槽位表与头文件逐槽一致（312 槽 / 15 接口）。
 - **对象表内核化**：新增 `src/core/Registry.h`（id 分配 / runtimeId 与维度索引 / 脏集 / 快照遍历，
-  只依赖标准库）+ `tests/registry_test.cpp`（36 项断言，含并发、锁策略、`peek` 与 `withObject` 返回值语义；CI 里用 g++ 直接跑）。
-  `Registry` 同时补了 `clear()` / `empty()` / `peek()`、锁策略（`std::mutex` / `std::recursive_mutex` / `NoLock`）与
-  「回调返回 bool 就原样透传」的 `withObject`，域迁移才能保持
-  "找不到" / "参数不合法" 两种失败各自 return 的写法。
-  `sulfur` / `gradientline` / `particles` / `shape` / `npcdialog` / `container` / `hologramtext` /
-  `playernpc` / `itemdisplay` / `customentity` 十个域已全部迁完（`fakeinv` 主键是玩家名，不适用）。
-  后三个是"并行表"域：先把两张 id 同键的 `mConfigs` + `mRuntimes` 合成一个 `Entry`，再整块进 Registry ——
-  合并后"只有一半状态"这类问题从根上消失。`particles` 把按值的
-  `Shape` 换成 `unique_ptr`、`tick` 改成 forEachLocked + 到期集；`shape`（`PacketDebugRenderer`）把 `networkId`
-  分配换成原子递减；`npcdialog` / `container` 用新增的 `NoLock` 锁策略 —— 主表进 Registry，但临界区仍由域
-  自己持有（`mByPlayer` / `mCarriers` / `mPlayerEpoch` 等旁表要和主表一起改，这个不变量不能拆）。`sulfur` 原先 `setInvisible` /
-  `setScale` 是**持锁调 `CustomEntityManager`** 的（嵌套加锁 + 发包可重入），现在统一成锁内取快照、锁外调下游。
-  其余 6 个域带二级索引或逐玩家子表，迁移清单与原因见架构总览的「内核化进度」。
+  只依赖标准库）与 `tests/registry_test.cpp`（36 项断言，含并发、锁策略、`peek`、`withObject` 返回值语义；
+  CI 用 g++ 直接跑）。锁是可配的：默认自持 `std::mutex`，多表共用临界区的域传 `core::NoLock`，
+  需要重入的传 `std::recursive_mutex`。`withObject` 在回调返回 bool 时原样透传，域里「找不到 id」和
+  「参数不合法」两种失败才能各自 return。
+  10 个有主表的域全部迁完（`fakeinv` 主键是玩家名，不适用）。`particles` 顺带把按值的 `Shape` 换成
+  `unique_ptr`，`tick` 改成 forEachLocked + 到期集；`shape` 的 `networkId` 分配换成原子递减；
+  `sulfur` 的 `setInvisible` / `setScale` 原先持锁调 `CustomEntityManager`（嵌套加锁 + 发包可重入），
+  改成锁内取快照、锁外调下游。
+  `playernpc` / `itemdisplay` / `customentity` 先并表再迁：两张 id 同键的表合成一个 `Entry`。
+  并表模板、访问点数量和四个只能人工确认的点见架构总览的「内核化进度」。
 - **虚拟 actor 号段**：`0x6D/0x6E/0x6F` 三段 runtimeId 原先散在三个 Manager 的初始值里，ghost 路由又抄了一遍 6 个 constexpr 做判别；现在唯一出处是 `src/core/VirtualActorIds.h` —— 分配起点取 `.first`、判别用 `.contains()`，三段相接 / 等长 / 落在 `[0x60000000,0x70000000)` 由 `static_assert` 守住。改号段再也不会出现「分配端改了、路由端没改」的静默派发失败。数值未变。
 
 ### 修复
@@ -51,6 +48,9 @@ API 版本与虚表槽位都没动，C++ 消费方**无需重新编译**。
 - **交易支付规划**：`planConsumption` 对同类型双费用（`buyA` / `buyB` 是同一物品）分别遍历账本，
   同一份余额可能被两笔费用各扣一次。现在先合并同类型费用再消费，需求量改在 64 位域累计。
   离线夹具覆盖同类型与不同类型两条路径。
+- **容器点击回传的 `menuId`**：`open()` 只把新 id 写进了局部变量，表里那份 `Menu::menuId` 仍是 0，
+  于是所有点击回传都是 `menuId=0`，按 id 路由的调用方全部失效。现在插入后回填一次。
+  这条只能起服点击才发现，编译和静态检查都看不到。
 - **热路径**：ABI 检查缓存本模块句柄；ghost 事件格式化与请求动作转换复用；删除未用内部状态与空渲染 tick。
 
 ### 工程化

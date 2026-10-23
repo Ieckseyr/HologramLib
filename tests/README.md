@@ -18,6 +18,26 @@ cd tests
 
 退出码 0 = 通过。
 
+## LSE 冒烟测试
+
+`tests/lse/HoloBoxUITest/` 是虚拟容器（箱子界面）的脚本侧测试，指令版：
+
+- `/boxui` 跑 22 条断言，然后开一个 54 格界面供手动点
+- `/boxtest` 只跑断言
+- `/boxstop` 关闭全部界面并清空点击队列
+
+装法：把 `HoloBoxUITest.js` 与 `manifest.json` 放进服务器的 `plugins/HoloBoxUITest/`，重启后进服敲指令。
+结果看控制台的 `[PASS]` / `[FAIL]`。
+
+不连服务器也能验脚本逻辑：
+
+```powershell
+node tests/lse/HoloBoxUITest/mock_run.js
+```
+
+`mock_run.js` 用假的 `ll` / `mc` / `logger` 跑整份脚本，`mc.newCommand` 也一起模拟，覆盖指令注册、
+清理、点击分发、`menuId` 对不上、缺前置等 9 个场景。
+
 ## 需要
 
 - MSVC（bat 里用 vswhere 找，自动 vcvars64）

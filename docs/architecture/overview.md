@@ -58,68 +58,84 @@
 
 ## 内核化进度
 
-`core/Registry.h` 把「id 分配 / 索引同生共死 / 脏集 / 快照遍历 / 锁」这套板子收敛成一个模板。
-`Registry<T, Mutex>` 的锁策略默认自持 `std::mutex`；多表共享临界区的域传 `core::NoLock`，临界区仍由域自己持有。
-下面 10 个域有主表，**10 个已全部迁完**（`fakeinv` 主键是玩家名，不适用）。
+10 个有主表的域都改成了 `core::Registry<T>`。`fakeinv` 的主键是玩家名，不在这个模板的范围内。
 
-| 域 | 状态 | 说明 |
+| 域 | 迁移时的改动 |
+|---|---|
+| `sulfur` | 主表只有 `{entityId}`，直接换 |
+| `gradientline` | 主表只有线段批 + 绘制标志，直接换 |
+| `particles` | 主表原来按值存 `Shape`，换成 `unique_ptr`；`tick` 改成 forEachLocked + 到期集 |
+| `shape`（`PacketDebugRenderer`） | `networkId` 分配换成原子递减；进服/周期重发改成先取快照再发包 |
+| `container` | 用 `NoLock`；`mByPlayer` / `mPlayerEpoch` / `mIdFreedTick` 留在域的临界区里 |
+| `npcdialog` | 用 `NoLock`；`mByPlayer` / `mCarriers` 同上 |
+| `hologramtext` | 用 `NoLock` + 域自己的 `recursive_mutex`（`674c7b3` 的修复不动）；`mVariables` / `mLastSentText` 仍在同一临界区，取裸指针走 `peek()` |
+| `playernpc` | 先并成 `Entry`，再用 `NoLock` + `recursive_mutex` |
+| `itemdisplay` | 先并成 `Entry`；`mFollowers` / `mVisibleFilter` / 脏集留在域里 |
+| `customentity` | 先并成 `Entry`；逐玩家外观覆盖本来就在 `Runtime` 里 |
+
+锁的三种用法：
+
+| 用法 | 什么时候用 | 谁在用 |
 |---|---|---|
-| `sulfur` | ✅ 已迁 | 主表只有 `{entityId}`，无二级索引 |
-| `gradientline` | ✅ 已迁 | 主表只有线段批 + 绘制标志 |
-| `particles` | ✅ 已迁 | 主表按值存 `Shape`，迁移时换成 `unique_ptr`；`tick` 改成 forEachLocked + 到期集 |
-| `shape`（`PacketDebugRenderer`） | ✅ 已迁 | 主表 + `networkId` 分配 + 进服/周期重发；`networkId` 换原子递减 |
-| `hologramtext` | ✅ 已迁 | `NoLock` + 域自己的 `recursive_mutex`（674c7b3 的修复保持不变）；`mVariables` / `mLastSentText` 仍在同一临界区，`peek()` 负责取裸指针 |
-| `itemdisplay` | ✅ 已迁 | **`mConfigs` + `mRuntimes` 合成 `Entry`** 后再进 Registry；`mFollowers` / `mVisibleFilter` / 脏集仍在域的临界区里 |
-| `customentity` | ✅ 已迁 | 与 `itemdisplay` 同构：`mConfigs` + `mRuntimes` 合成 `Entry`；逐玩家外观覆盖本来就在 `Runtime` 里 |
-| `playernpc` | ✅ 已迁 | **`mConfigs` + `mRuntimes` 先合成 `Entry`** 再进 Registry；`NoLock` + 域自己的 `recursive_mutex` |
-| `container` | ✅ 已迁 | `NoLock` 策略：`mMenus` 进 Registry，`mByPlayer` / `mPlayerEpoch` / `mIdFreedTick` 仍在域自己的临界区里 |
-| `npcdialog` | ✅ 已迁 | `NoLock` 策略：`mDialogs` 进 Registry，`mByPlayer` / `mCarriers` 同上 |
-| `fakeinv` | — 不适用 | 主键是玩家名（`string`），不是 `int64` id。 |
+| 默认（自持 `std::mutex`） | 主表就是全部状态 | `sulfur` / `gradientline` / `particles` / `shape` |
+| `core::NoLock` | 主表还有别的表共用同一个临界区 | `container` / `npcdialog` / `hologramtext` / `playernpc` / `itemdisplay` / `customentity` |
+| `std::recursive_mutex` | 发包会回调进本域，需要重入 | `hologramtext` / `playernpc` |
 
-三个"并行表"域（`playernpc` / `itemdisplay` / `customentity`）走的是同一条路：先把
-`mConfigs` + `mRuntimes` 合成一个 `Entry`，再整块进 Registry。合并后"只有一半状态"从根上消失。
+`Registry` 的适用边界：主表就是该域的全部状态，或者状态能整块搬进一个 `Entry`；锁可以自持，也可以由域持有。
+两条都不满足的，先做域内重构，再谈迁移。
 
-**`Registry` 的适用边界**：主表就是该域的全部状态（或状态能整块搬进 `Entry`），且锁可以自持（默认策略）或由域持有（`NoLock`）。
-
-### 并行表域为什么必须先并表（已全部完成，留作以后参考）
+### 并表：`mConfigs` + `mRuntimes`
 
-前提：`mConfigs` 与 `mRuntimes` 是 **id 同键的两张表**，必须先合成
-`struct Entry { Config config; Runtime runtime; };` 才能整块进 Registry。
+`itemdisplay` / `customentity` / `playernpc` 原来是两张 id 同键的并行表。只换容器没有意义，会得到一个
+Registry 加一张仍然手写的 `mRuntimes`。做法是先合成一张表：
 
-访问点数量（决定工作量的不是行数，是这个）：
+```cpp
+struct Entry {
+    Config  config;
+    Runtime runtime;
+};
+core::Registry<Entry, core::NoLock> mEntries;
+```
+
+再加两个访问器（`peek` + 取成员，调用方持锁）。原来那些站点只是把 `mConfigs.find(id)` 加
+`it->second` 换成 `configOf(id)` 加 `it->`，逻辑不用动：
+
+```cpp
+[[nodiscard]] Config*  configOf(int64_t id) noexcept;
+[[nodiscard]] Runtime* runtimeOf(int64_t id) noexcept;
+```
+
+工作量看访问点数量，不看行数：
 
 | 域 | `mConfigs` | `mRuntimes` | 合计 |
 |---|---|---|---|
-| `playernpc` ✅ 已完成 | 50 | 37 | 87 |
-| `itemdisplay` ✅ 已完成 | 71 | 40 | 111 |
-| `customentity` ✅ 已完成 | 75 | 47 | 122 |
+| `playernpc` | 50 | 37 | 87 |
+| `itemdisplay` | 71 | 40 | 111 |
+| `customentity` | 75 | 47 | 122 |
 
-`playernpc` 迁移时实测踩到的坑（其余两域同构，可照抄）
+有四处编译器检查不到，迁移时要人工确认：
 
-**两处不能机械替换**：
+1. **两层循环里的 `return`**。可见性同步外层遍历玩家（`return true` = 下一个玩家），内层遍历 NPC
+   （`continue` = 跳过这个 NPC）。改成 `forEachLocked` 之后两层都是“退出内层回调”，原来那句
+   “本 tick 名额用完就换下一个玩家”要显式写出来。
+2. **销毁路径的两次 erase**。`mRuntimes.erase(rit); mConfigs.erase(id);` 并表后只剩一次；留下第二次
+   会返回 false，后面的人会误以为还有两张表。
+3. **`create()` 失败要撤掉占位条目**。id 由 Registry 分配，所以先插一个空条目拿 id。皮肤没注册、
+   域被禁用这类失败路径必须把空条目删掉，否则表里留一个空对象。编译期看不出来。
+4. **结构体自带的 id 要回填**。`Menu::menuId`、`Dialog::dialogId`、`Shape::id` 这类字段会随点击回传
+   或导出结构交给调用方，插入之后必须写一次。26.51.6 漏了 `Menu::menuId`，表现就是容器点击回传的
+   `menuId` 恒为 0（见 changelog 的修复条目）。
 
-1. 可见性同步（`PlayerNpcManager.cpp:1001` 起）是**两层循环**：外层遍历玩家（`return true` = 下一个玩家），
-   内层遍历 NPC（`continue` = 下一个 NPC，`return true` = 本 tick 名额用完、下个玩家）。
-   改成 `forEachLocked` 之后两个 `return true` 的语义不再区分，必须显式重写成标志位。
-2. 销毁路径里 `mRuntimes.erase(rit); mConfigs.erase(id);` 两次 erase 并表后只剩一次
-   （第二次会返回 false，逻辑看似等价但会误导后来者）。
+多个域共用的写法：
 
-步骤建议：加 `Entry` + `Registry<Entry, NoLock>` → 加 `configOf(id)` / `runtimeOf(id)` 访问器
-（`peek` + 取成员）→ 逐站点替换（15 处 find / 10 处 contains / 4 处迭代）→ 编译 → **起服验**
-（重点：NPC 生成、可见性同步、皮肤缺失告警、respawn 后 runtimeId 是否更新）。
-
-步骤：加 `Entry` + `Registry<Entry, NoLock>` → 加 `configOf(id)` / `runtimeOf(id)` 访问器
-（`peek` + 取成员）→ 逐站点替换（15 处 find / 10 处 contains / 4 处迭代）→ 编译 → **起服验**
-（重点：NPC 生成、可见性同步、皮肤缺失告警、respawn 后 runtimeId 是否更新）。
-
-编译器兜不住、只能靠人盯的两点（`playernpc` 已处理）：
-
-* `create()` 由 Registry 分配 id（先插占位条目再填充）→ **创建失败必须撤掉占位条目**，否则表里留空 NPC。
-* `createWithId()` 的"防游标撞车"（`mNextId = desiredId + 1`）随 `mNextId` 一起删掉是对的 —— 游标已是 Registry 内部状态。
-
-不满足这两条的域，(a) 前提件（`hologramtext` 的旁表），或 (b) 先并表（那三个大域）。
-
----
+```cpp
+int64_t const id = mEntries.insert(std::make_unique<Entry>());
+if (int64_t const created = createLocked(config, id); created < 0) {
+    mEntries.erase(id);   // 失败就把空条目撤掉
+    return created;
+}
+return id;
+```
 
 ## 源码目录
 
