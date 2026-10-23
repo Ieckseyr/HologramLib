@@ -805,6 +805,10 @@ void PlayerNpcManager::notifySpawn(int64_t id, std::string const& playerName) co
     std::function<void(int64_t, std::string const&)> cb;
     {
         std::lock_guard lock(mMutex);
+        constexpr std::size_t kSpawnQueueCap = 512;
+        if (mSpawnQueue.size() >= kSpawnQueueCap)
+            mSpawnQueue.pop_front();
+        mSpawnQueue.emplace_back(id, playerName);
         cb = mSpawnCallback;
     }
     if (cb) cb(id, playerName);
@@ -968,6 +972,22 @@ std::string PlayerNpcManager::getDebugInfo(int64_t id) const {
         mTabRemovals.contains(id) ? mTabRemovals.at(id).size() : 0,
         mVisibleFilter.contains(id) ? "custom" : "all"
     );
+}
+
+std::vector<std::string> PlayerNpcManager::pollSpawns() {
+    std::lock_guard          lock(mMutex);
+    std::vector<std::string> out;
+    out.reserve(mSpawnQueue.size());
+    for (auto const& [id, playerName] : mSpawnQueue) {
+        out.push_back("player=" + playerName + " id=" + std::to_string(id));
+    }
+    mSpawnQueue.clear();
+    return out;
+}
+
+void PlayerNpcManager::clearSpawns() {
+    std::lock_guard lock(mMutex);
+    mSpawnQueue.clear();
 }
 
 bool PlayerNpcManager::findByRuntimeId(std::uint64_t runtimeId, int64_t& outId) const {

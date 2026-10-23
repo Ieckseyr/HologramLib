@@ -14,6 +14,7 @@
 #include "DiagLog.h"
 
 #include "container/ContainerPackets.h" // 三个包 + 箱子方块实体 NBT（与离线 fixture 共用同一份）
+#include "core/ClickEvent.h"            // 点击回传行版式（与 tests/click_event_test.cpp 同一份实现）
 #include "customentity/CustomEntityManager.h"
 
 #include <ll/api/io/LoggerRegistry.h>
@@ -699,13 +700,13 @@ void ContainerMenuManager::clearClicks() {
 // LSE 轮询条目格式（脚本按空格切即可）:
 //   "player=Steve menuId=2 slot=31 closed=0"
 std::string ContainerMenuManager::formatClick(hologramlib::ContainerClickEvent const& event) {
-    return std::format(
-        "player={} menuId={} slot={} closed={}",
-        event.playerName,
-        event.menuId,
-        event.slot,
-        event.closed ? 1 : 0
-    );
+    // 版式实现在 core/ClickEvent.h（只依赖标准库）: tests/click_event_test.cpp 对着它做往返对拍
+    core::ClickEventLine line;
+    line.player = event.playerName;
+    line.menuId = event.menuId;
+    line.slot   = event.slot;
+    line.closed = event.closed;
+    return core::formatClickLine(line);
 }
 
 bool ContainerMenuManager::hasMenuFor(std::string const& playerName) const {

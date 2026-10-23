@@ -18,6 +18,7 @@
 
 #include <array>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <map>
 #include <mutex>
@@ -25,6 +26,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include <ll/api/event/Listener.h>
@@ -106,6 +108,9 @@ public:
     // spawn 时机通知回调（实体对玩家 spawn/respawn 完成后调用; 传 nullptr 清除）
     using EntitySpawnCallback = std::function<void(int64_t id, std::string const& playerName)>;
     void setEntitySpawnCallback(EntitySpawnCallback callback);
+    // LSE 侧取走出生事件（每条 "player=<名字> id=<entityId>"），取走即清空
+    std::vector<std::string> pollSpawns();
+    void                     clearSpawns();
 
     std::vector<int64_t> getAllIds() const;
 
@@ -224,6 +229,8 @@ private:
     std::unordered_map<int64_t, std::unordered_set<std::string>> mVisibleFilter;
     std::multimap<std::uint64_t, EntityAnimEntry>    mAnimQueue;
     EntitySpawnCallback                                          mSpawnCallback; // 消费方补发钩子（无库内状态）
+    // LSE 接不了回调 → 出生事件也进队列, 由 entityPollSpawns 取走。上限防无消费方时涨内存。
+    std::deque<std::pair<int64_t, std::string>> mSpawnQueue;
     // Actor ID 段: 0x6E 前缀（与 ItemDisplay 的 0x6D 段隔离, 客户端 ID 空间全局不撞）
     std::uint64_t                                    mNextActorUniqueId{0x6E00000000000001ULL};
     std::uint64_t                                    mNextRuntimeId{core::actorIds::customEntity.first};

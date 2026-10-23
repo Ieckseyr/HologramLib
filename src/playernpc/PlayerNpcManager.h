@@ -11,14 +11,16 @@
 #include "core/Registry.h"        // 内核层: 对象表（NoLock：临界区由本域的 mMutex 持有）
 #include "core/VirtualActorIds.h" // runtimeId 号段（唯一出处）
 
+#include <array>
 #include <cstdint>
+#include <deque>
+#include <functional>
+#include <map>
 #include <mutex>
 #include <string>
-#include <functional>
-#include <array>
-#include <map>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include <ll/api/event/Listener.h>
@@ -131,6 +133,9 @@ public:
     bool setRideEntity(int64_t id, int64_t vehicleEntityId);         // 骑到库内自定义实体
     bool clearRide(int64_t id);
     void setEntitySpawnCallback(std::function<void(int64_t, std::string const&)> callback);
+    // LSE 侧取走出生事件（每条 "player=<名字> id=<npcId>"），取走即清空
+    std::vector<std::string> pollSpawns();
+    void                     clearSpawns();
     // 出生完成通知（内部: 可见性同步里调用; 公开是为了不依赖后置定义的 TickHookAccess）
     void notifySpawn(int64_t id, std::string const& playerName) const;
 
@@ -224,6 +229,8 @@ private:
     };
     std::multimap<std::uint64_t, AnimEntry>                mAnimQueue;
     std::function<void(int64_t, std::string const&)>       mSpawnCallback;
+    // LSE 接不了回调 → 出生事件也进队列, 由 playerNpcPollSpawns 取走。上限防无消费方时涨内存。
+    mutable std::deque<std::pair<int64_t, std::string>> mSpawnQueue;
 
     // Actor ID 段：
     //   actorUniqueId 取 0x1F600000 起（约 5 亿）：客户端能稳定处理的量级

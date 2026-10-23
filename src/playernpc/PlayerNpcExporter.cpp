@@ -557,6 +557,64 @@ void PlayerNpcExporter::exportAll() {
     // playerNpcClearRide(id) -> bool
     hologramlib::lse::exportAs(
         NAMESPACE, "playerNpcClearRide", [&mgr](int64_t id) -> bool { return mgr.clearRide(id); });
+
+    // ── 轻脏通道（只发 MoveActorAbsolute, 不重建实体）──
+    // playerNpcSetPosLight(id, x, y, z, dim) -> bool（dim<0 或跨维度返回 false, 跨维度走 setPos）
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "playerNpcSetPosLight",
+        [&mgr](int64_t id, float x, float y, float z, int dim) -> bool {
+            return mgr.setPositionLight(id, x, y, z, dim);
+        });
+    // playerNpcSetRotLight(id, yaw) -> bool
+    hologramlib::lse::exportAs(
+        NAMESPACE, "playerNpcSetRotLight", [&mgr](int64_t id, float yaw) -> bool {
+            return mgr.setRotationLight(id, yaw);
+        });
+
+    // ── 逐玩家朝向（"看向某个人"）──
+    // playerNpcSetPlayerRotation(id, playerName, yaw) -> bool（玩家还没见过该 NPC 返回 false）
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "playerNpcSetPlayerRotation",
+        [&mgr](int64_t id, std::string const& playerName, float yaw) -> bool {
+            return mgr.setPlayerRotation(id, playerName, yaw);
+        });
+    // playerNpcClearPlayerRotation(id, playerName) -> bool
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "playerNpcClearPlayerRotation",
+        [&mgr](int64_t id, std::string const& playerName) -> bool {
+            return mgr.clearPlayerRotation(id, playerName);
+        });
+    // playerNpcClearPlayerRotations(id) -> bool
+    hologramlib::lse::exportAs(
+        NAMESPACE, "playerNpcClearPlayerRotations", [&mgr](int64_t id) -> bool {
+            return mgr.clearPlayerRotations(id);
+        });
+
+    // ── 单播动画 + 出生通知 ──
+    // playerNpcPlayAnimationTo(id, playerName, animation, stopExpression, durationTicks) -> bool
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "playerNpcPlayAnimationTo",
+        [&mgr](
+            int64_t            id,
+            std::string const& playerName,
+            std::string const& animation,
+            std::string const& stopExpression,
+            int                durationTicks) -> bool {
+            return mgr.playAnimationTo(id, playerName, animation, stopExpression, durationTicks);
+        });
+
+    // playerNpcPollSpawns() -> [s]（每条 "player=<名字> id=<npcId>"，取走即清空）
+    hologramlib::lse::exportAs(NAMESPACE, "playerNpcPollSpawns", [&mgr]() -> std::vector<std::string> {
+        return mgr.pollSpawns();
+    });
+    // playerNpcClearSpawns() -> void
+    hologramlib::lse::exportAs(NAMESPACE, "playerNpcClearSpawns", [&mgr]() -> void {
+        mgr.clearSpawns();
+    });
 }
 
 } // namespace debugshape_export

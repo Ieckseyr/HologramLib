@@ -12,6 +12,7 @@
 
 #include "core/Registry.h" // 内核层: 对象表（NoLock：临界区由本域的 recursive_mutex 持有）
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -228,6 +229,10 @@ private:
     // 上次下发的文本（形状 id → 文本）—— 驱动比对用; 形状销毁时同步清理
     std::unordered_map<int64_t, std::string> mLastSentText;
     std::uint64_t mDynamicTickCounter = 0; // 节流用（0.5s = 10 tick）
+    // {tps} 的数据源: 每 tick 采一次相邻间隔, 做指数滑动平均（与 0.5s 节流无关）
+    std::atomic<double>        mTps{20.0};
+    std::atomic<std::uint64_t> mLastTickMs{0};
+    void                       sampleTps();
     // 发包钩子会同步回调进本类, 用递归锁免得自死锁
     std::recursive_mutex mMutex;
 };

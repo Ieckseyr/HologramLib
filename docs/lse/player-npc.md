@@ -4,7 +4,7 @@
 
 皮肤有四条来路：PNG 文件注册、从在线玩家采集、目录批量导入、base64 blob 恢复。**皮肤必须先注册、再创建 NPC**，否则创建会失败。库不落盘：重启后要自己重新注册皮肤、按自己的存档重建 NPC。
 
-点击这个假玩家不进回调，要用 `ghost*` 轮询取（条目里 `domain=npc`）。
+点击这个假玩家不进回调，要用 `ghost*` 轮询取（条目里 `domain=npc`）。出生事件同理，走 `playerNpcPollSpawns()`。
 
 
 ## 快速开始
@@ -524,6 +524,31 @@ setNametag(npc, "§e小美 §7<店员>");
     const getInfo = ll.import("HologramLib", "playerNpcGetDebugInfo");
     logger.info(getInfo(npc));
     ```
+
+## 轻脏通道与逐玩家朝向
+
+26.51.6 补的 8 个导出，之前只有 C++ 接口。
+
+| 函数 | 作用 |
+|---|---|
+| `playerNpcSetPosLight(id, x, y, z, dim)` | 只发 `MoveActorAbsolute`，不重建实体、不重发皮肤。跨维度返回 `false`（跨维度要用 `playerNpcSetPos`） |
+| `playerNpcSetRotLight(id, yaw)` | 同上，只改朝向 |
+| `playerNpcSetPlayerRotation(id, playerName, yaw)` | 指定玩家看到的朝向（"看向某人"） |
+| `playerNpcClearPlayerRotation(id, playerName)` | 清某个玩家的朝向覆盖 |
+| `playerNpcClearPlayerRotations(id)` | 清全部朝向覆盖 |
+| `playerNpcPlayAnimationTo(id, playerName, animation, stopExpression, durationTicks)` | 只给一个玩家播 |
+| `playerNpcPollSpawns()` | 取走出生事件，每条 `player=<名字> id=<npcId>` |
+| `playerNpcClearSpawns()` | 丢弃出生事件队列 |
+
+同一条轻脏通道内的多次调用会在同一 tick 合并成一条包，所以每 tick 喂坐标是安全的：
+
+```js
+const playerNpcSetPosLight = ll.import("HologramLib", "playerNpcSetPosLight");
+mc.listen("onTick", () => {
+  // 让 NPC 跟着某只怪走：只发移动包，不重建实体，客户端不闪
+  playerNpcSetPosLight(npcId, x, y, z, 0);
+});
+```
 
 ## 注意事项
 

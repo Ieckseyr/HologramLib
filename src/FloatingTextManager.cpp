@@ -422,7 +422,25 @@ bool FloatingTextManager::refresh(int64_t id) {
 // ── 动态行驱动（重构自 Phantom 的 tick 刷新法; LGPL-3.0, 见文件头标注）──
 // ServerLevelTickEvent 每 tick 调; 内部 10 tick(0.5s) 节流; 只碰"含动态行"的浮字;
 // 组装当前文本与上次下发比对, **变了才重发**（不做无消费的空转）。
+// 每 tick 采一次: 瞬时 TPS = 1000 / 相邻间隔(ms)，再和上一拍做 0.9/0.1 的指数滑动平均。
+// 间距 > 1s 当作暂停（服务器卡住/刚启动），这一拍不采样，避免把平均值长期压低。
+void FloatingTextManager::sampleTps() {
+    auto const now  = steadyMs();
+    auto const last = mLastTickMs.exchange(now, std::memory_order_relaxed);
+    if (last == 0 || now <= last)
+        return;
+    auto const deltaMs = now - last;
+    if (deltaMs > 1000)
+        return;
+    double inst = 1000.0 / static_cast<double>(deltaMs);
+    if (inst > 20.0)
+        inst = 20.0; // 服务器不会比 20tps 更快，超出的都是启动抖动
+    double const prev = mTps.load(std::memory_order_relaxed);
+    mTps.store(prev * 0.9 + inst * 0.1, std::memory_order_relaxed);
+}
+
 void FloatingTextManager::tickDynamic() {
+    sampleTps();                                 // 先采样（不能被下面的 0.5s 节流挡掉）
     if (++mDynamicTickCounter % 10 != 0) return; // 0.5s 一拍（与 Phantom 的默认 10 tick 一致）
 
     std::lock_guard<std::recursive_mutex> lock(mMutex);
@@ -527,9 +545,11 @@ void FloatingTextManager::registerBuiltinVariables() {
         return playerName.empty() ? "Unknown" : playerName;
     });
 
-    // {tps} - TPS (简化实现)
-    registerVariable("tps", [](const std::string&) -> std::string {
-        return "20.0"; // TODO: 实际TPS计算
+    // {tps} - 真实 TPS（1 位小数; 数据来自 sampleTps 的每 tick 采样）
+    registerVariable("tps", [this](const std::string&) -> std::string {
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(1) << mTps.load(std::memory_order_relaxed);
+        return oss.str();
     });
 
     // {dimension} / {x} / {y} / {z} - 观看者（或跟随目标）的维度与脚位坐标（重构自 Phantom 的变量集, LGPL-3.0）

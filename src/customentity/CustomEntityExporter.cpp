@@ -238,6 +238,63 @@ void CustomEntityExporter::exportAll() {
         [&mgr](int64_t id, std::string const& playerName) -> bool {
             return mgr.clearPlayerAppearance(id, playerName);
         });
+
+    // ── 逐玩家朝向（C++ 早就有, 之前漏了脚本侧）──
+    // entitySetPlayerRotation(id, playerName, yaw, pitch) -> bool
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "entitySetPlayerRotation",
+        [&mgr](int64_t id, std::string const& playerName, float yaw, float pitch) -> bool {
+            return mgr.setPlayerRotation(id, playerName, yaw, pitch);
+        });
+    // entityClearPlayerRotation(id, playerName) -> bool
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "entityClearPlayerRotation",
+        [&mgr](int64_t id, std::string const& playerName) -> bool {
+            return mgr.clearPlayerRotation(id, playerName);
+        });
+    // entityClearPlayerRotations(id) -> bool（清掉该实体的所有逐玩家朝向覆盖）
+    hologramlib::lse::exportAs(
+        NAMESPACE, "entityClearPlayerRotations", [&mgr](int64_t id) -> bool {
+            return mgr.clearPlayerRotations(id);
+        });
+
+    // ── 单播动画 + 客户端属性 + 出生通知 ──
+    // entityPlayAnimationTo(id, playerName, animation, stopExpression, durationTicks) -> bool
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "entityPlayAnimationTo",
+        [&mgr](
+            int64_t            id,
+            std::string const& playerName,
+            std::string const& animation,
+            std::string const& stopExpression,
+            int                durationTicks) -> bool {
+            return mgr.playAnimationTo(id, playerName, animation, stopExpression, durationTicks);
+        });
+
+    // entitySetMobProperty(id, name, value) -> bool（客户端同步属性; 例 "minecraft:sulfur_cube_archetype"）
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "entitySetMobProperty",
+        [&mgr](int64_t id, std::string const& name, std::string const& value) -> bool {
+            return mgr.setMobProperty(id, name, value);
+        });
+    // entityClearMobProperties(id) -> bool
+    hologramlib::lse::exportAs(
+        NAMESPACE, "entityClearMobProperties", [&mgr](int64_t id) -> bool {
+            return mgr.clearMobProperties(id);
+        });
+
+    // entityPollSpawns() -> [s]（每条 "player=<名字> id=<entityId>"，取走即清空）
+    hologramlib::lse::exportAs(NAMESPACE, "entityPollSpawns", [&mgr]() -> std::vector<std::string> {
+        return mgr.pollSpawns();
+    });
+    // entityClearSpawns() -> void
+    hologramlib::lse::exportAs(NAMESPACE, "entityClearSpawns", [&mgr]() -> void {
+        mgr.clearSpawns();
+    });
 }
 
 } // namespace debugshape_export

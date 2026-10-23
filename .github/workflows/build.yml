@@ -27,10 +27,28 @@ jobs:
       - name: 工具自测
         run: python tools/test_abi_tool.py
 
+      - name: 导出清单（重名 + 文档总数）
+        run: python tools/check_exports.py --check-docs
+
       - name: 内核层单测（不依赖 BDS）
         run: |
           g++ -std=c++20 -pthread -O1 -I src tests/registry_test.cpp -o /tmp/registry_test
           /tmp/registry_test
+
+      - name: 点击回传契约（不依赖 BDS）
+        run: |
+          g++ -std=c++20 -O1 -I src tests/click_event_test.cpp -o /tmp/click_event_test
+          /tmp/click_event_test
+
+      # 编译那一关需要 HOLO_PROTOCOL_URL，没配就整关跳过。内核层这几个头是纯标准库，
+      # 单独做一次语法检查，保证它们永远编得过。
+      - name: 内核头文件语法检查
+        run: |
+          for h in Registry.h ClickEvent.h VirtualActorIds.h; do
+            echo "#include \"$h\"" > /tmp/tu.cpp
+            g++ -std=c++20 -fsyntax-only -I src/core /tmp/tu.cpp || exit 1
+            echo "ok  src/core/$h"
+          done
 
       - name: 装 clang-format
         run: sudo apt-get update && sudo apt-get install -y clang-format
@@ -81,5 +99,14 @@ jobs:
     steps:
       - name: 说明
         run: |
-          echo "::notice::没配 HOLO_PROTOCOL_URL, 跳过编译。"
+          echo "::warning::没配 HOLO_PROTOCOL_URL，这一关只跑了静态检查，源码没有被编译过。"
           echo "Settings → Secrets and variables → Actions → Variables → HOLO_PROTOCOL_URL = install 的 zip 直链"
+          {
+            echo "### 编译未执行"
+            echo ""
+            echo "编译需要 BedrockProtocol / LeviLamina 的头文件；仓库变量 \`HOLO_PROTOCOL_URL\` 没配时这一关整关跳过。"
+            echo ""
+            echo "已经跑过的：ABI 契约、工具自测、导出清单、内核层单测、点击回传契约、内核头语法检查、格式检查。"
+            echo ""
+            echo "**源码本身没有被编译过**，合并前请在本地跑一次 \`xmake build -y\`。"
+          } >> "$GITHUB_STEP_SUMMARY"

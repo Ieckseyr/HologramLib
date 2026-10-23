@@ -43,6 +43,21 @@ API 版本与虚表槽位都没动，C++ 消费方**无需重新编译**。
   并表模板、访问点数量和四个只能人工确认的点见架构总览的「内核化进度」。
 - **虚拟 actor 号段**：`0x6D/0x6E/0x6F` 三段 runtimeId 原先散在三个 Manager 的初始值里，ghost 路由又抄了一遍 6 个 constexpr 做判别；现在唯一出处是 `src/core/VirtualActorIds.h` —— 分配起点取 `.first`、判别用 `.contains()`，三段相接 / 等长 / 落在 `[0x60000000,0x70000000)` 由 `static_assert` 守住。改号段再也不会出现「分配端改了、路由端没改」的静默派发失败。数值未变。
 
+### 新增（脚本侧）
+
+只加 LSE 导出，`include/hologramlib/HologramLib.h` 与虚表未动，C++ 消费方无需重新编译。
+补的是「C++ 早就有、脚本侧一直没导出」的那批：
+
+- `entity*`（39 → 47）：`entitySetPlayerRotation` / `entityClearPlayerRotation` / `entityClearPlayerRotations`
+  （逐玩家朝向）、`entityPlayAnimationTo`（单播动画）、`entitySetMobProperty` / `entityClearMobProperties`
+  （客户端同步属性）、`entityPollSpawns` / `entityClearSpawns`（出生事件轮询）。
+- `playerNpc*`（43 → 51）：`playerNpcSetPosLight` / `playerNpcSetRotLight`（轻脏通道，只发 `MoveActorAbsolute`）、
+  `playerNpcSetPlayerRotation` / `playerNpcClearPlayerRotation` / `playerNpcClearPlayerRotations`、
+  `playerNpcPlayAnimationTo`、`playerNpcPollSpawns` / `playerNpcClearSpawns`。
+
+出生事件在 C++ 侧是回调（`setEntitySpawnCallback`），脚本接不了回调，所以两个域都加了队列 + 轮询导出
+（每条 `player=<名字> id=<库内 id>`，上限 512 条，满了丢最旧的）。LSE 导出总数 298 → **314**。
+
 ### 修复
 
 - **交易支付规划**：`planConsumption` 对同类型双费用（`buyA` / `buyB` 是同一物品）分别遍历账本，
@@ -51,6 +66,8 @@ API 版本与虚表槽位都没动，C++ 消费方**无需重新编译**。
 - **容器点击回传的 `menuId`**：`open()` 只把新 id 写进了局部变量，表里那份 `Menu::menuId` 仍是 0，
   于是所有点击回传都是 `menuId=0`，按 id 路由的调用方全部失效。现在插入后回填一次。
   这条只能起服点击才发现，编译和静态检查都看不到。
+- **`{tps}` 恒为 20.0**：变量 provider 里是写死的字符串（`TODO: 实际TPS计算`）。现在每 tick 采一次相邻
+  tick 间隔算瞬时 TPS，再做 0.9/0.1 的指数滑动平均，保留 1 位小数；间隔超过 1 秒的那一拍当作暂停跳过。
 - **热路径**：ABI 检查缓存本模块句柄；ghost 事件格式化与请求动作转换复用；删除未用内部状态与空渲染 tick。
 
 ### 工程化
@@ -72,6 +89,12 @@ API 版本与虚表槽位都没动，C++ 消费方**无需重新编译**。
   打开后 clang-format 按手写风格对齐，不再破坏周围排版。
 - CI 补一步内核层单测：`g++ -std=c++20 -pthread -I src tests/registry_test.cpp`，不需要 levilamina / BDS。
 - `tools/check_format.py` 增加 `--fix`：只就地格式化**改动的行**，不做整文件重排（避免老文件几百行纯格式 diff）。
+- `tools/check_exports.py`：统计 `exportAs` 调用点，挡「导出名重复」（运行时会被静默覆盖）与「文档总数和源码不一致」
+  （这类漂移出现过多次：README 写 273 时源码是 298）。CI 里带 `--check-docs` 跑。
+- 点击回传行的版式抽到 `src/core/ClickEvent.h`（只依赖标准库），`tests/click_event_test.cpp` 做格式化/解析往返对拍
+  （23 项断言，CI 用 g++ 直接跑）。这条针对 26.51.6 那个「回传 menuId 恒为 0」的 bug：以前没有任何离线检查能发现它。
+- CI 的静态检查新增三步：导出清单核对、内核头文件语法检查（`Registry.h` / `ClickEvent.h` / `VirtualActorIds.h` 都是纯标准库）、
+  点击回传契约测试。编译那一步仍然需要仓库变量 `HOLO_PROTOCOL_URL`，没配时跳过（跳过时打 `::warning::`，不再是静默绿）。
 - **manifest 增加 ABI 版本展示**：`extraInfo.apiVersion` / `apiVersionSemver` / `abiStamp`。放在 `extraInfo`
   是因为 LeviLamina 的 `Manifest` 里它是自由字符串表（LL 自己的 manifest 就用它带 `sentryDsn`）——
   顶层自定义键会被反序列化忽略，任何工具都读不到。`tools/abi_tool.py check` 现在一并校验这三项：

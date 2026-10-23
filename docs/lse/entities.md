@@ -2,7 +2,7 @@
 
 本页覆盖三组能力：
 
-- `entity*`（37 个）：**协议层自定义实体** —— 用原版实体类型在客户端凭空造一只实体，适合做 NPC 壳、装饰生物、盔甲架布景。服务端没有这只实体：没有 AI、没有碰撞、不落存档，也不参与任何服务端逻辑。
+- `entity*`（47 个）：**协议层自定义实体** —— 用原版实体类型在客户端凭空造一只实体，适合做 NPC 壳、装饰生物、盔甲架布景。服务端没有这只实体：没有 AI、没有碰撞、不落存档，也不参与任何服务端逻辑。
 - `ghost*`（2 个）：**交互事件轮询** —— 玩家点到上面这类协议实体时，库把点击路由成事件放进队列，脚本自己轮询取走。
 - `particle*`（22 个）：**粒子形状** —— 用原版粒子摆出点、线、矩形边框、填充面、长方体框、六面、多面体，并支持平移、平滑移动、旋转、自旋、缩放、跟随玩家。
 
@@ -747,6 +747,39 @@ const pid = particleCreateBox("demo", 0, 100.5, 64.5, 100.5, 1.5, 1.5, 1.5, 1, "
     // 玩家重连或场景切换时清一次，避免处理到过期的点击
     ghostClearInteractions();
     ```
+
+## 逐玩家覆盖、单播动画与属性
+
+这一组是 26.51.6 补上的：C++ 接口一直有，脚本侧之前没导出。
+
+| 函数 | 作用 |
+|---|---|
+| `entitySetPlayerRotation(id, playerName, yaw, pitch)` | 指定玩家看到这个朝向（其他玩家不受影响） |
+| `entityClearPlayerRotation(id, playerName)` | 清掉某个玩家的朝向覆盖 |
+| `entityClearPlayerRotations(id)` | 清掉这只实体的所有朝向覆盖 |
+| `entityPlayAnimationTo(id, playerName, animation, stopExpression, durationTicks)` | 只给一个玩家播动画（补发用） |
+| `entitySetMobProperty(id, name, value)` | 客户端同步属性，例 `minecraft:sulfur_cube_archetype` |
+| `entityClearMobProperties(id)` | 清掉全部客户端属性 |
+| `entityPollSpawns()` | 取走「实体对某玩家出生」事件，每条 `player=<名字> id=<实体 id>` |
+| `entityClearSpawns()` | 丢弃出生事件队列 |
+
+出生事件替代了 C++ 的回调：脚本拿不到回调，就轮询队列。队列上限 512 条，满了丢最旧的。
+
+```js
+const entitySetPlayerRotation = ll.import("HologramLib", "entitySetPlayerRotation");
+const entityPlayAnimationTo   = ll.import("HologramLib", "entityPlayAnimationTo");
+const entityPollSpawns        = ll.import("HologramLib", "entityPollSpawns");
+
+entitySetPlayerRotation(id, "Steve", 180, 0);   // 让 Steve 看到它背对自己
+
+setInterval(() => {
+  for (const line of entityPollSpawns()) {       // "player=Steve id=3"
+    const m = line.match(/player=(\S+) id=(-?\d+)/);
+    if (!m) continue;
+    entityPlayAnimationTo(Number(m[2]), m[1], "animation.armor_stand.base_pose", "", 0);
+  }
+}, 200);
+```
 
 ## 注意事项
 

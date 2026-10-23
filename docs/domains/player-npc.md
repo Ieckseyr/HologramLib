@@ -61,7 +61,7 @@ lib.playerNpcs().playAnimationTo(id, "Steve", "animation.npc.wave", "", 0);
 
 配套 `setEntitySpawnCallback`：NPC 对某玩家出生完成时回调，供消费方补发动画 / 状态（**库发通知，消费方决策**）。与 customentity 域同款队列（+2 tick 发出）。
 
-`setPositionLight` / `playAnimation(To)` / `setEntitySpawnCallback` 目前**只有 C++ 接口，暂无 LSE 导出**；皮肤一族已补 LSE（`playerNpcInjectSkin` / `playerNpcInjectSkinAll`）。
+`setPositionLight` / `setRotationLight` / `playAnimationTo` / 逐玩家朝向在 26.51.6 之前只有 C++ 接口，现已补齐脚本侧（`playerNpcSetPosLight` / `playerNpcSetRotLight` / `playerNpcPlayAnimationTo` / `playerNpcSetPlayerRotation` 等 8 个）。`setEntitySpawnCallback` 是 C++ 回调，脚本侧改用 `playerNpcPollSpawns()` 轮询同一份事件；皮肤一族走 `playerNpcInjectSkin` / `playerNpcInjectSkinAll`。
 
 ### 三个实战坑（都是实测踩出来的）
 

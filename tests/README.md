@@ -18,6 +18,20 @@ cd tests
 
 退出码 0 = 通过。
 
+## 不依赖 BDS 的测试
+
+两个纯标准库的单测，CI 里用 `g++` 直接跑（Windows 本地用 clang++ 或 g++ 都行）：
+
+```powershell
+g++ -std=c++20 -pthread -O1 -I src tests/registry_test.cpp   -o registry_test   && ./registry_test
+g++ -std=c++20 -O1          -I src tests/click_event_test.cpp -o click_event_test && ./click_event_test
+```
+
+| 测试 | 钉住什么 |
+|---|---|
+| `registry_test.cpp` | `core::Registry` 的 id 分配、索引清理、脏集、快照遍历、锁策略、并发 |
+| `click_event_test.cpp` | 点击回传行的版式（`player=… menuId=… slot=… closed=…`）与解析往返。`menuId` 必须是打开容器时拿到的那个 id —— 26.51.6 漏回填时它恒为 0，就是这条断言能挡住的错 |
+
 ## 需要
 
 - MSVC（bat 里用 vswhere 找，自动 vcvars64）

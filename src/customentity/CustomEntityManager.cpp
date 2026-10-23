@@ -1217,7 +1217,27 @@ void CustomEntityManager::setEntitySpawnCallback(EntitySpawnCallback callback) {
 // spawn 完成通知: 纯时机事件, 库不存任何消费方数据;
 // 消费方在回调里查自己的存储决定补发什么（如 playAnimationTo 重放动画）
 void CustomEntityManager::notifySpawnLocked(int64_t id, Player& player) {
+    constexpr std::size_t kSpawnQueueCap = 512;
+    if (mSpawnQueue.size() >= kSpawnQueueCap)
+        mSpawnQueue.pop_front();
+    mSpawnQueue.emplace_back(id, player.getRealName());
     if (mSpawnCallback) mSpawnCallback(id, player.getRealName()); // mMutex 可重入, 回调内调库 API 安全
+}
+
+std::vector<std::string> CustomEntityManager::pollSpawns() {
+    std::lock_guard          lock(mMutex);
+    std::vector<std::string> out;
+    out.reserve(mSpawnQueue.size());
+    for (auto const& [id, playerName] : mSpawnQueue) {
+        out.push_back("player=" + playerName + " id=" + std::to_string(id));
+    }
+    mSpawnQueue.clear();
+    return out;
+}
+
+void CustomEntityManager::clearSpawns() {
+    std::lock_guard lock(mMutex);
+    mSpawnQueue.clear();
 }
 
 bool CustomEntityManager::getIdPair(int64_t id, std::uint64_t& outUniqueId, std::uint64_t& outRuntimeId) const {
