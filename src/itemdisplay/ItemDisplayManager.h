@@ -10,7 +10,8 @@
 // 主键为 int64 id（库统一），配置持久化由消费者负责。
 #pragma once
 
-#include "core/VirtualActorIds.h" // runtimeId 号段（唯一出处）
+#include "core/Registry.h" // 内核层: 对象表（NoLock：临界区由本域的 mMutex 持有） // runtimeId 号段（唯一出处）
+#include "core/VirtualActorIds.h"
 
 #include <cstdint>
 #include <mutex>
@@ -208,9 +209,31 @@ private:
     };
 
     mutable std::recursive_mutex                        mMutex;
-    int64_t                                             mNextId{1};
-    std::unordered_map<int64_t, ItemDisplayConfig>      mConfigs;
-    std::unordered_map<int64_t, Runtime>                mRuntimes;
+    // ── 合并后的条目: 原本是 mConfigs / mRuntimes 两张 id 同键的并行表 ──
+    struct Entry {
+        ItemDisplayConfig config;
+        Runtime           runtime;
+    };
+
+    // 持锁状态下的访问器（调用方必须已持有 mMutex）: NoLock 表的 peek 不加锁
+    [[nodiscard]] ItemDisplayConfig* configOf(int64_t id) noexcept {
+        auto* entry = mEntries.peek(id);
+        return entry == nullptr ? nullptr : &entry->config;
+    }
+    [[nodiscard]] Runtime* runtimeOf(int64_t id) noexcept {
+        auto* entry = mEntries.peek(id);
+        return entry == nullptr ? nullptr : &entry->runtime;
+    }
+    [[nodiscard]] ItemDisplayConfig const* configOf(int64_t id) const noexcept {
+        auto* entry = mEntries.peek(id);
+        return entry == nullptr ? nullptr : &entry->config;
+    }
+    [[nodiscard]] Runtime const* runtimeOf(int64_t id) const noexcept {
+        auto* entry = mEntries.peek(id);
+        return entry == nullptr ? nullptr : &entry->runtime;
+    }
+
+    core::Registry<Entry, core::NoLock>                 mEntries;
     std::unordered_set<int64_t>                         mDirtyIds;
     // 可见玩家白名单（id -> 玩家名集合; 无条目 = 全员可见, 兼容默认行为）
     std::unordered_map<int64_t, std::unordered_set<std::string>> mVisibleFilter;

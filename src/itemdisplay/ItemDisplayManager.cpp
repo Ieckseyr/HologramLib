@@ -812,7 +812,9 @@ void ItemDisplayManager::init() {
             std::lock_guard lock(mMutex);
             auto const& uuid = ev.self().getUuid();
             mInitializedPlayers.erase(uuid);
-            for (auto& [id, rt] : mRuntimes) rt.shownPlayers.erase(uuid);
+            mEntries.forEachLocked([&](int64_t, Entry& entry) {
+                entry.runtime.shownPlayers.erase(uuid);
+            });
         }
     );
 }
@@ -827,8 +829,7 @@ void ItemDisplayManager::shutdown() {
         ll::event::EventBus::getInstance().removeListener(mDisconnectListener);
         mDisconnectListener.reset();
     }
-    mConfigs.clear();
-    mRuntimes.clear();
+    mEntries.clear();
     mDirtyIds.clear();
     mVisibleFilter.clear();
     mFollowers.clear();
@@ -838,7 +839,13 @@ void ItemDisplayManager::shutdown() {
 
 int64_t ItemDisplayManager::create(ItemDisplayConfig const& config) {
     std::lock_guard lock(mMutex);
-    return createLocked(config, mNextId++);
+    // id 由 Registry 分配: 先占位, 再由 createLocked 填充
+    int64_t const id = mEntries.insert(std::make_unique<Entry>());
+    if (int64_t const created = createLocked(config, id); created < 0) {
+        mEntries.erase(id); // 皮肤/模型缺失或域被禁用: 别留空条目
+        return created;
+    }
+    return id;
 }
 
 int64_t ItemDisplayManager::createRandom(ItemDisplayConfig const& config) {
@@ -848,7 +855,8 @@ int64_t ItemDisplayManager::createRandom(ItemDisplayConfig const& config) {
     constexpr std::int64_t kBase = core::actorIds::randomIdBase, kSpan = core::actorIds::randomIdSpan;
     for (int tries = 0; tries < 128; ++tries) {
         auto const id = kBase + static_cast<std::int64_t>(rng() % static_cast<std::uint64_t>(kSpan));
-        if (mConfigs.contains(id)) continue;
+        if (configOf(id) != nullptr)
+            continue;
         return createLocked(config, id);
     }
     return -1;
@@ -857,9 +865,8 @@ int64_t ItemDisplayManager::createRandom(ItemDisplayConfig const& config) {
 int64_t ItemDisplayManager::createWithId(ItemDisplayConfig const& config, int64_t desiredId) {
     if (desiredId <= 0) return -2;
     std::lock_guard lock(mMutex);
-    if (mConfigs.contains(desiredId)) return -2;
-    // 防自增游标未来撞上该 ID
-    if (desiredId >= mNextId && desiredId < 0x10000000) mNextId = desiredId + 1;
+    if (configOf(desiredId) != nullptr)
+        return -2;
     return createLocked(config, desiredId);
 }
 
@@ -875,19 +882,24 @@ int64_t ItemDisplayManager::createSeamless(
     if (mode == 1 || mode == 2) cfg.mode = mode;
     if (viewDistance >= 0) cfg.viewDistance = viewDistance;
 
-    auto const id = mNextId++;
+    int64_t const id = mEntries.insert(std::make_unique<Entry>()); // 先占位拿 id
     // 白名单在 createLocked 的首次 syncVisibility 之前写入:
     // 首帧 spawn 只发给目标玩家, 名单外玩家从头到尾收不到任何包（无感创建）
     if (!visiblePlayer.empty()) {
         mVisibleFilter.emplace(id, std::unordered_set<std::string>{visiblePlayer});
     }
     // mode/视距已定 → 消费者无需再调 setMode/setViewDistance → 不标脏 → 无 respawn
-    return createLocked(cfg, id);
+    if (int64_t const created = createLocked(cfg, id); created < 0) {
+        mEntries.erase(id);
+        mVisibleFilter.erase(id);
+        return created;
+    }
+    return id;
 }
 
 bool ItemDisplayManager::isIdUsed(int64_t id) const {
     std::lock_guard lock(mMutex);
-    return mConfigs.contains(id);
+    return (configOf(id) != nullptr);
 }
 
 int64_t ItemDisplayManager::createLocked(ItemDisplayConfig const& config, int64_t id) {
@@ -897,8 +909,13 @@ int64_t ItemDisplayManager::createLocked(ItemDisplayConfig const& config, int64_
     rt.uniqueId  = allocUniqueIdLocked();
     rt.runtimeId = allocRuntimeIdLocked();
 
-    mConfigs.emplace(id, config);
-    mRuntimes.emplace(id, std::move(rt));
+    // 配置与运行时同时入表 —— 合并后不可能出现"只有一半"的状态
+    if (auto* existing = mEntries.peek(id)) {
+        existing->config  = config;
+        existing->runtime = std::move(rt);
+    } else {
+        mEntries.insertWithId(id, std::make_unique<Entry>(Entry{config, std::move(rt)}));
+    }
 
     syncVisibilityLocked();
     return id;
@@ -912,17 +929,17 @@ bool ItemDisplayManager::destroy(int64_t id) {
     std::lock_guard lock(mMutex);
 
     mDirtyIds.erase(id); // 已删除的展示不再参与 tick 脏刷新
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
+    auto* rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
 
-    auto uuids = std::vector<mce::UUID>{rit->second.shownPlayers.begin(), rit->second.shownPlayers.end()};
+    auto uuids = std::vector<mce::UUID>{rit->shownPlayers.begin(), rit->shownPlayers.end()};
     for (auto const& uuid : uuids) {
         if (auto* player = findPlayerByUuid(uuid)) {
-            despawnForPlayer(rit->second, *player);
+            despawnForPlayer(*rit, *player);
         }
     }
-    mRuntimes.erase(rit);
-    mConfigs.erase(id);
+    mEntries.erase(id);
     mVisibleFilter.erase(id);
     mFollowers.erase(id); // 1.17.0: 跟随关系随展示一并清除
     return true;
@@ -931,30 +948,31 @@ bool ItemDisplayManager::destroy(int64_t id) {
 void ItemDisplayManager::destroyAll() {
     std::lock_guard lock(mMutex);
     mDirtyIds.clear();
-    for (auto& [id, rt] : mRuntimes) {
-        auto uuids = std::vector<mce::UUID>{rt.shownPlayers.begin(), rt.shownPlayers.end()};
+    mEntries.forEachLocked([&](int64_t, Entry& entry) {
+        auto& rt    = entry.runtime;
+        auto  uuids = std::vector<mce::UUID>{rt.shownPlayers.begin(), rt.shownPlayers.end()};
         for (auto const& uuid : uuids) {
             if (auto* player = findPlayerByUuid(uuid)) {
                 despawnForPlayer(rt, *player);
             }
         }
-    }
-    mConfigs.clear();
-    mRuntimes.clear();
+    });
+    mEntries.clear();
     mVisibleFilter.clear();
     mFollowers.clear(); // 1.17.0
 }
 
 bool ItemDisplayManager::exists(int64_t id) const {
     std::lock_guard lock(mMutex);
-    return mConfigs.contains(id);
+    return (configOf(id) != nullptr);
 }
 
 bool ItemDisplayManager::get(int64_t id, ItemDisplayConfig& out) const {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    out = it->second;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    out = *it;
     return true;
 }
 
@@ -969,124 +987,140 @@ bool ItemDisplayManager::setItemWithNbt(
     std::string const&   nbt
 ) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.item    = item;
-    it->second.itemAux = aux;
-    it->second.itemNbt = nbt;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->item    = item;
+    it->itemAux = aux;
+    it->itemNbt = nbt;
     mDirtyIds.insert(id); // tick 内合并 respawn（防同 tick 多次 Remove+Add 串台）
     return true;
 }
 
 bool ItemDisplayManager::setGlint(int64_t id, bool on) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    if (it->second.itemGlint == on) return true; // 幂等: apply 高频调用不触发 respawn
-    it->second.itemGlint = on;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    if (it->itemGlint == on)
+        return true; // 幂等: apply 高频调用不触发 respawn
+    it->itemGlint = on;
     mDirtyIds.insert(id); // tick 内合并 respawn（ItemStack 已变）
     return true;
 }
 
 bool ItemDisplayManager::setPosition(int64_t id, float x, float y, float z, int dim) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
     // 1.17.0: 手动设位 = 解除跟随（同粒子 Shape 的 setPos 语义; 跟随中手动摆位无意义）
     mFollowers.erase(id);
-    it->second.x = x;
-    it->second.y = y;
-    it->second.z = z;
-    if (dim >= 0) it->second.dimension = dim;
+    it->x = x;
+    it->y = y;
+    it->z = z;
+    if (dim >= 0)
+        it->dimension = dim;
     mDirtyIds.insert(id); // 位置/维度变化影响可见性, tick 脏刷新时统一重算
     return true;
 }
 
 bool ItemDisplayManager::setOffset(int64_t id, std::string const& ox, std::string const& oy, std::string const& oz) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.offsetX = ox;
-    it->second.offsetY = oy;
-    it->second.offsetZ = oz;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->offsetX = ox;
+    it->offsetY = oy;
+    it->offsetZ = oz;
     mDirtyIds.insert(id);
     return true;
 }
 
 bool ItemDisplayManager::setBaseOffset(int64_t id, std::string const& ox, std::string const& oy, std::string const& oz) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.baseOffsetX = ox;
-    it->second.baseOffsetY = oy;
-    it->second.baseOffsetZ = oz;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->baseOffsetX = ox;
+    it->baseOffsetY = oy;
+    it->baseOffsetZ = oz;
     mDirtyIds.insert(id);
     return true;
 }
 
 bool ItemDisplayManager::setRotation(int64_t id, std::string const& rx, std::string const& ry, std::string const& rz) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.rotX = rx;
-    it->second.rotY = ry;
-    it->second.rotZ = rz;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->rotX = rx;
+    it->rotY = ry;
+    it->rotZ = rz;
     mDirtyIds.insert(id);
     return true;
 }
 
 bool ItemDisplayManager::setScale(int64_t id, std::string const& scale) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.scale = scale;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->scale = scale;
     mDirtyIds.insert(id);
     return true;
 }
 
 bool ItemDisplayManager::setExtend(int64_t id, std::string const& scale, std::string const& rx, std::string const& ry) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.extendScale = scale;
-    it->second.extendRotX  = rx;
-    it->second.extendRotY  = ry;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->extendScale = scale;
+    it->extendRotX  = rx;
+    it->extendRotY  = ry;
     mDirtyIds.insert(id);
     return true;
 }
 
 bool ItemDisplayManager::setMode(int64_t id, int mode) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    if (it->second.mode == mode) return true; // 幂等: 同值不触发 respawn（防创建后闪换）
-    it->second.mode = mode;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    if (it->mode == mode)
+        return true; // 幂等: 同值不触发 respawn（防创建后闪换）
+    it->mode = mode;
     mDirtyIds.insert(id);
     return true;
 }
 
 bool ItemDisplayManager::setEnabled(int64_t id, bool enabled) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.enabled = enabled;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->enabled = enabled;
     mDirtyIds.insert(id); // 开关影响可见性, tick 脏刷新时统一重算
     return true;
 }
 
 bool ItemDisplayManager::setViewDistance(int64_t id, double dist) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    if (it->second.viewDistance == dist) return true; // 幂等: 同值不触发 respawn
-    it->second.viewDistance = dist;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    if (it->viewDistance == dist)
+        return true; // 幂等: 同值不触发 respawn
+    it->viewDistance = dist;
     mDirtyIds.insert(id); // 视距影响可见性, tick 脏刷新时统一重算
     return true;
 }
 
 bool ItemDisplayManager::setVisiblePlayers(int64_t id, std::vector<std::string> const& playerNames) {
     std::lock_guard lock(mMutex);
-    if (!mConfigs.contains(id)) return false;
+    if (configOf(id) == nullptr)
+        return false;
 
     if (playerNames.empty()) {
         mVisibleFilter.erase(id); // 空列表 = 清除限制 = 全员可见
@@ -1103,7 +1137,8 @@ bool ItemDisplayManager::setVisiblePlayers(int64_t id, std::vector<std::string> 
 
 bool ItemDisplayManager::clearVisiblePlayers(int64_t id) {
     std::lock_guard lock(mMutex);
-    if (!mConfigs.contains(id)) return false;
+    if (configOf(id) == nullptr)
+        return false;
     if (mVisibleFilter.erase(id) == 0) return true; // 本就无限制, 视为成功
     syncVisibilityLocked();
     return true;
@@ -1111,7 +1146,8 @@ bool ItemDisplayManager::clearVisiblePlayers(int64_t id) {
 
 bool ItemDisplayManager::setVisiblePlayer(int64_t id, std::string const& playerName) {
     std::lock_guard lock(mMutex);
-    if (!mConfigs.contains(id)) return false;
+    if (configOf(id) == nullptr)
+        return false;
 
     mVisibleFilter.insert_or_assign(id, std::unordered_set<std::string>{playerName});
 
@@ -1122,81 +1158,93 @@ bool ItemDisplayManager::setVisiblePlayer(int64_t id, std::string const& playerN
 
 bool ItemDisplayManager::scaleTo(int64_t id, double targetScale) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
     if (!std::isfinite(targetScale) || targetScale < 0.01) targetScale = 0.01;
 
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
+    auto* rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
 
     // 新 scale 常量化入配置（respawn/查询保持一致）
-    it->second.scale = std::format("{:.4f}", targetScale);
+    it->scale = std::format("{:.4f}", targetScale);
 
     // 以新常量重发 FMBE 动画序列（controller 名带 ".<展示id>" 后缀 → 客户端同名原地覆盖,
     // 不 Remove/Add、不换实体）。26.40.12 起物品模式也走这条（此前只支持方块）。
-    return resendFmbeLocked(id, it->second, rit->second);
+    return resendFmbeLocked(id, (*it), (*rit));
 }
 
 // ── 26.40.12: 非等比拉伸 + live 变换 ──
 
 bool ItemDisplayManager::setStretch(int64_t id, std::string const& xz, std::string const& y) {
     std::lock_guard lock(mMutex);
-    if (!mConfigs.contains(id)) return false;
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
-    rit->second.stretchXZ = xz;
-    rit->second.stretchY  = y;
+    if (configOf(id) == nullptr)
+        return false;
+    auto* rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
+    rit->stretchXZ = xz;
+    rit->stretchY  = y;
     mDirtyIds.insert(id); // 持久化并 respawn（下一 tick 合并一次）
     return true;
 }
 
 bool ItemDisplayManager::setStretchLive(int64_t id, std::string const& xz, std::string const& y) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
-    rit->second.stretchXZ = xz;
-    rit->second.stretchY  = y;
-    return resendFmbeLocked(id, it->second, rit->second);
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    auto* rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
+    rit->stretchXZ = xz;
+    rit->stretchY  = y;
+    return resendFmbeLocked(id, (*it), (*rit));
 }
 
 bool ItemDisplayManager::setRotationLive(
     int64_t id, std::string const& rx, std::string const& ry, std::string const& rz
 ) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
-    it->second.rotX = rx;
-    it->second.rotY = ry;
-    it->second.rotZ = rz;
-    return resendFmbeLocked(id, it->second, rit->second);
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    auto* rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
+    it->rotX = rx;
+    it->rotY = ry;
+    it->rotZ = rz;
+    return resendFmbeLocked(id, (*it), (*rit));
 }
 
 bool ItemDisplayManager::setOffsetLive(
     int64_t id, std::string const& ox, std::string const& oy, std::string const& oz
 ) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
-    it->second.offsetX = ox;
-    it->second.offsetY = oy;
-    it->second.offsetZ = oz;
-    return resendFmbeLocked(id, it->second, rit->second);
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    auto* rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
+    it->offsetX = ox;
+    it->offsetY = oy;
+    it->offsetZ = oz;
+    return resendFmbeLocked(id, (*it), (*rit));
 }
 
 bool ItemDisplayManager::setScaleLive(int64_t id, std::string const& scale) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
-    it->second.scale = scale;
-    return resendFmbeLocked(id, it->second, rit->second);
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    auto* rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
+    it->scale = scale;
+    return resendFmbeLocked(id, (*it), (*rit));
 }
 
 bool ItemDisplayManager::setTransformLive(
@@ -1206,60 +1254,65 @@ bool ItemDisplayManager::setTransformLive(
     std::string const& scale
 ) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
-    it->second.offsetX = ox;
-    it->second.offsetY = oy;
-    it->second.offsetZ = oz;
-    it->second.rotX    = rx;
-    it->second.rotY    = ry;
-    it->second.rotZ    = rz;
-    it->second.scale   = scale;
-    return resendFmbeLocked(id, it->second, rit->second); // 一次重发, 不叠加多次抖动
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    auto* rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
+    it->offsetX = ox;
+    it->offsetY = oy;
+    it->offsetZ = oz;
+    it->rotX    = rx;
+    it->rotY    = ry;
+    it->rotZ    = rz;
+    it->scale   = scale;
+    return resendFmbeLocked(id, (*it), (*rit)); // 一次重发, 不叠加多次抖动
 }
 
 // ── 26.40.12: 动画预设（库内逻辑）──
 
 bool ItemDisplayManager::setAnim(int64_t id, ItemDisplayAnim const& anim) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
-    auto& rt = rit->second;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    auto* rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
+    auto& rt = *rit;
 
     // 首次开动画时记录基准（之后重复 setAnim 只换参数, 不会把上一次的表达式当基准）
     if (!rt.animActive) {
-        rt.animBase.ox    = it->second.offsetX;
-        rt.animBase.oy    = it->second.offsetY;
-        rt.animBase.oz    = it->second.offsetZ;
-        rt.animBase.rx    = it->second.rotX;
-        rt.animBase.ry    = it->second.rotY;
-        rt.animBase.rz    = it->second.rotZ;
-        rt.animBase.scale = it->second.scale;
+        rt.animBase.ox    = it->offsetX;
+        rt.animBase.oy    = it->offsetY;
+        rt.animBase.oz    = it->offsetZ;
+        rt.animBase.rx    = it->rotX;
+        rt.animBase.ry    = it->rotY;
+        rt.animBase.rz    = it->rotZ;
+        rt.animBase.scale = it->scale;
         rt.animActive     = true;
     }
     rt.anim = anim;
 
     bool itemMode = true;
-    if (it->second.mode == 2) {
+    if (it->mode == 2) {
         itemMode = false;
-    } else if (it->second.mode == 0 && rt.cachedStack) {
-        itemMode = (effectiveMode(it->second, *rt.cachedStack) == 1);
+    } else if (it->mode == 0 && rt.cachedStack) {
+        itemMode = (effectiveMode((*it), *rt.cachedStack) == 1);
     }
 
-    applyAnimToConfig(it->second, anim, rt.animBase, itemMode);
-    return resendFmbeLocked(id, it->second, rt);
+    applyAnimToConfig((*it), anim, rt.animBase, itemMode);
+    return resendFmbeLocked(id, (*it), rt);
 }
 
 // 26.40.12: 单通道预设（只改这一路, 其余保持; 立即 live 重发）
 bool ItemDisplayManager::setAnimPreset(int64_t id, std::string const& preset, float a, float b, int c) {
     std::lock_guard lock(mMutex);
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end() || !mConfigs.contains(id)) return false;
-    auto anim = rit->second.anim;
+    auto*           rit = runtimeOf(id);
+    if (rit == nullptr || configOf(id) == nullptr)
+        return false;
+    auto anim = rit->anim;
     if (preset == "spin") {
         anim.spinSpeed = a;
         anim.spinAxis  = (c >= 0 && c <= 2) ? c : 1;
@@ -1306,32 +1359,36 @@ bool ItemDisplayManager::setAnimPreset(int64_t id, std::string const& preset, fl
 
 bool ItemDisplayManager::clearAnim(int64_t id) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
-    auto& rt = rit->second;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    auto* rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
+    auto& rt = *rit;
     if (!rt.animActive) return true; // 本来就没动画
 
-    it->second.offsetX = rt.animBase.ox;
-    it->second.offsetY = rt.animBase.oy;
-    it->second.offsetZ = rt.animBase.oz;
-    it->second.rotX    = rt.animBase.rx;
-    it->second.rotY    = rt.animBase.ry;
-    it->second.rotZ    = rt.animBase.rz;
-    it->second.scale   = rt.animBase.scale;
+    it->offsetX        = rt.animBase.ox;
+    it->offsetY        = rt.animBase.oy;
+    it->offsetZ        = rt.animBase.oz;
+    it->rotX           = rt.animBase.rx;
+    it->rotY           = rt.animBase.ry;
+    it->rotZ           = rt.animBase.rz;
+    it->scale          = rt.animBase.scale;
     rt.animActive      = false;
     rt.anim            = {};
-    return resendFmbeLocked(id, it->second, rt);
+    return resendFmbeLocked(id, (*it), rt);
 }
 
 std::string ItemDisplayManager::getDebugInfo(int64_t id) const {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return "not_found";
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return "not_found";
 
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return "no_runtime";
+    auto* rit = runtimeOf(id);
+    if (rit == nullptr)
+        return "no_runtime";
 
     auto fit = mVisibleFilter.find(id);
     std::string filterList;
@@ -1341,8 +1398,8 @@ std::string ItemDisplayManager::getDebugInfo(int64_t id) const {
             filterList += n;
         }
     }
-    auto& d  = it->second;
-    auto& rt = rit->second;
+    auto& d  = *it;
+    auto& rt = *rit;
     return std::format(
         "id={} dim={} pos=({:.1f},{:.1f},{:.1f}) mode={} enabled={} item='{}' view={} filter=[{}] shown={}",
         id,
@@ -1361,11 +1418,12 @@ std::string ItemDisplayManager::getDebugInfo(int64_t id) const {
 
 bool ItemDisplayManager::rotateY(int64_t id, float delta) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
 
     // 尝试将现有 rotY（常量）叠加增量; 表达式时包一层加法
-    auto& ry     = it->second.rotY;
+    auto&  ry = it->rotY;
     float  current{};
     auto   parsed = std::from_chars(ry.data(), ry.data() + ry.size(), current);
     if (parsed.ec == std::errc{} && parsed.ptr == ry.data() + ry.size()) {
@@ -1380,11 +1438,12 @@ bool ItemDisplayManager::rotateY(int64_t id, float delta) {
 bool ItemDisplayManager::scaleBy(int64_t id, double factor) {
     if (factor <= 0) return false;
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
 
     // 尝试将现有 scale（常量）直接相乘; 表达式时包一层乘法
-    auto& s      = it->second.scale;
+    auto& s = it->scale;
     float current{};
     auto  parsed = std::from_chars(s.data(), s.data() + s.size(), current);
     if (parsed.ec == std::errc{} && parsed.ptr == s.data() + s.size()) {
@@ -1399,38 +1458,38 @@ bool ItemDisplayManager::scaleBy(int64_t id, double factor) {
 
 std::vector<int64_t> ItemDisplayManager::getAllIds() const {
     std::lock_guard lock(mMutex);
-    std::vector<int64_t> ids;
-    ids.reserve(mConfigs.size());
-    for (auto const& [id, cfg] : mConfigs) ids.push_back(id);
-    return ids;
+    return mEntries.snapshotAll();
 }
 
 bool ItemDisplayManager::findByRuntimeId(std::uint64_t runtimeId, int64_t& outId) const {
     std::lock_guard lock(mMutex);
-    for (auto const& [id, rt] : mRuntimes) {
-        if (rt.runtimeId == runtimeId) {
+    bool            found = false;
+    mEntries.forEachLocked([&](int64_t id, Entry const& entry) {
+        if (!found && entry.runtime.runtimeId == runtimeId) {
             outId = id;
-            return true;
+            found = true;
         }
-    }
-    return false;
+    });
+    return found;
 }
 
 int64_t ItemDisplayManager::findNearest(float x, float y, float z, int dim, double maxDist) const {
     std::lock_guard lock(mMutex);
     int64_t best      = -1;
     double  bestDist2 = (maxDist > 0) ? maxDist * maxDist : 1e300;
-    for (auto const& [id, cfg] : mConfigs) {
-        if (cfg.dimension != dim) continue;
-        double const dx   = cfg.x - x;
-        double const dy   = cfg.y - y;
-        double const dz   = cfg.z - z;
+    mEntries.forEachLocked([&](int64_t id, Entry const& entry) {
+        auto const& cfg = entry.config;
+        if (cfg.dimension != dim)
+            return;
+        double const dx    = cfg.x - x;
+        double const dy    = cfg.y - y;
+        double const dz    = cfg.z - z;
         double const dist2 = dx * dx + dy * dy + dz * dz;
         if (dist2 < bestDist2) {
             bestDist2 = dist2;
             best      = id;
         }
-    }
+    });
     return best;
 }
 
@@ -1444,11 +1503,12 @@ void ItemDisplayManager::refreshLocked(int64_t id) {
     // MobEquipment/AnimateEntity 包可能被路由到错误实体（其他悬浮物）,
     // 表现为"操作一个悬浮物, 别的悬浮物在操作者视角内容改变但实际不变"。
     // 换新 ID 后客户端看到的是纯粹的"删旧实体 + 建全新实体", 无任何 ID 复用。
-    auto it  = mConfigs.find(id);
-    auto rit = mRuntimes.find(id);
-    if (it == mConfigs.end() || rit == mRuntimes.end()) return;
+    auto* it  = configOf(id);
+    auto* rit = runtimeOf(id);
+    if (it == nullptr || rit == nullptr)
+        return;
 
-    auto& rt    = rit->second;
+    auto& rt    = *rit;
     auto  uuids = std::vector<mce::UUID>{rt.shownPlayers.begin(), rt.shownPlayers.end()};
 
     // 第一遍: 全部 despawn（Remove 按旧 uniqueId, 动画队列清理按旧 runtimeId）
@@ -1463,7 +1523,8 @@ void ItemDisplayManager::refreshLocked(int64_t id) {
         despawnForPlayer(rt, *player);
         rt.shownPlayers.erase(uuid);
         replaced = true;
-        if (it->second.enabled) toSpawn.push_back(player);
+        if (it->enabled)
+            toSpawn.push_back(player);
     }
 
     // despawn 全部完成后再统一换新 ID（确保动画队列按旧 runtimeId 清理完毕）
@@ -1474,7 +1535,7 @@ void ItemDisplayManager::refreshLocked(int64_t id) {
 
     // 第二遍: 用新 ID respawn
     for (auto* player : toSpawn) {
-        if (spawnForPlayer(id, it->second, rt, *player)) {
+        if (spawnForPlayer(id, (*it), rt, *player)) {
             rt.shownPlayers.insert(player->getUuid());
         }
     }
@@ -1492,7 +1553,8 @@ void ItemDisplayManager::processDirtyLocked() {
 
     bool needVisibility = false;
     for (auto id : dirty) {
-        if (!mConfigs.contains(id)) continue; // 中途被 destroy
+        if (configOf(id) == nullptr)
+            continue; // 中途被 destroy
         // 位置/维度/开关变化影响可见性（refreshLocked 内部不重算, 统一在末尾重算一次）
         needVisibility = true;
         refreshLocked(id);
@@ -1504,7 +1566,8 @@ void ItemDisplayManager::processDirtyLocked() {
 
 bool ItemDisplayManager::follow(int64_t id, std::string const& playerName, float offX, float offY, float offZ) {
     std::lock_guard lock(mMutex);
-    if (!mConfigs.contains(id)) return false;
+    if (configOf(id) == nullptr)
+        return false;
     FollowState st{};
     st.playerName = playerName;
     st.offX       = offX;
@@ -1571,16 +1634,17 @@ bool ItemDisplayManager::unfollow(int64_t id) {
 
 bool ItemDisplayManager::setHitbox(int64_t id, float width, float height) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.hitboxWidth  = width > 0 ? width : 0.0f; // 0/负 = 恢复不可命中（历史行为）
-    it->second.hitboxHeight = height > 0 ? height : 0.0f;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->hitboxWidth  = width > 0 ? width : 0.0f; // 0/负 = 恢复不可命中（历史行为）
+    it->hitboxHeight = height > 0 ? height : 0.0f;
     // 即时广播 R53/R54（轻量元数据, 无 respawn）; respawn/新观察者 spawn 同源读配置
-    auto rit = mRuntimes.find(id);
-    if (rit != mRuntimes.end()) {
-        for (auto const& uuid : rit->second.shownPlayers) {
+    auto* rit = runtimeOf(id);
+    if (rit != nullptr) {
+        for (auto const& uuid : rit->shownPlayers) {
             if (auto* player = findPlayerByUuid(uuid)) {
-                sendHitboxPacket(*player, rit->second.runtimeId, it->second.hitboxWidth, it->second.hitboxHeight);
+                sendHitboxPacket(*player, rit->runtimeId, it->hitboxWidth, it->hitboxHeight);
             }
         }
     }
@@ -1604,14 +1668,14 @@ void ItemDisplayManager::followTickLocked() {
             }
             return true;
         });
-        auto cit = mConfigs.find(it->first);
-        auto rit = mRuntimes.find(it->first);
-        if (!target || cit == mConfigs.end() || rit == mRuntimes.end()) {
+        auto* cit = configOf(it->first);
+        auto* rit = runtimeOf(it->first);
+        if (!target || cit == nullptr || rit == nullptr) {
             it = mFollowers.erase(it); // 下线/改名/已销毁 = 解除跟随, 方块原地保留
             continue;
         }
 
-        auto&    cfg = cit->second;
+        auto&       cfg  = *cit;
         auto const& tpos = target->getPosition();
         float const nx = tpos.x + fs.offX;
         float const ny = tpos.y + fs.offY;
@@ -1632,9 +1696,9 @@ void ItemDisplayManager::followTickLocked() {
         cfg.x = nx;
         cfg.y = ny;
         cfg.z = nz;
-        for (auto const& uuid : rit->second.shownPlayers) {
+        for (auto const& uuid : rit->shownPlayers) {
             if (auto* player = findPlayerByUuid(uuid)) {
-                sendFollowMove(*player, rit->second.runtimeId, nx, ny, nz);
+                sendFollowMove(*player, rit->runtimeId, nx, ny, nz);
             }
         }
         ++it;
@@ -1652,10 +1716,10 @@ void ItemDisplayManager::syncVisibilityLocked() {
         auto const dimId = player.getDimensionId();
         auto const& ppos = player.getPosition();
 
-        for (auto& [id, data] : mConfigs) {
-            auto rit = mRuntimes.find(id);
-            if (rit == mRuntimes.end()) continue;
-            auto& rt = rit->second;
+        // 内层: 遍历合并后的条目（data / rt 用引用绑定, 循环体保持原样）
+        mEntries.forEachLocked([&](int64_t id, Entry& entry) {
+            auto& data = entry.config;
+            auto& rt   = entry.runtime;
 
             // 可见玩家白名单: 有条目时仅名单内玩家可见（按 Player::getRealName, 即 LSE realName 匹配）
             auto fit = mVisibleFilter.find(id);
@@ -1670,12 +1734,13 @@ void ItemDisplayManager::syncVisibilityLocked() {
                            <= data.viewDistance * data.viewDistance);
 
             if (visible && !rt.shownPlayers.contains(uuid)) {
-                if (spawnForPlayer(id, data, rt, player)) rt.shownPlayers.insert(uuid);
+                if (spawnForPlayer(id, data, rt, player))
+                    rt.shownPlayers.insert(uuid);
             } else if (!visible && rt.shownPlayers.contains(uuid)) {
                 despawnForPlayer(rt, player);
                 rt.shownPlayers.erase(uuid);
             }
-        }
+        });
         return true;
     });
 }
@@ -1701,10 +1766,12 @@ struct ItemDisplayTickHookAccess {
     // 幽灵动画防护: 该 runtimeId 的实体是否仍存活且对该玩家可见
     static bool alive(ItemDisplayManager& mgr, std::uint64_t runtimeId, mce::UUID const& uuid) {
         std::lock_guard lock(mgr.mMutex);
-        for (auto& [id, rt] : mgr.mRuntimes) {
-            if (rt.runtimeId == runtimeId) return rt.shownPlayers.contains(uuid);
-        }
-        return false;
+        bool            aliveFlag = false;
+        mgr.mEntries.forEachLocked([&](int64_t, ItemDisplayManager::Entry const& entry) {
+            if (entry.runtime.runtimeId == runtimeId)
+                aliveFlag = entry.runtime.shownPlayers.contains(uuid);
+        });
+        return aliveFlag;
     }
 };
 
