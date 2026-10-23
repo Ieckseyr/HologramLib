@@ -53,8 +53,8 @@ lib.containerMenus().addClickListener([](hologramlib::ContainerClickEvent const&
 
 **回传的 `menuId` 必须等于 `open()` 的返回值。** 调用方普遍按它路由（一个玩家同时只有一个菜单，但
 一个插件可能同时开多个），所以这条是契约：26.51.6 曾漏回填 `Menu::menuId`，表现为所有点击回传
-`menuId=0`，按 id 匹配的调用方全部失效（`fix(container): 回填 Menu::menuId` 已修）。回归用例见
-`plugins/HoloBoxUITest`（`C9 点击回传的 menuId 与打开时一致`）。
+`menuId=0`，按 id 匹配的调用方全部失效（`fix(container): 回填 Menu::menuId` 已修）。
+验证方法：打开一个容器，点任意格子，回传里的 `menuId` 应当等于 `open()` 的返回值。
 
 > **方块只在客户端。** 服务端世界与存档里都没有这个箱子方块。
 
