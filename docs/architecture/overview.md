@@ -60,7 +60,7 @@
 
 `core/Registry.h` 把「id 分配 / 索引同生共死 / 脏集 / 快照遍历 / 锁」这套板子收敛成一个模板。
 `Registry<T, Mutex>` 的锁策略默认自持 `std::mutex`；多表共享临界区的域传 `core::NoLock`，临界区仍由域自己持有。
-下面 10 个域有主表，已迁 7 个。
+下面 10 个域有主表，已迁 8 个。
 
 | 域 | 状态 | 说明 |
 |---|---|---|
@@ -71,18 +71,18 @@
 | `hologramtext` | ✅ 已迁 | `NoLock` + 域自己的 `recursive_mutex`（674c7b3 的修复保持不变）；`mVariables` / `mLastSentText` 仍在同一临界区，`peek()` 负责取裸指针 |
 | `itemdisplay` | ⛔ 先重构 | 与 id 同键的 **`mConfigs` + `mRuntimes` 两张并行表** + 脏集 + 跟随。只换容器不减少复杂度，真正的重构是把两张表并成一个 Entry。 |
 | `customentity` | ⛔ 先重构 | 同上：`mConfigs` + `mRuntimes` + 脏集 + 逐玩家外观覆盖。 |
-| `playernpc` | ⛔ 先重构 | 同上，另有 Tab 移除队列与逐玩家朝向/装备。 |
+| `playernpc` | ✅ 已迁 | **`mConfigs` + `mRuntimes` 先合成 `Entry`** 再进 Registry；`NoLock` + 域自己的 `recursive_mutex` |
 | `container` | ✅ 已迁 | `NoLock` 策略：`mMenus` 进 Registry，`mByPlayer` / `mPlayerEpoch` / `mIdFreedTick` 仍在域自己的临界区里 |
 | `npcdialog` | ✅ 已迁 | `NoLock` 策略：`mDialogs` 进 Registry，`mByPlayer` / `mCarriers` 同上 |
 | `fakeinv` | — 不适用 | 主键是玩家名（`string`），不是 `int64` id。 |
 
-剩下的 3 个都是同一类：**需要先做域内重构**（`itemdisplay` / `customentity` / `playernpc`）。
+剩下的 2 个（`itemdisplay` / `customentity`）是同一类：**需要先做域内重构**。
 瓶颈是**两张 id 同键的并行表**（`mConfigs` + `mRuntimes`），不是容器本身 —— 只换容器会得到一个
-Registry 加一张仍手写的 `mRuntimes`，反而更难维护。先把两张表并成一个 `Entry`，再整体进 Registry。
+Registry 加一张仍手写的 `mRuntimes`，反而更难维护。`playernpc` 已按这个路子迁完，可以照它的做法来。
 
 **`Registry` 的适用边界**：主表就是该域的全部状态（或状态能整块搬进 `Entry`），且锁可以自持（默认策略）或由域持有（`NoLock`）。
 
-### 剩下三个域的合并方案（`playernpc` / `itemdisplay` / `customentity`）
+### 剩下两个域的合并方案（`itemdisplay` / `customentity`）
 
 前提：`mConfigs` 与 `mRuntimes` 是 **id 同键的两张表**，必须先合成
 `struct Entry { Config config; Runtime runtime; };` 才能整块进 Registry。
@@ -91,11 +91,13 @@ Registry 加一张仍手写的 `mRuntimes`，反而更难维护。先把两张�
 
 | 域 | `mConfigs` | `mRuntimes` | 合计 |
 |---|---|---|---|
-| `playernpc` | 50 | 37 | 87 |
+| `playernpc` ✅ 已完成 | 50 | 37 | 87 |
 | `itemdisplay` | 71 | 40 | 111 |
 | `customentity` | 75 | 47 | 122 |
 
-**两处不能机械替换**（以 `playernpc` 为例，其余两域同构）：
+`playernpc` 迁移时实测踩到的坑（其余两域同构，可照抄）
+
+**两处不能机械替换**：
 
 1. 可见性同步（`PlayerNpcManager.cpp:1001` 起）是**两层循环**：外层遍历玩家（`return true` = 下一个玩家），
    内层遍历 NPC（`continue` = 下一个 NPC，`return true` = 本 tick 名额用完、下个玩家）。
@@ -107,7 +109,14 @@ Registry 加一张仍手写的 `mRuntimes`，反而更难维护。先把两张�
 （`peek` + 取成员）→ 逐站点替换（15 处 find / 10 处 contains / 4 处迭代）→ 编译 → **起服验**
 （重点：NPC 生成、可见性同步、皮肤缺失告警、respawn 后 runtimeId 是否更新）。
 
-这三步里前两步编译器能兜住，第三步只能靠起服 —— 所以建议在能跑服的时间窗里做。
+步骤：加 `Entry` + `Registry<Entry, NoLock>` → 加 `configOf(id)` / `runtimeOf(id)` 访问器
+（`peek` + 取成员）→ 逐站点替换（15 处 find / 10 处 contains / 4 处迭代）→ 编译 → **起服验**
+（重点：NPC 生成、可见性同步、皮肤缺失告警、respawn 后 runtimeId 是否更新）。
+
+编译器兜不住、只能靠人盯的两点（`playernpc` 已处理）：
+
+* `create()` 由 Registry 分配 id（先插占位条目再填充）→ **创建失败必须撤掉占位条目**，否则表里留空 NPC。
+* `createWithId()` 的"防游标撞车"（`mNextId = desiredId + 1`）随 `mNextId` 一起删掉是对的 —— 游标已是 Registry 内部状态。
 
 不满足这两条的域，(a) 前提件（`hologramtext` 的旁表），或 (b) 先并表（那三个大域）。
 
