@@ -60,7 +60,7 @@
 
 `core/Registry.h` 把「id 分配 / 索引同生共死 / 脏集 / 快照遍历 / 锁」这套板子收敛成一个模板。
 `Registry<T, Mutex>` 的锁策略默认自持 `std::mutex`；多表共享临界区的域传 `core::NoLock`，临界区仍由域自己持有。
-下面 10 个域有主表，已迁 9 个。
+下面 10 个域有主表，**10 个已全部迁完**（`fakeinv` 主键是玩家名，不适用）。
 
 | 域 | 状态 | 说明 |
 |---|---|---|
@@ -70,19 +70,18 @@
 | `shape`（`PacketDebugRenderer`） | ✅ 已迁 | 主表 + `networkId` 分配 + 进服/周期重发；`networkId` 换原子递减 |
 | `hologramtext` | ✅ 已迁 | `NoLock` + 域自己的 `recursive_mutex`（674c7b3 的修复保持不变）；`mVariables` / `mLastSentText` 仍在同一临界区，`peek()` 负责取裸指针 |
 | `itemdisplay` | ✅ 已迁 | **`mConfigs` + `mRuntimes` 合成 `Entry`** 后再进 Registry；`mFollowers` / `mVisibleFilter` / 脏集仍在域的临界区里 |
-| `customentity` | ⛔ 先重构 | 同上：`mConfigs` + `mRuntimes` + 脏集 + 逐玩家外观覆盖。 |
+| `customentity` | ✅ 已迁 | 与 `itemdisplay` 同构：`mConfigs` + `mRuntimes` 合成 `Entry`；逐玩家外观覆盖本来就在 `Runtime` 里 |
 | `playernpc` | ✅ 已迁 | **`mConfigs` + `mRuntimes` 先合成 `Entry`** 再进 Registry；`NoLock` + 域自己的 `recursive_mutex` |
 | `container` | ✅ 已迁 | `NoLock` 策略：`mMenus` 进 Registry，`mByPlayer` / `mPlayerEpoch` / `mIdFreedTick` 仍在域自己的临界区里 |
 | `npcdialog` | ✅ 已迁 | `NoLock` 策略：`mDialogs` 进 Registry，`mByPlayer` / `mCarriers` 同上 |
 | `fakeinv` | — 不适用 | 主键是玩家名（`string`），不是 `int64` id。 |
 
-剩下的 1 个（`customentity`）也是同一类：**需要先做域内重构**。
-瓶颈是**两张 id 同键的并行表**（`mConfigs` + `mRuntimes`），不是容器本身 —— 只换容器会得到一个
-Registry 加一张仍手写的 `mRuntimes`，反而更难维护。`playernpc` / `itemdisplay` 已按这个路子迁完。
+三个"并行表"域（`playernpc` / `itemdisplay` / `customentity`）走的是同一条路：先把
+`mConfigs` + `mRuntimes` 合成一个 `Entry`，再整块进 Registry。合并后"只有一半状态"从根上消失。
 
 **`Registry` 的适用边界**：主表就是该域的全部状态（或状态能整块搬进 `Entry`），且锁可以自持（默认策略）或由域持有（`NoLock`）。
 
-### 最后一个域的合并方案（`customentity`）
+### 并行表域为什么必须先并表（已全部完成，留作以后参考）
 
 前提：`mConfigs` 与 `mRuntimes` 是 **id 同键的两张表**，必须先合成
 `struct Entry { Config config; Runtime runtime; };` 才能整块进 Registry。
@@ -93,7 +92,7 @@ Registry 加一张仍手写的 `mRuntimes`，反而更难维护。`playernpc` / 
 |---|---|---|---|
 | `playernpc` ✅ 已完成 | 50 | 37 | 87 |
 | `itemdisplay` ✅ 已完成 | 71 | 40 | 111 |
-| `customentity` ⬅ 只剩这个 | 75 | 47 | 122 |
+| `customentity` ✅ 已完成 | 75 | 47 | 122 |
 
 `playernpc` 迁移时实测踩到的坑（其余两域同构，可照抄）
 

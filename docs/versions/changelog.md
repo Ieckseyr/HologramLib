@@ -36,8 +36,9 @@ API 版本与虚表槽位都没动，C++ 消费方**无需重新编译**。
   「回调返回 bool 就原样透传」的 `withObject`，域迁移才能保持
   "找不到" / "参数不合法" 两种失败各自 return 的写法。
   `sulfur` / `gradientline` / `particles` / `shape` / `npcdialog` / `container` / `hologramtext` /
-  `playernpc` / `itemdisplay` 九个域已迁。后两个需要**先把两张 id 同键的并行表**（`mConfigs` + `mRuntimes`）
-  合成一个 `Entry` 才能迁移 —— 合并后"只有一半状态"这类问题从根上消失。`particles` 把按值的
+  `playernpc` / `itemdisplay` / `customentity` 十个域已全部迁完（`fakeinv` 主键是玩家名，不适用）。
+  后三个是"并行表"域：先把两张 id 同键的 `mConfigs` + `mRuntimes` 合成一个 `Entry`，再整块进 Registry ——
+  合并后"只有一半状态"这类问题从根上消失。`particles` 把按值的
   `Shape` 换成 `unique_ptr`、`tick` 改成 forEachLocked + 到期集；`shape`（`PacketDebugRenderer`）把 `networkId`
   分配换成原子递减；`npcdialog` / `container` 用新增的 `NoLock` 锁策略 —— 主表进 Registry，但临界区仍由域
   自己持有（`mByPlayer` / `mCarriers` / `mPlayerEpoch` 等旁表要和主表一起改，这个不变量不能拆）。`sulfur` 原先 `setInvisible` /

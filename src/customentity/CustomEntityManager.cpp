@@ -419,10 +419,10 @@ void CustomEntityManager::init() {
             std::lock_guard lock(mMutex);
             auto const& uuid = ev.self().getUuid();
             mInitializedPlayers.erase(uuid);
-            for (auto& [id, rt] : mRuntimes) {
-                rt.shownPlayers.erase(uuid);
-                rt.playerRot.erase(uuid); // 逐客户端朝向覆盖随玩家离线清理
-            }
+            mEntries.forEachLocked([&](int64_t, Entry& entry) {
+                entry.runtime.shownPlayers.erase(uuid);
+                entry.runtime.playerRot.erase(uuid); // 逐客户端朝向覆盖随玩家离线清理
+            });
         }
     );
 }
@@ -437,8 +437,7 @@ void CustomEntityManager::shutdown() {
         ll::event::EventBus::getInstance().removeListener(mDisconnectListener);
         mDisconnectListener.reset();
     }
-    mConfigs.clear();
-    mRuntimes.clear();
+    mEntries.clear();
     mDirtyIds.clear();
     mLightDirtyIds.clear();
     mVisibleFilter.clear();
@@ -448,7 +447,13 @@ void CustomEntityManager::shutdown() {
 
 int64_t CustomEntityManager::create(CustomEntityConfig const& config) {
     std::lock_guard lock(mMutex);
-    return createLocked(config, mNextId++);
+    // id 由 Registry 分配: 先占位, 再由 createLocked 填充
+    int64_t const id = mEntries.insert(std::make_unique<Entry>());
+    if (int64_t const created = createLocked(config, id); created < 0) {
+        mEntries.erase(id); // 创建失败: 别留空条目
+        return created;
+    }
+    return id;
 }
 
 int64_t CustomEntityManager::createRandom(CustomEntityConfig const& config) {
@@ -458,7 +463,8 @@ int64_t CustomEntityManager::createRandom(CustomEntityConfig const& config) {
     constexpr std::int64_t kBase = core::actorIds::randomIdBase, kSpan = core::actorIds::randomIdSpan;
     for (int tries = 0; tries < 128; ++tries) {
         auto const id = kBase + static_cast<std::int64_t>(rng() % static_cast<std::uint64_t>(kSpan));
-        if (mConfigs.contains(id)) continue;
+        if ((configOf(id) != nullptr))
+            continue;
         return createLocked(config, id);
     }
     return -1;
@@ -467,15 +473,16 @@ int64_t CustomEntityManager::createRandom(CustomEntityConfig const& config) {
 int64_t CustomEntityManager::createWithId(CustomEntityConfig const& config, int64_t desiredId) {
     if (desiredId <= 0) return -2;
     std::lock_guard lock(mMutex);
-    if (mConfigs.contains(desiredId)) return -2;
+    if ((configOf(desiredId) != nullptr))
+        return -2;
     // 防自增游标未来撞上该 ID
-    if (desiredId >= mNextId && desiredId < 0x10000000) mNextId = desiredId + 1;
+    // 游标由 Registry 内部维护（原来的"防撞车"不再需要）
     return createLocked(config, desiredId);
 }
 
 bool CustomEntityManager::isIdUsed(int64_t id) const {
     std::lock_guard lock(mMutex);
-    return mConfigs.contains(id);
+    return (configOf(id) != nullptr);
 }
 
 int64_t CustomEntityManager::createLocked(CustomEntityConfig const& config, int64_t id) {
@@ -491,8 +498,13 @@ int64_t CustomEntityManager::createLocked(CustomEntityConfig const& config, int6
     rt.uniqueId  = allocUniqueIdLocked();
     rt.runtimeId = allocRuntimeIdLocked();
 
-    mConfigs.emplace(id, config);
-    mRuntimes.emplace(id, std::move(rt));
+    // 配置与运行时同时入表 —— 合并后不可能出现"只有一半"的状态
+    if (auto* existing = mEntries.peek(id)) {
+        existing->config  = config;
+        existing->runtime = std::move(rt);
+    } else {
+        mEntries.insertWithId(id, std::make_unique<Entry>(Entry{config, std::move(rt)}));
+    }
 
     syncVisibilityLocked();
     return id;
@@ -513,17 +525,17 @@ bool CustomEntityManager::destroy(int64_t id) {
         if (it->second.entityId == id) it = mAnimQueue.erase(it);
         else ++it;
     }
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
+    auto* rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
 
-    auto uuids = std::vector<mce::UUID>{rit->second.shownPlayers.begin(), rit->second.shownPlayers.end()};
+    auto uuids = std::vector<mce::UUID>{rit->shownPlayers.begin(), rit->shownPlayers.end()};
     for (auto const& uuid : uuids) {
         if (auto* player = findPlayerByUuid(uuid)) {
-            despawnForPlayer(rit->second, *player);
+            despawnForPlayer(*rit, *player);
         }
     }
-    mRuntimes.erase(rit);
-    mConfigs.erase(id);
+    mEntries.erase(id);
     return true;
 }
 
@@ -533,50 +545,54 @@ void CustomEntityManager::destroyAll() {
     mLightDirtyIds.clear();
     mVisibleFilter.clear();
     mAnimQueue.clear();
-    for (auto& [id, rt] : mRuntimes) {
-        auto uuids = std::vector<mce::UUID>{rt.shownPlayers.begin(), rt.shownPlayers.end()};
+    mEntries.forEachLocked([&](int64_t, Entry& entry) {
+        auto& rt    = entry.runtime;
+        auto  uuids = std::vector<mce::UUID>{rt.shownPlayers.begin(), rt.shownPlayers.end()};
         for (auto const& uuid : uuids) {
             if (auto* player = findPlayerByUuid(uuid)) {
                 despawnForPlayer(rt, *player);
             }
         }
-    }
-    mConfigs.clear();
-    mRuntimes.clear();
+    });
+    mEntries.clear();
 }
 
 bool CustomEntityManager::exists(int64_t id) const {
     std::lock_guard lock(mMutex);
-    return mConfigs.contains(id);
+    return (configOf(id) != nullptr);
 }
 
 bool CustomEntityManager::get(int64_t id, CustomEntityConfig& out) const {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    out = it->second;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    out = (*it);
     return true;
 }
 
 bool CustomEntityManager::setIdentifier(int64_t id, std::string const& identifier) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
     if (identifier.empty()) return false; // 空 identifier 拒绝（客户端无法渲染）
-    it->second.identifier = identifier;
+    it->identifier = identifier;
     mDirtyIds.insert(id); // 类型变更需整体 respawn
     return true;
 }
 
 bool CustomEntityManager::setPosition(int64_t id, float x, float y, float z, int dim) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.x = x;
-    it->second.y = y;
-    it->second.z = z;
-    bool const dimChanged = (dim >= 0 && it->second.dimension != dim);
-    if (dim >= 0) it->second.dimension = dim;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->x                 = x;
+    it->y                 = y;
+    it->z                 = z;
+    bool const dimChanged = (dim >= 0 && it->dimension != dim);
+    if (dim >= 0)
+        it->dimension = dim;
     // 维度变更影响可见性 → 重脏(走 respawn+可见性重算)；否则仅坐标→轻脏(增量 MoveActorAbsolute)
     if (dimChanged) mDirtyIds.insert(id);
     else            mLightDirtyIds.insert(id);
@@ -585,10 +601,11 @@ bool CustomEntityManager::setPosition(int64_t id, float x, float y, float z, int
 
 bool CustomEntityManager::setRotation(int64_t id, float yaw, float pitch) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.yaw   = yaw;
-    it->second.pitch = pitch;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->yaw   = yaw;
+    it->pitch = pitch;
     mLightDirtyIds.insert(id); // 增量 MoveActorAbsolute 可直接刷新朝向
     return true;
 }
@@ -597,10 +614,11 @@ bool CustomEntityManager::setRotation(int64_t id, float yaw, float pitch) {
 
 bool CustomEntityManager::setPlayerRotation(int64_t id, std::string const& playerName, float yaw, float pitch) {
     std::lock_guard lock(mMutex);
-    if (!mConfigs.contains(id) || !mRuntimes.contains(id)) return false;
+    if (configOf(id) == nullptr || runtimeOf(id) == nullptr)
+        return false;
     auto* player = findPlayerByName(playerName);
     if (player == nullptr) return false;
-    auto& rt = mRuntimes[id];
+    auto& rt = *runtimeOf(id);
     if (!rt.shownPlayers.contains(player->getUuid())) return false; // 该玩家还没见过这个实体
     rt.playerRot[player->getUuid()] = hologramlib::PerPlayerRotation{yaw, pitch};
     mLightDirtyIds.insert(id); // 增量包按玩家覆盖值刷新（无闪烁）
@@ -609,11 +627,13 @@ bool CustomEntityManager::setPlayerRotation(int64_t id, std::string const& playe
 
 bool CustomEntityManager::clearPlayerRotation(int64_t id, std::string const& playerName) {
     std::lock_guard lock(mMutex);
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
+    auto*           rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
     auto* player = findPlayerByName(playerName);
     if (player == nullptr) return false;
-    if (rit->second.playerRot.erase(player->getUuid()) == 0) return false;
+    if (rit->playerRot.erase(player->getUuid()) == 0)
+        return false;
     mLightDirtyIds.insert(id);
     return true;
 }
@@ -621,10 +641,11 @@ bool CustomEntityManager::clearPlayerRotation(int64_t id, std::string const& pla
 // ── 千人千面: 按观看者覆盖外观字段 ──
 bool CustomEntityManager::setPlayerNametag(int64_t id, std::string const& playerName, std::string const& text) {
     std::lock_guard lock(mMutex);
-    if (!mConfigs.contains(id) || !mRuntimes.contains(id)) return false;
+    if (configOf(id) == nullptr || runtimeOf(id) == nullptr)
+        return false;
     auto* player = findPlayerByName(playerName);
     if (player == nullptr) return false;
-    auto& rt = mRuntimes[id];
+    auto& rt = *runtimeOf(id);
     if (!rt.shownPlayers.contains(player->getUuid())) return false;
 
     if (text.empty()) {
@@ -638,10 +659,11 @@ bool CustomEntityManager::setPlayerNametag(int64_t id, std::string const& player
 
 bool CustomEntityManager::setPlayerScale(int64_t id, std::string const& playerName, float scale) {
     std::lock_guard lock(mMutex);
-    if (!mConfigs.contains(id) || !mRuntimes.contains(id)) return false;
+    if (configOf(id) == nullptr || runtimeOf(id) == nullptr)
+        return false;
     auto* player = findPlayerByName(playerName);
     if (player == nullptr) return false;
-    auto& rt = mRuntimes[id];
+    auto& rt = *runtimeOf(id);
     if (!rt.shownPlayers.contains(player->getUuid())) return false;
 
     if (scale <= 0.0f) {
@@ -663,10 +685,11 @@ bool CustomEntityManager::setPlayerEquipmentSlot(
 ) {
     std::lock_guard lock(mMutex);
     if (slot < 0 || slot > 5) return false;
-    if (!mConfigs.contains(id) || !mRuntimes.contains(id)) return false;
+    if (configOf(id) == nullptr || runtimeOf(id) == nullptr)
+        return false;
     auto* player = findPlayerByName(playerName);
     if (player == nullptr) return false;
-    auto& rt = mRuntimes[id];
+    auto& rt = *runtimeOf(id);
     if (!rt.shownPlayers.contains(player->getUuid())) return false;
 
     if (name.empty()) {
@@ -690,18 +713,19 @@ bool CustomEntityManager::setPlayerEquipmentSlot(
         entry.nbt         = nbt;
     }
     // 装备是独立包, 即时单发该观看者(不 respawn, 无闪烁)
-    auto& data = mConfigs[id];
+    auto& data = *configOf(id);
     sendEffectiveEquipment(*player, data, rt);
     return true;
 }
 
 bool CustomEntityManager::clearPlayerAppearance(int64_t id, std::string const& playerName) {
     std::lock_guard lock(mMutex);
-    auto            rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
+    auto*           rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
     auto* player = findPlayerByName(playerName);
     if (player == nullptr) return false;
-    auto& rt = rit->second;
+    auto& rt = (*rit);
 
     bool const had = rt.playerNameTag.erase(player->getUuid()) > 0
                   || rt.playerScale.erase(player->getUuid()) > 0
@@ -709,111 +733,124 @@ bool CustomEntityManager::clearPlayerAppearance(int64_t id, std::string const& p
     if (!had) return false;
     mLightDirtyIds.insert(id); // 名字/缩放增量恢复 config
     if (auto* p2 = findPlayerByName(playerName)) {
-        sendEffectiveEquipment(*p2, mConfigs[id], rt); // 装备即时恢复
+        sendEffectiveEquipment(*p2, *configOf(id), rt); // 装备即时恢复
     }
     return true;
 }
 
 bool CustomEntityManager::clearPlayerRotations(int64_t id) {
     std::lock_guard lock(mMutex);
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
-    if (rit->second.playerRot.empty()) return true;
-    rit->second.playerRot.clear();
+    auto*           rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
+    if (rit->playerRot.empty())
+        return true;
+    rit->playerRot.clear();
     mLightDirtyIds.insert(id);
     return true;
 }
 
 bool CustomEntityManager::setNametag(int64_t id, std::string const& text) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.nametag = text;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->nametag = text;
     mLightDirtyIds.insert(id); // 增量 SetActorData 刷新 Name 元数据
     return true;
 }
 
 bool CustomEntityManager::setScale(int64_t id, float scale) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
     if (scale <= 0) return false;
-    it->second.scale = scale;
+    it->scale = scale;
     mLightDirtyIds.insert(id); // 增量 UpdateAttributesPacket 应用 scale
     return true;
 }
 
 bool CustomEntityManager::setVariant(int64_t id, int variant) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.variant = variant;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->variant = variant;
     mDirtyIds.insert(id);
     return true;
 }
 
 bool CustomEntityManager::setMarkVariant(int64_t id, int markVariant) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.markVariant = markVariant;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->markVariant = markVariant;
     mDirtyIds.insert(id);
     return true;
 }
 
 bool CustomEntityManager::setColorIndex(int64_t id, int colorIndex) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.colorIndex = colorIndex;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->colorIndex = colorIndex;
     mDirtyIds.insert(id);
     return true;
 }
 
 bool CustomEntityManager::setFlags(int64_t id, int64_t flags) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.flags = flags;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->flags = flags;
     mDirtyIds.insert(id);
     return true;
 }
 
 bool CustomEntityManager::setInvisible(int64_t id, bool on) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    if (it->second.invisible == on) return true; // 幂等
-    it->second.invisible = on;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    if (it->invisible == on)
+        return true; // 幂等
+    it->invisible = on;
     mLightDirtyIds.insert(id); // 增量 SetActorData 刷新 Reserved0 flags
     return true;
 }
 
 bool CustomEntityManager::setEnabled(int64_t id, bool enabled) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.enabled = enabled;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->enabled = enabled;
     mDirtyIds.insert(id); // 开关影响可见性, tick 脏刷新时统一重算
     return true;
 }
 
 bool CustomEntityManager::setViewDistance(int64_t id, double dist) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.viewDistance = dist;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->viewDistance = dist;
     mDirtyIds.insert(id); // 视距影响可见性, tick 脏刷新时统一重算
     return true;
 }
 
 bool CustomEntityManager::setPose(int64_t id, int pose) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
     if (pose < 0) pose = 0;
     if (pose > 13) pose = 13;
-    it->second.pose = pose;
+    it->pose = pose;
     mDirtyIds.insert(id);
     return true;
 }
@@ -821,14 +858,15 @@ bool CustomEntityManager::setPose(int64_t id, int pose) {
 bool CustomEntityManager::setEquipmentSlot(int64_t id, int slot, std::string const& name, int aux, std::string const& nbt) {
     std::lock_guard lock(mMutex);
     if (slot < 0 || slot > 5) return false;
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
+    auto* it = configOf(id);
+    if (it == nullptr)
+        return false;
     if (name.empty()) {
-        it->second.equipment[slot] = {};
+        it->equipment[slot] = {};
     } else {
-        it->second.equipment[slot].name = name;
-        it->second.equipment[slot].aux  = aux;
-        it->second.equipment[slot].nbt  = nbt;
+        it->equipment[slot].name = name;
+        it->equipment[slot].aux  = aux;
+        it->equipment[slot].nbt  = nbt;
     }
     mDirtyIds.insert(id);
     return true;
@@ -840,19 +878,22 @@ bool CustomEntityManager::setMobProperty(int64_t id, std::string const& name, st
     CustomEntityManager::Runtime rt{};
     {
         std::lock_guard lock(mMutex);
-        auto            it = mConfigs.find(id);
-        if (it == mConfigs.end()) return false;
+        auto*           it = configOf(id);
+        if (it == nullptr)
+            return false;
         bool found = false;
-        for (auto& prop : it->second.mobProperties) {
+        for (auto& prop : it->mobProperties) {
             if (prop.name == name) {
                 prop.value = value;
                 found      = true;
                 break;
             }
         }
-        if (!found) it->second.mobProperties.push_back(hologramlib::EntityMobProperty{name, value});
-        data = it->second;
-        if (auto rit = mRuntimes.find(id); rit != mRuntimes.end()) rt = rit->second;
+        if (!found)
+            it->mobProperties.push_back(hologramlib::EntityMobProperty{name, value});
+        data = (*it);
+        if (auto* rit = runtimeOf(id); rit != nullptr)
+            rt = (*rit);
     }
     // 已经发给过玩家的 → 立刻同步; 还没 spawn 的会在 spawn 之后由 sendMobProperties 补发
     if (rt.uniqueId == 0) return true;
@@ -869,9 +910,10 @@ bool CustomEntityManager::setMobProperty(int64_t id, std::string const& name, st
 
 bool CustomEntityManager::clearMobProperties(int64_t id) {
     std::lock_guard lock(mMutex);
-    auto            it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.mobProperties.clear();
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->mobProperties.clear();
     return true;
 }
 
@@ -879,18 +921,20 @@ bool CustomEntityManager::clearMobProperties(int64_t id) {
 
 bool CustomEntityManager::scaleBy(int64_t id, double factor) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
     if (factor <= 0) return false;
-    it->second.scale =
-        std::clamp(static_cast<float>(it->second.scale * factor), 0.0625f, 10.0f);
+    it->scale =
+        std::clamp(static_cast<float>(it->scale * factor), 0.0625f, 10.0f);
     mLightDirtyIds.insert(id); // 增量 UpdateAttributesPacket 应用 scale
     return true;
 }
 
 bool CustomEntityManager::setVisiblePlayers(int64_t id, std::vector<std::string> const& playerNames) {
     std::lock_guard lock(mMutex);
-    if (!mConfigs.contains(id)) return false;
+    if (configOf(id) == nullptr)
+        return false;
 
     if (playerNames.empty()) {
         mVisibleFilter.erase(id); // 空列表 = 清除限制 = 全员可见
@@ -908,7 +952,8 @@ bool CustomEntityManager::setVisiblePlayers(int64_t id, std::vector<std::string>
 
 bool CustomEntityManager::clearVisiblePlayers(int64_t id) {
     std::lock_guard lock(mMutex);
-    if (!mConfigs.contains(id)) return false;
+    if (configOf(id) == nullptr)
+        return false;
     if (mVisibleFilter.erase(id) == 0) return true; // 本就无限制, 视为成功
     syncVisibilityLocked();
     return true;
@@ -916,7 +961,8 @@ bool CustomEntityManager::clearVisiblePlayers(int64_t id) {
 
 bool CustomEntityManager::setVisiblePlayer(int64_t id, std::string const& playerName) {
     std::lock_guard lock(mMutex);
-    if (!mConfigs.contains(id)) return false;
+    if (configOf(id) == nullptr)
+        return false;
 
     mVisibleFilter.insert_or_assign(id, std::unordered_set<std::string>{playerName});
 
@@ -927,11 +973,13 @@ bool CustomEntityManager::setVisiblePlayer(int64_t id, std::string const& player
 
 std::string CustomEntityManager::getDebugInfo(int64_t id) const {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return "not_found";
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return "not_found";
 
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return "no_runtime";
+    auto* rit = runtimeOf(id);
+    if (rit == nullptr)
+        return "no_runtime";
 
     auto fit = mVisibleFilter.find(id);
     std::string filterList;
@@ -941,7 +989,7 @@ std::string CustomEntityManager::getDebugInfo(int64_t id) const {
             filterList += n;
         }
     }
-    auto& d = it->second;
+    auto& d          = (*it);
     int   equipCount = 0;
     for (auto const& eq : d.equipment) {
         if (!eq.name.empty()) ++equipCount;
@@ -967,21 +1015,22 @@ std::string CustomEntityManager::getDebugInfo(int64_t id) const {
         equipCount,
         d.viewDistance,
         filterList,
-        rit->second.shownPlayers.size(),
-        ride
-    );
+        rit->shownPlayers.size(),
+        ride);
 }
 
 bool CustomEntityManager::setRidePlayer(int64_t id, std::string const& playerName) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
 
     if (playerName.empty()) {
         // 空名 = 清除链接
-        if (it->second.ridePlayerName.empty() && it->second.rideEntityId == 0) return true;
-        it->second.ridePlayerName.clear();
-        it->second.rideEntityId = 0;
+        if (it->ridePlayerName.empty() && it->rideEntityId == 0)
+            return true;
+        it->ridePlayerName.clear();
+        it->rideEntityId = 0;
         mDirtyIds.insert(id); // respawn 重放（新实体不带链接）
         return true;
     }
@@ -990,42 +1039,47 @@ bool CustomEntityManager::setRidePlayer(int64_t id, std::string const& playerNam
     auto level = ll::service::getLevel();
     if (!level || !level->getPlayer(playerName)) return false;
 
-    it->second.ridePlayerName = playerName;
-    it->second.rideEntityId   = 0; // 互斥: 后设者生效
+    it->ridePlayerName = playerName;
+    it->rideEntityId   = 0;        // 互斥: 后设者生效
     mDirtyIds.insert(id);          // respawn 换新实体并重放 SetActorLinkPacket
     return true;
 }
 
 bool CustomEntityManager::setRideEntity(int64_t id, int64_t vehicleEntityId) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
 
     if (vehicleEntityId == 0) {
         // 0 = 清除链接
-        if (it->second.ridePlayerName.empty() && it->second.rideEntityId == 0) return true;
-        it->second.ridePlayerName.clear();
-        it->second.rideEntityId = 0;
+        if (it->ridePlayerName.empty() && it->rideEntityId == 0)
+            return true;
+        it->ridePlayerName.clear();
+        it->rideEntityId = 0;
         mDirtyIds.insert(id);
         return true;
     }
 
     if (vehicleEntityId == id) return false;              // 不能骑自己
-    if (!mRuntimes.contains(vehicleEntityId)) return false; // 载具实体须存在
+    if (runtimeOf(vehicleEntityId) == nullptr)
+        return false; // 载具实体须存在
 
-    it->second.rideEntityId   = vehicleEntityId;
-    it->second.ridePlayerName.clear(); // 互斥: 后设者生效
+    it->rideEntityId = vehicleEntityId;
+    it->ridePlayerName.clear(); // 互斥: 后设者生效
     mDirtyIds.insert(id);
     return true;
 }
 
 bool CustomEntityManager::clearRide(int64_t id) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    if (it->second.ridePlayerName.empty() && it->second.rideEntityId == 0) return true;
-    it->second.ridePlayerName.clear();
-    it->second.rideEntityId = 0;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    if (it->ridePlayerName.empty() && it->rideEntityId == 0)
+        return true;
+    it->ridePlayerName.clear();
+    it->rideEntityId = 0;
     mDirtyIds.insert(id);
     return true;
 }
@@ -1034,38 +1088,38 @@ bool CustomEntityManager::playAnimation(
     int64_t id, std::string const& animation, std::string const& stopExpression, int durationTicks
 ) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
     if (animation.empty()) return false;
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
-    if (!it->second.enabled || rit->second.shownPlayers.empty()) return false;
+    auto* rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
+    if (!it->enabled || rit->shownPlayers.empty())
+        return false;
 
     auto const now  = currentTick();
     auto const ctrl = "wiki.customentity." + std::to_string(id); // 稳定名: respawn 同名原地覆盖, 零注册表泄漏
     // 旧约定 "query.any_animation" 不是合法查询（文档只有 any_animation_finished）→ 真取消包
     if (isLegacyStopExpression(stopExpression)) {
-        for (auto const& uuid : rit->second.shownPlayers) {
+        for (auto const& uuid : rit->shownPlayers) {
             mAnimQueue.emplace(
                 now + 2,
-                EntityAnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, ctrl, kStopExpr}
-            );
+                EntityAnimEntry{uuid, rit->runtimeId, id, kStopAnimation, ctrl, kStopExpr});
         }
         return true;
     }
-    for (auto const& uuid : rit->second.shownPlayers) {
+    for (auto const& uuid : rit->shownPlayers) {
         mAnimQueue.emplace(
             now + 2, // 与 ItemDisplay 同节奏: 入队 +2 tick 后发出
-            EntityAnimEntry{uuid, rit->second.runtimeId, id, animation, ctrl, stopExpression}
-        );
+            EntityAnimEntry{uuid, rit->runtimeId, id, animation, ctrl, stopExpression});
     }
     // 限时动画: 到期补发取消包（空动作 + stopExpression=1; 见 kStopAnimation 注释）
     if (durationTicks > 0) {
-        for (auto const& uuid : rit->second.shownPlayers) {
+        for (auto const& uuid : rit->shownPlayers) {
             mAnimQueue.emplace(
                 now + 2 + static_cast<std::uint64_t>(durationTicks),
-                EntityAnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, ctrl, kStopExpr}
-            );
+                EntityAnimEntry{uuid, rit->runtimeId, id, kStopAnimation, ctrl, kStopExpr});
         }
     }
     return true;
@@ -1076,12 +1130,15 @@ bool CustomEntityManager::playAnimationTo(
     std::string const& animation, std::string const& stopExpression, int durationTicks
 ) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
     if (animation.empty()) return false;
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
-    if (!it->second.enabled) return false;
+    auto* rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
+    if (!it->enabled)
+        return false;
 
     auto level = ll::service::getLevel();
     if (!level) return false;
@@ -1096,40 +1153,42 @@ bool CustomEntityManager::playAnimationTo(
         return true;
     });
     if (!target) return false;
-    if (!rit->second.shownPlayers.contains(uuid)) return false; // 未见过该实体的玩家不发
+    if (!rit->shownPlayers.contains(uuid))
+        return false; // 未见过该实体的玩家不发
 
     auto const now  = currentTick();
     auto const ctrl = "wiki.customentity." + std::to_string(id);
     if (isLegacyStopExpression(stopExpression)) {
-        mAnimQueue.emplace(now + 2, EntityAnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, ctrl, kStopExpr});
+        mAnimQueue.emplace(now + 2, EntityAnimEntry{uuid, rit->runtimeId, id, kStopAnimation, ctrl, kStopExpr});
         return true;
     }
-    mAnimQueue.emplace(now + 2, EntityAnimEntry{uuid, rit->second.runtimeId, id, animation, ctrl, stopExpression});
+    mAnimQueue.emplace(now + 2, EntityAnimEntry{uuid, rit->runtimeId, id, animation, ctrl, stopExpression});
     if (durationTicks > 0) {
         mAnimQueue.emplace(
             now + 2 + static_cast<std::uint64_t>(durationTicks),
-            EntityAnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, ctrl, kStopExpr}
-        );
+            EntityAnimEntry{uuid, rit->runtimeId, id, kStopAnimation, ctrl, kStopExpr});
     }
     return true;
 }
 
 bool CustomEntityManager::stopAnimation(int64_t id) {
     std::lock_guard lock(mMutex);
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end() || rit->second.shownPlayers.empty()) return false;
+    auto*           rit = runtimeOf(id);
+    if (rit == nullptr || rit->shownPlayers.empty())
+        return false;
     auto const now  = currentTick();
     auto const ctrl = "wiki.customentity." + std::to_string(id);
-    for (auto const& uuid : rit->second.shownPlayers) {
-        mAnimQueue.emplace(now + 2, EntityAnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, ctrl, kStopExpr});
+    for (auto const& uuid : rit->shownPlayers) {
+        mAnimQueue.emplace(now + 2, EntityAnimEntry{uuid, rit->runtimeId, id, kStopAnimation, ctrl, kStopExpr});
     }
     return true;
 }
 
 bool CustomEntityManager::stopAnimationTo(int64_t id, std::string const& playerName) {
     std::lock_guard lock(mMutex);
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
+    auto*           rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
     auto level = ll::service::getLevel();
     if (!level) return false;
     Player*   target = nullptr;
@@ -1142,11 +1201,11 @@ bool CustomEntityManager::stopAnimationTo(int64_t id, std::string const& playerN
         }
         return true;
     });
-    if (!target || !rit->second.shownPlayers.contains(uuid)) return false;
+    if (!target || !rit->shownPlayers.contains(uuid))
+        return false;
     mAnimQueue.emplace(
         currentTick() + 2,
-        EntityAnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, "wiki.customentity." + std::to_string(id), kStopExpr}
-    );
+        EntityAnimEntry{uuid, rit->runtimeId, id, kStopAnimation, "wiki.customentity." + std::to_string(id), kStopExpr});
     return true;
 }
 
@@ -1163,38 +1222,39 @@ void CustomEntityManager::notifySpawnLocked(int64_t id, Player& player) {
 
 bool CustomEntityManager::getIdPair(int64_t id, std::uint64_t& outUniqueId, std::uint64_t& outRuntimeId) const {
     std::lock_guard lock(mMutex);
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
-    outUniqueId  = rit->second.uniqueId;
-    outRuntimeId = rit->second.runtimeId;
+    auto*           rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
+    outUniqueId  = rit->uniqueId;
+    outRuntimeId = rit->runtimeId;
     return true;
 }
 
 bool CustomEntityManager::findByRuntimeId(std::uint64_t runtimeId, int64_t& outId) const {
     std::lock_guard lock(mMutex);
-    for (auto const& [id, rt] : mRuntimes) {
-        if (rt.runtimeId == runtimeId) {
+    bool            found = false;
+    mEntries.forEachLocked([&](int64_t id, Entry const& entry) {
+        if (!found && entry.runtime.runtimeId == runtimeId) {
             outId = id;
-            return true;
+            found = true;
         }
-    }
-    return false;
+    });
+    return found;
 }
 
 std::vector<int64_t> CustomEntityManager::getAllIds() const {
     std::lock_guard lock(mMutex);
-    std::vector<int64_t> ids;
-    ids.reserve(mConfigs.size());
-    for (auto const& [id, cfg] : mConfigs) ids.push_back(id);
-    return ids;
+    return mEntries.snapshotAll();
 }
 
 int64_t CustomEntityManager::findNearest(float x, float y, float z, int dim, double maxDist) const {
     std::lock_guard lock(mMutex);
     int64_t best      = -1;
     double  bestDist2 = (maxDist > 0) ? maxDist * maxDist : 1e300;
-    for (auto const& [id, cfg] : mConfigs) {
-        if (cfg.dimension != dim) continue;
+    mEntries.forEachLocked([&](int64_t id, Entry const& entry) {
+        auto const& cfg = entry.config;
+        if (cfg.dimension != dim)
+            return;
         double const dx    = cfg.x - x;
         double const dy    = cfg.y - y;
         double const dz    = cfg.z - z;
@@ -1203,7 +1263,7 @@ int64_t CustomEntityManager::findNearest(float x, float y, float z, int dim, dou
             bestDist2 = dist2;
             best      = id;
         }
-    }
+    });
     return best;
 }
 
@@ -1217,8 +1277,9 @@ std::optional<std::uint64_t> CustomEntityManager::resolveVehicleUniqueIdLocked(C
         return std::nullopt;
     }
     if (data.rideEntityId != 0) {
-        auto it = mRuntimes.find(data.rideEntityId);
-        if (it != mRuntimes.end()) return it->second.uniqueId;
+        auto* rt = runtimeOf(data.rideEntityId);
+        if (rt != nullptr)
+            return rt->uniqueId;
     }
     return std::nullopt;
 }
@@ -1230,10 +1291,9 @@ void CustomEntityManager::flushAnimsLocked() {
         auto& e = it->second;
         // 发送前活性验证: 实体已 despawn / respawn 换 ID 的条目直接丢弃
         bool alive = false;
-        auto rit   = mRuntimes.find(e.entityId);
-        if (rit != mRuntimes.end()) {
-            alive = rit->second.runtimeId == e.runtimeId
-                 && rit->second.shownPlayers.contains(e.playerUuid);
+        auto* rit   = runtimeOf(e.entityId);
+        if (rit != nullptr) {
+            alive = rit->runtimeId == e.runtimeId && rit->shownPlayers.contains(e.playerUuid);
         }
         if (alive) {
             if (auto* player = findPlayerByUuid(e.playerUuid)) {
@@ -1259,11 +1319,12 @@ void CustomEntityManager::refreshLocked(int64_t id) {
     // 客户端实体删除是帧末延迟销毁, 同帧/临近帧 RemoveActor(旧ID)+AddActor(同ID)
     // 会触发客户端 runtimeId 重映射未定义行为。换新 ID 后是纯粹的
     // "删旧实体 + 建全新实体", 无 ID 复用。
-    auto it  = mConfigs.find(id);
-    auto rit = mRuntimes.find(id);
-    if (it == mConfigs.end() || rit == mRuntimes.end()) return;
+    auto* it  = configOf(id);
+    auto* rit = runtimeOf(id);
+    if (it == nullptr || rit == nullptr)
+        return;
 
-    auto& rt    = rit->second;
+    auto& rt    = (*rit);
     auto  uuids = std::vector<mce::UUID>{rt.shownPlayers.begin(), rt.shownPlayers.end()};
 
     std::vector<Player*> toSpawn;
@@ -1277,7 +1338,8 @@ void CustomEntityManager::refreshLocked(int64_t id) {
         despawnForPlayer(rt, *player);
         rt.shownPlayers.erase(uuid);
         replaced = true;
-        if (it->second.enabled) toSpawn.push_back(player);
+        if (it->enabled)
+            toSpawn.push_back(player);
     }
 
     if (replaced) {
@@ -1286,7 +1348,7 @@ void CustomEntityManager::refreshLocked(int64_t id) {
     }
 
     for (auto* player : toSpawn) {
-        if (spawnForPlayer(id, it->second, rt, *player, resolveVehicleUniqueIdLocked(it->second))) {
+        if (spawnForPlayer(id, (*it), rt, *player, resolveVehicleUniqueIdLocked((*it)))) {
             rt.shownPlayers.insert(player->getUuid());
             notifySpawnLocked(id, *player);
         }
@@ -1299,11 +1361,12 @@ void CustomEntityManager::refreshLocked(int64_t id) {
 //       SetActorDataPacket     (名字牌+flags)
 //       UpdateAttributesPacket (scale attribute 应用)
 void CustomEntityManager::refreshLightLocked(int64_t id) {
-    auto it  = mConfigs.find(id);
-    auto rit = mRuntimes.find(id);
-    if (it == mConfigs.end() || rit == mRuntimes.end()) return;
-    auto const& data = it->second;
-    auto&       rt   = rit->second;
+    auto* it  = configOf(id);
+    auto* rit = runtimeOf(id);
+    if (it == nullptr || rit == nullptr)
+        return;
+    auto const& data = (*it);
+    auto&       rt   = (*rit);
 
     if (!data.enabled || rt.shownPlayers.empty()) return;
 
@@ -1391,7 +1454,8 @@ void CustomEntityManager::processDirtyLocked() {
         auto dirty = std::move(mDirtyIds);
         mDirtyIds.clear();
         for (auto id : dirty) {
-            if (!mConfigs.contains(id)) continue;
+            if (configOf(id) == nullptr)
+                continue;
             needVisibility = true;
             // 同一 ID 同时也在轻脏里: respawn 后 config 已是最新, 轻脏无需再发
             mLightDirtyIds.erase(id);
@@ -1402,7 +1466,8 @@ void CustomEntityManager::processDirtyLocked() {
         auto light = std::move(mLightDirtyIds);
         mLightDirtyIds.clear();
         for (auto id : light) {
-            if (!mConfigs.contains(id)) continue;
+            if (configOf(id) == nullptr)
+                continue;
             refreshLightLocked(id);
         }
     }
@@ -1420,10 +1485,10 @@ void CustomEntityManager::syncVisibilityLocked() {
         auto const dimId = player.getDimensionId();
         auto const& ppos = player.getPosition();
 
-        for (auto& [id, data] : mConfigs) {
-            auto rit = mRuntimes.find(id);
-            if (rit == mRuntimes.end()) continue;
-            auto& rt = rit->second;
+        // 内层: 遍历合并后的条目（data / rt 用引用绑定, 循环体保持原样）
+        mEntries.forEachLocked([&](int64_t id, Entry& entry) {
+            auto& data = entry.config;
+            auto& rt   = entry.runtime;
 
             // 可见玩家白名单（1.12.0）: 有条目时仅名单内玩家可见（按 Player::getRealName, 即 LSE realName 匹配）
             auto fit = mVisibleFilter.find(id);
@@ -1446,7 +1511,7 @@ void CustomEntityManager::syncVisibilityLocked() {
                 despawnForPlayer(rt, player);
                 rt.shownPlayers.erase(uuid);
             }
-        }
+        });
         return true;
     });
 }

@@ -13,7 +13,8 @@
 // respawn 必换新 uniqueId/runtimeId（防客户端同帧 Remove+Add 同 ID 重映射串台）。
 #pragma once
 
-#include "core/VirtualActorIds.h" // runtimeId 号段（唯一出处）
+#include "core/Registry.h" // 内核层: 对象表（NoLock：临界区由本域的 mMutex 持有） // runtimeId 号段（唯一出处）
+#include "core/VirtualActorIds.h"
 
 #include <array>
 #include <cstdint>
@@ -189,9 +190,31 @@ private:
     };
 
     mutable std::recursive_mutex                     mMutex;
-    int64_t                                          mNextId{1};
-    std::unordered_map<int64_t, CustomEntityConfig>  mConfigs;
-    std::unordered_map<int64_t, Runtime>             mRuntimes;
+    // ── 合并后的条目: 原本是 mConfigs / mRuntimes 两张 id 同键的并行表 ──
+    struct Entry {
+        CustomEntityConfig config;
+        Runtime            runtime;
+    };
+
+    // 持锁状态下的访问器（调用方必须已持有 mMutex）: NoLock 表的 peek 不加锁
+    [[nodiscard]] CustomEntityConfig* configOf(int64_t id) noexcept {
+        auto* entry = mEntries.peek(id);
+        return entry == nullptr ? nullptr : &entry->config;
+    }
+    [[nodiscard]] Runtime* runtimeOf(int64_t id) noexcept {
+        auto* entry = mEntries.peek(id);
+        return entry == nullptr ? nullptr : &entry->runtime;
+    }
+    [[nodiscard]] CustomEntityConfig const* configOf(int64_t id) const noexcept {
+        auto* entry = mEntries.peek(id);
+        return entry == nullptr ? nullptr : &entry->config;
+    }
+    [[nodiscard]] Runtime const* runtimeOf(int64_t id) const noexcept {
+        auto* entry = mEntries.peek(id);
+        return entry == nullptr ? nullptr : &entry->runtime;
+    }
+
+    core::Registry<Entry, core::NoLock> mEntries;
     // 重脏: 需 respawn 重建(identifier/pose/equipment/flags/variant/color/markVariant/viewDistance/enabled)
     std::unordered_set<int64_t>                      mDirtyIds;
     // 轻脏: 增量包刷新即可(setPosition/setRotation/setScale/setNametag/setInvisible)
