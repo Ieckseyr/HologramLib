@@ -80,7 +80,35 @@
 瓶颈是**两张 id 同键的并行表**（`mConfigs` + `mRuntimes`），不是容器本身 —— 只换容器会得到一个
 Registry 加一张仍手写的 `mRuntimes`，反而更难维护。先把两张表并成一个 `Entry`，再整体进 Registry。
 
-**`Registry` 的适用边界**：主表就是该域的全部状态（或状态能整块搬进 `Entry`），且锁可以自持（默认策略）或由域持有（`NoLock`）。
+**`Registry` 的适用边界**：主表就是该域的全部状态（或状态能整块搬进 `Entry`），且锁可以自持（默认策略）或由域持有（`NoLock`）。
+
+### 剩下三个域的合并方案（`playernpc` / `itemdisplay` / `customentity`）
+
+前提：`mConfigs` 与 `mRuntimes` 是 **id 同键的两张表**，必须先合成
+`struct Entry { Config config; Runtime runtime; };` 才能整块进 Registry。
+
+访问点数量（决定工作量的不是行数，是这个）：
+
+| 域 | `mConfigs` | `mRuntimes` | 合计 |
+|---|---|---|---|
+| `playernpc` | 50 | 37 | 87 |
+| `itemdisplay` | 71 | 40 | 111 |
+| `customentity` | 75 | 47 | 122 |
+
+**两处不能机械替换**（以 `playernpc` 为例，其余两域同构）：
+
+1. 可见性同步（`PlayerNpcManager.cpp:1001` 起）是**两层循环**：外层遍历玩家（`return true` = 下一个玩家），
+   内层遍历 NPC（`continue` = 下一个 NPC，`return true` = 本 tick 名额用完、下个玩家）。
+   改成 `forEachLocked` 之后两个 `return true` 的语义不再区分，必须显式重写成标志位。
+2. 销毁路径里 `mRuntimes.erase(rit); mConfigs.erase(id);` 两次 erase 并表后只剩一次
+   （第二次会返回 false，逻辑看似等价但会误导后来者）。
+
+步骤建议：加 `Entry` + `Registry<Entry, NoLock>` → 加 `configOf(id)` / `runtimeOf(id)` 访问器
+（`peek` + 取成员）→ 逐站点替换（15 处 find / 10 处 contains / 4 处迭代）→ 编译 → **起服验**
+（重点：NPC 生成、可见性同步、皮肤缺失告警、respawn 后 runtimeId 是否更新）。
+
+这三步里前两步编译器能兜住，第三步只能靠起服 —— 所以建议在能跑服的时间窗里做。
+
 不满足这两条的域，(a) 前提件（`hologramtext` 的旁表），或 (b) 先并表（那三个大域）。
 
 ---
