@@ -204,10 +204,10 @@ void PlayerNpcManager::init() {
             std::lock_guard lock(mMutex);
             auto const& uuid = ev.self().getUuid();
             mInitializedPlayers.erase(uuid);
-            for (auto& [id, rt] : mRuntimes) {
-                rt.shownPlayers.erase(uuid);
-                rt.playerRot.erase(uuid); // 逐客户端朝向覆盖随玩家离线清理
-            }
+            mEntries.forEachLocked([&](int64_t, Entry& entry) {
+                entry.runtime.shownPlayers.erase(uuid);
+                entry.runtime.playerRot.erase(uuid); // 逐客户端朝向覆盖随玩家离线清理
+            });
             for (auto& [id, removals] : mTabRemovals) {
                 std::erase_if(removals, [&uuid](TabRemoval const& r) { return r.playerUuid == uuid; });
             }
@@ -226,8 +226,7 @@ void PlayerNpcManager::shutdown() {
             ll::event::EventBus::getInstance().removeListener(mDisconnectListener);
             mDisconnectListener.reset();
         }
-        mConfigs.clear();
-        mRuntimes.clear();
+        mEntries.clear();
         mDirtyIds.clear();
         mLightDirtyIds.clear();
         mTabRemovals.clear();
@@ -325,17 +324,26 @@ std::vector<std::string> PlayerNpcManager::getSkinIds() const {
 }
 
 bool PlayerNpcManager::skinReferencedLocked(std::string const& skinId) const {
-    for (auto const& [id, cfg] : mConfigs) {
-        if (cfg.skinId == skinId) return true;
-    }
-    return false;
+    bool referenced = false;
+    mEntries.forEachLocked([&](int64_t, Entry const& entry) {
+        if (entry.config.skinId == skinId)
+            referenced = true;
+    });
+    return referenced;
 }
 
 // ── NPC 生命周期 ──
 
 int64_t PlayerNpcManager::create(PlayerNpcConfig const& config) {
     std::lock_guard lock(mMutex);
-    return createLocked(config, mNextId++);
+    // id 由 Registry 分配: 先占位, 再由 createLocked 填充（合并后不可能出现半张表的状态）
+    int64_t const id = mEntries.insert(std::make_unique<Entry>());
+    // 创建失败（域被禁用 / 皮肤缺失）要把占位条目撤掉, 否则表里留一个空 NPC
+    if (int64_t const created = createLocked(config, id); created < 0) {
+        mEntries.erase(id);
+        return created;
+    }
+    return id;
 }
 
 int64_t PlayerNpcManager::createRandom(PlayerNpcConfig const& config) {
@@ -345,7 +353,8 @@ int64_t PlayerNpcManager::createRandom(PlayerNpcConfig const& config) {
     constexpr std::int64_t kBase = core::actorIds::randomIdBase, kSpan = core::actorIds::randomIdSpan;
     for (int tries = 0; tries < 128; ++tries) {
         auto const id = kBase + static_cast<std::int64_t>(rng() % static_cast<std::uint64_t>(kSpan));
-        if (mConfigs.contains(id)) continue;
+        if (configOf(id) != nullptr)
+            continue;
         return createLocked(config, id);
     }
     return -1;
@@ -354,8 +363,8 @@ int64_t PlayerNpcManager::createRandom(PlayerNpcConfig const& config) {
 int64_t PlayerNpcManager::createWithId(PlayerNpcConfig const& config, int64_t desiredId) {
     if (desiredId <= 0) return -2;
     std::lock_guard lock(mMutex);
-    if (mConfigs.contains(desiredId)) return -2;
-    if (desiredId >= mNextId && desiredId < 0x10000000) mNextId = desiredId + 1; // 防游标撞车
+    if (configOf(desiredId) != nullptr)
+        return -2;
     return createLocked(config, desiredId);
 }
 
@@ -367,8 +376,13 @@ int64_t PlayerNpcManager::createLocked(PlayerNpcConfig const& config, int64_t id
     rt.uniqueId  = mNextActorUniqueId++;
     rt.runtimeId = mNextRuntimeId++;
 
-    mConfigs.emplace(id, config);
-    mRuntimes.emplace(id, std::move(rt));
+    // 配置与运行时同时入表 —— 合并后不可能出现"只有一半"的状态
+    if (auto* existing = mEntries.peek(id)) {
+        existing->config  = config;
+        existing->runtime = std::move(rt);
+    } else {
+        mEntries.insertWithId(id, std::make_unique<Entry>(Entry{config, std::move(rt)}));
+    }
 
     // 不在这里立刻发包，而是标脏等 tick 末尾统一处理：
     // 消费方常常在同一 tick 里创建又销毁（例如先建再改），立刻发包会让客户端
@@ -380,17 +394,17 @@ int64_t PlayerNpcManager::createLocked(PlayerNpcConfig const& config, int64_t id
 
 bool PlayerNpcManager::destroy(int64_t id) {
     std::lock_guard lock(mMutex);
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
+    auto*           rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
 
     // 对所有已显示玩家发移除包（PlayerList Remove + RemoveActor）
-    for (auto const& uuid : rit->second.shownPlayers) {
+    for (auto const& uuid : rit->shownPlayers) {
         if (auto* player = findPlayerByUuid(uuid)) {
-            npc_protocol::remove(*player, id, rit->second.uniqueId);
+            npc_protocol::remove(*player, id, rit->uniqueId);
         }
     }
-    mRuntimes.erase(rit);
-    mConfigs.erase(id);
+    mEntries.erase(id);
     mTabRemovals.erase(id);
     mVisibleFilter.erase(id);
     mDirtyIds.erase(id);
@@ -405,57 +419,57 @@ void PlayerNpcManager::destroyAll() {
     std::vector<int64_t> ids;
     {
         std::lock_guard lock(mMutex);
-        ids.reserve(mConfigs.size());
-        for (auto const& [id, cfg] : mConfigs) ids.push_back(id);
+        ids = mEntries.snapshotAll();
     }
     for (auto id : ids) destroy(id);
 }
 
 bool PlayerNpcManager::exists(int64_t id) const {
     std::lock_guard lock(mMutex);
-    return mConfigs.contains(id);
+    return configOf(id) != nullptr;
 }
 
 bool PlayerNpcManager::get(int64_t id, PlayerNpcConfig& out) const {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    out = it->second;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    out = *it;
     return true;
 }
 
 bool PlayerNpcManager::isIdUsed(int64_t id) const {
     std::lock_guard lock(mMutex);
-    return mConfigs.contains(id);
+    return configOf(id) != nullptr;
 }
 
 std::vector<int64_t> PlayerNpcManager::getAllIds() const {
     std::lock_guard lock(mMutex);
-    std::vector<int64_t> ids;
-    ids.reserve(mConfigs.size());
-    for (auto const& [id, cfg] : mConfigs) ids.push_back(id);
-    return ids;
+    return mEntries.snapshotAll();
 }
 
 // ── 属性（setter 标脏, tick 内合并 respawn）──
 
 bool PlayerNpcManager::setPosition(int64_t id, float x, float y, float z, int dim) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.x = x;
-    it->second.y = y;
-    it->second.z = z;
-    if (dim >= 0) it->second.dimension = dim;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->x = x;
+    it->y = y;
+    it->z = z;
+    if (dim >= 0)
+        it->dimension = dim;
     mDirtyIds.insert(id);
     return true;
 }
 
 bool PlayerNpcManager::setRotation(int64_t id, float yaw) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.yaw = yaw;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->yaw = yaw;
     mDirtyIds.insert(id);
     return true;
 }
@@ -464,19 +478,24 @@ bool PlayerNpcManager::setRotation(int64_t id, float yaw) {
 
 bool PlayerNpcManager::setRotationLight(int64_t id, float yaw) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.yaw = yaw;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->yaw = yaw;
     mLightDirtyIds.insert(id); // 只发 MoveActorAbsolute, 不重建实体
     return true;
 }
 
 bool PlayerNpcManager::setPlayerRotation(int64_t id, std::string const& playerName, float yaw) {
     std::lock_guard lock(mMutex);
-    if (!mConfigs.contains(id) || !mRuntimes.contains(id)) return false;
+    if (configOf(id) == nullptr || runtimeOf(id) == nullptr)
+        return false;
     auto* player = findPlayerByName(playerName);
     if (player == nullptr) return false;
-    auto& rt = mRuntimes[id];
+    auto* rtPtr = runtimeOf(id);
+    if (rtPtr == nullptr)
+        return false;
+    auto& rt = *rtPtr;
     if (!rt.shownPlayers.contains(player->getUuid())) return false; // 该玩家还没见过这个 NPC
     rt.playerRot[player->getUuid()] = hologramlib::PerPlayerRotation{yaw, 0.0f};
     mLightDirtyIds.insert(id);
@@ -485,21 +504,25 @@ bool PlayerNpcManager::setPlayerRotation(int64_t id, std::string const& playerNa
 
 bool PlayerNpcManager::clearPlayerRotation(int64_t id, std::string const& playerName) {
     std::lock_guard lock(mMutex);
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
+    auto*           rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
     auto* player = findPlayerByName(playerName);
     if (player == nullptr) return false;
-    if (rit->second.playerRot.erase(player->getUuid()) == 0) return false;
+    if (rit->playerRot.erase(player->getUuid()) == 0)
+        return false;
     mLightDirtyIds.insert(id);
     return true;
 }
 
 bool PlayerNpcManager::clearPlayerRotations(int64_t id) {
     std::lock_guard lock(mMutex);
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
-    if (rit->second.playerRot.empty()) return true;
-    rit->second.playerRot.clear();
+    auto*           rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
+    if (rit->playerRot.empty())
+        return true;
+    rit->playerRot.clear();
     mLightDirtyIds.insert(id);
     return true;
 }
@@ -508,13 +531,15 @@ bool PlayerNpcManager::clearPlayerRotations(int64_t id) {
 
 bool PlayerNpcManager::setPositionLight(int64_t id, float x, float y, float z, int dim) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
     // 跨维度不走轻量通道: 客户端那边是另一张实体表, 必须重建（由调用方用 setPosition）
-    if (dim >= 0 && dim != it->second.dimension) return false;
-    it->second.x = x;
-    it->second.y = y;
-    it->second.z = z;
+    if (dim >= 0 && dim != it->dimension)
+        return false;
+    it->x = x;
+    it->y = y;
+    it->z = z;
     mLightDirtyIds.insert(id); // 只发 MoveActorAbsolute, 不重建实体、不重发皮肤
     return true;
 }
@@ -578,21 +603,23 @@ bool PlayerNpcManager::playAnimation(
     int durationTicks
 ) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end() || animation.empty()) return false;
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end() || !it->second.enabled || rit->second.shownPlayers.empty()) return false;
+    auto*           it = configOf(id);
+    if (it == nullptr || animation.empty())
+        return false;
+    auto* rit = runtimeOf(id);
+    if (rit == nullptr || !it->enabled || rit->shownPlayers.empty())
+        return false;
 
     auto const now  = currentTick();
     auto const ctrl = npcAnimControllerName(id);
-    auto const rt   = rit->second.runtimeId;
+    auto const rt   = rit->runtimeId;
     if (isLegacyStopExpression(stopExpression)) {
-        for (auto const& uuid : rit->second.shownPlayers) {
+        for (auto const& uuid : rit->shownPlayers) {
             mAnimQueue.emplace(now + 2, AnimEntry{uuid, rt, id, kStopAnimation, ctrl, kStopExpr});
         }
         return true;
     }
-    for (auto const& uuid : rit->second.shownPlayers) {
+    for (auto const& uuid : rit->shownPlayers) {
         mAnimQueue.emplace(now + 2, AnimEntry{uuid, rt, id, animation, ctrl, stopExpression});
         if (durationTicks > 0) {
             mAnimQueue.emplace(
@@ -612,56 +639,60 @@ bool PlayerNpcManager::playAnimationTo(
     int durationTicks
 ) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end() || animation.empty()) return false;
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end() || !it->second.enabled) return false;
+    auto*           it = configOf(id);
+    if (it == nullptr || animation.empty())
+        return false;
+    auto* rit = runtimeOf(id);
+    if (rit == nullptr || !it->enabled)
+        return false;
 
     auto* player = findPlayerByName(playerName);
     if (player == nullptr) return false;
     auto const uuid = player->getUuid();
-    if (!rit->second.shownPlayers.contains(uuid)) return false;
+    if (!rit->shownPlayers.contains(uuid))
+        return false;
 
     auto const now  = currentTick();
     auto const ctrl = npcAnimControllerName(id);
     if (isLegacyStopExpression(stopExpression)) {
-        mAnimQueue.emplace(now + 2, AnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, ctrl, kStopExpr});
+        mAnimQueue.emplace(now + 2, AnimEntry{uuid, rit->runtimeId, id, kStopAnimation, ctrl, kStopExpr});
         return true;
     }
-    mAnimQueue.emplace(now + 2, AnimEntry{uuid, rit->second.runtimeId, id, animation, ctrl, stopExpression});
+    mAnimQueue.emplace(now + 2, AnimEntry{uuid, rit->runtimeId, id, animation, ctrl, stopExpression});
     if (durationTicks > 0) {
         mAnimQueue.emplace(
             now + 2 + static_cast<std::uint64_t>(durationTicks),
-            AnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, ctrl, kStopExpr}
-        );
+            AnimEntry{uuid, rit->runtimeId, id, kStopAnimation, ctrl, kStopExpr});
     }
     return true;
 }
 
 bool PlayerNpcManager::stopAnimation(int64_t id) {
     std::lock_guard lock(mMutex);
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end() || rit->second.shownPlayers.empty()) return false;
+    auto*           rit = runtimeOf(id);
+    if (rit == nullptr || rit->shownPlayers.empty())
+        return false;
     auto const now  = currentTick();
     auto const ctrl = npcAnimControllerName(id);
-    for (auto const& uuid : rit->second.shownPlayers) {
-        mAnimQueue.emplace(now + 2, AnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, ctrl, kStopExpr});
+    for (auto const& uuid : rit->shownPlayers) {
+        mAnimQueue.emplace(now + 2, AnimEntry{uuid, rit->runtimeId, id, kStopAnimation, ctrl, kStopExpr});
     }
     return true;
 }
 
 bool PlayerNpcManager::stopAnimationTo(int64_t id, std::string const& playerName) {
     std::lock_guard lock(mMutex);
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
+    auto*           rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
     auto* player = findPlayerByName(playerName);
     if (player == nullptr) return false;
     auto const uuid = player->getUuid();
-    if (!rit->second.shownPlayers.contains(uuid)) return false;
+    if (!rit->shownPlayers.contains(uuid))
+        return false;
     mAnimQueue.emplace(
         currentTick() + 2,
-        AnimEntry{uuid, rit->second.runtimeId, id, kStopAnimation, npcAnimControllerName(id), kStopExpr}
-    );
+        AnimEntry{uuid, rit->runtimeId, id, kStopAnimation, npcAnimControllerName(id), kStopExpr});
     return true;
 }
 
@@ -674,9 +705,10 @@ void PlayerNpcManager::setEntitySpawnCallback(std::function<void(int64_t, std::s
 
 bool PlayerNpcManager::setPose(int64_t id, int pose) {
     std::lock_guard lock(mMutex);
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
-    auto& rt = rit->second;
+    auto*           rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
+    auto& rt = *rit;
     rt.pose  = std::clamp(pose, 0, 13);
     for (auto const& uuid : rt.shownPlayers) {
         if (auto* p = findPlayerByUuid(uuid)) sendNpcPose(*p, rt);
@@ -689,9 +721,10 @@ bool PlayerNpcManager::setEquipment(
 ) {
     if (slot < 0 || slot > 5) return false;
     std::lock_guard lock(mMutex);
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
-    auto& rt = rit->second;
+    auto*           rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
+    auto& rt       = *rit;
     rt.equip[slot] = Runtime::NpcEquip{name, aux, nbt};
     if (name.empty()) {
         // 清空槽位: 空栈的 MobEquipment 不可靠 → 走一次 respawn（新实体只发非空槽）
@@ -706,9 +739,10 @@ bool PlayerNpcManager::setEquipment(
 
 bool PlayerNpcManager::setRideUniqueId(int64_t id, std::int64_t vehicleUniqueId) {
     std::lock_guard lock(mMutex);
-    auto rit = mRuntimes.find(id);
-    if (rit == mRuntimes.end()) return false;
-    auto& rt = rit->second;
+    auto*           rit = runtimeOf(id);
+    if (rit == nullptr)
+        return false;
+    auto& rt = *rit;
     if (vehicleUniqueId == static_cast<std::int64_t>(rt.uniqueId)) return false; // 不能骑自己
 
     // 清除: 发一条 type=None 的链接包（不 respawn —— respawn 重发 PlayerList/AddPlayer
@@ -783,11 +817,10 @@ void PlayerNpcManager::flushAnimsLocked() {
     for (auto it = mAnimQueue.begin(); it != mAnimQueue.end() && it->first <= now;) {
         auto const& e  = it->second;
         bool        ok = false;
-        auto        rit = mRuntimes.find(e.npcId);
-        if (rit != mRuntimes.end()) {
-            auto const cfgIt = mConfigs.find(e.npcId);
-            ok = rit->second.runtimeId == e.runtimeId && rit->second.shownPlayers.contains(e.playerUuid)
-              && cfgIt != mConfigs.end() && cfgIt->second.enabled;
+        auto*       rt2  = runtimeOf(e.npcId);
+        auto*       cfg2 = configOf(e.npcId);
+        if (rt2 != nullptr && cfg2 != nullptr) {
+            ok = rt2->runtimeId == e.runtimeId && rt2->shownPlayers.contains(e.playerUuid) && cfg2->enabled;
         }
         if (ok) {
             if (auto* player = findPlayerByUuid(e.playerUuid)) {
@@ -808,11 +841,12 @@ void PlayerNpcManager::flushAnimsLocked() {
 
 // 轻脏刷新: 只发朝向增量（MoveActorAbsolute; 逐玩家用各自覆盖朝向）, 不重建实体/不重发皮肤
 void PlayerNpcManager::refreshLightLocked(int64_t id) {
-    auto it  = mConfigs.find(id);
-    auto rit = mRuntimes.find(id);
-    if (it == mConfigs.end() || rit == mRuntimes.end()) return;
-    auto const& cfg = it->second;
-    auto&       rt  = rit->second;
+    auto* it  = configOf(id);
+    auto* rit = runtimeOf(id);
+    if (it == nullptr || rit == nullptr)
+        return;
+    auto const& cfg = *it;
+    auto&       rt  = *rit;
     if (!cfg.enabled || rt.shownPlayers.empty()) return;
 
     Vec3 const pos{cfg.x, cfg.y, cfg.z};
@@ -825,10 +859,12 @@ void PlayerNpcManager::refreshLightLocked(int64_t id) {
 
 bool PlayerNpcManager::setNametag(int64_t id, std::string const& text) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    if (it->second.name == text) return true; // PAPI 每秒重译相同文本: 不标脏, 避免无谓重建
-    it->second.name = text;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    if (it->name == text)
+        return true; // PAPI 每秒重译相同文本: 不标脏, 避免无谓重建
+    it->name = text;
     mDirtyIds.insert(id);
     return true;
 }
@@ -836,18 +872,20 @@ bool PlayerNpcManager::setNametag(int64_t id, std::string const& text) {
 bool PlayerNpcManager::setSkin(int64_t id, std::string const& skinId) {
     if (!NpcSkinRegistry::getInstance().hasSkin(skinId)) return false;
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.skinId = skinId;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->skinId = skinId;
     mDirtyIds.insert(id);
     return true;
 }
 
 bool PlayerNpcManager::setViewDistance(int64_t id, double dist) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.viewDistance = dist;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->viewDistance = dist;
     mDirtyIds.insert(id);
     return true;
 }
@@ -855,18 +893,20 @@ bool PlayerNpcManager::setViewDistance(int64_t id, double dist) {
 bool PlayerNpcManager::setScale(int64_t id, float scale) {
     if (scale < 0.0625f || scale > 10.0f) return false;
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.scale = scale;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->scale = scale;
     mDirtyIds.insert(id);
     return true;
 }
 
 bool PlayerNpcManager::setEnabled(int64_t id, bool enabled) {
     std::lock_guard lock(mMutex);
-    auto it = mConfigs.find(id);
-    if (it == mConfigs.end()) return false;
-    it->second.enabled = enabled;
+    auto*           it = configOf(id);
+    if (it == nullptr)
+        return false;
+    it->enabled = enabled;
     mDirtyIds.insert(id);
     return true;
 }
@@ -875,7 +915,8 @@ bool PlayerNpcManager::setEnabled(int64_t id, bool enabled) {
 
 bool PlayerNpcManager::setVisiblePlayers(int64_t id, std::vector<std::string> const& playerNames) {
     std::lock_guard lock(mMutex);
-    if (!mConfigs.contains(id)) return false;
+    if (configOf(id) == nullptr)
+        return false;
     if (playerNames.empty()) {
         mVisibleFilter.erase(id);
     } else {
@@ -887,7 +928,8 @@ bool PlayerNpcManager::setVisiblePlayers(int64_t id, std::vector<std::string> co
 
 bool PlayerNpcManager::clearVisiblePlayers(int64_t id) {
     std::lock_guard lock(mMutex);
-    if (!mConfigs.contains(id)) return false;
+    if (configOf(id) == nullptr)
+        return false;
     mVisibleFilter.erase(id);
     syncVisibilityLocked();
     return true;
@@ -901,11 +943,12 @@ bool PlayerNpcManager::setVisiblePlayer(int64_t id, std::string const& playerNam
 
 std::string PlayerNpcManager::getDebugInfo(int64_t id) const {
     std::lock_guard lock(mMutex);
-    auto it  = mConfigs.find(id);
-    auto rit = mRuntimes.find(id);
-    if (it == mConfigs.end() || rit == mRuntimes.end()) return "not_found";
-    auto const& cfg = it->second;
-    auto const& rt  = rit->second;
+    auto*           it  = configOf(id);
+    auto*           rit = runtimeOf(id);
+    if (it == nullptr || rit == nullptr)
+        return "not_found";
+    auto const& cfg = *it;
+    auto const& rt  = *rit;
     return std::format(
         "id={} name='{}' skin={} pos=({:.1f},{:.1f},{:.1f}) dim={} yaw={:.0f} view={} enabled={} "
         "uniqueId={:#x} runtimeId={:#x} shown={} tabPending={} filter={}",
@@ -929,24 +972,26 @@ std::string PlayerNpcManager::getDebugInfo(int64_t id) const {
 
 bool PlayerNpcManager::findByRuntimeId(std::uint64_t runtimeId, int64_t& outId) const {
     std::lock_guard lock(mMutex);
-    for (auto const& [id, rt] : mRuntimes) {
-        if (rt.runtimeId == runtimeId) {
+    bool            found = false;
+    mEntries.forEachLocked([&](int64_t id, Entry const& entry) {
+        if (!found && entry.runtime.runtimeId == runtimeId) {
             outId = id;
-            return true;
+            found = true;
         }
-    }
-    return false;
+    });
+    return found;
 }
 
 // ── 内部: respawn / 可见性 / 脏刷新 ──
 
 void PlayerNpcManager::refreshLocked(int64_t id) {
-    auto it  = mConfigs.find(id);
-    auto rit = mRuntimes.find(id);
-    if (it == mConfigs.end() || rit == mRuntimes.end()) return;
+    auto* it  = configOf(id);
+    auto* rit = runtimeOf(id);
+    if (it == nullptr || rit == nullptr)
+        return;
 
-    auto& cfg = it->second;
-    auto& rt  = rit->second;
+    auto& cfg = *it;
+    auto& rt  = *rit;
 
     // 刷新属性时不要发 PlayerList Remove 再重新 Add：短时间内对同一份皮肤做
     // Remove→Add，客户端会在皮肤还没落地时丢弃条目，导致断线。
@@ -1005,10 +1050,10 @@ void PlayerNpcManager::syncVisibilityLocked() {
         auto const dimId = player.getDimensionId();
         auto const& ppos = player.getPosition();
 
-        for (auto& [id, data] : mConfigs) {
-            auto rit = mRuntimes.find(id);
-            if (rit == mRuntimes.end()) continue;
-            auto& rt = rit->second;
+        // 内层: 遍历合并后的条目（data / rt 用引用绑定, 循环体保持原样）
+        mEntries.forEachLocked([&](int64_t id, Entry& entry) {
+            auto& data = entry.config;
+            auto& rt   = entry.runtime;
 
             auto fit = mVisibleFilter.find(id);
             bool const allowedByFilter =
@@ -1029,7 +1074,8 @@ void PlayerNpcManager::syncVisibilityLocked() {
                 data.enabled && allowedByFilter && dimId == DimensionType(data.dimension) && inView;
 
             if (visible && !rt.shownPlayers.contains(uuid)) {
-                if (spawnedThisTick >= 2) return true; // 本 tick 名额已用完, 下个 tick 继续
+                if (spawnedThisTick >= 2)
+                    return; // 本 tick 名额已用完, 下个 tick 继续
                 sculk::protocol::SerializedSkin skin;
                 if (!NpcSkinRegistry::getInstance().getSkin(data.skinId, skin)) {
                     // 皮肤缺失会导致 NPC 永远不生成且无任何提示, 首次命中打 warn
@@ -1041,10 +1087,10 @@ void PlayerNpcManager::syncVisibilityLocked() {
                             data.skinId
                         );
                     }
-                    continue;
+                    return;
                 }
                 Vec3 pos{data.x, data.y, data.z};
-                        // 旧版顺序：PlayerList → AddPlayer
+                // 旧版顺序：PlayerList → AddPlayer
                 if (npc_protocol::spawnPlayerList(player, id, rt.uniqueId, data.name, skin)
                     && npc_protocol::spawnPlayerBody(
                         player,
@@ -1067,7 +1113,7 @@ void PlayerNpcManager::syncVisibilityLocked() {
                 npc_protocol::remove(player, id, rt.uniqueId);
                 rt.shownPlayers.erase(uuid);
             }
-        }
+        });
         return true;
     });
 }
@@ -1078,7 +1124,8 @@ void PlayerNpcManager::processDirtyLocked() {
     mDirtyIds.clear();
 
     for (auto id : dirty) {
-        if (!mConfigs.contains(id)) continue;
+        if (configOf(id) == nullptr)
+            continue;
         refreshLocked(id);
     }
     syncVisibilityLocked();
@@ -1098,7 +1145,8 @@ struct PlayerNpcTickHookAccess {
         auto light = std::move(mgr.mLightDirtyIds);
         mgr.mLightDirtyIds.clear();
         for (auto id : light) {
-            if (!mgr.mConfigs.contains(id)) continue;
+            if (mgr.configOf(id) == nullptr)
+                continue;
             mgr.refreshLightLocked(id);
         }
     }

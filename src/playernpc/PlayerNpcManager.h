@@ -8,6 +8,7 @@
 // 属性变更经脏刷新合并为单次 respawn（对齐 ItemDisplay/CustomEntity 模式）
 #pragma once
 
+#include "core/Registry.h"        // 内核层: 对象表（NoLock：临界区由本域的 mMutex 持有）
 #include "core/VirtualActorIds.h" // runtimeId 号段（唯一出处）
 
 #include <cstdint>
@@ -179,10 +180,33 @@ private:
 
     friend struct PlayerNpcTickHookAccess;
 
-    mutable std::recursive_mutex                              mMutex;
-    int64_t                                                   mNextId{1};
-    std::unordered_map<int64_t, PlayerNpcConfig>               mConfigs;
-    std::unordered_map<int64_t, Runtime>                       mRuntimes;
+    // ── 合并后的条目: 原本是 mConfigs / mRuntimes 两张 id 同键的并行表 ──
+    // 两张表必须同时存在/同时删除, 分开存时这个不变量只能靠人守, 现在合成一个 Entry。
+    struct Entry {
+        PlayerNpcConfig config;
+        Runtime         runtime;
+    };
+
+    // 持锁状态下的访问器（调用方必须已持有 mMutex）: NoLock 表的 peek 不加锁
+    [[nodiscard]] PlayerNpcConfig* configOf(int64_t id) noexcept {
+        auto* entry = mEntries.peek(id);
+        return entry == nullptr ? nullptr : &entry->config;
+    }
+    [[nodiscard]] Runtime* runtimeOf(int64_t id) noexcept {
+        auto* entry = mEntries.peek(id);
+        return entry == nullptr ? nullptr : &entry->runtime;
+    }
+    [[nodiscard]] PlayerNpcConfig const* configOf(int64_t id) const noexcept {
+        auto* entry = mEntries.peek(id);
+        return entry == nullptr ? nullptr : &entry->config;
+    }
+    [[nodiscard]] Runtime const* runtimeOf(int64_t id) const noexcept {
+        auto* entry = mEntries.peek(id);
+        return entry == nullptr ? nullptr : &entry->runtime;
+    }
+
+    mutable std::recursive_mutex                                 mMutex;
+    core::Registry<Entry, core::NoLock>                          mEntries;
     std::unordered_set<int64_t>                                mDirtyIds;
     std::unordered_set<int64_t>                                mLightDirtyIds; // 轻脏: 只发朝向/坐标增量
     std::unordered_map<int64_t, std::vector<TabRemoval>>        mTabRemovals;
