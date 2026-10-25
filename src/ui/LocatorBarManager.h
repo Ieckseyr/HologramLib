@@ -1,4 +1,4 @@
-// LocatorBarManager.h - 方位条航点（26.51.7）
+// LocatorBarManager.h - 方位条航点（26.51.6）
 //
 // 每个玩家一组航点，key 由调用方起名；库按 key 稳定派生 UUID（同一 key 永远同一 UUID），
 // 所以删除/更新不需要调用方保管 UUID。

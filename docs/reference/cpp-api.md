@@ -743,7 +743,7 @@ std::string s = view.describeFor("Steve"); // "entities=1 blocks=2"
 
 ---
 
-## 1.17 IItemActor / IFormControl / ILocatorBar（26.51.7）
+## 1.17 IItemActor / IFormControl / ILocatorBar（26.51.6）
 
 三个新接口都很小，完整说明见 [客户端附加](../domains/client-ui.md)，这里只列签名。
 

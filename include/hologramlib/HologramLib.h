@@ -900,7 +900,7 @@ public:
     virtual bool setRideEntity(int64_t id, int64_t vehicleEntityId) = 0;
     virtual bool clearRide(int64_t id) = 0;
 
-    // ── 26.51.7 追加: 原版表情动作（EmotePacket）──
+    // ── 26.51.6 追加: 原版表情动作（EmotePacket）──
     // pieceId 是资源包里的表情标识，例如 "animation.player.emote.wave"；lengthTicks = 0 表示
     // 由客户端按表情自身时长播。只发给已经见过该 NPC 的玩家；NPC 不存在返回 false。
     virtual bool playEmote(int64_t id, std::string const& pieceId, int lengthTicks = 0) = 0;
@@ -1214,7 +1214,7 @@ public:
     // 关掉就回到"只回传点击、物品放不住"的默认行为。返回 false = 菜单已不在。
     virtual bool setInteractive(int64_t menuId, bool on) = 0;
 
-    // ── 26.51.7 追加: 假箱子的方块事件（BlockEventPacket）──
+    // ── 26.51.6 追加: 假箱子的方块事件（BlockEventPacket）──
     // 虚拟容器的箱子只存在于客户端，打开界面时它不会自己掀盖。发一条方块事件到那只箱子的坐标，
     // 让客户端播开/合动画。b0/b1 是原版方块事件的参数（箱子盖：b0=1 开、b0=0 合，**未实测**）。
     // 试别的方块事件（音符盒、门…）就传自定义 b0/b1。返回 false = 菜单已不在。
@@ -1404,7 +1404,7 @@ public:
 
 // ─────────────────────────────────────────────
 // ─────────────────────────────────────────────
-// 协议层掉落物（26.51.7 追加; AddItemActor / TakeItemActor / SetActorMotion）
+// 协议层掉落物（26.51.6 追加; AddItemActor / TakeItemActor / SetActorMotion）
 //
 // 客户端凭空出现一只**掉落物实体**：服务端没有它 —— 不参与拾取判定、不进存档、没有物理。
 // 用途：地上物品展示、掉落奖励、菜单里的 3D 图标。比 FMBE（狐狸实体套物品）那条路轻一档。
@@ -1442,7 +1442,7 @@ public:
 };
 
 // ─────────────────────────────────────────────
-// 客户端表单控制（26.51.7 追加; ClientboundCloseForm）
+// 客户端表单控制（26.51.6 追加; ClientboundCloseForm）
 //
 // 库不生成表单 —— 表单还是 LSE / LeviLamina Form API / MeowMenu 那边的事。
 // 这里只提供"强制关掉"：玩家按 ESC 不走、界面被别的插件顶掉、过场需要收界面时用。
@@ -1459,7 +1459,7 @@ public:
 };
 
 // ─────────────────────────────────────────────
-// 方位条（26.51.7 追加; LocatorBar）
+// 方位条（26.51.6 追加; LocatorBar）
 //
 // 1.26 客户端在快捷栏下方有一条方位指示（原版用于队友/世界标记）。
 // 本域按玩家维护一组航点：key 由调用方起名，同一个 key 再 set 就是更新位置。
@@ -1727,7 +1727,7 @@ public:
     virtual uint64_t addActorInteractListener(std::function<void(ActorInteractEvent const&)> listener) = 0;
     virtual bool     removeActorInteractListener(uint64_t token) = 0;
 
-    // ── 26.51.7 追加（仍然只在类尾部追加）──
+    // ── 26.51.6 追加（仍然只在类尾部追加）──
     // 协议层掉落物 / 客户端表单控制 / 方位条。
     virtual IItemActor&   itemActors()  = 0;
     virtual IFormControl& formControl() = 0;

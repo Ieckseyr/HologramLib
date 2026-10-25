@@ -11,7 +11,7 @@ HologramLib 是基岩版服务端（LeviLamina / BDS）的**协议层显示库**
 
 | | |
 |---|---|
-| 插件版本 | `26.51.7` |
+| 插件版本 | `26.51.6` |
 | API 版本 | `1.32.0`（`HOLOGLIB_API_VERSION 0x012600`） |
 | 运行平台 | LeviLamina 26.51 · BDS 1.26.51（协议 2193） |
 | 对外接口 | 唯一公开头 `include/hologramlib/HologramLib.h` + LSE 命名空间 `HologramLib`（330 个导出） |
@@ -105,7 +105,7 @@ if (sensingIsTouch("Steve")) {
 
 | 编号 | 位置 | 用途 |
 |---|---|---|
-| 插件版本 | `manifest.json` 的 `version` | 部署用，与 git tag 同名（形如 `26.51.7`） |
+| 插件版本 | `manifest.json` 的 `version` | 部署用，与 git tag 同名（形如 `26.51.6`） |
 | API 版本 | 本文档上方的 `1.32.0` | 人读的能力版本 |
 | `HOLOGLIB_API_VERSION` | `include/hologramlib/HologramLib.h` | 代码里唯一的版本依据，`0x012600` |
 

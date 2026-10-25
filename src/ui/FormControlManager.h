@@ -1,4 +1,4 @@
-// FormControlManager.h - 客户端表单控制（26.51.7）
+// FormControlManager.h - 客户端表单控制（26.51.6）
 //
 // 只做一件事: 发一条 ClientboundCloseForm 让客户端把当前打开的表单收起来。
 // 库不生成表单 —— 表单归 LSE / LeviLamina Form API / MeowMenu 管。

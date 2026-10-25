@@ -673,7 +673,7 @@ public:
     // ── 感知域(1.21.0 未发布线): 客户端设备判断 ──
     IPlayerSensing& playerSensing() override { return debugshape_export::playerSensingAdapter(); }
 
-    // ── 26.51.7 ──
+    // ── 26.51.6 ──
     IItemActor&   itemActors() override { return debugshape_export::itemActorAdapter(); }
     IFormControl& formControl() override { return debugshape_export::formControlAdapter(); }
     ILocatorBar&  locatorBar() override { return debugshape_export::locatorBarAdapter(); }

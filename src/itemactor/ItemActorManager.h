@@ -1,4 +1,4 @@
-// ItemActorManager.h - 协议层掉落物（26.51.7）
+// ItemActorManager.h - 协议层掉落物（26.51.6）
 //
 // 客户端凭空出现一只掉落物实体：服务端没有它 —— 不参与拾取判定、不进存档、没有物理。
 // 三件事: AddItemActor（生成）、SetActorMotion（随时改速度与方向）、TakeItemActor（播放拾取）。
