@@ -7,7 +7,7 @@ must recompile. The full release ↔ API mapping is in the [version & ABI matrix
 
 | Release | API | Line | Contents | New exports | C++ consumers |
 |---|---|---|---|---|---|
-| `26.51.6` | 1.31.0 | 26.51 | Internal refactor (packet / tick / lifecycle), ABI contract tooling, payment planning fix, engineering | 0 | No recompile (vtable unchanged) |
+| `26.51.6` | 1.32.0 | 26.51 | Internal refactor (packet / tick / lifecycle), ABI contract tooling, payment planning fix, four new domains (dropped items / form close / locator bar / packet control) | 16 | **Recompile needed** (tail appends: 4 new interfaces + methods on `IContainerMenu` / `IPlayerNpc`) |
 | `26.51.5` / `26.40.12` | 1.31.0 | 26.51 · 26.40 | Stretch / live transforms / animation presets / stop recipe / NPC pose-equipment-ride / FMBE spawn-twitch fix / image plane with transparency / container session isolation | several | Recompile recommended (tail appends) |
 | `26.40.11` / `26.51.4` | 1.30.0 | 26.40 · 26.51 | Three protocol primitives and one timing notification | 3 | No recompile (vtable unchanged) |
 | `26.40.10` / `26.51.3` | 1.29.0 | 26.40 · 26.51 | `AddItemActor` interception, pose/scale/variant/colour, metadata tick fix | 1 (`viewItemSpawnHooked`) | Recompile (`EntityView` grew) |

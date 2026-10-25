@@ -151,7 +151,7 @@ HologramLib/
 │   │   ├── TickDriver.*                #     全库唯一 Level::$tick hook
 │   │   ├── ServiceHost.h               #     域注册与生命周期（启动顺序 = 声明顺序）
 │   │   ├── VirtualActorIds.h           #     0x6D/0x6E/0x6F 号段 + 不重叠 static_assert
-│   │   └── Registry.h                  #     id 分配 / 索引 / 脏集 / 快照（4 个域已迁，见「内核化进度」）
+│   │   └── Registry.h                  #     id 分配 / 索引 / 脏集 / 快照（10 个域已迁，见「内核化进度」）
 │   ├── SculkPacketSend.h               #   兼容层（转发到 core/PacketSink.h, 下个大版本删）
 │   ├── PacketDebugRenderer.*           #   形状渲染（协议层）
 │   ├── ProtocolShape.h / ProtocolPackets.*
@@ -171,6 +171,7 @@ HologramLib/
 │   ├── playernpc/                      #   假玩家 NPC（皮肤注册表 / PlayerList）
 │   ├── itemactor/                      #   协议层掉落物（AddItemActor / SetActorMotion / 取走动画）
 │   ├── ui/                             #   客户端附加: 表单强制关闭 / 方位条航点
+│   ├── visibility/                     #   玩家出站包控制（掩码 / 隐身 / 补发出生包）
 │   ├── fakeinv/                        #   背包虚容器
 │   ├── sulfur/                         #   硫磺立方体展示
 │   ├── view/                           #   客户端视图覆盖
