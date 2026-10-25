@@ -740,3 +740,55 @@ std::string s = view.describeFor("Steve"); // "entities=1 blocks=2"
 
 判定逻辑（坐标打包 / 区块归属 / 幂等判断 / 名字牌计划 / 类型名清洗）独立在
 `src/view/ViewOverrideLogic.h`，离线可测：`tests\check-view-override.bat`（59 项）。
+
+---
+
+## 1.17 IItemActor / IFormControl / ILocatorBar（26.51.7）
+
+三个新接口都很小，完整说明见 [客户端附加](../domains/client-ui.md)，这里只列签名。
+
+**IItemActor** —— 协议层掉落物（`AddItemActor` / `SetActorMotion` / `TakeItemActor` / `RemoveActor`）：
+
+```cpp
+struct ItemActorSpec {
+    std::string itemId; int aux{0}; int count{1};
+    float x{0}, y{0}, z{0}; int dimension{0};
+    float vx{0}, vy{0}, vz{0};
+};
+
+IItemActor& itemActors();
+int64_t spawn(ItemActorSpec const& spec);   // 只发给同维度; 该维度没人在线 = -1
+bool    setMotion(int64_t id, float vx, float vy, float vz); // 飞行途中改速度/方向
+bool    moveTo(int64_t id, float x, float y, float z);
+bool    take(int64_t id, std::string const& playerName);     // 播拾取动画后删除, 不给物品
+bool    destroy(int64_t id);
+void    destroyAll();
+bool    exists(int64_t id) const;
+std::vector<int64_t> getAllIds() const;
+```
+
+物品走数字 id + count + aux，**不带 UserData**（见 domains/client-ui.md 的说明）。
+
+**IFormControl** —— 强制关掉客户端表单（`ClientboundCloseForm`）：
+
+```cpp
+IFormControl& formControl();
+bool closeForm(std::string const& playerName);
+int  closeAllForms();
+```
+
+**ILocatorBar** —— 方位条航点（`LocatorBar`）：
+
+```cpp
+ILocatorBar& locatorBar();
+bool setWaypoint(playerName, key, x, y, z, dimension, color = -1, visible = true);
+bool removeWaypoint(playerName, key);
+int  clearWaypoints(playerName);
+int  waypointCount(playerName) const;
+```
+
+**既有接口的尾部追加**：`IContainerMenu::blockEvent(menuId, b0, b1)`（`BlockEvent`，假箱子的方块事件）、
+`IPlayerNpc::playEmote(id, pieceId, lengthTicks)`（`Emote`，原版表情动作）。
+
+这一版虚表尾部变长（3 个新接口 + 两个方法），`HOLOGLIB_ABI_STAMP` 仍为 1，
+但用旧头文件编译的消费方要重新编译；基线是 `abi/v1.32.0.json`。

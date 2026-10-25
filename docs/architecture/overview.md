@@ -169,6 +169,8 @@ HologramLib/
 │   ├── npcdialog/                      #   NPC 对话框
 │   ├── sensing/                        #   感知域
 │   ├── playernpc/                      #   假玩家 NPC（皮肤注册表 / PlayerList）
+│   ├── itemactor/                      #   协议层掉落物（AddItemActor / SetActorMotion / 取走动画）
+│   ├── ui/                             #   客户端附加: 表单强制关闭 / 方位条航点
 │   ├── fakeinv/                        #   背包虚容器
 │   ├── sulfur/                         #   硫磺立方体展示
 │   ├── view/                           #   客户端视图覆盖
