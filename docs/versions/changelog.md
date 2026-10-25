@@ -32,8 +32,10 @@ LSE 导出 314 → **330**。
   要带名字的物品用 `itemDisplay*`。actor 号段新增 `0x70` 段，不参与 ghost 路由。
 - **客户端表单控制 `IFormControl`**（`form*` 2 个）：库不生成表单，只提供"强制关掉"
   （`ClientboundCloseForm`），玩家 ESC 不掉、界面被别的插件顶掉、过场收界面时用。
-- **方位条 `ILocatorBar`**（`locatorBar*` 4 个）：按玩家维护航点（`LocatorBar`）。key 由调用方起名，
-  库按 key 稳定派生 UUID，更新/删除不需要保管 UUID。图标与颜色要不要资源包配合**尚未实测**。
+- **方位条 `ILocatorBar`**（`locatorBar*` 6 个）：按玩家维护航点（`LocatorBar`）。key 由调用方起名，
+  库按 key 稳定派生 UUID，更新/删除不需要保管 UUID。另有 `hideFromOthers` / `isHiddenFromOthers`：
+  把某个玩家从**其他人的客户端**上藏起来（其他人的客户端不再收到他的出生/移动/状态/皮肤/Tab 包），
+  本人照常看得到自己；复用视图覆盖域的 `hidden` 通道，撤销不用重进。图标与颜色**尚未实测**。
 
 #### 既有接口尾部追加
 

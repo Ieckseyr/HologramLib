@@ -1484,6 +1484,16 @@ public:
         int                color   = -1,
         bool               visible = true) = 0;
 
+    // ── 26.51.6 追加: 把某个玩家从**其他人的客户端**上藏起来 ──
+    // 语义就是"隐身"：其他人的客户端不再收到这名玩家的出生包、移动、状态、皮肤与 Tab 条目
+    // （库在出站钩子上按"主体是该玩家、收件人不是他本人"丢弃；本人仍然看得到自己）。
+    // 内部走的是视图覆盖域那条已经验证过的隐藏通道（`EntityView::hidden` + "所有人的覆盖，
+    // 但本人不参与自己的实体"这条规则），所以撤销时不需要重新进服。
+    // 返回 false = 玩家不在线。
+    virtual bool hideFromOthers(std::string const& playerName, bool hidden) = 0;
+    // 查询是否处于上面这个状态（库内记录；玩家下线自动清）
+    [[nodiscard]] virtual bool isHiddenFromOthers(std::string const& playerName) const = 0;
+
     // 删除一个航点; 没有这个 key 返回 false
     virtual bool removeWaypoint(std::string const& playerName, std::string const& key) = 0;
     // 清掉该玩家的全部航点; 返回清掉了几个

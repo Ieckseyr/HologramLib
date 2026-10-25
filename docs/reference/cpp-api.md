@@ -785,6 +785,8 @@ bool setWaypoint(playerName, key, x, y, z, dimension, color = -1, visible = true
 bool removeWaypoint(playerName, key);
 int  clearWaypoints(playerName);
 int  waypointCount(playerName) const;
+bool hideFromOthers(playerName, hidden);   // 转给视图覆盖域的 hidden 通道
+bool isHiddenFromOthers(playerName) const;
 ```
 
 **既有接口的尾部追加**：`IContainerMenu::blockEvent(menuId, b0, b1)`（`BlockEvent`，假箱子的方块事件）、

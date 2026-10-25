@@ -1519,15 +1519,25 @@
       {
         "index": 2,
         "kind": "pure",
-        "sig": "bool removeWaypoint(std::string const&, std::string const&)"
+        "sig": "bool hideFromOthers(std::string const&, bool)"
       },
       {
         "index": 3,
         "kind": "pure",
-        "sig": "int clearWaypoints(std::string const&)"
+        "sig": "bool isHiddenFromOthers(std::string const&)"
       },
       {
         "index": 4,
+        "kind": "pure",
+        "sig": "bool removeWaypoint(std::string const&, std::string const&)"
+      },
+      {
+        "index": 5,
+        "kind": "pure",
+        "sig": "int clearWaypoints(std::string const&)"
+      },
+      {
+        "index": 6,
         "kind": "pure",
         "sig": "int waypointCount(std::string const&)"
       }

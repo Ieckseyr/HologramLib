@@ -59,6 +59,23 @@ void LocatorBarExporter::exportAll() {
             return mgr.clearWaypoints(playerName);
         });
 
+    // locatorBarHideFromOthers(playerName, hidden) -> bool
+    //   把该玩家从其他人的客户端上藏起来（本人照常看得到自己）
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "locatorBarHideFromOthers",
+        [&mgr](std::string const& playerName, bool hidden) -> bool {
+            return mgr.hideFromOthers(playerName, hidden);
+        });
+
+    // locatorBarIsHiddenFromOthers(playerName) -> bool
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "locatorBarIsHiddenFromOthers",
+        [&mgr](std::string const& playerName) -> bool {
+            return mgr.isHiddenFromOthers(playerName);
+        });
+
     // locatorBarCount(playerName) -> i
     hologramlib::lse::exportAs(
         NAMESPACE, "locatorBarCount", [&mgr](std::string const& playerName) -> int {
@@ -97,6 +114,12 @@ public:
     }
     [[nodiscard]] int waypointCount(std::string const& playerName) const override {
         return LocatorBarManager::getInstance().waypointCount(playerName);
+    }
+    bool hideFromOthers(std::string const& playerName, bool hidden) override {
+        return LocatorBarManager::getInstance().hideFromOthers(playerName, hidden);
+    }
+    [[nodiscard]] bool isHiddenFromOthers(std::string const& playerName) const override {
+        return LocatorBarManager::getInstance().isHiddenFromOthers(playerName);
     }
 };
 

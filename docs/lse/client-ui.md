@@ -68,6 +68,10 @@ mc.listen("onLeft", (p) => formClose(p.realName));   // 掉线前顺手收一下
 | `locatorBarRemove(playerName, key)` | `Boolean` | 删除一个航点 |
 | `locatorBarClear(playerName)` | `Integer` | 清全部，返回清掉了几个 |
 | `locatorBarCount(playerName)` | `Integer` | 当前航点数 |
+| `locatorBarHideFromOthers(playerName, hidden)` | `Boolean` | 把该玩家从**其他人的客户端**上藏起来（本人照常看得到自己） |
+| `locatorBarIsHiddenFromOthers(playerName)` | `Boolean` | 查询隐藏状态 |
+| `locatorBarHideFromOthers(playerName, hidden)` | `Boolean` | 把该玩家从**其他人的客户端**上藏起来（本人照常看得到自己） |
+| `locatorBarIsHiddenFromOthers(playerName)` | `Boolean` | 查询隐藏状态 |
 
 ```js
 const locatorBarSet  = ll.import("HologramLib", "locatorBarSet");
@@ -83,3 +87,31 @@ locatorBarClear("Steve");
 
 > 边界：图标 / 贴图要不要资源包配合、只给位置能不能显示，**都还没实测**。
 > 位置与可见性是必填的，先按这两项验。
+
+### 把某个玩家从其他人眼里藏起来
+
+`locatorBarHideFromOthers(playerName, true)` 之后，**其他人的客户端不再收到这名玩家的出生包、移动、
+状态、皮肤与 Tab 条目**；他本人一切照常（看得到自己、照常能动）。
+
+```js
+const locatorBarHideFromOthers = ll.import("HologramLib", "locatorBarHideFromOthers");
+locatorBarHideFromOthers("Steve", true);    // 隐身
+locatorBarHideFromOthers("Steve", false);   // 恢复，不用重进
+```
+
+实现走视图覆盖域那条通道：`overrideEntity("", uniqueId, hidden)` 是"所有人的覆盖"，
+而视图覆盖域本身有一条规则是**本人不参与自己实体的覆盖** —— 所以正好等于"别人看不见、自己看得见"。
+
+### 把某个玩家从其他人眼里藏起来
+
+`locatorBarHideFromOthers(playerName, true)` 之后，**其他人的客户端不再收到这名玩家的出生包、移动、
+状态、皮肤与 Tab 条目**；他本人一切照常（还能看到自己、还能动）。
+
+```js
+const locatorBarHideFromOthers = ll.import("HologramLib", "locatorBarHideFromOthers");
+locatorBarHideFromOthers("Steve", true);    // 隐身
+locatorBarHideFromOthers("Steve", false);   // 恢复（不用重进）
+```
+
+实现走的是视图覆盖域那条已经验证过的隐藏通道：`overrideEntity("", uniqueId, hidden)` ——
+"所有人的覆盖"，而视图覆盖域本身有一条规则是**本人不参与自己实体的覆盖**，所以正好等于"别人看不见、自己看得见"。

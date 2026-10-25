@@ -2,6 +2,7 @@
 #include "LocatorBarManager.h"
 
 #include "core/PacketSink.h"
+#include "view/ViewOverrideManager.h" // 隐藏走视图覆盖域那条通道
 
 #include <ll/api/service/Bedrock.h>
 
@@ -103,6 +104,38 @@ bool LocatorBarManager::setWaypoint(
     return true;
 }
 
+bool LocatorBarManager::hideFromOthers(std::string const& playerName, bool hidden) {
+    ::Player* player = findPlayer(playerName);
+    if (player == nullptr)
+        return false;
+
+    auto const uniqueId = static_cast<std::int64_t>(player->getOrCreateUniqueID().rawID);
+
+    // 空玩家名 = "所有人的覆盖"。视图覆盖域有一条规则：**本人不参与自己实体的覆盖**，
+    // 所以这一条正好是"其他人看不到他、他自己照常"。
+    if (hidden) {
+        hologramlib::EntityView view;
+        view.hidden = true;
+        if (!view::ViewOverrideManager::getInstance().overrideEntity("", uniqueId, view))
+            return false;
+    } else {
+        view::ViewOverrideManager::getInstance().clearEntity("", uniqueId);
+        view::ViewOverrideManager::getInstance().clearEntity(playerName, uniqueId); // 兜底: 清掉点名那条
+    }
+
+    std::lock_guard lock(mMutex);
+    if (hidden)
+        mHiddenFromOthers.insert(playerName);
+    else
+        mHiddenFromOthers.erase(playerName);
+    return true;
+}
+
+bool LocatorBarManager::isHiddenFromOthers(std::string const& playerName) const {
+    std::lock_guard lock(mMutex);
+    return mHiddenFromOthers.contains(playerName);
+}
+
 bool LocatorBarManager::removeWaypoint(std::string const& playerName, std::string const& key) {
     Handle handle;
     {
@@ -166,11 +199,13 @@ int LocatorBarManager::waypointCount(std::string const& playerName) const {
 void LocatorBarManager::forget(std::string const& playerName) {
     std::lock_guard lock(mMutex);
     mWaypoints.erase(playerName);
+    mHiddenFromOthers.erase(playerName); // 人已下线，客户端那边自然消失，不用再发撤销
 }
 
 void LocatorBarManager::shutdown() {
     std::lock_guard lock(mMutex);
     mWaypoints.clear();
+    mHiddenFromOthers.clear();
 }
 
 } // namespace debugshape_export

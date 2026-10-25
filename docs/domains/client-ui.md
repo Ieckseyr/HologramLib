@@ -72,6 +72,8 @@ bool setWaypoint(playerName, key, x, y, z, dimension, color = -1, visible = true
 bool removeWaypoint(playerName, key);
 int  clearWaypoints(playerName);
 int  waypointCount(playerName) const;
+bool hideFromOthers(playerName, hidden);      // 从其他人的客户端上藏起来
+bool isHiddenFromOthers(playerName) const;
 ```
 
 - `key` 由调用方起名；同一个 key 再 `set` 就是更新位置。
@@ -79,8 +81,12 @@ int  waypointCount(playerName) const;
 - `color` 是 ARGB，`-1` = 客户端默认色；`visible=false` 只是暂时隐藏，记录还在。
 - `Remove` 用同一套 key 派生，不需要提前保存 UUID。
 
+**隐藏（`hideFromOthers`）**：不是只在方位条上抹掉，而是**其他客户端收不到这名玩家的任何包**
+（出生、移动、状态、皮肤、Tab）。转给视图覆盖域的 `hidden` 通道（`overrideEntity("", uniqueId, …)`），
+那条通道本来就有"本人不参与自己实体的覆盖"的规则；撤销不需要重新进服。
+
 **尚未实测**：图标 / 贴图要不要资源包配合、只给位置能不能显示、不同 `dimension` 值的效果。
-第一次验按"位置 + visible"两项来。
+第一次验按"位置 + visible"两项来；隐藏那条按"第三人视角看不到、本人视角正常"验。
 
 ---
 

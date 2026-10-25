@@ -378,9 +378,11 @@
 |---|---|---|
 | 0 | default | `~ILocatorBar()` |
 | 1 | pure | `bool setWaypoint(std::string const&, std::string const&, float, float, float, int, int color = -1, bool visible =)` |
-| 2 | pure | `bool removeWaypoint(std::string const&, std::string const&)` |
-| 3 | pure | `int clearWaypoints(std::string const&)` |
-| 4 | pure | `int waypointCount(std::string const&)` |
+| 2 | pure | `bool hideFromOthers(std::string const&, bool)` |
+| 3 | pure | `bool isHiddenFromOthers(std::string const&)` |
+| 4 | pure | `bool removeWaypoint(std::string const&, std::string const&)` |
+| 5 | pure | `int clearWaypoints(std::string const&)` |
+| 6 | pure | `int waypointCount(std::string const&)` |
 
 ## IViewOverride
 

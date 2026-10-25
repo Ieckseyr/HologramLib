@@ -41,7 +41,7 @@ HologramLib 是基岩版服务端（LeviLamina / BDS）的**协议层显示库**
 | 给生物换模型 / 隐藏 / 换皮、读客户端设备 | [视图覆盖与感知 `view*` `sensing*`](lse/view.md) |
 | 地上摆个东西 / 强制关表单 / 方位条指路 | [客户端附加 `itemActor*` `form*` `locatorBar*`](lse/client-ui.md) |
 
-全部 **330 个脚本函数**见 [LSE 脚本接口](lse/index.md)；C++ 侧对应的接口（`IShapeDrawer` / `IHologramText` / `ICustomEntity` / `IViewOverride` …）见 [C++ 接口参考](reference/cpp-api.md)。
+全部 **332 个脚本函数**见 [LSE 脚本接口](lse/index.md)；C++ 侧对应的接口（`IShapeDrawer` / `IHologramText` / `ICustomEntity` / `IViewOverride` …）见 [C++ 接口参考](reference/cpp-api.md)。
 
 ---
 
