@@ -282,7 +282,7 @@ HologramLib/
 
 | 命令 | 作用 |
 |---|---|
-| `python tools/abi_tool.py check` | 与 `abi/v1.31.0.json` 比对；中段插入 / 删除 / 改签名 / 改结构体 / 改枚举值 → **非 0 退出** |
+| `python tools/abi_tool.py check` | 与最新的 `abi/v*.json` 比对（当前 `v1.32.0.json`）；中段插入 / 删除 / 改签名 / 改结构体 / 改枚举值 → **非 0 退出** |
 | `python tools/abi_tool.py extract --json-out abi/v1.32.0.json` | 发版后固化新基线 |
 | `python tools/abi_tool.py extract --md-out abi/slots.md` | 生成人读槽位表（消费方可以直接 diff 自己的镜像） |
 | `python tools/abi_tool.py check -H <某份头文件>` | 拿任意一份头文件对基线（例：确认消费方手里的镜像是否还跟得上） |
