@@ -1542,6 +1542,38 @@
         "sig": "int waypointCount(std::string const&)"
       }
     ],
+    "IPlayerVisibility": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~IPlayerVisibility()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "bool setMask(std::string const&, PlayerPacketMask const&, bool alsoSelf =)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "bool setHidden(std::string const&, bool)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "bool restore(std::string const&)"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "PlayerPacketMask maskOf(std::string const&)"
+      },
+      {
+        "index": 5,
+        "kind": "pure",
+        "sig": "bool isHidden(std::string const&)"
+      }
+    ],
     "IViewOverride": [
       {
         "index": 0,
@@ -1719,6 +1751,11 @@
         "index": 27,
         "kind": "pure",
         "sig": "ILocatorBar& locatorBar()"
+      },
+      {
+        "index": 28,
+        "kind": "pure",
+        "sig": "IPlayerVisibility& playerVisibility()"
       }
     ]
   },
@@ -2025,6 +2062,16 @@
         "float x, y, z",
         "int dimension",
         "float vx, vy, vz"
+      ]
+    },
+    "PlayerPacketMask": {
+      "kind": "struct",
+      "fields": [
+        "bool spawn",
+        "bool tab",
+        "bool motion",
+        "bool state",
+        "bool skin"
       ]
     },
     "EntityView": {

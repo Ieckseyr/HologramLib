@@ -52,6 +52,7 @@ HologramLib 的能力域按用途拆成 10 页。这一页管选型：先确定�
 | 多层级对话 / 带按钮的 NPC 剧情 | NPC 对话框 `INpcDialogue` | `NpcDialoguePacket` + 合成载体；按场景名路由层级 |
 | 让客户端「以为自己背包里有这些东西」 | 背包虚容器 `IFakeInventory` | 协议层改写客户端看到的背包内容；服务端背包一个字不动 |
 | 想知道玩家用什么设备，按设备分流 | 感知域 `IPlayerSensing` | 逐包捕获 `InputMode`：触屏 / 手柄 / 键鼠 |
+| 让某个玩家在别人客户端上消失（或只挡出生 / Tab / 移动） | 玩家出站包控制 `IPlayerVisibility`（26.51.6） | 按主体丢弃出站包；已出生的用 `setHidden`，恢复会补发出生包 |
 | 强制关掉客户端当前打开的表单 | 表单控制 `IFormControl`（26.51.6） | 一条 `ClientboundCloseForm`，不需要玩家操作 |
 | 在方位条上给玩家指个点 | 方位条 `ILocatorBar`（26.51.6） | 按玩家维护航点，key 自己起名，更新位置不用保管 UUID |
 

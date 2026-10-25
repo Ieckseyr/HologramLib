@@ -133,7 +133,7 @@ setInterval(() => {
 | 设备感知 | `sensing*` | [客户端感知](sensing.md) |
 | 掉落物 / 表单 / 方位条 | `itemActor*` · `form*` · `locatorBar*` | [客户端附加](client-ui.md) |
 
-函数总数 332，全部在运行期注册，`ll.import` 都能拿到。
+函数总数 337，全部在运行期注册，`ll.import` 都能拿到。
 
 ---
 

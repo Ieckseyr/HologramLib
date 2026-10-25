@@ -1,6 +1,6 @@
 # 客户端附加 · C++ 接口
 
-26.51.6 新增三个接口，都很小；另外两个既有接口在尾部各加了一个方法。
+26.51.6 新增四个接口，都很小；另外两个既有接口在尾部各加了一个方法。
 完整签名见 `include/hologramlib/HologramLib.h`。
 
 ---
@@ -90,7 +90,35 @@ bool isHiddenFromOthers(playerName) const;
 
 ---
 
-## 1.20 既有接口的尾部追加（26.51.6）
+## 1.20 IPlayerVisibility（玩家出站包控制，26.51.6）
+
+按"被看的人（主体）"屏蔽出站包。与 `IViewOverride` 的分工：那边问"看的人看到什么"，
+这边问"被看的人能不能被看到"；两者是同一套出站判定，参数不同。
+
+```cpp
+struct PlayerPacketMask {
+    bool spawn{false};  // AddPlayer / PlayerList(Add)
+    bool tab{false};    // PlayerList
+    bool motion{false}; // MovePlayer / MoveActorAbsolute / MoveActorDelta / SetActorMotion
+    bool state{false};  // SetActorData / UpdateAttributes / MobEffect / Animate / ActorEvent
+    bool skin{false};   // PlayerSkin
+};
+
+bool setMask(playerName, mask, alsoSelf = false);
+bool setHidden(playerName, hidden);   // 整体隐身（复用视图覆盖域 hidden 通道）
+bool restore(playerName);             // 清掩码 + 清隐身 + 立刻补发出生包
+PlayerPacketMask maskOf(playerName) const;
+bool isHidden(playerName) const;
+```
+
+判定流程（`OutboundViewHook` 里、视图覆盖之前）：没有条目直接放行 → 认主体（运行时 id 或 uuid）
+→ 主体没条目或收件人就是本人（且没开 `alsoSelf`）放行 → 按分类查掩码，命中就丢。
+
+**边界**：只认那九类包，认不出来的一律放行；多玩家混装的 `PlayerList` 整包放行；
+`setMask` 只挡后续的包（已出生的要用 `setHidden`）；`restore` 的补发出生包借的是视图覆盖域
+"撤销即补发真身"那条流程（先挂隐藏再撤销），没有另写一套 `AddPlayer`。
+
+## 1.21 既有接口的尾部追加（26.51.6）
 
 | 接口 | 新增 | 协议 | 说明 |
 |---|---|---|---|

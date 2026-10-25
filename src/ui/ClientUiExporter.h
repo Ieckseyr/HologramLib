@@ -15,7 +15,13 @@ public:
     static void exportAll();
 };
 
-hologramlib::IFormControl& formControlAdapter();
+class PlayerVisibilityExporter {
+public:
+    static void exportAll();
+};
+
+hologramlib::IFormControl&      formControlAdapter();
+hologramlib::IPlayerVisibility& playerVisibilityAdapter();
 hologramlib::ILocatorBar&  locatorBarAdapter();
 
 } // namespace debugshape_export

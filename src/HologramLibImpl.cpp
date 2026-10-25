@@ -677,6 +677,7 @@ public:
     IItemActor&   itemActors() override { return debugshape_export::itemActorAdapter(); }
     IFormControl& formControl() override { return debugshape_export::formControlAdapter(); }
     ILocatorBar&  locatorBar() override { return debugshape_export::locatorBarAdapter(); }
+    IPlayerVisibility& playerVisibility() override { return debugshape_export::playerVisibilityAdapter(); }
 
     // ── 1.23.0 未发布线: 背包虚容器 ──
     IFakeInventory& fakeInventories() override { return debugshape_export::fakeInventoryAdapter(); }

@@ -384,6 +384,17 @@
 | 5 | pure | `int clearWaypoints(std::string const&)` |
 | 6 | pure | `int waypointCount(std::string const&)` |
 
+## IPlayerVisibility
+
+| # | 种类 | 签名 |
+|---|---|---|
+| 0 | default | `~IPlayerVisibility()` |
+| 1 | pure | `bool setMask(std::string const&, PlayerPacketMask const&, bool alsoSelf =)` |
+| 2 | pure | `bool setHidden(std::string const&, bool)` |
+| 3 | pure | `bool restore(std::string const&)` |
+| 4 | pure | `PlayerPacketMask maskOf(std::string const&)` |
+| 5 | pure | `bool isHidden(std::string const&)` |
+
 ## IViewOverride
 
 | # | 种类 | 签名 |
@@ -428,6 +439,7 @@
 | 25 | pure | `IItemActor& itemActors()` |
 | 26 | pure | `IFormControl& formControl()` |
 | 27 | pure | `ILocatorBar& locatorBar()` |
+| 28 | pure | `IPlayerVisibility& playerVisibility()` |
 
 ## 结构体布局
 
@@ -457,5 +469,6 @@
 | FakeInventoryClickEvent | `std::string playerName` `int slot` |
 | SulfurDisplaySpec | `float x` `float y` `float z` `int dim` `ContainerMenuItem block` `std::string archetype` `int variant` `bool invisible` `float scale` `double viewDistance` `std::vector<std::string> visiblePlayers` |
 | ItemActorSpec | `std::string itemId` `int aux` `int count` `float x, y, z` `int dimension` `float vx, vy, vz` |
+| PlayerPacketMask | `bool spawn` `bool tab` `bool motion` `bool state` `bool skin` |
 | EntityView | `std::string identifier` `std::string asPlayer` `std::string skinId` `float scale` `float yOffset` `bool hidden` `bool hasNametag` `std::string nametag` `bool nametagAlwaysShow` `int pose` `bool hasPose` `float metaScale` `bool hasMetaScale` `int variant` `bool hasVariant` `int markVariant` `bool hasMarkVariant` `int colorIndex` `bool hasColorIndex` `int color2` `bool hasColor2` |
 | BlockView | `std::string type` |

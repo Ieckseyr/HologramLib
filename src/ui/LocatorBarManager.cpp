@@ -1,8 +1,8 @@
 // LocatorBarManager.cpp - 方位条航点
 #include "LocatorBarManager.h"
 
+#include "../visibility/PlayerVisibilityManager.h" // 隐藏的实现搬到了那边
 #include "core/PacketSink.h"
-#include "view/ViewOverrideManager.h" // 隐藏走视图覆盖域那条通道
 
 #include <ll/api/service/Bedrock.h>
 
@@ -105,23 +105,9 @@ bool LocatorBarManager::setWaypoint(
 }
 
 bool LocatorBarManager::hideFromOthers(std::string const& playerName, bool hidden) {
-    ::Player* player = findPlayer(playerName);
-    if (player == nullptr)
+    // 一套实现：转给"玩家出站包控制"域（那边有完整的掩码 / 隐身体系）
+    if (!PlayerVisibilityManager::getInstance().setHidden(playerName, hidden))
         return false;
-
-    auto const uniqueId = static_cast<std::int64_t>(player->getOrCreateUniqueID().rawID);
-
-    // 空玩家名 = "所有人的覆盖"。视图覆盖域有一条规则：**本人不参与自己实体的覆盖**，
-    // 所以这一条正好是"其他人看不到他、他自己照常"。
-    if (hidden) {
-        hologramlib::EntityView view;
-        view.hidden = true;
-        if (!view::ViewOverrideManager::getInstance().overrideEntity("", uniqueId, view))
-            return false;
-    } else {
-        view::ViewOverrideManager::getInstance().clearEntity("", uniqueId);
-        view::ViewOverrideManager::getInstance().clearEntity(playerName, uniqueId); // 兜底: 清掉点名那条
-    }
 
     std::lock_guard lock(mMutex);
     if (hidden)

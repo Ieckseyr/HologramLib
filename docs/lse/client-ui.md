@@ -57,6 +57,39 @@ mc.listen("onLeft", (p) => formClose(p.realName));   // 掉线前顺手收一下
 ```
 
 
+## 玩家出站包控制（playerHide*）
+
+按"被看的人（主体）"屏蔽出站包：出生、Tab、移动、状态、皮肤逐类可关，或者整体隐身。
+
+| 函数 | 返回 | 说明 |
+|---|---|---|
+| `playerHideSetMask(playerName, spawn, tab, motion, state, skin, alsoSelf)` | `Boolean` | 设置掩码；`alsoSelf` = 连他自己收到的也丢 |
+| `playerHideGetMask(playerName)` | `String` | `"spawn=0 tab=1 motion=0 state=0 skin=1 hidden=0"` |
+| `playerHideSetHidden(playerName, hidden)` | `Boolean` | 整体隐身（已出生在别人屏幕上的也会消失，本人照常看得到自己） |
+| `playerHideIsHidden(playerName)` | `Boolean` | 查询 |
+| `playerHideRestore(playerName)` | `Boolean` | 清掩码 + 清隐身，并**立刻把出生包重新发给所有观看者** |
+
+```js
+const playerHideSetMask   = ll.import("HologramLib", "playerHideSetMask");
+const playerHideSetHidden = ll.import("HologramLib", "playerHideSetHidden");
+const playerHideRestore   = ll.import("HologramLib", "playerHideRestore");
+
+playerHideSetMask("Steve", true, true, false, false, false, false); // 挡出生 + Tab，移动照发
+playerHideSetHidden("Steve", true);   // 整个人从别人屏幕上消失
+playerHideRestore("Steve");           // 恢复（补发出生包）
+```
+
+| 掩码位 | 挡掉的包 | 别人看到的效果 |
+|---|---|---|
+| `spawn` | `AddPlayer` / `PlayerList(Add)` | 看不到他出生（已经出生的不受影响） |
+| `tab` | `PlayerList` | 从 Tab 列表消失 |
+| `motion` | `MovePlayer` / `MoveActorAbsolute` / `MoveActorDelta` / `SetActorMotion` | 他钉在原地 |
+| `state` | `SetActorData` / `UpdateAttributes` / `MobEffect` / `Animate` / `ActorEvent` | 动作与状态不更新 |
+| `skin` | `PlayerSkin` | 不发皮肤 |
+
+> `setMask` 只挡**后续**的包；要让已经站在别人屏幕上的那只消失，用 `setHidden`。
+> 认不出来的包一律放行；一条 `PlayerList` 里混了多个玩家时也整包放行（不冒险）。
+
 ## 方位条（locatorBar*）
 
 1.26 客户端在快捷栏下方有一条方位指示。每个玩家一组航点，`key` 自己起名，同一个 key 再 `set`
@@ -99,19 +132,5 @@ locatorBarHideFromOthers("Steve", true);    // 隐身
 locatorBarHideFromOthers("Steve", false);   // 恢复，不用重进
 ```
 
-实现走视图覆盖域那条通道：`overrideEntity("", uniqueId, hidden)` 是"所有人的覆盖"，
-而视图覆盖域本身有一条规则是**本人不参与自己实体的覆盖** —— 所以正好等于"别人看不见、自己看得见"。
-
-### 把某个玩家从其他人眼里藏起来
-
-`locatorBarHideFromOthers(playerName, true)` 之后，**其他人的客户端不再收到这名玩家的出生包、移动、
-状态、皮肤与 Tab 条目**；他本人一切照常（还能看到自己、还能动）。
-
-```js
-const locatorBarHideFromOthers = ll.import("HologramLib", "locatorBarHideFromOthers");
-locatorBarHideFromOthers("Steve", true);    // 隐身
-locatorBarHideFromOthers("Steve", false);   // 恢复（不用重进）
-```
-
-实现走的是视图覆盖域那条已经验证过的隐藏通道：`overrideEntity("", uniqueId, hidden)` ——
-"所有人的覆盖"，而视图覆盖域本身有一条规则是**本人不参与自己实体的覆盖**，所以正好等于"别人看不见、自己看得见"。
+这条是 `playerHideSetHidden` 的薄包装（同一套实现）；要按类别单独挡、或让"已经出生"的消失，
+用上面「玩家出站包控制」那一节。

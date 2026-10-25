@@ -1,5 +1,6 @@
 // OutboundViewHook.cpp - 客户端视图覆盖的挂钩点（1.25.0）
 
+#include "../visibility/PlayerVisibilityManager.h" // 玩家出站包屏蔽
 #include "ViewOverrideManager.h"
 
 #include "DiagLog.h"
@@ -141,6 +142,12 @@ LL_TYPE_INSTANCE_HOOK(
     auto* player = findPlayerByNetworkId(id);
     if (player == nullptr) {
         origin(id, packet, recipientSubId);
+        return;
+    }
+
+    // 26.51.6: 玩家出站包屏蔽（主体被屏蔽 → 这条包不发）。
+    // 放在视图覆盖判定之前，因为它是"主体维度"的过滤，与收件人有没有覆盖无关。
+    if (PlayerVisibilityManager::getInstance().shouldDrop(*player, packet)) {
         return;
     }
 

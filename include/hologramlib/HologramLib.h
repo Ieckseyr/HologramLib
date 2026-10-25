@@ -1501,6 +1501,42 @@ public:
     [[nodiscard]] virtual int waypointCount(std::string const& playerName) const = 0;
 };
 
+// ─────────────────────────────────────────────
+// 玩家出站包控制（26.51.6）
+//
+// 让"某个玩家在别人客户端上的存在感"逐类可关：出生包、Tab 条目、移动、状态、皮肤，或整体隐身。
+// 在出站钩子上按"这条包的主体是谁、收件人是谁"丢弃；认不出来的包一律放行。
+//
+// 与 IViewOverride 的分工：那边问"看的人（收件人）看到什么"，这边问"被看的人（主体）能不能被看到"。
+// 两者是同一套出站判定，但参数不同 —— 所以没有塞进视图覆盖。
+// ─────────────────────────────────────────────
+struct PlayerPacketMask {
+    bool spawn{false};  // AddPlayer / PlayerList(Add)：别人看不到他出生
+    bool tab{false};    // PlayerList：从 Tab 列表里消失
+    bool motion{false}; // MovePlayer / MoveActorAbsolute / MoveActorDelta / SetActorMotion
+    bool state{false};  // SetActorData / UpdateAttributes / MobEffect / Animate / ActorEvent
+    bool skin{false};   // PlayerSkin
+};
+
+class IPlayerVisibility {
+public:
+    virtual ~IPlayerVisibility() = default;
+
+    // 设置掩码。alsoSelf = true 时连他自己的包也丢（默认只影响其他人）。玩家不在线返回 false。
+    // 全 false 的掩码等价于撤销。
+    virtual bool setMask(std::string const& playerName, PlayerPacketMask const& mask, bool alsoSelf = false) = 0;
+
+    // 整体隐身：走视图覆盖域的 hidden 通道（出生/移动/状态/皮肤/Tab 一起挡，本人照常看得到自己）。
+    // 与 setMask 的区别：它能让"已经出生在别人屏幕上"的那只消失，setMask 只挡后续的包。
+    virtual bool setHidden(std::string const& playerName, bool hidden) = 0;
+
+    // 恢复：清掉掩码与隐身，并**立刻把出生包重新发给所有观看者**（不用重进服）。
+    virtual bool restore(std::string const& playerName) = 0;
+
+    [[nodiscard]] virtual PlayerPacketMask maskOf(std::string const& playerName) const   = 0;
+    [[nodiscard]] virtual bool             isHidden(std::string const& playerName) const = 0;
+};
+
 // 客户端视图覆盖（协议层拦截; 1.25.0 新增）
 //
 // 让服务端在**不改动真实世界**的前提下，改变**某个玩家客户端上看到的东西**：
@@ -1739,9 +1775,10 @@ public:
 
     // ── 26.51.6 追加（仍然只在类尾部追加）──
     // 协议层掉落物 / 客户端表单控制 / 方位条。
-    virtual IItemActor&   itemActors()  = 0;
-    virtual IFormControl& formControl() = 0;
-    virtual ILocatorBar&  locatorBar()  = 0;
+    virtual IItemActor&        itemActors()       = 0;
+    virtual IFormControl&      formControl()      = 0;
+    virtual ILocatorBar&       locatorBar()       = 0;
+    virtual IPlayerVisibility& playerVisibility() = 0;
 };
 
 } // namespace hologramlib

@@ -40,6 +40,7 @@
 #include "ui/LocatorBarManager.h"
 #include "view/ViewOverrideExporter.h"
 #include "view/ViewOverrideManager.h"
+#include "visibility/PlayerVisibilityManager.h"
 
 #include "hologramlib/HologramLib.h"
 
@@ -207,6 +208,12 @@ struct FormControlDomain final : core::IDomain {
     void        exportLse() override { FormControlExporter::exportAll(); }
 };
 
+struct PlayerVisibilityDomain final : core::IDomain {
+    char const* name() const noexcept override { return "visibility"; }
+    void        stop() noexcept override { PlayerVisibilityManager::getInstance().shutdown(); }
+    void        exportLse() override { PlayerVisibilityExporter::exportAll(); }
+};
+
 struct LocatorBarDomain final : core::IDomain {
     char const* name() const noexcept override { return "locatorbar"; }
     void        stop() noexcept override { LocatorBarManager::getInstance().shutdown(); }
@@ -264,6 +271,7 @@ bool ModEntry::enable() {
     mHost.add<ItemActorDomain>();
     mHost.add<FormControlDomain>();
     mHost.add<LocatorBarDomain>();
+    mHost.add<PlayerVisibilityDomain>();
 
     if (!mHost.startAll()) {
         HLIB_LOG_ERROR("[host] domain start failed; HologramLib stays disabled");

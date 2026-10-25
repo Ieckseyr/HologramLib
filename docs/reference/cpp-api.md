@@ -789,6 +789,22 @@ bool hideFromOthers(playerName, hidden);   // 转给视图覆盖域的 hidden �
 bool isHiddenFromOthers(playerName) const;
 ```
 
+**IPlayerVisibility** —— 玩家出站包控制（`AddPlayer` / `PlayerList` / `PlayerSkin` / `MovePlayer` /
+`MoveActorAbsolute` / `SetActorMotion` / `SetActorData` / `Animate` / `ActorEvent` / `MobEffect`）：
+
+```cpp
+struct PlayerPacketMask {
+    bool spawn{false}; bool tab{false}; bool motion{false}; bool state{false}; bool skin{false};
+};
+
+IPlayerVisibility& playerVisibility();
+bool setMask(playerName, PlayerPacketMask const& mask, bool alsoSelf = false);
+bool setHidden(playerName, hidden);   // 整体隐身（复用视图覆盖域 hidden 通道）
+bool restore(playerName);             // 清掩码 + 清隐身 + 立刻补发出生包
+PlayerPacketMask maskOf(playerName) const;
+bool isHidden(playerName) const;
+```
+
 **既有接口的尾部追加**：`IContainerMenu::blockEvent(menuId, b0, b1)`（`BlockEvent`，假箱子的方块事件）、
 `IPlayerNpc::playEmote(id, pieceId, lengthTicks)`（`Emote`，原版表情动作）。
 
