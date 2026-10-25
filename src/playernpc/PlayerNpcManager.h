@@ -134,6 +134,9 @@ public:
     bool clearRide(int64_t id);
     void setEntitySpawnCallback(std::function<void(int64_t, std::string const&)> callback);
     // LSE 侧取走出生事件（每条 "player=<名字> id=<npcId>"），取走即清空
+    // 原版表情动作（EmotePacket）: 只发给已见过该 NPC 的玩家
+    bool playEmote(int64_t id, std::string const& pieceId, int lengthTicks);
+
     std::vector<std::string> pollSpawns();
     void                     clearSpawns();
     // 出生完成通知（内部: 可见性同步里调用; 公开是为了不依赖后置定义的 TickHookAccess）

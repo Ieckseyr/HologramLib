@@ -131,8 +131,9 @@ setInterval(() => {
 | 硫磺立方体展示 | `sulfur*` | [硫磺立方体](sulfur.md) |
 | 客户端视图覆盖（换模型 / 隐藏 / 换皮） | `view*` | [视图覆盖](view.md) |
 | 设备感知 | `sensing*` | [客户端感知](sensing.md) |
+| 掉落物 / 表单 / 方位条 | `itemActor*` · `form*` · `locatorBar*` | [客户端附加](client-ui.md) |
 
-函数总数 314，全部在运行期注册，`ll.import` 都能拿到。
+函数总数 330，全部在运行期注册，`ll.import` 都能拿到。
 
 ---
 

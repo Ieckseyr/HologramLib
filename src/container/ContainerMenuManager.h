@@ -49,6 +49,9 @@ public:
     bool    setTitle(int64_t menuId, std::string const& title);
     bool    close(int64_t menuId);
     void    closeAll();
+    // 假箱子坐标上发一条方块事件（b0/b1 原样透传; 箱子盖 b0=1 开 / 0 合, 未实测）
+    bool blockEvent(int64_t menuId, int b0, int b1);
+
     [[nodiscard]] bool                 isOpen(int64_t menuId) const;
     [[nodiscard]] std::vector<int64_t> getAllIds() const;
 

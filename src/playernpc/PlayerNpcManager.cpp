@@ -34,6 +34,7 @@
 #include <sculk/protocol/codec/actor/MetaData.hpp>
 #include <sculk/protocol/codec/level/MolangVersion.hpp>
 #include <sculk/protocol/codec/packet/AnimateEntityPacket.hpp>
+#include <sculk/protocol/codec/packet/EmotePacket.hpp>
 #include <sculk/protocol/codec/packet/SetActorDataPacket.hpp>
 #include <sculk/protocol/codec/packet/SetActorLinkPacket.hpp>
 
@@ -972,6 +973,30 @@ std::string PlayerNpcManager::getDebugInfo(int64_t id) const {
         mTabRemovals.contains(id) ? mTabRemovals.at(id).size() : 0,
         mVisibleFilter.contains(id) ? "custom" : "all"
     );
+}
+
+bool PlayerNpcManager::playEmote(int64_t id, std::string const& pieceId, int lengthTicks) {
+    std::lock_guard lock(mMutex);
+    auto*           rt = runtimeOf(id);
+    if (rt == nullptr || pieceId.empty() || rt->shownPlayers.empty())
+        return false;
+
+    sculk::protocol::EmotePacket packet;
+    packet.mActorRuntimeId   = rt->runtimeId;
+    packet.mEmoteId          = pieceId;
+    packet.mEmoteLengthTicks = lengthTicks < 0 ? 0u : static_cast<std::uint32_t>(lengthTicks);
+    packet.mFlags            = 0; // 服务端发起, 无客户端回声
+
+    auto bytes = wire::encodeChecked(packet);
+    if (bytes.empty())
+        return false;
+
+    for (auto const& uuid : rt->shownPlayers) {
+        if (auto* player = findPlayerByUuid(uuid)) {
+            wire::sendRaw(*player, bytes);
+        }
+    }
+    return true;
 }
 
 std::vector<std::string> PlayerNpcManager::pollSpawns() {

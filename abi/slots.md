@@ -1,4 +1,4 @@
-# ABI 槽位表（0x012500 / ABI 戳 1）
+# ABI 槽位表（0x012600 / ABI 戳 1）
 
 > 本文件由 `python tools/abi_tool.py extract --md-out abi/slots.md` 生成，不要手改。
 > 虚函数声明顺序 = 虚表槽位号。**只能在尾部追加**。
@@ -259,6 +259,7 @@
 | 44 | pure | `bool setRidePlayer(int64_t, std::string const&)` |
 | 45 | pure | `bool setRideEntity(int64_t, int64_t)` |
 | 46 | pure | `bool clearRide(int64_t)` |
+| 47 | pure | `bool playEmote(int64_t, std::string const&, int lengthTicks = 0)` |
 
 ## ITradeMenu
 
@@ -294,6 +295,7 @@
 | 8 | pure | `bool update(int64_t, ContainerMenuSpec const&)` |
 | 9 | pure | `bool setItem(int64_t, int, ContainerMenuItem const&)` |
 | 10 | pure | `bool setInteractive(int64_t, bool)` |
+| 11 | pure | `bool blockEvent(int64_t, int, int)` |
 
 ## INpcDialogue
 
@@ -348,6 +350,38 @@
 | 9 | pure | `std::vector<int64_t> getAllIds()` |
 | 10 | pure | `int64_t entityIdOf(int64_t)` |
 
+## IItemActor
+
+| # | 种类 | 签名 |
+|---|---|---|
+| 0 | default | `~IItemActor()` |
+| 1 | pure | `int64_t spawn(ItemActorSpec const&)` |
+| 2 | pure | `bool setMotion(int64_t, float, float, float)` |
+| 3 | pure | `bool moveTo(int64_t, float, float, float)` |
+| 4 | pure | `bool take(int64_t, std::string const&)` |
+| 5 | pure | `bool destroy(int64_t)` |
+| 6 | pure | `void destroyAll()` |
+| 7 | pure | `bool exists(int64_t)` |
+| 8 | pure | `std::vector<int64_t> getAllIds()` |
+
+## IFormControl
+
+| # | 种类 | 签名 |
+|---|---|---|
+| 0 | default | `~IFormControl()` |
+| 1 | pure | `bool closeForm(std::string const&)` |
+| 2 | pure | `int closeAllForms()` |
+
+## ILocatorBar
+
+| # | 种类 | 签名 |
+|---|---|---|
+| 0 | default | `~ILocatorBar()` |
+| 1 | pure | `bool setWaypoint(std::string const&, std::string const&, float, float, float, int, int color = -1, bool visible =)` |
+| 2 | pure | `bool removeWaypoint(std::string const&, std::string const&)` |
+| 3 | pure | `int clearWaypoints(std::string const&)` |
+| 4 | pure | `int waypointCount(std::string const&)` |
+
 ## IViewOverride
 
 | # | 种类 | 签名 |
@@ -389,6 +423,9 @@
 | 22 | pure | `IViewOverride& viewOverrides()` |
 | 23 | pure | `uint64_t addActorInteractListener(std::function<void(ActorInteractEvent const&)>)` |
 | 24 | pure | `bool removeActorInteractListener(uint64_t)` |
+| 25 | pure | `IItemActor& itemActors()` |
+| 26 | pure | `IFormControl& formControl()` |
+| 27 | pure | `ILocatorBar& locatorBar()` |
 
 ## 结构体布局
 
@@ -417,5 +454,6 @@
 | FakeInventorySpec | `std::vector<ContainerMenuItem> items` `int refreshIntervalTicks` |
 | FakeInventoryClickEvent | `std::string playerName` `int slot` |
 | SulfurDisplaySpec | `float x` `float y` `float z` `int dim` `ContainerMenuItem block` `std::string archetype` `int variant` `bool invisible` `float scale` `double viewDistance` `std::vector<std::string> visiblePlayers` |
+| ItemActorSpec | `std::string itemId` `int aux` `int count` `float x, y, z` `int dimension` `float vx, vy, vz` |
 | EntityView | `std::string identifier` `std::string asPlayer` `std::string skinId` `float scale` `float yOffset` `bool hidden` `bool hasNametag` `std::string nametag` `bool nametagAlwaysShow` `int pose` `bool hasPose` `float metaScale` `bool hasMetaScale` `int variant` `bool hasVariant` `int markVariant` `bool hasMarkVariant` `int colorIndex` `bool hasColorIndex` `int color2` `bool hasColor2` |
 | BlockView | `std::string type` |

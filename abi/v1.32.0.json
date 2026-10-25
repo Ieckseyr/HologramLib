@@ -1,0 +1,2076 @@
+{
+  "header": "include/hologramlib/HologramLib.h",
+  "apiVersion": "0x012600",
+  "apiVersionNumber": 75264,
+  "apiVersionSemver": null,
+  "abiStamp": 1,
+  "interfaces": {
+    "IShapeDrawer": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~IShapeDrawer()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "int64_t createText(float, float, float, std::string const&)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "int64_t createLine(float, float, float, float, float, float)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "int64_t createBox(float, float, float, float, float, float)"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "int64_t createCircle(float, float, float, float)"
+      },
+      {
+        "index": 5,
+        "kind": "pure",
+        "sig": "int64_t createSphere(float, float, float, float)"
+      },
+      {
+        "index": 6,
+        "kind": "pure",
+        "sig": "int64_t createArrow(float, float, float, float, float, float)"
+      },
+      {
+        "index": 7,
+        "kind": "pure",
+        "sig": "bool setColor(int64_t, float, float, float, float)"
+      },
+      {
+        "index": 8,
+        "kind": "pure",
+        "sig": "bool setScale(int64_t, float)"
+      },
+      {
+        "index": 9,
+        "kind": "pure",
+        "sig": "bool setDuration(int64_t, float)"
+      },
+      {
+        "index": 10,
+        "kind": "pure",
+        "sig": "bool setDimension(int64_t, int)"
+      },
+      {
+        "index": 11,
+        "kind": "pure",
+        "sig": "bool setLocation(int64_t, float, float, float)"
+      },
+      {
+        "index": 12,
+        "kind": "pure",
+        "sig": "bool setText(int64_t, std::string const&)"
+      },
+      {
+        "index": 13,
+        "kind": "pure",
+        "sig": "bool setRotation(int64_t, float, float, float)"
+      },
+      {
+        "index": 14,
+        "kind": "pure",
+        "sig": "bool clearRotation(int64_t)"
+      },
+      {
+        "index": 15,
+        "kind": "pure",
+        "sig": "bool draw(int64_t)"
+      },
+      {
+        "index": 16,
+        "kind": "pure",
+        "sig": "bool drawToPlayer(int64_t, std::string const&)"
+      },
+      {
+        "index": 17,
+        "kind": "pure",
+        "sig": "bool drawToDimension(int64_t, int)"
+      },
+      {
+        "index": 18,
+        "kind": "pure",
+        "sig": "bool remove(int64_t)"
+      },
+      {
+        "index": 19,
+        "kind": "pure",
+        "sig": "bool update(int64_t)"
+      },
+      {
+        "index": 20,
+        "kind": "pure",
+        "sig": "bool destroy(int64_t)"
+      },
+      {
+        "index": 21,
+        "kind": "pure",
+        "sig": "void destroyAll()"
+      },
+      {
+        "index": 22,
+        "kind": "pure",
+        "sig": "bool exists(int64_t)"
+      },
+      {
+        "index": 23,
+        "kind": "pure",
+        "sig": "ShapeType type(int64_t)"
+      },
+      {
+        "index": 24,
+        "kind": "pure",
+        "sig": "bool setBackgroundColor(int64_t, float, float, float, float)"
+      },
+      {
+        "index": 25,
+        "kind": "pure",
+        "sig": "bool clearBackgroundColor(int64_t)"
+      },
+      {
+        "index": 26,
+        "kind": "pure",
+        "sig": "bool setDepthTest(int64_t, bool)"
+      }
+    ],
+    "IHologramText": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~IHologramText()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "int64_t create(float, float, float)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "bool destroy(int64_t)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "void destroyAll()"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "bool addLine(int64_t, std::string const&)"
+      },
+      {
+        "index": 5,
+        "kind": "pure",
+        "sig": "bool setLineText(int64_t, int, std::string const&)"
+      },
+      {
+        "index": 6,
+        "kind": "body",
+        "sig": "bool setLineScale(int64_t, int, float)"
+      },
+      {
+        "index": 7,
+        "kind": "pure",
+        "sig": "bool removeLine(int64_t, int)"
+      },
+      {
+        "index": 8,
+        "kind": "pure",
+        "sig": "bool clearLines(int64_t)"
+      },
+      {
+        "index": 9,
+        "kind": "pure",
+        "sig": "int getLineCount(int64_t)"
+      },
+      {
+        "index": 10,
+        "kind": "pure",
+        "sig": "bool setColor(int64_t, float, float, float, float)"
+      },
+      {
+        "index": 11,
+        "kind": "body",
+        "sig": "bool setLineColor(int64_t, int, float, float, float, float)"
+      },
+      {
+        "index": 12,
+        "kind": "body",
+        "sig": "bool setLineGradient(int64_t, int, float, float, float, float, float, float)"
+      },
+      {
+        "index": 13,
+        "kind": "body",
+        "sig": "bool setLineRainbow(int64_t, int, float)"
+      },
+      {
+        "index": 14,
+        "kind": "body",
+        "sig": "bool setLineScroll(int64_t, int, int, float)"
+      },
+      {
+        "index": 15,
+        "kind": "body",
+        "sig": "bool setVerticalAnimation(int64_t, int, float, float)"
+      },
+      {
+        "index": 16,
+        "kind": "body",
+        "sig": "bool setLineSpacing(int64_t, float)"
+      },
+      {
+        "index": 17,
+        "kind": "pure",
+        "sig": "bool setLocation(int64_t, float, float, float)"
+      },
+      {
+        "index": 18,
+        "kind": "pure",
+        "sig": "bool setFollowPlayer(int64_t, std::string const&, float)"
+      },
+      {
+        "index": 19,
+        "kind": "pure",
+        "sig": "bool clearFollowPlayer(int64_t)"
+      },
+      {
+        "index": 20,
+        "kind": "pure",
+        "sig": "bool draw(int64_t)"
+      },
+      {
+        "index": 21,
+        "kind": "pure",
+        "sig": "bool drawToDimension(int64_t, int)"
+      },
+      {
+        "index": 22,
+        "kind": "pure",
+        "sig": "bool drawToPlayer(int64_t, std::string const&)"
+      },
+      {
+        "index": 23,
+        "kind": "pure",
+        "sig": "bool remove(int64_t)"
+      },
+      {
+        "index": 24,
+        "kind": "pure",
+        "sig": "bool refresh(int64_t)"
+      },
+      {
+        "index": 25,
+        "kind": "body",
+        "sig": "void tick(float)"
+      },
+      {
+        "index": 26,
+        "kind": "pure",
+        "sig": "bool setDimension(int64_t, int)"
+      },
+      {
+        "index": 27,
+        "kind": "pure",
+        "sig": "bool setScale(int64_t, float)"
+      },
+      {
+        "index": 28,
+        "kind": "pure",
+        "sig": "bool setBackgroundColor(int64_t, float, float, float, float)"
+      },
+      {
+        "index": 29,
+        "kind": "pure",
+        "sig": "bool clearBackgroundColor(int64_t)"
+      },
+      {
+        "index": 30,
+        "kind": "pure",
+        "sig": "bool setDepthTest(int64_t, bool)"
+      },
+      {
+        "index": 31,
+        "kind": "pure",
+        "sig": "bool setRotation(int64_t, float, float, float)"
+      },
+      {
+        "index": 32,
+        "kind": "pure",
+        "sig": "bool clearRotation(int64_t)"
+      },
+      {
+        "index": 33,
+        "kind": "pure",
+        "sig": "bool setLinePool(int64_t, int, std::vector<std::string> const&, int)"
+      },
+      {
+        "index": 34,
+        "kind": "pure",
+        "sig": "bool setLineParseVariables(int64_t, int, bool)"
+      }
+    ],
+    "IItemDetail": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~IItemDetail()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "int64_t show(int, float, float, float, std::string const&, int, int, std::string const& customText = \"\")"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "bool hide(int64_t)"
+      }
+    ],
+    "IItemDisplay": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~IItemDisplay()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "int64_t create(ItemDisplayConfig const&)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "bool destroy(int64_t)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "void destroyAll()"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "bool exists(int64_t)"
+      },
+      {
+        "index": 5,
+        "kind": "pure",
+        "sig": "bool get(int64_t, ItemDisplayConfig&)"
+      },
+      {
+        "index": 6,
+        "kind": "pure",
+        "sig": "bool setItem(int64_t, std::string const&, int)"
+      },
+      {
+        "index": 7,
+        "kind": "pure",
+        "sig": "bool setPosition(int64_t, float, float, float, int)"
+      },
+      {
+        "index": 8,
+        "kind": "pure",
+        "sig": "bool setOffset(int64_t, std::string const&, std::string const&, std::string const&)"
+      },
+      {
+        "index": 9,
+        "kind": "pure",
+        "sig": "bool setBaseOffset(int64_t, std::string const&, std::string const&, std::string const&)"
+      },
+      {
+        "index": 10,
+        "kind": "pure",
+        "sig": "bool setRotation(int64_t, std::string const&, std::string const&, std::string const&)"
+      },
+      {
+        "index": 11,
+        "kind": "pure",
+        "sig": "bool setScale(int64_t, std::string const&)"
+      },
+      {
+        "index": 12,
+        "kind": "pure",
+        "sig": "bool setExtend(int64_t, std::string const&, std::string const&, std::string const&)"
+      },
+      {
+        "index": 13,
+        "kind": "pure",
+        "sig": "bool setMode(int64_t, int)"
+      },
+      {
+        "index": 14,
+        "kind": "pure",
+        "sig": "bool setEnabled(int64_t, bool)"
+      },
+      {
+        "index": 15,
+        "kind": "pure",
+        "sig": "bool setViewDistance(int64_t, double)"
+      },
+      {
+        "index": 16,
+        "kind": "pure",
+        "sig": "bool rotateY(int64_t, float)"
+      },
+      {
+        "index": 17,
+        "kind": "pure",
+        "sig": "std::vector<int64_t> getAllIds()"
+      },
+      {
+        "index": 18,
+        "kind": "pure",
+        "sig": "int64_t createRandom(ItemDisplayConfig const&)"
+      },
+      {
+        "index": 19,
+        "kind": "pure",
+        "sig": "int64_t createWithId(ItemDisplayConfig const&, int64_t)"
+      },
+      {
+        "index": 20,
+        "kind": "pure",
+        "sig": "bool isIdUsed(int64_t)"
+      },
+      {
+        "index": 21,
+        "kind": "pure",
+        "sig": "bool scaleBy(int64_t, double)"
+      },
+      {
+        "index": 22,
+        "kind": "pure",
+        "sig": "bool setItemWithNbt(int64_t, std::string const&, int, std::string const&)"
+      },
+      {
+        "index": 23,
+        "kind": "pure",
+        "sig": "bool setGlint(int64_t, bool)"
+      },
+      {
+        "index": 24,
+        "kind": "pure",
+        "sig": "bool follow(int64_t, std::string const&, float, float, float)"
+      },
+      {
+        "index": 25,
+        "kind": "pure",
+        "sig": "bool unfollow(int64_t)"
+      },
+      {
+        "index": 26,
+        "kind": "pure",
+        "sig": "bool setHitbox(int64_t, float, float)"
+      },
+      {
+        "index": 27,
+        "kind": "pure",
+        "sig": "bool setStretch(int64_t, std::string const&, std::string const&)"
+      },
+      {
+        "index": 28,
+        "kind": "pure",
+        "sig": "bool setStretchLive(int64_t, std::string const&, std::string const&)"
+      },
+      {
+        "index": 29,
+        "kind": "pure",
+        "sig": "bool setRotationLive(int64_t, std::string const&, std::string const&, std::string const&)"
+      },
+      {
+        "index": 30,
+        "kind": "pure",
+        "sig": "bool setOffsetLive(int64_t, std::string const&, std::string const&, std::string const&)"
+      },
+      {
+        "index": 31,
+        "kind": "pure",
+        "sig": "bool setScaleLive(int64_t, std::string const&)"
+      },
+      {
+        "index": 32,
+        "kind": "pure",
+        "sig": "bool setTransformLive(int64_t, std::string const&, std::string const&, std::string const&, std::string const&, std::string const&, std::string const&, std::string const&)"
+      },
+      {
+        "index": 33,
+        "kind": "pure",
+        "sig": "bool setAnim(int64_t, ItemDisplayAnim const&)"
+      },
+      {
+        "index": 34,
+        "kind": "pure",
+        "sig": "bool setAnimPreset(int64_t, std::string const&, float, float, int)"
+      },
+      {
+        "index": 35,
+        "kind": "pure",
+        "sig": "bool clearAnim(int64_t)"
+      }
+    ],
+    "ICustomEntity": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~ICustomEntity()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "int64_t create(CustomEntityConfig const&)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "int64_t createRandom(CustomEntityConfig const&)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "int64_t createWithId(CustomEntityConfig const&, int64_t)"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "bool destroy(int64_t)"
+      },
+      {
+        "index": 5,
+        "kind": "pure",
+        "sig": "void destroyAll()"
+      },
+      {
+        "index": 6,
+        "kind": "pure",
+        "sig": "bool exists(int64_t)"
+      },
+      {
+        "index": 7,
+        "kind": "pure",
+        "sig": "bool get(int64_t, CustomEntityConfig&)"
+      },
+      {
+        "index": 8,
+        "kind": "pure",
+        "sig": "bool isIdUsed(int64_t)"
+      },
+      {
+        "index": 9,
+        "kind": "pure",
+        "sig": "std::vector<int64_t> getAllIds()"
+      },
+      {
+        "index": 10,
+        "kind": "pure",
+        "sig": "bool setIdentifier(int64_t, std::string const&)"
+      },
+      {
+        "index": 11,
+        "kind": "pure",
+        "sig": "bool setPosition(int64_t, float, float, float, int)"
+      },
+      {
+        "index": 12,
+        "kind": "pure",
+        "sig": "bool setRotation(int64_t, float, float)"
+      },
+      {
+        "index": 13,
+        "kind": "pure",
+        "sig": "bool setNametag(int64_t, std::string const&)"
+      },
+      {
+        "index": 14,
+        "kind": "pure",
+        "sig": "bool setScale(int64_t, float)"
+      },
+      {
+        "index": 15,
+        "kind": "pure",
+        "sig": "bool setVariant(int64_t, int)"
+      },
+      {
+        "index": 16,
+        "kind": "pure",
+        "sig": "bool setMarkVariant(int64_t, int)"
+      },
+      {
+        "index": 17,
+        "kind": "pure",
+        "sig": "bool setColorIndex(int64_t, int)"
+      },
+      {
+        "index": 18,
+        "kind": "pure",
+        "sig": "bool setFlags(int64_t, std::int64_t)"
+      },
+      {
+        "index": 19,
+        "kind": "pure",
+        "sig": "bool setInvisible(int64_t, bool)"
+      },
+      {
+        "index": 20,
+        "kind": "pure",
+        "sig": "bool setEnabled(int64_t, bool)"
+      },
+      {
+        "index": 21,
+        "kind": "pure",
+        "sig": "bool setViewDistance(int64_t, double)"
+      },
+      {
+        "index": 22,
+        "kind": "pure",
+        "sig": "bool setPose(int64_t, int)"
+      },
+      {
+        "index": 23,
+        "kind": "pure",
+        "sig": "bool setEquipmentSlot(int64_t, int, std::string const&, int, std::string const&)"
+      },
+      {
+        "index": 24,
+        "kind": "pure",
+        "sig": "bool setMobProperty(int64_t, std::string const&, std::string const&)"
+      },
+      {
+        "index": 25,
+        "kind": "pure",
+        "sig": "bool clearMobProperties(int64_t)"
+      },
+      {
+        "index": 26,
+        "kind": "pure",
+        "sig": "int64_t findNearest(float, float, float, int, double)"
+      },
+      {
+        "index": 27,
+        "kind": "pure",
+        "sig": "bool scaleBy(int64_t, double)"
+      },
+      {
+        "index": 28,
+        "kind": "pure",
+        "sig": "bool setVisiblePlayers(int64_t, std::vector<std::string> const&)"
+      },
+      {
+        "index": 29,
+        "kind": "pure",
+        "sig": "bool clearVisiblePlayers(int64_t)"
+      },
+      {
+        "index": 30,
+        "kind": "pure",
+        "sig": "bool setVisiblePlayer(int64_t, std::string const&)"
+      },
+      {
+        "index": 31,
+        "kind": "pure",
+        "sig": "std::string getDebugInfo(int64_t)"
+      },
+      {
+        "index": 32,
+        "kind": "pure",
+        "sig": "bool setRidePlayer(int64_t, std::string const&)"
+      },
+      {
+        "index": 33,
+        "kind": "pure",
+        "sig": "bool setRideEntity(int64_t, int64_t)"
+      },
+      {
+        "index": 34,
+        "kind": "pure",
+        "sig": "bool clearRide(int64_t)"
+      },
+      {
+        "index": 35,
+        "kind": "pure",
+        "sig": "bool playAnimation(int64_t, std::string const&, std::string const&, int)"
+      },
+      {
+        "index": 36,
+        "kind": "pure",
+        "sig": "bool playAnimationTo(int64_t, std::string const&, std::string const&, std::string const&, int)"
+      },
+      {
+        "index": 37,
+        "kind": "pure",
+        "sig": "void setEntitySpawnCallback(EntitySpawnCallback)"
+      },
+      {
+        "index": 38,
+        "kind": "pure",
+        "sig": "bool setPlayerRotation(int64_t, std::string const&, float, float)"
+      },
+      {
+        "index": 39,
+        "kind": "pure",
+        "sig": "bool clearPlayerRotation(int64_t, std::string const&)"
+      },
+      {
+        "index": 40,
+        "kind": "pure",
+        "sig": "bool clearPlayerRotations(int64_t)"
+      },
+      {
+        "index": 41,
+        "kind": "pure",
+        "sig": "bool setPlayerNametag(int64_t, std::string const&, std::string const&)"
+      },
+      {
+        "index": 42,
+        "kind": "pure",
+        "sig": "bool setPlayerScale(int64_t, std::string const&, float)"
+      },
+      {
+        "index": 43,
+        "kind": "pure",
+        "sig": "bool setPlayerEquipmentSlot(int64_t, std::string const&, int, std::string const&, int, std::string const&)"
+      },
+      {
+        "index": 44,
+        "kind": "pure",
+        "sig": "bool clearPlayerAppearance(int64_t, std::string const&)"
+      },
+      {
+        "index": 45,
+        "kind": "pure",
+        "sig": "bool stopAnimation(int64_t)"
+      },
+      {
+        "index": 46,
+        "kind": "pure",
+        "sig": "bool stopAnimationTo(int64_t, std::string const&)"
+      }
+    ],
+    "IParticleShape": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~IParticleShape()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "int64_t createPoint(std::string const&, int, float, float, float, std::string const&, int, int)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "int64_t createLine(std::string const&, int, float, float, float, float, float, float, float, std::string const&, int, int)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "int64_t createRect(std::string const&, int, float, float, float, float, float, int, float, std::string const&, int, int)"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "int64_t createPlane(std::string const&, int, float, float, float, float, float, int, float, std::string const&, int, int)"
+      },
+      {
+        "index": 5,
+        "kind": "pure",
+        "sig": "int64_t createBox(std::string const&, int, float, float, float, float, float, float, float, std::string const&, int, int)"
+      },
+      {
+        "index": 6,
+        "kind": "pure",
+        "sig": "int64_t createBoxFaces(std::string const&, int, float, float, float, float, float, float, float, std::string const&, int, int)"
+      },
+      {
+        "index": 7,
+        "kind": "pure",
+        "sig": "int64_t createPoly(std::string const&, int, std::vector<float> const&, std::vector<std::int32_t> const&, float, std::string const&, int, int)"
+      },
+      {
+        "index": 8,
+        "kind": "pure",
+        "sig": "bool setPos(int64_t, float, float, float)"
+      },
+      {
+        "index": 9,
+        "kind": "pure",
+        "sig": "bool moveBy(int64_t, float, float, float)"
+      },
+      {
+        "index": 10,
+        "kind": "pure",
+        "sig": "bool setRot(int64_t, float, float, float)"
+      },
+      {
+        "index": 11,
+        "kind": "pure",
+        "sig": "bool spin(int64_t, float, float, float)"
+      },
+      {
+        "index": 12,
+        "kind": "pure",
+        "sig": "bool setScale(int64_t, float)"
+      },
+      {
+        "index": 13,
+        "kind": "pure",
+        "sig": "bool follow(int64_t, std::string const&, float, float, float)"
+      },
+      {
+        "index": 14,
+        "kind": "pure",
+        "sig": "bool unfollow(int64_t)"
+      },
+      {
+        "index": 15,
+        "kind": "pure",
+        "sig": "bool setEffect(int64_t, std::string const&)"
+      },
+      {
+        "index": 16,
+        "kind": "pure",
+        "sig": "bool setVisiblePlayers(int64_t, std::vector<std::string> const&)"
+      },
+      {
+        "index": 17,
+        "kind": "pure",
+        "sig": "bool clearVisiblePlayers(int64_t)"
+      },
+      {
+        "index": 18,
+        "kind": "pure",
+        "sig": "bool setInterval(int64_t, int)"
+      },
+      {
+        "index": 19,
+        "kind": "pure",
+        "sig": "bool setViewDistance(int64_t, int)"
+      },
+      {
+        "index": 20,
+        "kind": "pure",
+        "sig": "bool setLifetime(int64_t, int)"
+      },
+      {
+        "index": 21,
+        "kind": "pure",
+        "sig": "bool destroy(int64_t)"
+      },
+      {
+        "index": 22,
+        "kind": "pure",
+        "sig": "void destroyAll()"
+      },
+      {
+        "index": 23,
+        "kind": "pure",
+        "sig": "bool exists(int64_t)"
+      },
+      {
+        "index": 24,
+        "kind": "pure",
+        "sig": "std::vector<int64_t> getAllIds()"
+      },
+      {
+        "index": 25,
+        "kind": "pure",
+        "sig": "std::string getDebugInfo(int64_t)"
+      },
+      {
+        "index": 26,
+        "kind": "pure",
+        "sig": "bool moveTo(int64_t, float, float, float, int)"
+      }
+    ],
+    "IPlayerNpc": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~IPlayerNpc()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "bool registerSkin(PlayerNpcSkin const&)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "bool captureSkin(std::string const&, std::string const&)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "bool hasSkin(std::string const&)"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "bool unregisterSkin(std::string const&)"
+      },
+      {
+        "index": 5,
+        "kind": "pure",
+        "sig": "std::vector<std::string> getSkinIds()"
+      },
+      {
+        "index": 6,
+        "kind": "pure",
+        "sig": "int64_t create(PlayerNpcConfig const&)"
+      },
+      {
+        "index": 7,
+        "kind": "pure",
+        "sig": "int64_t createRandom(PlayerNpcConfig const&)"
+      },
+      {
+        "index": 8,
+        "kind": "pure",
+        "sig": "int64_t createWithId(PlayerNpcConfig const&, int64_t)"
+      },
+      {
+        "index": 9,
+        "kind": "pure",
+        "sig": "bool destroy(int64_t)"
+      },
+      {
+        "index": 10,
+        "kind": "pure",
+        "sig": "void destroyAll()"
+      },
+      {
+        "index": 11,
+        "kind": "pure",
+        "sig": "bool exists(int64_t)"
+      },
+      {
+        "index": 12,
+        "kind": "pure",
+        "sig": "bool get(int64_t, PlayerNpcConfig&)"
+      },
+      {
+        "index": 13,
+        "kind": "pure",
+        "sig": "bool isIdUsed(int64_t)"
+      },
+      {
+        "index": 14,
+        "kind": "pure",
+        "sig": "std::vector<int64_t> getAllIds()"
+      },
+      {
+        "index": 15,
+        "kind": "pure",
+        "sig": "bool setPosition(int64_t, float, float, float, int)"
+      },
+      {
+        "index": 16,
+        "kind": "pure",
+        "sig": "bool setRotation(int64_t, float)"
+      },
+      {
+        "index": 17,
+        "kind": "pure",
+        "sig": "bool setNametag(int64_t, std::string const&)"
+      },
+      {
+        "index": 18,
+        "kind": "pure",
+        "sig": "bool setSkin(int64_t, std::string const&)"
+      },
+      {
+        "index": 19,
+        "kind": "pure",
+        "sig": "bool setViewDistance(int64_t, double)"
+      },
+      {
+        "index": 20,
+        "kind": "pure",
+        "sig": "bool setScale(int64_t, float)"
+      },
+      {
+        "index": 21,
+        "kind": "pure",
+        "sig": "bool setEnabled(int64_t, bool)"
+      },
+      {
+        "index": 22,
+        "kind": "pure",
+        "sig": "bool setVisiblePlayers(int64_t, std::vector<std::string> const&)"
+      },
+      {
+        "index": 23,
+        "kind": "pure",
+        "sig": "bool clearVisiblePlayers(int64_t)"
+      },
+      {
+        "index": 24,
+        "kind": "pure",
+        "sig": "bool setVisiblePlayer(int64_t, std::string const&)"
+      },
+      {
+        "index": 25,
+        "kind": "pure",
+        "sig": "std::string getDebugInfo(int64_t)"
+      },
+      {
+        "index": 26,
+        "kind": "pure",
+        "sig": "int importSkins(std::string const&)"
+      },
+      {
+        "index": 27,
+        "kind": "pure",
+        "sig": "bool getSkinBlob(std::string const&, std::string&)"
+      },
+      {
+        "index": 28,
+        "kind": "pure",
+        "sig": "bool registerSkinFromBlob(std::string const&)"
+      },
+      {
+        "index": 29,
+        "kind": "pure",
+        "sig": "bool setRotationLight(int64_t, float)"
+      },
+      {
+        "index": 30,
+        "kind": "pure",
+        "sig": "bool setPlayerRotation(int64_t, std::string const&, float)"
+      },
+      {
+        "index": 31,
+        "kind": "pure",
+        "sig": "bool clearPlayerRotation(int64_t, std::string const&)"
+      },
+      {
+        "index": 32,
+        "kind": "pure",
+        "sig": "bool clearPlayerRotations(int64_t)"
+      },
+      {
+        "index": 33,
+        "kind": "pure",
+        "sig": "bool setPositionLight(int64_t, float, float, float, int)"
+      },
+      {
+        "index": 34,
+        "kind": "pure",
+        "sig": "bool injectSkin(std::string const&, std::string const&, std::string const&)"
+      },
+      {
+        "index": 35,
+        "kind": "pure",
+        "sig": "bool injectSkinAll(std::string const&, std::string const&)"
+      },
+      {
+        "index": 36,
+        "kind": "pure",
+        "sig": "bool playAnimation(int64_t, std::string const&, std::string const&, int)"
+      },
+      {
+        "index": 37,
+        "kind": "pure",
+        "sig": "bool playAnimationTo(int64_t, std::string const&, std::string const&, std::string const&, int)"
+      },
+      {
+        "index": 38,
+        "kind": "pure",
+        "sig": "void setEntitySpawnCallback(EntitySpawnCallback)"
+      },
+      {
+        "index": 39,
+        "kind": "pure",
+        "sig": "bool stopAnimation(int64_t)"
+      },
+      {
+        "index": 40,
+        "kind": "pure",
+        "sig": "bool stopAnimationTo(int64_t, std::string const&)"
+      },
+      {
+        "index": 41,
+        "kind": "pure",
+        "sig": "bool setPose(int64_t, int)"
+      },
+      {
+        "index": 42,
+        "kind": "pure",
+        "sig": "bool setEquipment(int64_t, int, std::string const&, int, std::string const&)"
+      },
+      {
+        "index": 43,
+        "kind": "pure",
+        "sig": "bool setRideUniqueId(int64_t, std::int64_t)"
+      },
+      {
+        "index": 44,
+        "kind": "pure",
+        "sig": "bool setRidePlayer(int64_t, std::string const&)"
+      },
+      {
+        "index": 45,
+        "kind": "pure",
+        "sig": "bool setRideEntity(int64_t, int64_t)"
+      },
+      {
+        "index": 46,
+        "kind": "pure",
+        "sig": "bool clearRide(int64_t)"
+      },
+      {
+        "index": 47,
+        "kind": "pure",
+        "sig": "bool playEmote(int64_t, std::string const&, int lengthTicks = 0)"
+      }
+    ],
+    "ITradeMenu": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~ITradeMenu()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "int64_t open(std::string const&, TradeMenuSpec const&)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "bool update(int64_t, TradeMenuSpec const&)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "bool close(int64_t)"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "void closeAll()"
+      },
+      {
+        "index": 5,
+        "kind": "pure",
+        "sig": "bool isOpen(int64_t)"
+      },
+      {
+        "index": 6,
+        "kind": "pure",
+        "sig": "std::vector<int64_t> getAllIds()"
+      },
+      {
+        "index": 7,
+        "kind": "pure",
+        "sig": "bool addOffer(int64_t, TradeMenuOffer const&)"
+      },
+      {
+        "index": 8,
+        "kind": "pure",
+        "sig": "bool setTier(int64_t, int, int)"
+      },
+      {
+        "index": 9,
+        "kind": "pure",
+        "sig": "bool setSettleLocally(int64_t, bool)"
+      },
+      {
+        "index": 10,
+        "kind": "pure",
+        "sig": "bool isSettleLocally(int64_t)"
+      },
+      {
+        "index": 11,
+        "kind": "pure",
+        "sig": "uint64_t addSettlementListener(std::function<void(TradeSettlementEvent const&)>)"
+      },
+      {
+        "index": 12,
+        "kind": "pure",
+        "sig": "bool removeSettlementListener(uint64_t)"
+      },
+      {
+        "index": 13,
+        "kind": "pure",
+        "sig": "std::vector<std::string> pollSettlements()"
+      }
+    ],
+    "IContainerMenu": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~IContainerMenu()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "int64_t open(std::string const&, ContainerMenuSpec const&)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "bool close(int64_t)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "void closeAll()"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "bool isOpen(int64_t)"
+      },
+      {
+        "index": 5,
+        "kind": "pure",
+        "sig": "std::vector<int64_t> getAllIds()"
+      },
+      {
+        "index": 6,
+        "kind": "pure",
+        "sig": "uint64_t addClickListener(std::function<void(ContainerClickEvent const&)>)"
+      },
+      {
+        "index": 7,
+        "kind": "pure",
+        "sig": "bool removeClickListener(uint64_t)"
+      },
+      {
+        "index": 8,
+        "kind": "pure",
+        "sig": "bool update(int64_t, ContainerMenuSpec const&)"
+      },
+      {
+        "index": 9,
+        "kind": "pure",
+        "sig": "bool setItem(int64_t, int, ContainerMenuItem const&)"
+      },
+      {
+        "index": 10,
+        "kind": "pure",
+        "sig": "bool setInteractive(int64_t, bool)"
+      },
+      {
+        "index": 11,
+        "kind": "pure",
+        "sig": "bool blockEvent(int64_t, int, int)"
+      }
+    ],
+    "INpcDialogue": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~INpcDialogue()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "int64_t open(std::string const&, NpcDialogSpec const&)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "bool close(int64_t)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "void closeAll()"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "bool isOpen(int64_t)"
+      },
+      {
+        "index": 5,
+        "kind": "pure",
+        "sig": "std::vector<int64_t> getAllIds()"
+      },
+      {
+        "index": 6,
+        "kind": "pure",
+        "sig": "uint64_t addClickListener(std::function<void(NpcDialogClickEvent const&)>)"
+      },
+      {
+        "index": 7,
+        "kind": "pure",
+        "sig": "bool removeClickListener(uint64_t)"
+      },
+      {
+        "index": 8,
+        "kind": "pure",
+        "sig": "bool update(int64_t, NpcDialogSpec const&)"
+      }
+    ],
+    "IPlayerSensing": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~IPlayerSensing()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "ClientInputDevice inputDeviceOf(std::string const&)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "bool isTouch(std::string const&)"
+      }
+    ],
+    "IFakeInventory": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~IFakeInventory()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "bool apply(std::string const&, FakeInventorySpec const&)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "bool setSlot(std::string const&, int, ContainerMenuItem const&)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "bool refresh(std::string const&)"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "bool clear(std::string const&)"
+      },
+      {
+        "index": 5,
+        "kind": "pure",
+        "sig": "void clearAll()"
+      },
+      {
+        "index": 6,
+        "kind": "pure",
+        "sig": "bool isActive(std::string const&)"
+      },
+      {
+        "index": 7,
+        "kind": "pure",
+        "sig": "std::vector<std::string> getActivePlayers()"
+      },
+      {
+        "index": 8,
+        "kind": "pure",
+        "sig": "uint64_t addClickListener(std::function<void(FakeInventoryClickEvent const&)>)"
+      },
+      {
+        "index": 9,
+        "kind": "pure",
+        "sig": "bool removeClickListener(uint64_t)"
+      }
+    ],
+    "ISulfurDisplay": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~ISulfurDisplay()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "int64_t create(SulfurDisplaySpec const&)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "bool setBlock(int64_t, ContainerMenuItem const&)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "bool setArchetype(int64_t, std::string const&)"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "bool setInvisible(int64_t, bool)"
+      },
+      {
+        "index": 5,
+        "kind": "pure",
+        "sig": "bool setScale(int64_t, float)"
+      },
+      {
+        "index": 6,
+        "kind": "pure",
+        "sig": "bool destroy(int64_t)"
+      },
+      {
+        "index": 7,
+        "kind": "pure",
+        "sig": "void destroyAll()"
+      },
+      {
+        "index": 8,
+        "kind": "pure",
+        "sig": "bool exists(int64_t)"
+      },
+      {
+        "index": 9,
+        "kind": "pure",
+        "sig": "std::vector<int64_t> getAllIds()"
+      },
+      {
+        "index": 10,
+        "kind": "pure",
+        "sig": "int64_t entityIdOf(int64_t)"
+      }
+    ],
+    "IItemActor": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~IItemActor()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "int64_t spawn(ItemActorSpec const&)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "bool setMotion(int64_t, float, float, float)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "bool moveTo(int64_t, float, float, float)"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "bool take(int64_t, std::string const&)"
+      },
+      {
+        "index": 5,
+        "kind": "pure",
+        "sig": "bool destroy(int64_t)"
+      },
+      {
+        "index": 6,
+        "kind": "pure",
+        "sig": "void destroyAll()"
+      },
+      {
+        "index": 7,
+        "kind": "pure",
+        "sig": "bool exists(int64_t)"
+      },
+      {
+        "index": 8,
+        "kind": "pure",
+        "sig": "std::vector<int64_t> getAllIds()"
+      }
+    ],
+    "IFormControl": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~IFormControl()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "bool closeForm(std::string const&)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "int closeAllForms()"
+      }
+    ],
+    "ILocatorBar": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~ILocatorBar()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "bool setWaypoint(std::string const&, std::string const&, float, float, float, int, int color = -1, bool visible =)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "bool removeWaypoint(std::string const&, std::string const&)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "int clearWaypoints(std::string const&)"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "int waypointCount(std::string const&)"
+      }
+    ],
+    "IViewOverride": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~IViewOverride()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "bool overrideEntity(std::string const&, std::int64_t, EntityView const&)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "bool overrideBlock(std::string const&, int, int, int, BlockView const&)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "bool clearEntity(std::string const&, std::int64_t)"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "bool clearBlock(std::string const&, int, int, int)"
+      },
+      {
+        "index": 5,
+        "kind": "pure",
+        "sig": "void clearAll(std::string const&)"
+      },
+      {
+        "index": 6,
+        "kind": "pure",
+        "sig": "std::string describeFor(std::string const&)"
+      }
+    ],
+    "IHologramLib": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~IHologramLib()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "IShapeDrawer& shapes()"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "IHologramText& holograms()"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "IItemDetail& itemDetails()"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "bool isLseAvailable()"
+      },
+      {
+        "index": 5,
+        "kind": "pure",
+        "sig": "uint32_t version()"
+      },
+      {
+        "index": 6,
+        "kind": "pure",
+        "sig": "IItemDisplay& itemDisplays()"
+      },
+      {
+        "index": 7,
+        "kind": "pure",
+        "sig": "int64_t findNearestItemDisplay(float, float, float, int, double)"
+      },
+      {
+        "index": 8,
+        "kind": "pure",
+        "sig": "ICustomEntity& customEntities()"
+      },
+      {
+        "index": 9,
+        "kind": "pure",
+        "sig": "void setGhostInteractListener(std::function<void(GhostInteractEvent const&)>)"
+      },
+      {
+        "index": 10,
+        "kind": "pure",
+        "sig": "void clearGhostInteractListener()"
+      },
+      {
+        "index": 11,
+        "kind": "pure",
+        "sig": "std::vector<std::string> pollGhostInteractions()"
+      },
+      {
+        "index": 12,
+        "kind": "pure",
+        "sig": "IParticleShape& particleShapes()"
+      },
+      {
+        "index": 13,
+        "kind": "pure",
+        "sig": "IPlayerNpc& playerNpcs()"
+      },
+      {
+        "index": 14,
+        "kind": "pure",
+        "sig": "uint64_t addGhostInteractListener(std::function<void(GhostInteractEvent const&)>)"
+      },
+      {
+        "index": 15,
+        "kind": "pure",
+        "sig": "bool removeGhostInteractListener(uint64_t)"
+      },
+      {
+        "index": 16,
+        "kind": "pure",
+        "sig": "ITradeMenu& tradeMenus()"
+      },
+      {
+        "index": 17,
+        "kind": "pure",
+        "sig": "INpcDialogue& npcDialogs()"
+      },
+      {
+        "index": 18,
+        "kind": "pure",
+        "sig": "IContainerMenu& containerMenus()"
+      },
+      {
+        "index": 19,
+        "kind": "pure",
+        "sig": "IPlayerSensing& playerSensing()"
+      },
+      {
+        "index": 20,
+        "kind": "pure",
+        "sig": "IFakeInventory& fakeInventories()"
+      },
+      {
+        "index": 21,
+        "kind": "pure",
+        "sig": "ISulfurDisplay& sulfurDisplays()"
+      },
+      {
+        "index": 22,
+        "kind": "pure",
+        "sig": "IViewOverride& viewOverrides()"
+      },
+      {
+        "index": 23,
+        "kind": "pure",
+        "sig": "uint64_t addActorInteractListener(std::function<void(ActorInteractEvent const&)>)"
+      },
+      {
+        "index": 24,
+        "kind": "pure",
+        "sig": "bool removeActorInteractListener(uint64_t)"
+      },
+      {
+        "index": 25,
+        "kind": "pure",
+        "sig": "IItemActor& itemActors()"
+      },
+      {
+        "index": 26,
+        "kind": "pure",
+        "sig": "IFormControl& formControl()"
+      },
+      {
+        "index": 27,
+        "kind": "pure",
+        "sig": "ILocatorBar& locatorBar()"
+      }
+    ]
+  },
+  "structs": {
+    "PerPlayerRotation": {
+      "kind": "struct",
+      "fields": [
+        "float yaw",
+        "float pitch"
+      ]
+    },
+    "ItemDisplayConfig": {
+      "kind": "struct",
+      "fields": [
+        "std::string item",
+        "int itemAux",
+        "float x, y, z",
+        "int dimension",
+        "std::string offsetX",
+        "std::string offsetY",
+        "std::string offsetZ",
+        "std::string baseOffsetX",
+        "std::string baseOffsetY",
+        "std::string baseOffsetZ",
+        "std::string rotX",
+        "std::string rotY",
+        "std::string rotZ",
+        "std::string scale",
+        "std::string extendScale",
+        "std::string extendRotX",
+        "std::string extendRotY",
+        "int mode",
+        "double viewDistance",
+        "bool enabled",
+        "std::string itemNbt",
+        "bool itemGlint",
+        "float hitboxWidth",
+        "float hitboxHeight"
+      ]
+    },
+    "ItemDisplayAnim": {
+      "kind": "struct",
+      "fields": [
+        "float spinSpeed",
+        "int spinAxis",
+        "float bobAmplitude",
+        "float bobPeriod",
+        "float pulseAmplitude",
+        "float pulsePeriod",
+        "float swayAmplitude",
+        "float swayPeriod",
+        "float phase",
+        "bool billboard",
+        "float orbitRadius",
+        "float orbitPeriod",
+        "int orbitPlane",
+        "float tumbleSpeed",
+        "float wobbleAmplitude",
+        "float wobbleSpeed",
+        "float heartbeatAmplitude",
+        "float heartbeatPeriod",
+        "float pendulumAmplitude",
+        "float pendulumPeriod",
+        "bool billboardPitch",
+        "float lodNear",
+        "float lodFar",
+        "float lodMinScale",
+        "bool hideInFirstPerson"
+      ]
+    },
+    "CustomEntityEquipment": {
+      "kind": "struct",
+      "fields": [
+        "std::string name",
+        "int aux",
+        "std::string nbt"
+      ]
+    },
+    "EntityMobProperty": {
+      "kind": "struct",
+      "fields": [
+        "std::string name",
+        "std::string value"
+      ]
+    },
+    "CustomEntityConfig": {
+      "kind": "struct",
+      "fields": [
+        "std::string identifier",
+        "float x, y, z",
+        "int dimension",
+        "float yaw, pitch",
+        "std::string nametag",
+        "bool nametagAlwaysShow",
+        "float scale",
+        "int variant",
+        "int markVariant",
+        "int colorIndex",
+        "std::int64_t flags",
+        "bool invisible",
+        "double viewDistance",
+        "bool enabled",
+        "int pose",
+        "CustomEntityEquipment equipment[6]",
+        "std::string ridePlayerName",
+        "int64_t rideEntityId",
+        "std::vector<EntityMobProperty> mobProperties"
+      ]
+    },
+    "ActorInteractEvent": {
+      "kind": "struct",
+      "fields": [
+        "std::string playerName",
+        "std::string targetType",
+        "int action",
+        "std::uint64_t runtimeId",
+        "std::int64_t uniqueId",
+        "bool hasPos",
+        "float x, y, z"
+      ]
+    },
+    "GhostInteractEvent": {
+      "kind": "struct",
+      "fields": [
+        "std::string playerName",
+        "int action",
+        "std::string domain",
+        "int64_t id",
+        "bool hasPos",
+        "float x, y, z"
+      ]
+    },
+    "PlayerNpcSkin": {
+      "kind": "struct",
+      "fields": [
+        "std::string pngPath",
+        "std::string skinId",
+        "std::string geometry",
+        "std::string armSize",
+        "std::string geometryData"
+      ]
+    },
+    "PlayerNpcConfig": {
+      "kind": "struct",
+      "fields": [
+        "std::string name",
+        "std::string skinId",
+        "float x, y, z",
+        "int dimension",
+        "float yaw",
+        "double viewDistance",
+        "float scale",
+        "bool enabled"
+      ]
+    },
+    "TradeMenuItem": {
+      "kind": "struct",
+      "fields": [
+        "std::string type",
+        "int count",
+        "int damage",
+        "std::string name",
+        "std::vector<std::string> lore",
+        "bool isBlock",
+        "int blockVersion"
+      ]
+    },
+    "TradeMenuOffer": {
+      "kind": "struct",
+      "fields": [
+        "TradeMenuItem buyA",
+        "TradeMenuItem buyB",
+        "TradeMenuItem sell",
+        "int tier",
+        "int maxUses",
+        "int traderExp",
+        "bool locked"
+      ]
+    },
+    "TradeMenuSpec": {
+      "kind": "struct",
+      "fields": [
+        "std::string tradeType",
+        "int tier",
+        "int experience",
+        "bool usePacketOffers",
+        "std::int64_t carrierUniqueIdOverride",
+        "std::vector<TradeMenuOffer> offers",
+        "std::string carrierIdentifier",
+        "bool settleLocally"
+      ]
+    },
+    "TradeSettlementEvent": {
+      "kind": "struct",
+      "fields": [
+        "std::string playerName",
+        "int64_t menuId",
+        "int offerIndex",
+        "bool ok",
+        "std::string reason"
+      ]
+    },
+    "NpcDialogButton": {
+      "kind": "struct",
+      "fields": [
+        "std::string label",
+        "std::vector<std::string> commands",
+        "std::string actionId",
+        "int mode"
+      ]
+    },
+    "NpcDialogSpec": {
+      "kind": "struct",
+      "fields": [
+        "std::string carrierIdentifier",
+        "std::string npcName",
+        "std::string sceneName",
+        "std::string dialogue",
+        "std::int64_t npcUniqueIdOverride",
+        "std::vector<NpcDialogButton> buttons",
+        "std::string rawActionJson",
+        "int avatarSkinVariant",
+        "std::string avatarViewSpec"
+      ]
+    },
+    "NpcDialogClickEvent": {
+      "kind": "struct",
+      "fields": [
+        "std::string playerName",
+        "int64_t dialogId",
+        "std::string sceneName",
+        "int buttonIndex",
+        "std::string actionId",
+        "bool closed",
+        "std::vector<std::string> commands"
+      ]
+    },
+    "ContainerMenuItem": {
+      "kind": "struct",
+      "fields": [
+        "std::string type",
+        "int count",
+        "int damage",
+        "std::string name",
+        "std::vector<std::string> lore"
+      ]
+    },
+    "ContainerMenuSpec": {
+      "kind": "struct",
+      "fields": [
+        "int rows",
+        "std::vector<ContainerMenuItem> items",
+        "bool useMinecart",
+        "std::string title",
+        "int openDelayTicks",
+        "bool interactive"
+      ]
+    },
+    "ContainerClickEvent": {
+      "kind": "struct",
+      "fields": [
+        "std::string playerName",
+        "int64_t menuId",
+        "int slot",
+        "bool closed"
+      ]
+    },
+    "FakeInventorySpec": {
+      "kind": "struct",
+      "fields": [
+        "std::vector<ContainerMenuItem> items",
+        "int refreshIntervalTicks"
+      ]
+    },
+    "FakeInventoryClickEvent": {
+      "kind": "struct",
+      "fields": [
+        "std::string playerName",
+        "int slot"
+      ]
+    },
+    "SulfurDisplaySpec": {
+      "kind": "struct",
+      "fields": [
+        "float x",
+        "float y",
+        "float z",
+        "int dim",
+        "ContainerMenuItem block",
+        "std::string archetype",
+        "int variant",
+        "bool invisible",
+        "float scale",
+        "double viewDistance",
+        "std::vector<std::string> visiblePlayers"
+      ]
+    },
+    "ItemActorSpec": {
+      "kind": "struct",
+      "fields": [
+        "std::string itemId",
+        "int aux",
+        "int count",
+        "float x, y, z",
+        "int dimension",
+        "float vx, vy, vz"
+      ]
+    },
+    "EntityView": {
+      "kind": "struct",
+      "fields": [
+        "std::string identifier",
+        "std::string asPlayer",
+        "std::string skinId",
+        "float scale",
+        "float yOffset",
+        "bool hidden",
+        "bool hasNametag",
+        "std::string nametag",
+        "bool nametagAlwaysShow",
+        "int pose",
+        "bool hasPose",
+        "float metaScale",
+        "bool hasMetaScale",
+        "int variant",
+        "bool hasVariant",
+        "int markVariant",
+        "bool hasMarkVariant",
+        "int colorIndex",
+        "bool hasColorIndex",
+        "int color2",
+        "bool hasColor2"
+      ]
+    },
+    "BlockView": {
+      "kind": "struct",
+      "fields": [
+        "std::string type"
+      ]
+    }
+  },
+  "enums": {
+    "ShapeType": {
+      "underlying": "int",
+      "values": {
+        "Text": 0,
+        "Line": 1,
+        "Box": 2,
+        "Circle": 3,
+        "Sphere": 4,
+        "Arrow": 5
+      }
+    },
+    "ClientInputDevice": {
+      "underlying": "int",
+      "values": {
+        "Unknown": 0,
+        "KeyboardMouse": 1,
+        "Touch": 2,
+        "Gamepad": 3,
+        "MotionController": 4
+      }
+    }
+  }
+}

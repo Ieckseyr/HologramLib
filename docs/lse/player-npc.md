@@ -537,6 +537,7 @@ setNametag(npc, "§e小美 §7<店员>");
 | `playerNpcClearPlayerRotation(id, playerName)` | 清某个玩家的朝向覆盖 |
 | `playerNpcClearPlayerRotations(id)` | 清全部朝向覆盖 |
 | `playerNpcPlayAnimationTo(id, playerName, animation, stopExpression, durationTicks)` | 只给一个玩家播 |
+| `playerNpcPlayEmote(id, pieceId, lengthTicks)` | 原版表情动作（`EmotePacket`）；`0` = 客户端时长 |
 | `playerNpcPollSpawns()` | 取走出生事件，每条 `player=<名字> id=<npcId>` |
 | `playerNpcClearSpawns()` | 丢弃出生事件队列 |
 

@@ -50,6 +50,7 @@
 
 | 插件发布版本 | API 版本 | `HOLOGLIB_API_VERSION` | 该版本新增的能力域 |
 |---|---|---|---|
+| `26.51.7` | 1.32.0 | `0x012600` | **新增三个域 + 两个既有接口尾部追加**：协议层掉落物（`AddItemActor` / `SetActorMotion` / `TakeItemActor`）、客户端表单强制关闭（`ClientboundCloseForm`）、方位条航点（`LocatorBar`）、假玩家表情（`Emote`）、假箱子方块事件（`BlockEvent`）。虚表尾部追加（3 个新接口 + `IContainerMenu` / `IPlayerNpc` 各加方法），`HOLOGLIB_ABI_STAMP` 仍为 1；带旧头文件的消费方需重新编译。导出 314 → 330。 |
 | `26.51.6` | 1.31.0 | `0x012500` | **内部重构与修复，API 与虚表均未变**：发包收敛（`core/PacketSink.h`）、tick 收敛（`core/TickDriver.h`，5 个 `Level::$tick` detour → 1 个）、域生命周期收敛（`core/ServiceHost.h`，顺带补上 `ContainerMenu` / `NpcDialogue` / `PlayerSensing` / `FakeInventory` 四个域从未被调用的 `shutdown()`）、ABI 契约工具与基线（`abi/v1.31.0.json` / `abi/slots.md` / `tools/abi_tool.py`，CI 拦中段插槽）。**修复**：交易 `planConsumption` 对同类型双费用（`buyA` / `buyB` 同一物品）会各扣一次同一份余额，现改为先合并再消费、需求量 64 位累计。构建改 `src/**.cpp` 通配，`GhostInteractRouter.cpp` 恢复独立编译单元。工程化：`tests/` 入库、构建 CI（静态检查必跑，`/W4`+`/WX` 真编译可选）、`.clang-format` / `.clang-tidy` / `.editorconfig`、异常语义去掉 `/EHa` 与「禁用异常」的矛盾组合（C4530 属未定义行为）、悬浮字管理器改递归锁（发包钩子同线程回环）。 |
 | `26.51.5` | 1.31.0 | `0x012500` | **26.51 线合并 26.40.12**：非等比拉伸、live 变换、动画预设扩展与单通道预设、停止配方、假玩家姿势/装备/骑乘、FMBE 生成抽搐修复、图片平面与透明图层、容器会话隔离（uiOpen / ownerEpoch / id 防复用）、PlayerSkin trusted 与皮肤 Id 重建。协议 2193；形状文本含 `LineGapHeight`。虚表尾部追加，`HOLOGLIB_ABI_STAMP` 不变。 |
 | `26.51.4` | 1.30.0 | `0x012400` | **只加 3 个纯原语/通知，不含任何功能实现**：`viewPollSpawnEvents`（出生事件通知） · `itemDisplayCreateFull`（建展示即带 NBT/光效） · `itemDisplayEmitForEntity`（让某玩家把某只已有实体看成 FMBE 模型）。判定/状态/策略一律留在消费方（`ItemPhys`）。只加 LSE 导出，虚表未动 → `HOLOGLIB_ABI_STAMP` 不变。 |

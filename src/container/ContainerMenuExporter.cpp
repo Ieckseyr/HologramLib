@@ -116,6 +116,12 @@ void ContainerMenuExporter::exportAll() {
         return out;
     });
 
+    // containerBlockEvent(menuId, b0, b1) -> bool（在假箱子坐标发一条方块事件; 盖子 b0=1 开 / 0 合）
+    hologramlib::lse::exportAs(
+        NAMESPACE, "containerBlockEvent", [&mgr](int64_t menuId, int b0, int b1) -> bool {
+            return mgr.blockEvent(menuId, b0, b1);
+        });
+
     // containerClearClicks() -> void（丢弃队列里全部待处理点击）
     hologramlib::lse::exportAs(
         NAMESPACE, "containerClearClicks", []() -> void { ContainerMenuManager::getInstance().clearClicks(); });

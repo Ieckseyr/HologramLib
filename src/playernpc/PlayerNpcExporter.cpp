@@ -229,6 +229,9 @@ public:
         return PlayerNpcManager::getInstance().setRideEntity(id, vehicleEntityId);
     }
     bool clearRide(int64_t id) override { return PlayerNpcManager::getInstance().clearRide(id); }
+    bool playEmote(int64_t id, std::string const& pieceId, int lengthTicks) override {
+        return PlayerNpcManager::getInstance().playEmote(id, pieceId, lengthTicks);
+    }
 };
 
 hologramlib::IPlayerNpc& playerNpcAdapter() {
@@ -605,6 +608,14 @@ void PlayerNpcExporter::exportAll() {
             std::string const& stopExpression,
             int                durationTicks) -> bool {
             return mgr.playAnimationTo(id, playerName, animation, stopExpression, durationTicks);
+        });
+
+    // playerNpcPlayEmote(id, pieceId, lengthTicks) -> bool（原版表情动作; 0 = 客户端时长）
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "playerNpcPlayEmote",
+        [&mgr](int64_t id, std::string const& pieceId, int lengthTicks) -> bool {
+            return mgr.playEmote(id, pieceId, lengthTicks);
         });
 
     // playerNpcPollSpawns() -> [s]（每条 "player=<名字> id=<npcId>"，取走即清空）

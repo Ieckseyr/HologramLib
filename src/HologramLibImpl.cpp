@@ -14,20 +14,22 @@ void checkCaller(void const* returnAddress) noexcept;
 
 #include "FloatingTextManager.h"
 #include "PacketDebugRenderer.h"
+#include "container/ContainerMenuManager.h" // containerMenuAdapter()
+#include "customentity/CustomEntityManager.h"
+#include "fakeinv/FakeInventoryManager.h" // fakeInventoryAdapter()
+#include "ghost/GhostInteractRouter.h"    // 独立编译单元（xmake: add_files("src/**.cpp")）
+#include "itemactor/ItemActorExporter.h"  // itemActorAdapter()
 #include "itemdetail/ItemDetailManager.h"
 #include "itemdisplay/ItemDisplayManager.h"
-#include "customentity/CustomEntityManager.h"
-#include "sensing/PlayerSensingManager.h"
-#include "fakeinv/FakeInventoryManager.h" // fakeInventoryAdapter()
-#include "sulfur/SulfurDisplayManager.h" // sulfurDisplayAdapter()
+#include "lse/LseBridge.h"
+#include "npcdialog/NpcDialogueManager.h" // npcDialogueAdapter()
 #include "particles/ParticleShapeManager.h"
 #include "playernpc/PlayerNpcExporter.h" // playerNpcAdapter()
-#include "container/ContainerMenuManager.h" // containerMenuAdapter()
-#include "trade/TradeMenuManager.h" // tradeMenuAdapter()
-#include "npcdialog/NpcDialogueManager.h" // npcDialogueAdapter()
-#include "view/ViewOverrideManager.h" // viewOverrideAdapter()
-#include "ghost/GhostInteractRouter.h" // 独立编译单元（xmake: add_files("src/**.cpp")）
-#include "lse/LseBridge.h"
+#include "sensing/PlayerSensingManager.h"
+#include "sulfur/SulfurDisplayManager.h" // sulfurDisplayAdapter()
+#include "trade/TradeMenuManager.h"      // tradeMenuAdapter()
+#include "ui/ClientUiExporter.h"         // formControlAdapter() / locatorBarAdapter()
+#include "view/ViewOverrideManager.h"    // viewOverrideAdapter()
 
 #include <format>
 #include <utility>
@@ -670,6 +672,11 @@ public:
 
     // ── 感知域(1.21.0 未发布线): 客户端设备判断 ──
     IPlayerSensing& playerSensing() override { return debugshape_export::playerSensingAdapter(); }
+
+    // ── 26.51.7 ──
+    IItemActor&   itemActors() override { return debugshape_export::itemActorAdapter(); }
+    IFormControl& formControl() override { return debugshape_export::formControlAdapter(); }
+    ILocatorBar&  locatorBar() override { return debugshape_export::locatorBarAdapter(); }
 
     // ── 1.23.0 未发布线: 背包虚容器 ──
     IFakeInventory& fakeInventories() override { return debugshape_export::fakeInventoryAdapter(); }

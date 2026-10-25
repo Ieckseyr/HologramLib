@@ -16,6 +16,8 @@
 #include "container/ContainerPackets.h" // 三个包 + 箱子方块实体 NBT（与离线 fixture 共用同一份）
 #include "core/ClickEvent.h"            // 点击回传行版式（与 tests/click_event_test.cpp 同一份实现）
 #include "customentity/CustomEntityManager.h"
+#include <mc/network/packet/BlockEventPacket.h>
+#include <mc/network/packet/BlockEventPacketPayload.h>
 
 #include <ll/api/io/LoggerRegistry.h>
 #include <ll/api/chrono/GameChrono.h>
@@ -644,6 +646,32 @@ void ContainerMenuManager::closeAll() {
         close(id);
 }
 
+bool ContainerMenuManager::blockEvent(int64_t menuId, int b0, int b1) {
+    Menu        copy;
+    std::string playerName;
+    {
+        std::lock_guard lock(mMutex);
+        if (!mMenus.withObject(menuId, [&](Menu const& menu) {
+                copy       = menu;
+                playerName = menu.playerName;
+            })) {
+            return false;
+        }
+    }
+
+    auto* player = findPlayerByName(playerName);
+    if (player == nullptr)
+        return false;
+
+    // 这个包的 payload 没有方便的转发构造, 默认构造后逐字段赋值即可
+    ::BlockEventPacket packet;
+    packet.mPos = ::BlockPos{copy.posX, copy.posY, copy.posZ};
+    packet.mB0  = b0;
+    packet.mB1  = b1;
+    player->sendNetworkPacket(packet);
+    return true;
+}
+
 bool ContainerMenuManager::isOpen(int64_t menuId) const {
     return mMenus.exists(menuId);
 }
@@ -827,6 +855,9 @@ public:
         return ContainerMenuManager::getInstance().setItem(menuId, slot, item);
     }
     bool close(int64_t menuId) override { return ContainerMenuManager::getInstance().close(menuId); }
+    bool blockEvent(int64_t menuId, int b0, int b1) override {
+        return ContainerMenuManager::getInstance().blockEvent(menuId, b0, b1);
+    }
     void closeAll() override { ContainerMenuManager::getInstance().closeAll(); }
     [[nodiscard]] bool isOpen(int64_t menuId) const override {
         return ContainerMenuManager::getInstance().isOpen(menuId);

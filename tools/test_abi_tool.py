@@ -61,9 +61,16 @@ def main():
     expect("指出槽号", re.search(r"槽 #\d+ 变了", r.stdout) is not None, r.stdout)
 
     print("[3] 尾部追加 + 抬版本 → 通过并列出槽位")
-    last = "    virtual bool     removeActorInteractListener(uint64_t token) = 0;"
+    # 锚点取"真正最后一条虚函数"（头文件尾部会继续长, 写死字符串会过期）
+    last = [ln for ln in original.splitlines() if ln.strip().startswith("virtual ")][-1]
     assert last in original
-    appended = original.replace("#define HOLOGLIB_API_VERSION 0x012500", "#define HOLOGLIB_API_VERSION 0x012600", 1)
+    bumped = re.sub(
+        r"#define HOLOGLIB_API_VERSION 0x[0-9A-Fa-f]+",
+        "#define HOLOGLIB_API_VERSION 0x012600",
+        original,
+        count=1,
+    )
+    appended = bumped
     appended = appended.replace(last, last + "\n    virtual bool appendOnlyProbe(int64_t id) = 0;", 1)
     r = run("check", "-H", write_variant(tmp, "append.h", appended))
     expect("退出码 0", r.returncode == 0, r.stdout + r.stderr)

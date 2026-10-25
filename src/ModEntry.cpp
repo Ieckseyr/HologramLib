@@ -18,6 +18,8 @@
 #include "fakeinv/FakeInventoryExporter.h"
 #include "fakeinv/FakeInventoryManager.h"
 #include "ghost/GhostInteractRouter.h"
+#include "itemactor/ItemActorExporter.h"
+#include "itemactor/ItemActorManager.h"
 #include "itemdetail/ItemDetailExporter.h"
 #include "itemdisplay/ItemDisplayExporter.h"
 #include "itemdisplay/ItemDisplayManager.h"
@@ -33,6 +35,9 @@
 #include "sulfur/SulfurDisplayExporter.h"
 #include "trade/TradeMenuExporter.h"
 #include "trade/TradeMenuManager.h"
+#include "ui/ClientUiExporter.h"
+#include "ui/FormControlManager.h"
+#include "ui/LocatorBarManager.h"
 #include "view/ViewOverrideExporter.h"
 #include "view/ViewOverrideManager.h"
 
@@ -191,6 +196,23 @@ struct FakeInventoryDomain final : core::IDomain {
     void        exportLse() override { FakeInventoryExporter::exportAll(); }
 };
 
+struct ItemActorDomain final : core::IDomain {
+    char const* name() const noexcept override { return "itemactor"; }
+    void        stop() noexcept override { ItemActorManager::getInstance().shutdown(); }
+    void        exportLse() override { ItemActorExporter::exportAll(); }
+};
+
+struct FormControlDomain final : core::IDomain {
+    char const* name() const noexcept override { return "form"; }
+    void        exportLse() override { FormControlExporter::exportAll(); }
+};
+
+struct LocatorBarDomain final : core::IDomain {
+    char const* name() const noexcept override { return "locatorbar"; }
+    void        stop() noexcept override { LocatorBarManager::getInstance().shutdown(); }
+    void        exportLse() override { LocatorBarExporter::exportAll(); }
+};
+
 struct SulfurDisplayDomain final : core::IDomain {
     char const* name() const noexcept override { return "sulfur"; }
     void        exportLse() override { SulfurDisplayExporter::exportAll(); }
@@ -239,6 +261,9 @@ bool ModEntry::enable() {
     mHost.add<FakeInventoryDomain>();
     mHost.add<SulfurDisplayDomain>();
     mHost.add<GhostDomain>();
+    mHost.add<ItemActorDomain>();
+    mHost.add<FormControlDomain>();
+    mHost.add<LocatorBarDomain>();
 
     if (!mHost.startAll()) {
         HLIB_LOG_ERROR("[host] domain start failed; HologramLib stays disabled");

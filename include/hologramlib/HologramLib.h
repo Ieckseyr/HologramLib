@@ -58,7 +58,7 @@
 //   ⚠ 与 `skinId` 搭配的"模型缩放"仍是 `EntityView::scale`（1.27.0 起）, 本版新增的**元数据缩放**叫
 //     `metaScale`（两个都在结构尾部, 别混: 前者走玩家模型出生包, 后者走元数据 + 客户端碰撞箱）。
 // 0x012500（26.40.12 / 26.51.5，API 1.31.0）：拉伸 / live 变换 / 动画预设 / 停止配方 / 假玩家姿势装备骑乘。
-#define HOLOGLIB_API_VERSION 0x012500
+#define HOLOGLIB_API_VERSION 0x012600
 
 // ── ABI 布局戳（消费方自检用; 与上面的"功能版本"是两件事, 别混）──
 // 语义: 只在**破坏虚表槽位**的改动时 +1 —— 在接口**中段**插入/删除/重排虚函数、改已发布方法的签名;
@@ -899,6 +899,11 @@ public:
     // 仅排查用: 自定义实体 id → uniqueId 后仍会被"必须是真实实体"的校验拒绝
     virtual bool setRideEntity(int64_t id, int64_t vehicleEntityId) = 0;
     virtual bool clearRide(int64_t id) = 0;
+
+    // ── 26.51.7 追加: 原版表情动作（EmotePacket）──
+    // pieceId 是资源包里的表情标识，例如 "animation.player.emote.wave"；lengthTicks = 0 表示
+    // 由客户端按表情自身时长播。只发给已经见过该 NPC 的玩家；NPC 不存在返回 false。
+    virtual bool playEmote(int64_t id, std::string const& pieceId, int lengthTicks = 0) = 0;
 };
 
 // ─────────────────────────────────────────────
@@ -1208,6 +1213,12 @@ public:
     // 打开后客户端在容器内部的拖动/交换会被库接住并生效（见 ContainerMenuSpec::interactive）;
     // 关掉就回到"只回传点击、物品放不住"的默认行为。返回 false = 菜单已不在。
     virtual bool setInteractive(int64_t menuId, bool on) = 0;
+
+    // ── 26.51.7 追加: 假箱子的方块事件（BlockEventPacket）──
+    // 虚拟容器的箱子只存在于客户端，打开界面时它不会自己掀盖。发一条方块事件到那只箱子的坐标，
+    // 让客户端播开/合动画。b0/b1 是原版方块事件的参数（箱子盖：b0=1 开、b0=0 合，**未实测**）。
+    // 试别的方块事件（音符盒、门…）就传自定义 b0/b1。返回 false = 菜单已不在。
+    virtual bool blockEvent(int64_t menuId, int b0, int b1) = 0;
 };
 
 class INpcDialogue {
@@ -1392,6 +1403,94 @@ public:
 };
 
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// 协议层掉落物（26.51.7 追加; AddItemActor / TakeItemActor / SetActorMotion）
+//
+// 客户端凭空出现一只**掉落物实体**：服务端没有它 —— 不参与拾取判定、不进存档、没有物理。
+// 用途：地上物品展示、掉落奖励、菜单里的 3D 图标。比 FMBE（狐狸实体套物品）那条路轻一档。
+//
+// 运动由客户端算：spawn 给初速度，之后随时可以 setMotion 改速度与方向
+// （SetActorMotion 是"设定当前速度"，客户端按它继续飞，不是一次性冲量）。
+// take() 只播"飞向玩家"的动画再把实体删掉，物品不会真的进背包。
+// ─────────────────────────────────────────────
+struct ItemActorSpec {
+    std::string itemId; // "minecraft:diamond"
+    int         aux{0};
+    int         count{1};
+    float       x{0}, y{0}, z{0};
+    int         dimension{0};
+    float       vx{0}, vy{0}, vz{0}; // 初速度（vy > 0 = 向上抛）
+};
+
+class IItemActor {
+public:
+    virtual ~IItemActor() = default;
+
+    // 生成一只掉落物（发给该维度所有玩家）; 返回库内 id，<0 = 失败
+    virtual int64_t spawn(ItemActorSpec const& spec) = 0;
+    // 中途改速度/方向（SetActorMotion）。掉头、悬停（0,0,0）、加速都用它。
+    virtual bool setMotion(int64_t id, float vx, float vy, float vz) = 0;
+    // 直接挪位置（客户端瞬移）
+    virtual bool moveTo(int64_t id, float x, float y, float z) = 0;
+    // 拾取动画：只给这名玩家播"飞过去"，然后把实体对所有玩家删掉
+    virtual bool take(int64_t id, std::string const& playerName) = 0;
+    virtual bool destroy(int64_t id)                             = 0;
+    virtual void destroyAll()                                    = 0;
+
+    [[nodiscard]] virtual bool                 exists(int64_t id) const = 0;
+    [[nodiscard]] virtual std::vector<int64_t> getAllIds() const        = 0;
+};
+
+// ─────────────────────────────────────────────
+// 客户端表单控制（26.51.7 追加; ClientboundCloseForm）
+//
+// 库不生成表单 —— 表单还是 LSE / LeviLamina Form API / MeowMenu 那边的事。
+// 这里只提供"强制关掉"：玩家按 ESC 不走、界面被别的插件顶掉、过场需要收界面时用。
+// 发的是一条 ClientboundCloseForm，客户端把当前打开的表单收起来（不需要玩家操作）。
+// ─────────────────────────────────────────────
+class IFormControl {
+public:
+    virtual ~IFormControl() = default;
+
+    // 关掉该玩家当前的客户端表单; 玩家不在线返回 false
+    virtual bool closeForm(std::string const& playerName) = 0;
+    // 发给所有在线玩家; 返回发给了几个
+    virtual int closeAllForms() = 0;
+};
+
+// ─────────────────────────────────────────────
+// 方位条（26.51.7 追加; LocatorBar）
+//
+// 1.26 客户端在快捷栏下方有一条方位指示（原版用于队友/世界标记）。
+// 本域按玩家维护一组航点：key 由调用方起名，同一个 key 再 set 就是更新位置。
+// 航点身份是 UUID，库按 key 稳定派生（同一 key 永远同一 UUID），remove/update 不需要保管 UUID。
+//
+// 边界：图标/颜色/贴图要不要资源包配合、只给位置能不能显示，都得实测。
+// ─────────────────────────────────────────────
+class ILocatorBar {
+public:
+    virtual ~ILocatorBar() = default;
+
+    // 新增或更新一个航点（key 相同 = 更新）。玩家不在线返回 false。
+    //   color: ARGB，-1 = 用客户端默认色
+    //   visible: false = 暂时隐藏（仍在表里，下次 set 可再显示）
+    virtual bool setWaypoint(
+        std::string const& playerName,
+        std::string const& key,
+        float              x,
+        float              y,
+        float              z,
+        int                dimension,
+        int                color   = -1,
+        bool               visible = true) = 0;
+
+    // 删除一个航点; 没有这个 key 返回 false
+    virtual bool removeWaypoint(std::string const& playerName, std::string const& key) = 0;
+    // 清掉该玩家的全部航点; 返回清掉了几个
+    virtual int               clearWaypoints(std::string const& playerName)      = 0;
+    [[nodiscard]] virtual int waypointCount(std::string const& playerName) const = 0;
+};
+
 // 客户端视图覆盖（协议层拦截; 1.25.0 新增）
 //
 // 让服务端在**不改动真实世界**的前提下，改变**某个玩家客户端上看到的东西**：
@@ -1627,6 +1726,12 @@ public:
     //   直接 0xC0000005（实机复现）。冻结契约不是礼貌, 是 ABI。
     virtual uint64_t addActorInteractListener(std::function<void(ActorInteractEvent const&)> listener) = 0;
     virtual bool     removeActorInteractListener(uint64_t token) = 0;
+
+    // ── 26.51.7 追加（仍然只在类尾部追加）──
+    // 协议层掉落物 / 客户端表单控制 / 方位条。
+    virtual IItemActor&   itemActors()  = 0;
+    virtual IFormControl& formControl() = 0;
+    virtual ILocatorBar&  locatorBar()  = 0;
 };
 
 } // namespace hologramlib
