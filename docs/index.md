@@ -31,15 +31,18 @@ HologramLib 是基岩版服务端（LeviLamina / BDS）的**协议层显示库**
 
 | 需求 | 入口 |
 |---|---|
-| 画线、方框、球、圆、箭头、文字形状 | [形状 `shape*`](lse/shapes.md) |
-| 多行悬浮字、动态内容轮播、渐变线 | [悬浮字与渐变线 `holo*` `gradient*`](lse/holograms.md) |
-| 「钻石 x64」这类物品详情、3D 物品悬浮 | [物品显示 `itemDetail*` `itemDisplay*`](lse/items.md) |
+| 画线、方框、球、圆、箭头、文字形状 | [形状 `shape*`](lse/debugshape.md) |
+| 多行悬浮字、动态内容轮播、渐变线 | [悬浮字与渐变线 `holo*` `gradient*`](lse/debugshape.md) |
+| 「钻石 x64」这类物品详情、3D 物品悬浮 | [物品显示 `itemDetail*` `itemDisplay*`](lse/item-display.md) |
 | 协议层假玩家（NPC），皮肤注册 / 采集 / 导入 | [假玩家 NPC `playerNpc*`](lse/player-npc.md) |
 | 自定义实体、粒子形状、交互事件 | [实体、粒子与交互 `entity*` `particle*` `ghost*`](lse/entities.md) |
 | 交易菜单、虚拟容器、NPC 对话框 | [界面与容器 `trade*` `container*` `npcDialog*`](lse/interfaces.md) |
-| 伪造自己的背包、硫磺立方体展示 | [背包与硫磺立方体 `fakeInv*` `sulfur*`](lse/inventory.md) |
+| 伪造自己的背包、硫磺立方体展示 | [背包与硫磺立方体 `fakeInv*` `sulfur*`](lse/containers.md) |
 | 给生物换模型 / 隐藏 / 换皮、读客户端设备 | [视图覆盖与感知 `view*` `sensing*`](lse/view.md) |
-| 地上摆个东西 / 强制关表单 / 方位条指路 / 藏起某个玩家 | [客户端附加 `itemActor*` `form*` `locatorBar*` `playerHide*`](lse/client-ui.md) |
+| 地上摆一个会飞、会被"捡走"的物品 | [掉落物生成 `itemActor*`](lse/item-actor.md) |
+| 强制关掉客户端当前打开的表单 | [表单控制 `form*`](lse/form.md) |
+| 在方位条上给玩家指路 | [方位条 `locatorBar*`](lse/locator-bar.md) |
+| 让某个玩家在别人客户端上消失 / 只挡某几类包 | [隐身与出站包控制 `playerHide*`](lse/visibility.md) |
 
 全部 **337 个脚本函数**见 [LSE 脚本接口](lse/index.md)；C++ 侧对应的接口（`IShapeDrawer` / `IHologramText` / `ICustomEntity` / `IViewOverride` …）见 [C++ 接口参考](reference/cpp-api.md)。
 

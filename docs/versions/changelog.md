@@ -1,7 +1,7 @@
 # 更新日志
 
 按发布版本倒序排列。每个条目给出 API 版本、新增或变更的导出、行为变更，以及是否需要重新编译 C++ 消费方。
-发布版本与 API 版本的对应关系见[版本与 ABI 对照](api-version-matrix.md)。
+发布版本与 API 版本的对应关系见[版本与ABI对照.md](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.md)（维护者文档，不上文档站）。
 
 ## 版本概览
 

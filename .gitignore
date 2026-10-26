@@ -33,6 +33,8 @@ docs/internal/
 
 # 文档站构建产物（mkdocs build 的输出目录）
 site/
+# 本地文档站预览环境（pip install -r tools/requirements.txt）
+tools/.venv/
 
 # ── 本地工作产物,永不入库(显式列出, 防止将来误放行)──
 # work/  = 离线检查的输出目录(fixture 编译产物 + 生成的包字节), 由 tests/check-*.bat 重建

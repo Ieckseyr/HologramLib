@@ -148,6 +148,10 @@ nav:
       - 硫磺立方体: lse/sulfur.md
       - 视图覆盖: lse/view.md
       - 客户端感知: lse/sensing.md
+      - 掉落物生成: lse/item-actor.md
+      - 表单控制: lse/form.md
+      - 方位条: lse/locator-bar.md
+      - 隐身与出站包控制: lse/visibility.md
   - C++ 接口参考: reference/cpp-api.md
   - 能力域:
       - 总览: domains/README.md
@@ -161,6 +165,10 @@ nav:
       - 硫磺立方体: domains/sulfur.md
       - 视图覆盖: domains/view.md
       - 客户端感知: domains/sensing.md
+      - 掉落物: domains/item-actor.md
+      - 表单控制: domains/form.md
+      - 方位条: domains/locator-bar.md
+      - 玩家出站包控制: domains/visibility.md
   - 更新日志: versions/changelog.md
 
 markdown_extensions:
@@ -171,6 +179,9 @@ markdown_extensions:
   - toc:
       permalink: true
       toc_depth: 3
+      # 默认 slugify 会把中文标题压成 #1 #2 #3，站内锚点（如 lse/index.md#7-按域查函数）全失效。
+      # uslugify 保留 CJK，锚点才是人写的那个。
+      slugify: !!python/object/apply:pymdownx.slugs.slugify {kwds: {case: lower}}
   - pymdownx.details
   - pymdownx.highlight:
       anchor_linenums: true

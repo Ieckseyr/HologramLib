@@ -131,7 +131,10 @@ setInterval(() => {
 | 硫磺立方体展示 | `sulfur*` | [硫磺立方体](sulfur.md) |
 | 客户端视图覆盖（换模型 / 隐藏 / 换皮） | `view*` | [视图覆盖](view.md) |
 | 设备感知 | `sensing*` | [客户端感知](sensing.md) |
-| 掉落物 / 表单 / 方位条 / 玩家隐藏 | `itemActor*` · `form*` · `locatorBar*` · `playerHide*` | [客户端附加](client-ui.md) |
+| 掉落物生成 | `itemActor*` | [掉落物生成](item-actor.md) |
+| 表单控制 | `form*` | [表单控制](form.md) |
+| 方位条 | `locatorBar*` | [方位条](locator-bar.md) |
+| 隐身与出站包控制 | `playerHide*` | [隐身与出站包控制](visibility.md) |
 
 函数总数 337，全部在运行期注册，`ll.import` 都能拿到。
 

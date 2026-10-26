@@ -745,7 +745,7 @@ std::string s = view.describeFor("Steve"); // "entities=1 blocks=2"
 
 ## 1.17 IItemActor / IFormControl / ILocatorBar（26.51.6）
 
-三个新接口都很小，完整说明见 [客户端附加](../domains/client-ui.md)，这里只列签名。
+四个接口都很小，各自的说明见 [掉落物](../domains/item-actor.md) / [表单控制](../domains/form.md) / [方位条](../domains/locator-bar.md) / [玩家出站包控制](../domains/visibility.md)，这里只列签名。
 
 **IItemActor** —— 协议层掉落物（`AddItemActor` / `SetActorMotion` / `TakeItemActor` / `RemoveActor`）：
 
@@ -767,7 +767,7 @@ bool    exists(int64_t id) const;
 std::vector<int64_t> getAllIds() const;
 ```
 
-物品走数字 id + count + aux，**不带 UserData**（见 domains/client-ui.md 的说明）。
+物品走数字 id + count + aux，**不带 UserData**（原因见 [掉落物](../domains/item-actor.md)）。
 
 **IFormControl** —— 强制关掉客户端表单（`ClientboundCloseForm`）：
 
