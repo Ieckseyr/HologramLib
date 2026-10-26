@@ -305,7 +305,7 @@ function ensureVersion() {{
         "导入层按 API " + API_VERSION + " 生成，DLL 是 " + info.apiVersion + " —— 对不上的函数会降级为空操作"
       );
     }}
-    if (info && String(info.abiStamp) !== ABI_STAMP) {{
+    if (info && info.abiStamp !== undefined && String(info.abiStamp) !== ABI_STAMP) {{
       logOnce("stamp-mismatch", "ABI 戳不一致（导入层 " + ABI_STAMP + " / DLL " + info.abiStamp + "），建议重新生成导入层");
     }}
   }} catch (_) {{
