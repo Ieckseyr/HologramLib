@@ -138,6 +138,7 @@ nav:
   - 快速开始: getting-started.md
   - LSE 脚本接口:
       - 怎么用: lse/index.md
+      - 脚本里怎么导入: lse/importing.md
       - DebugShape（悬浮字与形状）: lse/debugshape.md
       - 物品显示: lse/item-display.md
       - 粒子: lse/particles.md

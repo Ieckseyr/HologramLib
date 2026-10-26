@@ -49,6 +49,13 @@ LSE 导出 314 → **330**。
 - `IPlayerNpc::playEmote(id, pieceId, lengthTicks)`：原版表情动作（`EmotePacket`，`playerNpcPlayEmote`）。
   只发给已见过该 NPC 的玩家。
 
+#### 脚本导入层
+
+`lse/HologramLib.js`（+ `.d.ts` / `exports.json`）由 `tools/gen_lse_shim.py` 从 `exportAs` 生成：
+`const HL = require("./HologramLib.js")` 之后 `HL.itemActorSpawn(...)`，不用再写 `lrca` 探测与名字清单。
+懒绑定（用几个绑几个）、缺 `lrca`/缺函数降级为空操作、拼错名字给 `undefined` 并警告、首次绑定核对一次版本。
+另有 `holoInfo()` / `holoApiVersion()` 两个元信息导出。设计记录见 `docs/internal/脚本导入层设计.md`。
+
 #### 工具
 
 - `tools/test_abi_tool.py` 的"尾部追加"用例改成**动态取最后一条虚函数**作锚点 —— 之前写死字符串，

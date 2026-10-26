@@ -30,6 +30,13 @@ jobs:
       - name: 导出清单（重名 + 文档总数）
         run: python tools/check_exports.py --check-docs
 
+      # 脚本导入层是生成物：加了导出却忘了重生成，脚本侧会拿到 undefined。
+      - name: 脚本导入层（生成物是否最新）
+        run: python tools/gen_lse_shim.py --check
+
+      - name: 脚本导入层自测（不需要服务器）
+        run: node tools/shim_test.js
+
       - name: 内核层单测（不依赖 BDS）
         run: |
           g++ -std=c++20 -pthread -O1 -I src tests/registry_test.cpp -o /tmp/registry_test

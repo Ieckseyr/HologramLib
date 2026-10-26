@@ -14,7 +14,7 @@ HologramLib 是基岩版服务端（LeviLamina / BDS）的**协议层显示库**
 | 插件版本 | `26.51.6` |
 | API 版本 | `1.32.0`（`HOLOGLIB_API_VERSION 0x012600`） |
 | 运行平台 | LeviLamina 26.51 · BDS 1.26.51（协议 2193） |
-| 对外接口 | 唯一公开头 `include/hologramlib/HologramLib.h`（19 个接口 / 343 槽）+ LSE 命名空间 `HologramLib`（337 个导出）。26.51.6 新增：掉落物 `IItemActor`、表单关闭 `IFormControl`、方位条 `ILocatorBar`、玩家出站包控制 `IPlayerVisibility` |
+| 对外接口 | 唯一公开头 `include/hologramlib/HologramLib.h`（19 个接口 / 343 槽）+ LSE 命名空间 `HologramLib`（339 个导出）。26.51.6 新增：掉落物 `IItemActor`、表单关闭 `IFormControl`、方位条 `ILocatorBar`、玩家出站包控制 `IPlayerVisibility` |
 | 脚本前置 | `lrca`（LegacyRemoteCall）；缺失时导出调用是安全空操作，C++ 接口不受影响 |
 | 许可 | MIT（悬浮字「动态行」重构自 Phantom，按 LGPL-3.0） |
 

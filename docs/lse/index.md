@@ -12,6 +12,11 @@ HologramLib 在脚本侧只占**一个命名空间** `HologramLib`：装上前�
 
 ---
 
+## 1.5 更省事的导入方式
+
+不想每个脚本都写一遍 `ll.import("HologramLib", "…")`，用库自带的导入层：
+[脚本里怎么导入](importing.md)（`require("./HologramLib.js")` 之后 `HL.xxx(...)`，懒绑定 + 缺函数降级）。
+
 ## 2. 三行上手
 
 ```js
@@ -136,7 +141,7 @@ setInterval(() => {
 | 方位条 | `locatorBar*` | [方位条](locator-bar.md) |
 | 隐身与出站包控制 | `playerHide*` | [隐身与出站包控制](visibility.md) |
 
-函数总数 337，全部在运行期注册，`ll.import` 都能拿到。
+函数总数 339，全部在运行期注册，`ll.import` 都能拿到。
 
 ---
 

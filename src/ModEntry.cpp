@@ -10,6 +10,7 @@
 #include "PacketDebugRenderer.h"
 #include "RemoteCallExporter.h"
 
+#include "InfoExporter.h"
 #include "container/ContainerMenuExporter.h"
 #include "container/ContainerMenuManager.h"
 #include "core/TickDriver.h"
@@ -197,6 +198,11 @@ struct FakeInventoryDomain final : core::IDomain {
     void        exportLse() override { FakeInventoryExporter::exportAll(); }
 };
 
+struct InfoDomain final : core::IDomain {
+    char const* name() const noexcept override { return "info"; }
+    void        exportLse() override { InfoExporter::exportAll(); }
+};
+
 struct ItemActorDomain final : core::IDomain {
     char const* name() const noexcept override { return "itemactor"; }
     void        stop() noexcept override { ItemActorManager::getInstance().shutdown(); }
@@ -232,7 +238,8 @@ struct GhostDomain final : core::IDomain {
 };
 
 void exportLseFunctions(core::ServiceHost& host) {
-    if (gLseExported.exchange(true)) return; // 幂等
+    if (gLseExported.exchange(true))
+        return; // 幂等
     host.exportAll();
 }
 
@@ -268,6 +275,7 @@ bool ModEntry::enable() {
     mHost.add<FakeInventoryDomain>();
     mHost.add<SulfurDisplayDomain>();
     mHost.add<GhostDomain>();
+    mHost.add<InfoDomain>();
     mHost.add<ItemActorDomain>();
     mHost.add<FormControlDomain>();
     mHost.add<LocatorBarDomain>();
@@ -294,11 +302,9 @@ bool ModEntry::enable() {
                     HLIB_LOG_INFO("LSE compat layer attached on ServerStarted.");
                 } else {
                     HLIB_LOG_INFO(
-                        "LegacyRemoteCall absent: LSE (ll.import) calls disabled; native C++ API unaffected."
-                    );
+                        "LegacyRemoteCall absent: LSE (ll.import) calls disabled; native C++ API unaffected.");
                 }
-            }
-        );
+            });
     }
 
     HLIB_LOG_INFO("HologramLib enabled successfully.");
