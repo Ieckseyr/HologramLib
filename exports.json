@@ -1,0 +1,6677 @@
+{
+  "namespace": "HologramLib",
+  "apiVersion": "1.32.0",
+  "count": 339,
+  "exports": [
+    {
+      "name": "containerBlockEvent",
+      "params": [
+        [
+          "menuId",
+          "number"
+        ],
+        [
+          "b0",
+          "number"
+        ],
+        [
+          "b1",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/container/ContainerMenuExporter.cpp",
+      "group": "Container",
+      "method": "blockEvent"
+    },
+    {
+      "name": "containerClearClicks",
+      "params": [],
+      "returns": "any",
+      "file": "src/container/ContainerMenuExporter.cpp",
+      "group": "Container",
+      "method": "clearClicks"
+    },
+    {
+      "name": "containerClose",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/container/ContainerMenuExporter.cpp",
+      "group": "Container",
+      "method": "close"
+    },
+    {
+      "name": "containerCloseAll",
+      "params": [],
+      "returns": "any",
+      "file": "src/container/ContainerMenuExporter.cpp",
+      "group": "Container",
+      "method": "closeAll"
+    },
+    {
+      "name": "containerGetIds",
+      "params": [],
+      "returns": "number",
+      "file": "src/container/ContainerMenuExporter.cpp",
+      "group": "Container",
+      "method": "getIds"
+    },
+    {
+      "name": "containerIsOpen",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/container/ContainerMenuExporter.cpp",
+      "group": "Container",
+      "method": "isOpen"
+    },
+    {
+      "name": "containerOpen",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "title",
+          "string"
+        ],
+        [
+          "rows",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/container/ContainerMenuExporter.cpp",
+      "group": "Container",
+      "method": "open"
+    },
+    {
+      "name": "containerPollClicks",
+      "params": [],
+      "returns": "string",
+      "file": "src/container/ContainerMenuExporter.cpp",
+      "group": "Container",
+      "method": "pollClicks"
+    },
+    {
+      "name": "containerSetInteractive",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "on",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/container/ContainerMenuExporter.cpp",
+      "group": "Container",
+      "method": "setInteractive"
+    },
+    {
+      "name": "containerSetItem",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "slot",
+          "number"
+        ],
+        [
+          "type",
+          "string"
+        ],
+        [
+          "count",
+          "number"
+        ],
+        [
+          "damage",
+          "number"
+        ],
+        [
+          "name",
+          "string"
+        ],
+        [
+          "loreCsv",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/container/ContainerMenuExporter.cpp",
+      "group": "Container",
+      "method": "setItem"
+    },
+    {
+      "name": "containerSetTitle",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "title",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/container/ContainerMenuExporter.cpp",
+      "group": "Container",
+      "method": "setTitle"
+    },
+    {
+      "name": "entityClearMobProperties",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "clearMobProperties"
+    },
+    {
+      "name": "entityClearPlayerAppearance",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "clearPlayerAppearance"
+    },
+    {
+      "name": "entityClearPlayerRotation",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "clearPlayerRotation"
+    },
+    {
+      "name": "entityClearPlayerRotations",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "clearPlayerRotations"
+    },
+    {
+      "name": "entityClearRide",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "clearRide"
+    },
+    {
+      "name": "entityClearSpawns",
+      "params": [],
+      "returns": "any",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "clearSpawns"
+    },
+    {
+      "name": "entityClearVisiblePlayers",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "clearVisiblePlayers"
+    },
+    {
+      "name": "entityCreate",
+      "params": [
+        [
+          "identifier",
+          "string"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "create"
+    },
+    {
+      "name": "entityCreateAdvanced",
+      "params": [
+        [
+          "identifier",
+          "string"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "yaw",
+          "number"
+        ],
+        [
+          "pitch",
+          "number"
+        ],
+        [
+          "scale",
+          "number"
+        ],
+        [
+          "nametag",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "createAdvanced"
+    },
+    {
+      "name": "entityCreateRandom",
+      "params": [
+        [
+          "identifier",
+          "string"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "createRandom"
+    },
+    {
+      "name": "entityCreateWithId",
+      "params": [
+        [
+          "identifier",
+          "string"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "desiredId",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "createWithId"
+    },
+    {
+      "name": "entityDestroy",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "destroy"
+    },
+    {
+      "name": "entityDestroyAll",
+      "params": [],
+      "returns": "any",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "destroyAll"
+    },
+    {
+      "name": "entityExists",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "exists"
+    },
+    {
+      "name": "entityFindNearest",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "maxDist",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "findNearest"
+    },
+    {
+      "name": "entityGetAllIds",
+      "params": [],
+      "returns": "number",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "getAllIds"
+    },
+    {
+      "name": "entityGetInfo",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "string",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "getInfo"
+    },
+    {
+      "name": "entityIsIdUsed",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "isIdUsed"
+    },
+    {
+      "name": "entityPlayAnimation",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "animation",
+          "string"
+        ],
+        [
+          "stopExpression",
+          "string"
+        ],
+        [
+          "durationTicks",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "playAnimation"
+    },
+    {
+      "name": "entityPlayAnimationTo",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "animation",
+          "string"
+        ],
+        [
+          "stopExpression",
+          "string"
+        ],
+        [
+          "durationTicks",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "playAnimationTo"
+    },
+    {
+      "name": "entityPollSpawns",
+      "params": [],
+      "returns": "string",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "pollSpawns"
+    },
+    {
+      "name": "entityScaleBy",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "factor",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "scaleBy"
+    },
+    {
+      "name": "entitySetColorIndex",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "colorIndex",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setColorIndex"
+    },
+    {
+      "name": "entitySetEnabled",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "enabled",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setEnabled"
+    },
+    {
+      "name": "entitySetEquipmentSlot",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "slot",
+          "number"
+        ],
+        [
+          "name",
+          "string"
+        ],
+        [
+          "aux",
+          "number"
+        ],
+        [
+          "nbt",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setEquipmentSlot"
+    },
+    {
+      "name": "entitySetFlags",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "flags",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setFlags"
+    },
+    {
+      "name": "entitySetIdentifier",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "identifier",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setIdentifier"
+    },
+    {
+      "name": "entitySetInvisible",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "on",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setInvisible"
+    },
+    {
+      "name": "entitySetMarkVariant",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "markVariant",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setMarkVariant"
+    },
+    {
+      "name": "entitySetMobProperty",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "name",
+          "string"
+        ],
+        [
+          "value",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setMobProperty"
+    },
+    {
+      "name": "entitySetNametag",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "text",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setNametag"
+    },
+    {
+      "name": "entitySetPlayerEquipmentSlot",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "slot",
+          "number"
+        ],
+        [
+          "name",
+          "string"
+        ],
+        [
+          "aux",
+          "number"
+        ],
+        [
+          "nbt",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setPlayerEquipmentSlot"
+    },
+    {
+      "name": "entitySetPlayerNametag",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "text",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setPlayerNametag"
+    },
+    {
+      "name": "entitySetPlayerRotation",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "yaw",
+          "number"
+        ],
+        [
+          "pitch",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setPlayerRotation"
+    },
+    {
+      "name": "entitySetPlayerScale",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "scale",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setPlayerScale"
+    },
+    {
+      "name": "entitySetPose",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "pose",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setPose"
+    },
+    {
+      "name": "entitySetPosition",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setPosition"
+    },
+    {
+      "name": "entitySetRideEntity",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "vehicleEntityId",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setRideEntity"
+    },
+    {
+      "name": "entitySetRidePlayer",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setRidePlayer"
+    },
+    {
+      "name": "entitySetRotation",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "yaw",
+          "number"
+        ],
+        [
+          "pitch",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setRotation"
+    },
+    {
+      "name": "entitySetScale",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "scale",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setScale"
+    },
+    {
+      "name": "entitySetVariant",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "variant",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setVariant"
+    },
+    {
+      "name": "entitySetViewDistance",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "dist",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setViewDistance"
+    },
+    {
+      "name": "entitySetVisiblePlayer",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setVisiblePlayer"
+    },
+    {
+      "name": "entitySetVisiblePlayers",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerNames",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "setVisiblePlayers"
+    },
+    {
+      "name": "entityStopAnimation",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "stopAnimation"
+    },
+    {
+      "name": "entityStopAnimationTo",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/customentity/CustomEntityExporter.cpp",
+      "group": "Entity",
+      "method": "stopAnimationTo"
+    },
+    {
+      "name": "fakeInvApply",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "itemsSpec",
+          "string"
+        ],
+        [
+          "refreshIntervalTicks",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "group": "FakeInventory",
+      "method": "apply"
+    },
+    {
+      "name": "fakeInvClear",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "group": "FakeInventory",
+      "method": "clear"
+    },
+    {
+      "name": "fakeInvClearAll",
+      "params": [],
+      "returns": "any",
+      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "group": "FakeInventory",
+      "method": "clearAll"
+    },
+    {
+      "name": "fakeInvClearClicks",
+      "params": [],
+      "returns": "any",
+      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "group": "FakeInventory",
+      "method": "clearClicks"
+    },
+    {
+      "name": "fakeInvGetPlayers",
+      "params": [],
+      "returns": "string",
+      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "group": "FakeInventory",
+      "method": "getPlayers"
+    },
+    {
+      "name": "fakeInvIsActive",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "group": "FakeInventory",
+      "method": "isActive"
+    },
+    {
+      "name": "fakeInvPollClicks",
+      "params": [],
+      "returns": "string",
+      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "group": "FakeInventory",
+      "method": "pollClicks"
+    },
+    {
+      "name": "fakeInvRefresh",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "group": "FakeInventory",
+      "method": "refresh"
+    },
+    {
+      "name": "fakeInvSetSlot",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "slot",
+          "number"
+        ],
+        [
+          "type",
+          "string"
+        ],
+        [
+          "count",
+          "number"
+        ],
+        [
+          "damage",
+          "number"
+        ],
+        [
+          "name",
+          "string"
+        ],
+        [
+          "loreCsv",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "group": "FakeInventory",
+      "method": "setSlot"
+    },
+    {
+      "name": "formClose",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/ui/ClientUiExporter.cpp",
+      "group": "Form",
+      "method": "close"
+    },
+    {
+      "name": "formCloseAll",
+      "params": [],
+      "returns": "number",
+      "file": "src/ui/ClientUiExporter.cpp",
+      "group": "Form",
+      "method": "closeAll"
+    },
+    {
+      "name": "ghostClearInteractions",
+      "params": [],
+      "returns": "any",
+      "file": "src/ghost/GhostInteractRouter.cpp",
+      "group": "Ghost",
+      "method": "clearInteractions"
+    },
+    {
+      "name": "ghostPollInteractions",
+      "params": [],
+      "returns": "string",
+      "file": "src/ghost/GhostInteractRouter.cpp",
+      "group": "Ghost",
+      "method": "pollInteractions"
+    },
+    {
+      "name": "gradientCreate",
+      "params": [
+        [
+          "x1",
+          "number"
+        ],
+        [
+          "y1",
+          "number"
+        ],
+        [
+          "z1",
+          "number"
+        ],
+        [
+          "x2",
+          "number"
+        ],
+        [
+          "y2",
+          "number"
+        ],
+        [
+          "z2",
+          "number"
+        ],
+        [
+          "segments",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/GradientLineExporter.cpp",
+      "group": "GradientLine",
+      "method": "create"
+    },
+    {
+      "name": "gradientDestroy",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/GradientLineExporter.cpp",
+      "group": "GradientLine",
+      "method": "destroy"
+    },
+    {
+      "name": "gradientDestroyAll",
+      "params": [],
+      "returns": "any",
+      "file": "src/GradientLineExporter.cpp",
+      "group": "GradientLine",
+      "method": "destroyAll"
+    },
+    {
+      "name": "gradientDraw",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/GradientLineExporter.cpp",
+      "group": "GradientLine",
+      "method": "draw"
+    },
+    {
+      "name": "gradientDrawToDimension",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "dimId",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/GradientLineExporter.cpp",
+      "group": "GradientLine",
+      "method": "drawToDimension"
+    },
+    {
+      "name": "gradientRemove",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/GradientLineExporter.cpp",
+      "group": "GradientLine",
+      "method": "remove"
+    },
+    {
+      "name": "gradientSetColor",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "r",
+          "number"
+        ],
+        [
+          "g",
+          "number"
+        ],
+        [
+          "b",
+          "number"
+        ],
+        [
+          "a",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/GradientLineExporter.cpp",
+      "group": "GradientLine",
+      "method": "setColor"
+    },
+    {
+      "name": "gradientSetEndpoints",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "x1",
+          "number"
+        ],
+        [
+          "y1",
+          "number"
+        ],
+        [
+          "z1",
+          "number"
+        ],
+        [
+          "x2",
+          "number"
+        ],
+        [
+          "y2",
+          "number"
+        ],
+        [
+          "z2",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/GradientLineExporter.cpp",
+      "group": "GradientLine",
+      "method": "setEndpoints"
+    },
+    {
+      "name": "gradientSetGradient",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "r1",
+          "number"
+        ],
+        [
+          "g1",
+          "number"
+        ],
+        [
+          "b1",
+          "number"
+        ],
+        [
+          "r2",
+          "number"
+        ],
+        [
+          "g2",
+          "number"
+        ],
+        [
+          "b2",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/GradientLineExporter.cpp",
+      "group": "GradientLine",
+      "method": "setGradient"
+    },
+    {
+      "name": "gradientSetRainbow",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "speed",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/GradientLineExporter.cpp",
+      "group": "GradientLine",
+      "method": "setRainbow"
+    },
+    {
+      "name": "gradientTick",
+      "params": [
+        [
+          "deltaTime",
+          "number"
+        ]
+      ],
+      "returns": "any",
+      "file": "src/GradientLineExporter.cpp",
+      "group": "GradientLine",
+      "method": "tick"
+    },
+    {
+      "name": "holoAddLine",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "text",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "addLine"
+    },
+    {
+      "name": "holoApiVersion",
+      "params": [],
+      "returns": "number",
+      "file": "src/InfoExporter.cpp",
+      "group": "Hologram",
+      "method": "apiVersion"
+    },
+    {
+      "name": "holoClearBackgroundColor",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "clearBackgroundColor"
+    },
+    {
+      "name": "holoClearFollowPlayer",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "clearFollowPlayer"
+    },
+    {
+      "name": "holoClearLines",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "clearLines"
+    },
+    {
+      "name": "holoClearRotation",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "clearRotation"
+    },
+    {
+      "name": "holoCreate",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "create"
+    },
+    {
+      "name": "holoDestroy",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "destroy"
+    },
+    {
+      "name": "holoDestroyAll",
+      "params": [],
+      "returns": "any",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "destroyAll"
+    },
+    {
+      "name": "holoDraw",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "draw"
+    },
+    {
+      "name": "holoDrawToDimension",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "dimId",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "drawToDimension"
+    },
+    {
+      "name": "holoDrawToPlayer",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "drawToPlayer"
+    },
+    {
+      "name": "holoGetLineCount",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "getLineCount"
+    },
+    {
+      "name": "holoInfo",
+      "params": [],
+      "returns": "string",
+      "file": "src/InfoExporter.cpp",
+      "group": "Hologram",
+      "method": "info"
+    },
+    {
+      "name": "holoRefresh",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "refresh"
+    },
+    {
+      "name": "holoRemove",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "remove"
+    },
+    {
+      "name": "holoRemoveLine",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "lineIndex",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "removeLine"
+    },
+    {
+      "name": "holoSetBackgroundColor",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "r",
+          "number"
+        ],
+        [
+          "g",
+          "number"
+        ],
+        [
+          "b",
+          "number"
+        ],
+        [
+          "a",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "setBackgroundColor"
+    },
+    {
+      "name": "holoSetColor",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "r",
+          "number"
+        ],
+        [
+          "g",
+          "number"
+        ],
+        [
+          "b",
+          "number"
+        ],
+        [
+          "a",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "setColor"
+    },
+    {
+      "name": "holoSetDepthTest",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "enabled",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "setDepthTest"
+    },
+    {
+      "name": "holoSetDimension",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "dimId",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "setDimension"
+    },
+    {
+      "name": "holoSetFollowPlayer",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "offsetY",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "setFollowPlayer"
+    },
+    {
+      "name": "holoSetLineParseVariables",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "lineIndex",
+          "number"
+        ],
+        [
+          "enabled",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "setLineParseVariables"
+    },
+    {
+      "name": "holoSetLinePool",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "lineIndex",
+          "number"
+        ],
+        [
+          "content",
+          "string"
+        ],
+        [
+          "intervalMs",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "setLinePool"
+    },
+    {
+      "name": "holoSetLineText",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "lineIndex",
+          "number"
+        ],
+        [
+          "text",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "setLineText"
+    },
+    {
+      "name": "holoSetLocation",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "setLocation"
+    },
+    {
+      "name": "holoSetRotation",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "pitch",
+          "number"
+        ],
+        [
+          "yaw",
+          "number"
+        ],
+        [
+          "roll",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "setRotation"
+    },
+    {
+      "name": "holoSetScale",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "scale",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/FloatingTextExporter.cpp",
+      "group": "Hologram",
+      "method": "setScale"
+    },
+    {
+      "name": "itemActorDestroy",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemactor/ItemActorExporter.cpp",
+      "group": "ItemActor",
+      "method": "destroy"
+    },
+    {
+      "name": "itemActorDestroyAll",
+      "params": [],
+      "returns": "any",
+      "file": "src/itemactor/ItemActorExporter.cpp",
+      "group": "ItemActor",
+      "method": "destroyAll"
+    },
+    {
+      "name": "itemActorExists",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemactor/ItemActorExporter.cpp",
+      "group": "ItemActor",
+      "method": "exists"
+    },
+    {
+      "name": "itemActorGetIds",
+      "params": [],
+      "returns": "number",
+      "file": "src/itemactor/ItemActorExporter.cpp",
+      "group": "ItemActor",
+      "method": "getIds"
+    },
+    {
+      "name": "itemActorMoveTo",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemactor/ItemActorExporter.cpp",
+      "group": "ItemActor",
+      "method": "moveTo"
+    },
+    {
+      "name": "itemActorSetMotion",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "vx",
+          "number"
+        ],
+        [
+          "vy",
+          "number"
+        ],
+        [
+          "vz",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemactor/ItemActorExporter.cpp",
+      "group": "ItemActor",
+      "method": "setMotion"
+    },
+    {
+      "name": "itemActorSpawn",
+      "params": [
+        [
+          "itemId",
+          "string"
+        ],
+        [
+          "aux",
+          "number"
+        ],
+        [
+          "count",
+          "number"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "vx",
+          "number"
+        ],
+        [
+          "vy",
+          "number"
+        ],
+        [
+          "vz",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/itemactor/ItemActorExporter.cpp",
+      "group": "ItemActor",
+      "method": "spawn"
+    },
+    {
+      "name": "itemActorTake",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemactor/ItemActorExporter.cpp",
+      "group": "ItemActor",
+      "method": "take"
+    },
+    {
+      "name": "itemDetailHide",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdetail/ItemDetailExporter.cpp",
+      "group": "ItemDetail",
+      "method": "hide"
+    },
+    {
+      "name": "itemDetailShow",
+      "params": [
+        [
+          "dimId",
+          "number"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "itemId",
+          "string"
+        ],
+        [
+          "aux",
+          "number"
+        ],
+        [
+          "count",
+          "number"
+        ],
+        [
+          "customText",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/itemdetail/ItemDetailExporter.cpp",
+      "group": "ItemDetail",
+      "method": "show"
+    },
+    {
+      "name": "itemDisplayClearAnim",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "clearAnim"
+    },
+    {
+      "name": "itemDisplayClearVisiblePlayers",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "clearVisiblePlayers"
+    },
+    {
+      "name": "itemDisplayCreate",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "item",
+          "string"
+        ],
+        [
+          "aux",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "create"
+    },
+    {
+      "name": "itemDisplayCreateAdvanced",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "item",
+          "string"
+        ],
+        [
+          "aux",
+          "number"
+        ],
+        [
+          "offX",
+          "string"
+        ],
+        [
+          "offY",
+          "string"
+        ],
+        [
+          "offZ",
+          "string"
+        ],
+        [
+          "rotX",
+          "string"
+        ],
+        [
+          "rotY",
+          "string"
+        ],
+        [
+          "rotZ",
+          "string"
+        ],
+        [
+          "scale",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "createAdvanced"
+    },
+    {
+      "name": "itemDisplayCreateFull",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "item",
+          "string"
+        ],
+        [
+          "aux",
+          "number"
+        ],
+        [
+          "offX",
+          "string"
+        ],
+        [
+          "offY",
+          "string"
+        ],
+        [
+          "offZ",
+          "string"
+        ],
+        [
+          "rotX",
+          "string"
+        ],
+        [
+          "rotY",
+          "string"
+        ],
+        [
+          "rotZ",
+          "string"
+        ],
+        [
+          "scale",
+          "string"
+        ],
+        [
+          "nbt",
+          "string"
+        ],
+        [
+          "glint",
+          "boolean"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "createFull"
+    },
+    {
+      "name": "itemDisplayCreateRandom",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "item",
+          "string"
+        ],
+        [
+          "aux",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "createRandom"
+    },
+    {
+      "name": "itemDisplayCreateSeamless",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "item",
+          "string"
+        ],
+        [
+          "aux",
+          "number"
+        ],
+        [
+          "offX",
+          "string"
+        ],
+        [
+          "offY",
+          "string"
+        ],
+        [
+          "offZ",
+          "string"
+        ],
+        [
+          "rotX",
+          "string"
+        ],
+        [
+          "rotY",
+          "string"
+        ],
+        [
+          "rotZ",
+          "string"
+        ],
+        [
+          "scale",
+          "string"
+        ],
+        [
+          "mode",
+          "number"
+        ],
+        [
+          "viewDistance",
+          "number"
+        ],
+        [
+          "visiblePlayer",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "createSeamless"
+    },
+    {
+      "name": "itemDisplayCreateWithId",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "item",
+          "string"
+        ],
+        [
+          "aux",
+          "number"
+        ],
+        [
+          "desiredId",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "createWithId"
+    },
+    {
+      "name": "itemDisplayDestroy",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "destroy"
+    },
+    {
+      "name": "itemDisplayDestroyAll",
+      "params": [],
+      "returns": "any",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "destroyAll"
+    },
+    {
+      "name": "itemDisplayEmitForEntity",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "uniqueId",
+          "number"
+        ],
+        [
+          "item",
+          "string"
+        ],
+        [
+          "aux",
+          "number"
+        ],
+        [
+          "offsetY",
+          "string"
+        ],
+        [
+          "rotX",
+          "string"
+        ],
+        [
+          "rotY",
+          "string"
+        ],
+        [
+          "rotZ",
+          "string"
+        ],
+        [
+          "scale",
+          "string"
+        ],
+        [
+          "nbt",
+          "string"
+        ],
+        [
+          "glint",
+          "boolean"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "emitForEntity"
+    },
+    {
+      "name": "itemDisplayExists",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "exists"
+    },
+    {
+      "name": "itemDisplayFindNearest",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "maxDist",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "findNearest"
+    },
+    {
+      "name": "itemDisplayFollow",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "offX",
+          "number"
+        ],
+        [
+          "offY",
+          "number"
+        ],
+        [
+          "offZ",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "follow"
+    },
+    {
+      "name": "itemDisplayGetAllIds",
+      "params": [],
+      "returns": "number",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "getAllIds"
+    },
+    {
+      "name": "itemDisplayGetInfo",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "string",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "getInfo"
+    },
+    {
+      "name": "itemDisplayIsIdUsed",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "isIdUsed"
+    },
+    {
+      "name": "itemDisplayRotateY",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "delta",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "rotateY"
+    },
+    {
+      "name": "itemDisplayScaleBy",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "factor",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "scaleBy"
+    },
+    {
+      "name": "itemDisplayScaleTo",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "targetScale",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "scaleTo"
+    },
+    {
+      "name": "itemDisplaySetAnim",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "spinSpeed",
+          "number"
+        ],
+        [
+          "spinAxis",
+          "number"
+        ],
+        [
+          "bobAmp",
+          "number"
+        ],
+        [
+          "bobPeriod",
+          "number"
+        ],
+        [
+          "pulseAmp",
+          "number"
+        ],
+        [
+          "pulsePeriod",
+          "number"
+        ],
+        [
+          "swayAmp",
+          "number"
+        ],
+        [
+          "swayPeriod",
+          "number"
+        ],
+        [
+          "phase",
+          "number"
+        ],
+        [
+          "billboard",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setAnim"
+    },
+    {
+      "name": "itemDisplaySetBaseOffset",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "ox",
+          "string"
+        ],
+        [
+          "oy",
+          "string"
+        ],
+        [
+          "oz",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setBaseOffset"
+    },
+    {
+      "name": "itemDisplaySetEnabled",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "enabled",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setEnabled"
+    },
+    {
+      "name": "itemDisplaySetExtend",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "scale",
+          "string"
+        ],
+        [
+          "rx",
+          "string"
+        ],
+        [
+          "ry",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setExtend"
+    },
+    {
+      "name": "itemDisplaySetGlint",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "on",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setGlint"
+    },
+    {
+      "name": "itemDisplaySetHitbox",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "width",
+          "number"
+        ],
+        [
+          "height",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setHitbox"
+    },
+    {
+      "name": "itemDisplaySetItem",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "item",
+          "string"
+        ],
+        [
+          "aux",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setItem"
+    },
+    {
+      "name": "itemDisplaySetItemWithNbt",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "item",
+          "string"
+        ],
+        [
+          "aux",
+          "number"
+        ],
+        [
+          "nbt",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setItemWithNbt"
+    },
+    {
+      "name": "itemDisplaySetMode",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "mode",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setMode"
+    },
+    {
+      "name": "itemDisplaySetOffset",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "ox",
+          "string"
+        ],
+        [
+          "oy",
+          "string"
+        ],
+        [
+          "oz",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setOffset"
+    },
+    {
+      "name": "itemDisplaySetOffsetLive",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "ox",
+          "string"
+        ],
+        [
+          "oy",
+          "string"
+        ],
+        [
+          "oz",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setOffsetLive"
+    },
+    {
+      "name": "itemDisplaySetPosition",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setPosition"
+    },
+    {
+      "name": "itemDisplaySetPreset",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "preset",
+          "string"
+        ],
+        [
+          "a",
+          "number"
+        ],
+        [
+          "b",
+          "number"
+        ],
+        [
+          "c",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setPreset"
+    },
+    {
+      "name": "itemDisplaySetRotation",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "rx",
+          "string"
+        ],
+        [
+          "ry",
+          "string"
+        ],
+        [
+          "rz",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setRotation"
+    },
+    {
+      "name": "itemDisplaySetRotationLive",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "rx",
+          "string"
+        ],
+        [
+          "ry",
+          "string"
+        ],
+        [
+          "rz",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setRotationLive"
+    },
+    {
+      "name": "itemDisplaySetScale",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "scale",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setScale"
+    },
+    {
+      "name": "itemDisplaySetScaleLive",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "scale",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setScaleLive"
+    },
+    {
+      "name": "itemDisplaySetStretch",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "xz",
+          "string"
+        ],
+        [
+          "y",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setStretch"
+    },
+    {
+      "name": "itemDisplaySetStretchLive",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "xz",
+          "string"
+        ],
+        [
+          "y",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setStretchLive"
+    },
+    {
+      "name": "itemDisplaySetTransformLive",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "ox",
+          "string"
+        ],
+        [
+          "oy",
+          "string"
+        ],
+        [
+          "oz",
+          "string"
+        ],
+        [
+          "rx",
+          "string"
+        ],
+        [
+          "ry",
+          "string"
+        ],
+        [
+          "rz",
+          "string"
+        ],
+        [
+          "scale",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setTransformLive"
+    },
+    {
+      "name": "itemDisplaySetViewDistance",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "dist",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setViewDistance"
+    },
+    {
+      "name": "itemDisplaySetVisiblePlayer",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setVisiblePlayer"
+    },
+    {
+      "name": "itemDisplaySetVisiblePlayers",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerNames",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "setVisiblePlayers"
+    },
+    {
+      "name": "itemDisplayUnfollow",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "unfollow"
+    },
+    {
+      "name": "locatorBarClear",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/ui/ClientUiExporter.cpp",
+      "group": "LocatorBar",
+      "method": "clear"
+    },
+    {
+      "name": "locatorBarCount",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/ui/ClientUiExporter.cpp",
+      "group": "LocatorBar",
+      "method": "count"
+    },
+    {
+      "name": "locatorBarHideFromOthers",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "hidden",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/ui/ClientUiExporter.cpp",
+      "group": "LocatorBar",
+      "method": "hideFromOthers"
+    },
+    {
+      "name": "locatorBarIsHiddenFromOthers",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/ui/ClientUiExporter.cpp",
+      "group": "LocatorBar",
+      "method": "isHiddenFromOthers"
+    },
+    {
+      "name": "locatorBarRemove",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "key",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/ui/ClientUiExporter.cpp",
+      "group": "LocatorBar",
+      "method": "remove"
+    },
+    {
+      "name": "locatorBarSet",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "key",
+          "string"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "color",
+          "number"
+        ],
+        [
+          "visible",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/ui/ClientUiExporter.cpp",
+      "group": "LocatorBar",
+      "method": "set"
+    },
+    {
+      "name": "npcDialogClearClicks",
+      "params": [],
+      "returns": "any",
+      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "group": "NpcDialog",
+      "method": "clearClicks"
+    },
+    {
+      "name": "npcDialogClose",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "group": "NpcDialog",
+      "method": "close"
+    },
+    {
+      "name": "npcDialogCloseAll",
+      "params": [],
+      "returns": "any",
+      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "group": "NpcDialog",
+      "method": "closeAll"
+    },
+    {
+      "name": "npcDialogGetIds",
+      "params": [],
+      "returns": "number",
+      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "group": "NpcDialog",
+      "method": "getIds"
+    },
+    {
+      "name": "npcDialogIsOpen",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "group": "NpcDialog",
+      "method": "isOpen"
+    },
+    {
+      "name": "npcDialogOpen",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "npcName",
+          "string"
+        ],
+        [
+          "sceneName",
+          "string"
+        ],
+        [
+          "dialogue",
+          "string"
+        ],
+        [
+          "buttonsSpec",
+          "string"
+        ],
+        [
+          "carrierIdentifier",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "group": "NpcDialog",
+      "method": "open"
+    },
+    {
+      "name": "npcDialogPollClicks",
+      "params": [],
+      "returns": "string",
+      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "group": "NpcDialog",
+      "method": "pollClicks"
+    },
+    {
+      "name": "npcDialogSetAvatar",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "skinVariant",
+          "number"
+        ],
+        [
+          "avatarViewSpec",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "group": "NpcDialog",
+      "method": "setAvatar"
+    },
+    {
+      "name": "npcDialogUpdate",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "dialogue",
+          "string"
+        ],
+        [
+          "buttonsSpec",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "group": "NpcDialog",
+      "method": "update"
+    },
+    {
+      "name": "particleCreateBox",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "dimId",
+          "number"
+        ],
+        [
+          "cx",
+          "number"
+        ],
+        [
+          "cy",
+          "number"
+        ],
+        [
+          "cz",
+          "number"
+        ],
+        [
+          "hx",
+          "number"
+        ],
+        [
+          "hy",
+          "number"
+        ],
+        [
+          "hz",
+          "number"
+        ],
+        [
+          "step",
+          "number"
+        ],
+        [
+          "effect",
+          "string"
+        ],
+        [
+          "interval",
+          "number"
+        ],
+        [
+          "lifetime",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "createBox"
+    },
+    {
+      "name": "particleCreateBoxFaces",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "dimId",
+          "number"
+        ],
+        [
+          "cx",
+          "number"
+        ],
+        [
+          "cy",
+          "number"
+        ],
+        [
+          "cz",
+          "number"
+        ],
+        [
+          "hx",
+          "number"
+        ],
+        [
+          "hy",
+          "number"
+        ],
+        [
+          "hz",
+          "number"
+        ],
+        [
+          "step",
+          "number"
+        ],
+        [
+          "effect",
+          "string"
+        ],
+        [
+          "interval",
+          "number"
+        ],
+        [
+          "lifetime",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "createBoxFaces"
+    },
+    {
+      "name": "particleCreateLine",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "dimId",
+          "number"
+        ],
+        [
+          "x1",
+          "number"
+        ],
+        [
+          "y1",
+          "number"
+        ],
+        [
+          "z1",
+          "number"
+        ],
+        [
+          "x2",
+          "number"
+        ],
+        [
+          "y2",
+          "number"
+        ],
+        [
+          "z2",
+          "number"
+        ],
+        [
+          "step",
+          "number"
+        ],
+        [
+          "effect",
+          "string"
+        ],
+        [
+          "interval",
+          "number"
+        ],
+        [
+          "lifetime",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "createLine"
+    },
+    {
+      "name": "particleCreatePlane",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "dimId",
+          "number"
+        ],
+        [
+          "cx",
+          "number"
+        ],
+        [
+          "cy",
+          "number"
+        ],
+        [
+          "cz",
+          "number"
+        ],
+        [
+          "w",
+          "number"
+        ],
+        [
+          "h",
+          "number"
+        ],
+        [
+          "axis",
+          "number"
+        ],
+        [
+          "step",
+          "number"
+        ],
+        [
+          "effect",
+          "string"
+        ],
+        [
+          "interval",
+          "number"
+        ],
+        [
+          "lifetime",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "createPlane"
+    },
+    {
+      "name": "particleCreatePoint",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "dimId",
+          "number"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "effect",
+          "string"
+        ],
+        [
+          "interval",
+          "number"
+        ],
+        [
+          "lifetime",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "createPoint"
+    },
+    {
+      "name": "particleCreatePoly",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "dimId",
+          "number"
+        ],
+        [
+          "verts",
+          "string"
+        ],
+        [
+          "edges",
+          "string"
+        ],
+        [
+          "step",
+          "number"
+        ],
+        [
+          "effect",
+          "string"
+        ],
+        [
+          "interval",
+          "number"
+        ],
+        [
+          "lifetime",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "createPoly"
+    },
+    {
+      "name": "particleCreateRect",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "dimId",
+          "number"
+        ],
+        [
+          "cx",
+          "number"
+        ],
+        [
+          "cy",
+          "number"
+        ],
+        [
+          "cz",
+          "number"
+        ],
+        [
+          "w",
+          "number"
+        ],
+        [
+          "h",
+          "number"
+        ],
+        [
+          "axis",
+          "number"
+        ],
+        [
+          "step",
+          "number"
+        ],
+        [
+          "effect",
+          "string"
+        ],
+        [
+          "interval",
+          "number"
+        ],
+        [
+          "lifetime",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "createRect"
+    },
+    {
+      "name": "particleDestroy",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "destroy"
+    },
+    {
+      "name": "particleFollow",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "uuid",
+          "string"
+        ],
+        [
+          "offX",
+          "number"
+        ],
+        [
+          "offY",
+          "number"
+        ],
+        [
+          "offZ",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "follow"
+    },
+    {
+      "name": "particleGetInfo",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "string",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "getInfo"
+    },
+    {
+      "name": "particleMoveBy",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "dx",
+          "number"
+        ],
+        [
+          "dy",
+          "number"
+        ],
+        [
+          "dz",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "moveBy"
+    },
+    {
+      "name": "particleMoveTo",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "durationTicks",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "moveTo"
+    },
+    {
+      "name": "particleSetEffect",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "effect",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "setEffect"
+    },
+    {
+      "name": "particleSetInterval",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "ticks",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "setInterval"
+    },
+    {
+      "name": "particleSetLifetime",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "ticks",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "setLifetime"
+    },
+    {
+      "name": "particleSetPos",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "setPos"
+    },
+    {
+      "name": "particleSetRot",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "rx",
+          "number"
+        ],
+        [
+          "ry",
+          "number"
+        ],
+        [
+          "rz",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "setRot"
+    },
+    {
+      "name": "particleSetScale",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "s",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "setScale"
+    },
+    {
+      "name": "particleSetViewDistance",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "blocks",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "setViewDistance"
+    },
+    {
+      "name": "particleSetVisible",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playersCsv",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "setVisible"
+    },
+    {
+      "name": "particleSpin",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "sx",
+          "number"
+        ],
+        [
+          "sy",
+          "number"
+        ],
+        [
+          "sz",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "spin"
+    },
+    {
+      "name": "particleUnfollow",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "unfollow"
+    },
+    {
+      "name": "playerHideGetMask",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "string",
+      "file": "src/ui/ClientUiExporter.cpp",
+      "group": "Visibility",
+      "method": "getMask"
+    },
+    {
+      "name": "playerHideIsHidden",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/ui/ClientUiExporter.cpp",
+      "group": "Visibility",
+      "method": "isHidden"
+    },
+    {
+      "name": "playerHideRestore",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/ui/ClientUiExporter.cpp",
+      "group": "Visibility",
+      "method": "restore"
+    },
+    {
+      "name": "playerHideSetHidden",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "hidden",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/ui/ClientUiExporter.cpp",
+      "group": "Visibility",
+      "method": "setHidden"
+    },
+    {
+      "name": "playerHideSetMask",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "spawn",
+          "boolean"
+        ],
+        [
+          "tab",
+          "boolean"
+        ],
+        [
+          "motion",
+          "boolean"
+        ],
+        [
+          "state",
+          "boolean"
+        ],
+        [
+          "skin",
+          "boolean"
+        ],
+        [
+          "alsoSelf",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/ui/ClientUiExporter.cpp",
+      "group": "Visibility",
+      "method": "setMask"
+    },
+    {
+      "name": "playerNpcCaptureSkin",
+      "params": [
+        [
+          "skinId",
+          "string"
+        ],
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "captureSkin"
+    },
+    {
+      "name": "playerNpcClearPlayerRotation",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "clearPlayerRotation"
+    },
+    {
+      "name": "playerNpcClearPlayerRotations",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "clearPlayerRotations"
+    },
+    {
+      "name": "playerNpcClearRide",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "clearRide"
+    },
+    {
+      "name": "playerNpcClearSpawns",
+      "params": [],
+      "returns": "any",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "clearSpawns"
+    },
+    {
+      "name": "playerNpcClearVisiblePlayers",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "clearVisiblePlayers"
+    },
+    {
+      "name": "playerNpcCreate",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "name",
+          "string"
+        ],
+        [
+          "skinId",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "create"
+    },
+    {
+      "name": "playerNpcCreateEx",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "name",
+          "string"
+        ],
+        [
+          "skinId",
+          "string"
+        ],
+        [
+          "yaw",
+          "number"
+        ],
+        [
+          "scale",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "createEx"
+    },
+    {
+      "name": "playerNpcCreateRandom",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "name",
+          "string"
+        ],
+        [
+          "skinId",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "createRandom"
+    },
+    {
+      "name": "playerNpcCreateWithId",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "name",
+          "string"
+        ],
+        [
+          "skinId",
+          "string"
+        ],
+        [
+          "desiredId",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "createWithId"
+    },
+    {
+      "name": "playerNpcDestroy",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "destroy"
+    },
+    {
+      "name": "playerNpcDestroyAll",
+      "params": [],
+      "returns": "any",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "destroyAll"
+    },
+    {
+      "name": "playerNpcExists",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "exists"
+    },
+    {
+      "name": "playerNpcGetAllIds",
+      "params": [],
+      "returns": "number",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "getAllIds"
+    },
+    {
+      "name": "playerNpcGetDebugInfo",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "string",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "getDebugInfo"
+    },
+    {
+      "name": "playerNpcGetSkinBlobB64",
+      "params": [
+        [
+          "skinId",
+          "string"
+        ]
+      ],
+      "returns": "string",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "getSkinBlobB64"
+    },
+    {
+      "name": "playerNpcGetSkinIds",
+      "params": [],
+      "returns": "string",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "getSkinIds"
+    },
+    {
+      "name": "playerNpcHasSkin",
+      "params": [
+        [
+          "skinId",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "hasSkin"
+    },
+    {
+      "name": "playerNpcImportSkins",
+      "params": [
+        [
+          "dirPath",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "importSkins"
+    },
+    {
+      "name": "playerNpcInjectSkin",
+      "params": [
+        [
+          "viewerName",
+          "string"
+        ],
+        [
+          "targetName",
+          "string"
+        ],
+        [
+          "skinId",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "injectSkin"
+    },
+    {
+      "name": "playerNpcInjectSkinAll",
+      "params": [
+        [
+          "targetName",
+          "string"
+        ],
+        [
+          "skinId",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "injectSkinAll"
+    },
+    {
+      "name": "playerNpcIsIdUsed",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "isIdUsed"
+    },
+    {
+      "name": "playerNpcPlayAnimation",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "animation",
+          "string"
+        ],
+        [
+          "stopExpression",
+          "string"
+        ],
+        [
+          "durationTicks",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "playAnimation"
+    },
+    {
+      "name": "playerNpcPlayAnimationTo",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "animation",
+          "string"
+        ],
+        [
+          "stopExpression",
+          "string"
+        ],
+        [
+          "durationTicks",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "playAnimationTo"
+    },
+    {
+      "name": "playerNpcPlayEmote",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "pieceId",
+          "string"
+        ],
+        [
+          "lengthTicks",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "playEmote"
+    },
+    {
+      "name": "playerNpcPollSpawns",
+      "params": [],
+      "returns": "string",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "pollSpawns"
+    },
+    {
+      "name": "playerNpcRegisterImageSkin",
+      "params": [
+        [
+          "pngPath",
+          "string"
+        ],
+        [
+          "skinId",
+          "string"
+        ],
+        [
+          "sizeBlocks",
+          "number"
+        ],
+        [
+          "transparent",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "registerImageSkin"
+    },
+    {
+      "name": "playerNpcRegisterSkin",
+      "params": [
+        [
+          "pngPath",
+          "string"
+        ],
+        [
+          "skinId",
+          "string"
+        ],
+        [
+          "geometry",
+          "string"
+        ],
+        [
+          "armSize",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "registerSkin"
+    },
+    {
+      "name": "playerNpcRegisterSkinData",
+      "params": [
+        [
+          "pngPath",
+          "string"
+        ],
+        [
+          "skinId",
+          "string"
+        ],
+        [
+          "armSize",
+          "string"
+        ],
+        [
+          "geometryData",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "registerSkinData"
+    },
+    {
+      "name": "playerNpcRegisterSkinDataOpaque",
+      "params": [
+        [
+          "pngPath",
+          "string"
+        ],
+        [
+          "skinId",
+          "string"
+        ],
+        [
+          "armSize",
+          "string"
+        ],
+        [
+          "geometryData",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "registerSkinDataOpaque"
+    },
+    {
+      "name": "playerNpcRegisterSkinFromBlobB64",
+      "params": [
+        [
+          "b64",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "registerSkinFromBlobB64"
+    },
+    {
+      "name": "playerNpcRegisterSkinFromBlobFile",
+      "params": [
+        [
+          "path",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "registerSkinFromBlobFile"
+    },
+    {
+      "name": "playerNpcSetEnabled",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "enabled",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "setEnabled"
+    },
+    {
+      "name": "playerNpcSetEquipment",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "slot",
+          "number"
+        ],
+        [
+          "name",
+          "string"
+        ],
+        [
+          "aux",
+          "number"
+        ],
+        [
+          "nbt",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "setEquipment"
+    },
+    {
+      "name": "playerNpcSetNametag",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "text",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "setNametag"
+    },
+    {
+      "name": "playerNpcSetPlayerRotation",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "yaw",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "setPlayerRotation"
+    },
+    {
+      "name": "playerNpcSetPos",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "setPos"
+    },
+    {
+      "name": "playerNpcSetPosLight",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "setPosLight"
+    },
+    {
+      "name": "playerNpcSetPose",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "pose",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "setPose"
+    },
+    {
+      "name": "playerNpcSetRideEntity",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "vehicleEntityId",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "setRideEntity"
+    },
+    {
+      "name": "playerNpcSetRidePlayer",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "setRidePlayer"
+    },
+    {
+      "name": "playerNpcSetRideUniqueId",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "vehicleUniqueId",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "setRideUniqueId"
+    },
+    {
+      "name": "playerNpcSetRotLight",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "yaw",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "setRotLight"
+    },
+    {
+      "name": "playerNpcSetRotation",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "yaw",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "setRotation"
+    },
+    {
+      "name": "playerNpcSetScale",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "scale",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "setScale"
+    },
+    {
+      "name": "playerNpcSetSkin",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "skinId",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "setSkin"
+    },
+    {
+      "name": "playerNpcSetViewDistance",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "dist",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "setViewDistance"
+    },
+    {
+      "name": "playerNpcSetVisiblePlayer",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "setVisiblePlayer"
+    },
+    {
+      "name": "playerNpcSetVisiblePlayers",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerNames",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "setVisiblePlayers"
+    },
+    {
+      "name": "playerNpcStopAnimation",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "stopAnimation"
+    },
+    {
+      "name": "playerNpcStopAnimationTo",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "stopAnimationTo"
+    },
+    {
+      "name": "playerNpcUnregisterSkin",
+      "params": [
+        [
+          "skinId",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "unregisterSkin"
+    },
+    {
+      "name": "sensingDeviceCode",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/sensing/PlayerSensingExporter.cpp",
+      "group": "Sensing",
+      "method": "deviceCode"
+    },
+    {
+      "name": "sensingDeviceOf",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "string",
+      "file": "src/sensing/PlayerSensingExporter.cpp",
+      "group": "Sensing",
+      "method": "deviceOf"
+    },
+    {
+      "name": "sensingIsTouch",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/sensing/PlayerSensingExporter.cpp",
+      "group": "Sensing",
+      "method": "isTouch"
+    },
+    {
+      "name": "shapeClearBackgroundColor",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "clearBackgroundColor"
+    },
+    {
+      "name": "shapeClearRotation",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "clearRotation"
+    },
+    {
+      "name": "shapeCreateArrow",
+      "params": [
+        [
+          "x1",
+          "number"
+        ],
+        [
+          "y1",
+          "number"
+        ],
+        [
+          "z1",
+          "number"
+        ],
+        [
+          "x2",
+          "number"
+        ],
+        [
+          "y2",
+          "number"
+        ],
+        [
+          "z2",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "createArrow"
+    },
+    {
+      "name": "shapeCreateBox",
+      "params": [
+        [
+          "x1",
+          "number"
+        ],
+        [
+          "y1",
+          "number"
+        ],
+        [
+          "z1",
+          "number"
+        ],
+        [
+          "x2",
+          "number"
+        ],
+        [
+          "y2",
+          "number"
+        ],
+        [
+          "z2",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "createBox"
+    },
+    {
+      "name": "shapeCreateCircle",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "scale",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "createCircle"
+    },
+    {
+      "name": "shapeCreateLine",
+      "params": [
+        [
+          "x1",
+          "number"
+        ],
+        [
+          "y1",
+          "number"
+        ],
+        [
+          "z1",
+          "number"
+        ],
+        [
+          "x2",
+          "number"
+        ],
+        [
+          "y2",
+          "number"
+        ],
+        [
+          "z2",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "createLine"
+    },
+    {
+      "name": "shapeCreateSphere",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "scale",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "createSphere"
+    },
+    {
+      "name": "shapeCreateText",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "text",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "createText"
+    },
+    {
+      "name": "shapeDestroy",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "destroy"
+    },
+    {
+      "name": "shapeDestroyAll",
+      "params": [],
+      "returns": "any",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "destroyAll"
+    },
+    {
+      "name": "shapeDestroyBatch",
+      "params": [
+        [
+          "ids",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "destroyBatch"
+    },
+    {
+      "name": "shapeDraw",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "draw"
+    },
+    {
+      "name": "shapeDrawBatch",
+      "params": [
+        [
+          "ids",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "drawBatch"
+    },
+    {
+      "name": "shapeDrawToDimension",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "dimId",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "drawToDimension"
+    },
+    {
+      "name": "shapeDrawToPlayer",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "drawToPlayer"
+    },
+    {
+      "name": "shapeExists",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "exists"
+    },
+    {
+      "name": "shapeFindTextByLocation",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "radius",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "findTextByLocation"
+    },
+    {
+      "name": "shapeFindTextByLocationAndContent",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "radius",
+          "number"
+        ],
+        [
+          "text",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "findTextByLocationAndContent"
+    },
+    {
+      "name": "shapeGetAllShapeIds",
+      "params": [],
+      "returns": "number",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "getAllShapeIds"
+    },
+    {
+      "name": "shapeGetColor",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "getColor"
+    },
+    {
+      "name": "shapeGetLocation",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "getLocation"
+    },
+    {
+      "name": "shapeGetRotation",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "getRotation"
+    },
+    {
+      "name": "shapeGetShapeType",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "getShapeType"
+    },
+    {
+      "name": "shapeGetText",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "string",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "getText"
+    },
+    {
+      "name": "shapeRemove",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "remove"
+    },
+    {
+      "name": "shapeRemoveToDimension",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "dimId",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "removeToDimension"
+    },
+    {
+      "name": "shapeRemoveToPlayer",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "removeToPlayer"
+    },
+    {
+      "name": "shapeSetBackgroundColor",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "r",
+          "number"
+        ],
+        [
+          "g",
+          "number"
+        ],
+        [
+          "b",
+          "number"
+        ],
+        [
+          "a",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "setBackgroundColor"
+    },
+    {
+      "name": "shapeSetColor",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "r",
+          "number"
+        ],
+        [
+          "g",
+          "number"
+        ],
+        [
+          "b",
+          "number"
+        ],
+        [
+          "a",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "setColor"
+    },
+    {
+      "name": "shapeSetDepthTest",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "enabled",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "setDepthTest"
+    },
+    {
+      "name": "shapeSetDimension",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "dimId",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "setDimension"
+    },
+    {
+      "name": "shapeSetDuration",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "seconds",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "setDuration"
+    },
+    {
+      "name": "shapeSetLocation",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "setLocation"
+    },
+    {
+      "name": "shapeSetRotation",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "pitch",
+          "number"
+        ],
+        [
+          "yaw",
+          "number"
+        ],
+        [
+          "roll",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "setRotation"
+    },
+    {
+      "name": "shapeSetScale",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "scale",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "setScale"
+    },
+    {
+      "name": "shapeSetText",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "text",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "setText"
+    },
+    {
+      "name": "shapeUpdate",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "update"
+    },
+    {
+      "name": "shapeUpdateToDimension",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "dimId",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "updateToDimension"
+    },
+    {
+      "name": "shapeUpdateToPlayer",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "updateToPlayer"
+    },
+    {
+      "name": "sulfurCreate",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "blockType",
+          "string"
+        ],
+        [
+          "blockCount",
+          "number"
+        ],
+        [
+          "blockDamage",
+          "number"
+        ],
+        [
+          "blockName",
+          "string"
+        ],
+        [
+          "archetype",
+          "string"
+        ],
+        [
+          "invisible",
+          "boolean"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "group": "Sulfur",
+      "method": "create"
+    },
+    {
+      "name": "sulfurDestroy",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "group": "Sulfur",
+      "method": "destroy"
+    },
+    {
+      "name": "sulfurDestroyAll",
+      "params": [],
+      "returns": "any",
+      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "group": "Sulfur",
+      "method": "destroyAll"
+    },
+    {
+      "name": "sulfurExists",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "group": "Sulfur",
+      "method": "exists"
+    },
+    {
+      "name": "sulfurGetEntityId",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "group": "Sulfur",
+      "method": "getEntityId"
+    },
+    {
+      "name": "sulfurGetIds",
+      "params": [],
+      "returns": "number",
+      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "group": "Sulfur",
+      "method": "getIds"
+    },
+    {
+      "name": "sulfurSetArchetype",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "archetype",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "group": "Sulfur",
+      "method": "setArchetype"
+    },
+    {
+      "name": "sulfurSetBlock",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "type",
+          "string"
+        ],
+        [
+          "count",
+          "number"
+        ],
+        [
+          "damage",
+          "number"
+        ],
+        [
+          "name",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "group": "Sulfur",
+      "method": "setBlock"
+    },
+    {
+      "name": "sulfurSetInvisible",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "on",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "group": "Sulfur",
+      "method": "setInvisible"
+    },
+    {
+      "name": "sulfurSetScale",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "scale",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "group": "Sulfur",
+      "method": "setScale"
+    },
+    {
+      "name": "tradeAddOffer",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "buyAType",
+          "string"
+        ],
+        [
+          "buyACount",
+          "number"
+        ],
+        [
+          "buyBType",
+          "string"
+        ],
+        [
+          "buyBCount",
+          "number"
+        ],
+        [
+          "sellType",
+          "string"
+        ],
+        [
+          "sellCount",
+          "number"
+        ],
+        [
+          "sellName",
+          "string"
+        ],
+        [
+          "tier",
+          "number"
+        ],
+        [
+          "locked",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/trade/TradeMenuExporter.cpp",
+      "group": "Trade",
+      "method": "addOffer"
+    },
+    {
+      "name": "tradeClose",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/trade/TradeMenuExporter.cpp",
+      "group": "Trade",
+      "method": "close"
+    },
+    {
+      "name": "tradeCloseAll",
+      "params": [],
+      "returns": "any",
+      "file": "src/trade/TradeMenuExporter.cpp",
+      "group": "Trade",
+      "method": "closeAll"
+    },
+    {
+      "name": "tradeGetIds",
+      "params": [],
+      "returns": "number",
+      "file": "src/trade/TradeMenuExporter.cpp",
+      "group": "Trade",
+      "method": "getIds"
+    },
+    {
+      "name": "tradeIsOpen",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/trade/TradeMenuExporter.cpp",
+      "group": "Trade",
+      "method": "isOpen"
+    },
+    {
+      "name": "tradeIsSettle",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/trade/TradeMenuExporter.cpp",
+      "group": "Trade",
+      "method": "isSettle"
+    },
+    {
+      "name": "tradeOpen",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "tradeType",
+          "string"
+        ],
+        [
+          "tier",
+          "number"
+        ],
+        [
+          "experience",
+          "number"
+        ],
+        [
+          "realTrades",
+          "boolean"
+        ],
+        [
+          "carrierIdentifier",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/trade/TradeMenuExporter.cpp",
+      "group": "Trade",
+      "method": "open"
+    },
+    {
+      "name": "tradePollSettlements",
+      "params": [],
+      "returns": "string",
+      "file": "src/trade/TradeMenuExporter.cpp",
+      "group": "Trade",
+      "method": "pollSettlements"
+    },
+    {
+      "name": "tradeSetSettle",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "on",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/trade/TradeMenuExporter.cpp",
+      "group": "Trade",
+      "method": "setSettle"
+    },
+    {
+      "name": "tradeSetTier",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "tier",
+          "number"
+        ],
+        [
+          "experience",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/trade/TradeMenuExporter.cpp",
+      "group": "Trade",
+      "method": "setTier"
+    },
+    {
+      "name": "viewBlock",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "type",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "block"
+    },
+    {
+      "name": "viewClearAll",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "any",
+      "file": "src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "clearAll"
+    },
+    {
+      "name": "viewClearBlock",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "clearBlock"
+    },
+    {
+      "name": "viewClearEntity",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "uniqueId",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "clearEntity"
+    },
+    {
+      "name": "viewClearId",
+      "params": [
+        [
+          "uniqueId",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "clearId"
+    },
+    {
+      "name": "viewDescribe",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "string",
+      "file": "src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "describe"
+    },
+    {
+      "name": "viewEcho",
+      "params": [
+        [
+          "text",
+          "string"
+        ]
+      ],
+      "returns": "string",
+      "file": "src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "echo"
+    },
+    {
+      "name": "viewEntity",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "uniqueId",
+          "number"
+        ],
+        [
+          "spec",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "entity"
+    },
+    {
+      "name": "viewItemSpawnHooked",
+      "params": [],
+      "returns": "boolean",
+      "file": "src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "itemSpawnHooked"
+    },
+    {
+      "name": "viewMetaProbe",
+      "params": [
+        [
+          "spec",
+          "string"
+        ]
+      ],
+      "returns": "string",
+      "file": "src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "metaProbe"
+    },
+    {
+      "name": "viewPollSpawnEvents",
+      "params": [],
+      "returns": "string",
+      "file": "src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "pollSpawnEvents"
+    },
+    {
+      "name": "viewSelf",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "spec",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "self"
+    },
+    {
+      "name": "viewSelfClear",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "selfClear"
+    },
+    {
+      "name": "viewSelfHide",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "hidden",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "selfHide"
+    },
+    {
+      "name": "viewSelfName",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "nametag",
+          "string"
+        ],
+        [
+          "alwaysShow",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "selfName"
+    },
+    {
+      "name": "viewSelfSkin",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "skinOfPlayer",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "selfSkin"
+    },
+    {
+      "name": "viewSelfType",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "type",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "selfType"
+    },
+    {
+      "name": "viewTargetType",
+      "params": [
+        [
+          "uniqueId",
+          "number"
+        ],
+        [
+          "type",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "targetType"
+    },
+    {
+      "name": "viewUniqueIdOf",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "uniqueIdOf"
+    }
+  ]
+}

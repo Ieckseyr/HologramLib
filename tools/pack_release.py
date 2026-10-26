@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """pack_release.py —— 把 bin/<mod>/ 打成发布包 bin/<mod>.zip。
 
-发布包里除了 DLL / PDB / manifest.json，还必须带上脚本导入层（`lse/`）：
+发布包里除了 DLL / PDB / manifest.json，还必须带上脚本导入层（三个文件，和 DLL 平级）：
 
     HologramLib/
       HologramLib.dll
       HologramLib.pdb
       manifest.json
-      lse/HologramLib.js       ← 脚本 require 这个
-      lse/HologramLib.d.ts     ← 编辑器补全
-      lse/exports.json         ← 机器可读清单
+      HologramLib.js       ← 脚本 require 这个（和 DLL 平级）
+      HologramLib.d.ts     ← 编辑器补全
+      exports.json         ← 机器可读清单
 
 用法：
   python tools/pack_release.py            # 打 bin/HologramLib.zip
@@ -30,9 +30,9 @@ ZIP = os.path.join(ROOT, "bin", MOD + ".zip")
 REQUIRED = [
     "HologramLib.dll",
     "manifest.json",
-    os.path.join("lse", "HologramLib.js"),
-    os.path.join("lse", "HologramLib.d.ts"),
-    os.path.join("lse", "exports.json"),
+    "HologramLib.js",
+    "HologramLib.d.ts",
+    "exports.json",
 ]
 
 

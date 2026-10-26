@@ -19,6 +19,10 @@
 !/abi/
 !/xmake.lua
 !/manifest.json
+# 脚本导入层：生成物，但要入库 —— 跟 DLL 一起分发，CI 用 --check 防漂移
+!/HologramLib.js
+!/HologramLib.d.ts
+!/exports.json
 
 # 白名单内仍需排除的内容
 src/**/*.log

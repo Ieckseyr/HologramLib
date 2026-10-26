@@ -138,18 +138,18 @@ target("HologramLib")
         add_defines("LL_PLAT_C")
     end
 
-    -- 脚本导入层随包发布：bin/HologramLib/lse/ 必须和 DLL 一起进发布包，
-    -- 否则脚本侧只能自己复制一份，版本一升就和库对不上。
-    -- 生成物在 lse/（python tools/gen_lse_shim.py），这里只负责搬运。
+    -- 脚本导入层随包发布：和 DLL 平级放在 bin/HologramLib/ 根（部署后就是
+    -- plugins/HologramLib/HologramLib.js），脚本 require 这个文件即可。
+    -- 生成物在插件根（python tools/gen_lse_shim.py），这里只负责搬到 bin/。
     after_build(function(target)
-        local outdir = path.join(os.projectdir(), "bin", target:name(), "lse")
+        local outdir = path.join(os.projectdir(), "bin", target:name())
         os.mkdir(outdir)
         for _, name in ipairs({ "HologramLib.js", "HologramLib.d.ts", "exports.json" }) do
-            local src = path.join(os.projectdir(), "lse", name)
+            local src = path.join(os.projectdir(), name)
             if os.isfile(src) then
                 os.cp(src, path.join(outdir, name))
             else
-                print("warn: 缺少 lse/" .. name .. "（先跑 python tools/gen_lse_shim.py）")
+                print("warn: 缺少 " .. name .. "（先跑 python tools/gen_lse_shim.py）")
             end
         end
     end)

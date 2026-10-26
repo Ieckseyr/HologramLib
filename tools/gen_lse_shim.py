@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """gen_lse_shim.py —— 从源码里的 exportAs 调用生成脚本侧导入层。
 
-生成三个文件（都在 lse/ 下）：
+生成三个文件（都在插件根目录，随包分发）：
 
-  lse/HologramLib.js    脚本直接 require 的模块（懒绑定 + 缺 lrca 时安全空操作）
-  lse/HologramLib.d.ts  编辑器补全用的类型声明（参数名 / 类型 / 返回）
-  lse/exports.json      机器可读清单（名称 → 参数 → 返回），文档与 CI 共用
+  HologramLib.js        脚本直接 require 的模块（懒绑定 + 缺 lrca 时安全空操作）
+  HologramLib.d.ts      编辑器补全用的类型声明（参数名 / 类型 / 返回）
+  exports.json         机器可读清单（名称 → 参数 → 返回），文档与 CI 共用
 
 为什么生成而不是手写：导出数是 337 且还在长，手写的列表一定会和源码漂移。
 CI 里跑 --check 比对，源码与生成物不一致就失败。
@@ -25,7 +25,9 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "src")
-OUT_DIR = os.path.join(ROOT, "lse")
+# 产物直接放插件根目录：部署后就是 plugins/HologramLib/HologramLib.js，
+# 脚本 require("plugins/HologramLib/HologramLib.js") 即可；发布包里也在根。
+OUT_DIR = ROOT
 NAMESPACE = "HologramLib"
 
 # 前缀 → 分组（参考 GMLIB-LegacyRemoteCallApi 的"类.方法"写法）

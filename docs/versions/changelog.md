@@ -51,7 +51,7 @@ LSE 导出 314 → **330**。
 
 #### 脚本导入层
 
-`lse/HologramLib.js`（+ `.d.ts` / `exports.json`）由 `tools/gen_lse_shim.py` 从 `exportAs` 生成：
+`HologramLib.js`（+ `.d.ts` / `exports.json`，和 DLL 平级）由 `tools/gen_lse_shim.py` 从 `exportAs` 生成：
 `const HL = require("./HologramLib.js")` 之后 `HL.itemActorSpawn(...)`，不用再写 `lrca` 探测与名字清单。
 懒绑定（用几个绑几个）、缺 `lrca`/缺函数降级为空操作、拼错名字给 `undefined` 并警告、首次绑定核对一次版本。
 另有 `holoInfo()` / `holoApiVersion()` 两个元信息导出。设计记录见 `docs/internal/脚本导入层设计.md`。

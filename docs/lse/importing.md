@@ -10,7 +10,7 @@
 
 ## 发布包里就带着
 
-解压 `HologramLib.zip` 之后，`plugins/HologramLib/lse/` 里是三个文件：
+解压 `HologramLib.zip` 之后，`plugins/HologramLib/`（和 DLL 平级） 里是三个文件：
 
 | 文件 | 用途 |
 |---|---|
@@ -24,7 +24,7 @@
 
 ```js
 // A. 直接引库目录里那份 —— 升级库时自动跟着换
-const HL = require("plugins/HologramLib/lse/HologramLib.js");
+const HL = require("plugins/HologramLib/HologramLib.js");
 ```
 
 ```js
@@ -38,7 +38,7 @@ const HL = require("./HologramLib.js");
 
 ```js
 // 写法一：类.方法（同 GMLIB-LegacyRemoteCallApi 的风格）
-const { ItemActor, Visibility, LocatorBar } = require("plugins/HologramLib/lse/HologramLib.js");
+const { ItemActor, Visibility, LocatorBar } = require("plugins/HologramLib/HologramLib.js");
 
 ItemActor.spawn("minecraft:diamond", 0, 1, 100.5, 65, 100.5, 0, 0, 0.4, 0);
 ItemActor.setMotion(id, -0.3, 0.2, 0);
@@ -48,7 +48,7 @@ LocatorBar.set("Steve", "boss", x, y, z, 0, 0xFF0000, true);
 
 ```js
 // 写法二：平铺（名字就是导出名，跟函数表一一对应）
-const HL = require("plugins/HologramLib/lse/HologramLib.js");
+const HL = require("plugins/HologramLib/HologramLib.js");
 
 HL.itemActorSpawn("minecraft:diamond", 0, 1, 100.5, 65, 100.5, 0, 0, 0.4, 0);
 HL.playerHideSetHidden("Steve", true);
@@ -119,7 +119,7 @@ const formClose      = ll.import("HologramLib", "formClose");
 
 ## 编辑器补全
 
-`lse/HologramLib.d.ts` 和 `.js` 放在一起即可生效；拷到你脚本目录旁边（B 方案）也能用：
+`HologramLib.d.ts` 和 `.js` 放在一起即可生效；拷到你脚本目录旁边（B 方案）也能用：
 
 ```ts
 // 自动生成，参数名与类型从 C++ 导出签名解析
@@ -134,16 +134,16 @@ locatorBarSet(playerName: string, key: string, x: number, y: number, z: number,
 ```
 python tools/gen_lse_shim.py          # 重新生成（改过导出就重跑）
 python tools/gen_lse_shim.py --check  # CI 用：和源码不一致就失败
-python tools/pack_release.py          # 打包（会把 lse/ 一起放进 bin/HologramLib.zip）
+python tools/pack_release.py          # 打包（三个文件一起进 bin/HologramLib.zip）
 node tools/shim_test.js               # 离线自测（不需要服务器）
 ```
 
-构建时 `xmake` 的 `after_build` 会把 `lse/` 拷进 `bin/HologramLib/`，所以发布包里一定有它。
+构建时 `xmake` 的 `after_build` 会把这三个文件拷进 `bin/HologramLib/`，所以发布包里一定有它。
 
 ## 常见坑
 
 - **`require` 的路径**是相对**当前脚本文件**的。A 方案用的是相对仓库根的路径
-  `plugins/HologramLib/lse/...`，在 LSE 里可用；B 方案则是 `./HologramLib.js`，
+  `plugins/HologramLib/HologramLib.js`，在 LSE 里可用；B 方案则是 `./HologramLib.js`，
   文件得真的在脚本旁边。别写 `require("HologramLib")`（没装成 node_modules 包）。
 - **`ll` 是全局的**，由 `lrca` 提供。导入层会探测它；没有 `lrca` 时所有调用都是空操作，
   不是抛错 —— 所以"什么都没反应"时先看日志里有没有 `ll.import 不可用`。
