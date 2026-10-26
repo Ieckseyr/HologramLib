@@ -182,7 +182,7 @@ setInterval(() => {                                  // 也可以挂在 mc.liste
 ### 假箱子的开合动画
 
 `containerBlockEvent(menuId, b0, b1)` 在那只假箱子的坐标发一条 `BlockEventPacket`，让客户端播方块事件。
-箱子盖 `b0=1` 开、`0` 合（**未实测**）；参数原样透传，别的方块事件也能用。
+箱子盖 `b0=1` 开、`0` 合；参数原样透传，别的方块事件也能用。
 
 ```js
 const containerBlockEvent = ll.import("HologramLib", "containerBlockEvent");

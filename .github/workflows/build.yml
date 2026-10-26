@@ -30,6 +30,10 @@ jobs:
       - name: 导出清单（重名 + 文档总数）
         run: python tools/check_exports.py --check-docs
 
+      # 文档站上不出现「未实测」这类免责声明；维护者备注写进 docs/internal/（不上站）
+      - name: 文档措辞
+        run: python tools/check_docs_wording.py
+
       # 脚本导入层是生成物：加了导出却忘了重生成，脚本侧会拿到 undefined。
       - name: 脚本导入层（生成物是否最新）
         run: python tools/gen_lse_shim.py --check
