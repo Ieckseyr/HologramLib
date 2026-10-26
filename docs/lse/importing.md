@@ -6,27 +6,41 @@
 - 每个脚本都要复制一份 `lrca` 探测 + 名字清单，改一个函数名要改所有脚本
 - 最容易踩的坑：把 `ll.import(...)` 写在 `setInterval` / `onTick` 里 —— **每次调用都走一遍完整绑定**
 
-库自带一个生成好的导入层，把这三件事一次解决。
+库自带一个生成好的导入层，**随发布包一起发**，把这三件事一次解决。
 
-## 用法
+## 发布包里就带着
 
-把 `plugins/HologramLib/lse/HologramLib.js` 拷到脚本目录旁边，然后：
+解压 `HologramLib.zip` 之后，`plugins/HologramLib/lse/` 里是三个文件：
+
+| 文件 | 用途 |
+|---|---|
+| `HologramLib.js` | 脚本 `require` 的模块 |
+| `HologramLib.d.ts` | 编辑器补全（函数名 / 参数名 / 类型 / 返回） |
+| `exports.json` | 机器可读清单，给工具链用 |
+
+不用自己生成，也不用从仓库里拷。
+
+## 两种引法
 
 ```js
-const HL = require("./HologramLib.js");
+// A. 直接引库目录里那份 —— 升级库时自动跟着换
+const HL = require("plugins/HologramLib/lse/HologramLib.js");
+```
 
+```js
+// B. 拷到脚本目录旁边 —— 想锁版本时用这个
+const HL = require("./HologramLib.js");
+```
+
+两种调法完全一样：
+
+```js
 // 直接用
 HL.itemActorSpawn("minecraft:diamond", 0, 1, 100.5, 65, 100.5, 0, 0, 0.4, 0);
 HL.playerHideSetHidden("Steve", true);
 
 // 或者在启动时解构一次（之后完全不走 Proxy）
 const { formClose, locatorBarSet, locatorBarClear } = HL;
-```
-
-也可以不拷，用绝对路径（注意 LSE 脚本目录是 `plugins/<你的插件>/`）：
-
-```js
-const HL = require("plugins/HologramLib/lse/HologramLib.js");
 ```
 
 对比一下原来必须写的：
@@ -63,32 +77,33 @@ const formClose      = ll.import("HologramLib", "formClose");
 
 ## 编辑器补全
 
-同目录还有 `HologramLib.d.ts`，放在脚本旁边，`HL.` 就能补全函数名与参数名/类型
-（参数名和类型是从 C++ 导出签名里解析出来的，返回类型也一致）。
+`lse/HologramLib.d.ts` 和 `.js` 放在一起即可生效；拷到你脚本目录旁边（B 方案）也能用：
 
 ```ts
-// HologramLib.d.ts（自动生成）
+// 自动生成，参数名与类型从 C++ 导出签名解析
 locatorBarSet(playerName: string, key: string, x: number, y: number, z: number,
               dim: number, color: number, visible: boolean): boolean;
 ```
 
 ## 版本与刷新
 
-导入层是**生成物**，跟着 `exportAs` 走：
+导入层跟着源码里的 `exportAs` 走，由 `tools/gen_lse_shim.py` 生成：
 
 ```
 python tools/gen_lse_shim.py          # 重新生成（改过导出就重跑）
 python tools/gen_lse_shim.py --check  # CI 用：和源码不一致就失败
+python tools/pack_release.py          # 打包（会把 lse/ 一起放进 bin/HologramLib.zip）
 node tools/shim_test.js               # 离线自测（不需要服务器）
 ```
 
-生成物三个：`lse/HologramLib.js`、`lse/HologramLib.d.ts`、`lse/exports.json`（机器可读清单）。
+构建时 `xmake` 的 `after_build` 会把 `lse/` 拷进 `bin/HologramLib/`，所以发布包里一定有它。
 
 ## 常见坑
 
-- **`require` 的路径**是相对**当前脚本文件**的。放在 `plugins/MyPlugin/` 下就用 `require("./HologramLib.js")`，
-  文件得真的在那儿；别再写 `require("HologramLib")`（没装成 node_modules 包）。
+- **`require` 的路径**是相对**当前脚本文件**的。A 方案用的是相对仓库根的路径
+  `plugins/HologramLib/lse/...`，在 LSE 里可用；B 方案则是 `./HologramLib.js`，
+  文件得真的在脚本旁边。别写 `require("HologramLib")`（没装成 node_modules 包）。
 - **`ll` 是全局的**，由 `lrca` 提供。导入层会探测它；没有 `lrca` 时所有调用都是空操作，
   不是抛错 —— 所以"什么都没反应"时先看日志里有没有 `ll.import 不可用`。
-- 升级库之后重新生成一次导入层。库比导入层新时通常没问题（旧清单里的函数都还在），
-  反过来（导入层比库新）才会遇到"缺函数 → 空操作"。
+- 升级库之后 A 方案不用改；B 方案要重新拷一次。库比导入层新通常没问题（旧清单里的函数都还在），
+  反过来（导入层比库新）才会遇到"缺函数 → 空操作"，而且首次绑定时的版本核对会提示。
