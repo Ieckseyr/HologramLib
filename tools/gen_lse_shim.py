@@ -28,6 +28,33 @@ SRC = os.path.join(ROOT, "src")
 OUT_DIR = os.path.join(ROOT, "lse")
 NAMESPACE = "HologramLib"
 
+# 前缀 → 分组（参考 GMLIB-LegacyRemoteCallApi 的"类.方法"写法）
+#   (前缀, 分组名, 方法名是否去掉前缀)
+# 方法名 = 导出名去掉前缀、首字母小写（itemActorSpawn → ItemActor.spawn）
+GROUPS = [
+    ("shape", "Shape"),
+    ("holo", "Hologram"),
+    ("gradient", "GradientLine"),
+    ("itemDetail", "ItemDetail"),
+    ("itemDisplay", "ItemDisplay"),
+    ("entity", "Entity"),
+    ("ghost", "Ghost"),
+    ("particle", "Particle"),
+    ("playerNpc", "PlayerNpc"),
+    ("trade", "Trade"),
+    ("container", "Container"),
+    ("npcDialog", "NpcDialog"),
+    ("sensing", "Sensing"),
+    ("fakeInv", "FakeInventory"),
+    ("sulfur", "Sulfur"),
+    ("view", "View"),
+    ("itemActor", "ItemActor"),
+    ("playerHide", "Visibility"),
+    ("locatorBar", "LocatorBar"),
+    ("form", "Form"),
+]
+# 注意顺序：先长后短（itemDetail 要先于 item... 之类），group_for 会按长度降序试
+
 # C++ 形参类型 → TS 类型（够用即可；拿不准的一律 any）
 TYPE_MAP = [
     (r"std::string", "string"),
@@ -146,6 +173,22 @@ def parse_return(lambda_src: str) -> str:
     return ts_type(m.group(1))
 
 
+def group_for(name: str) -> tuple[str, str]:
+    """导出名 → (分组名, 方法名)。没有匹配前缀的归到 Misc，方法名就是原名。"""
+    best = None
+    for prefix, group in GROUPS:
+        if name.startswith(prefix) and (best is None or len(prefix) > len(best[0])):
+            best = (prefix, group)
+    if best is None:
+        return ("Misc", name)
+    prefix, group = best
+    rest = name[len(prefix):]
+    if not rest:
+        return ("Misc", name)
+    method = rest[0].lower() + rest[1:]
+    return (group, method)
+
+
 def collect_exports() -> list[dict]:
     found: list[dict] = []
     for root, _dirs, files in os.walk(SRC):
@@ -173,6 +216,8 @@ def collect_exports() -> list[dict]:
                         "params": parse_params(lambda_src),
                         "returns": parse_return(lambda_src),
                         "file": os.path.relpath(path, ROOT).replace("\\", "/"),
+                        "group": group_for(name)[0],
+                        "method": group_for(name)[1],
                     }
                 )
     found.sort(key=lambda e: e["name"])
@@ -181,15 +226,32 @@ def collect_exports() -> list[dict]:
 
 def render_js(exports: list[dict], api_version: str, abi_stamp: str) -> str:
     names = ",\n  ".join(f'"{e["name"]}"' for e in exports)
+
+    # 分组成员表：{ ItemActor: { spawn:"itemActorSpawn", ... }, ... }
+    by_group: dict[str, list[dict]] = {}
+    for e in exports:
+        by_group.setdefault(e["group"], []).append(e)
+    group_lines = []
+    for group in sorted(by_group):
+        members = sorted(by_group[group], key=lambda x: x["method"])
+        body = ",".join(f'{m["method"]}:"{m["name"]}"' for m in members)
+        group_lines.append(f"  {group}: {{{body}}}")
+    group_members = ",\n".join(group_lines)
+
     return f'''// HologramLib.js —— 脚本侧导入层（自动生成，不要手改）
 //
 // 生成器: tools/gen_lse_shim.py    目标版本: API {api_version} / ABI 戳 {abi_stamp}
 //
-// 用法（放在脚本同目录，或者用绝对路径 require）:
+// 用法一（推荐，按类分组 —— 同 GMLIB-LegacyRemoteCallApi 的写法）:
+//
+//   const {{ ItemActor, Visibility, LocatorBar }} = require("./HologramLib.js");
+//   ItemActor.spawn("minecraft:diamond", 0, 1, 100.5, 65, 100.5, 0, 0, 0.4, 0);
+//   Visibility.setHidden("Steve", true);
+//
+// 用法二（平铺，名字就是导出名）:
 //
 //   const HL = require("./HologramLib.js");
 //   HL.itemActorSpawn("minecraft:diamond", 0, 1, 100.5, 65, 100.5, 0, 0, 0.4, 0);
-//   HL.playerHideSetHidden("Steve", true);
 //
 // 设计要点:
 //   · ll.import 只在**第一次取某个函数**时做一次, 之后用缓存 —— 脚本用几个就绑几个,
@@ -276,7 +338,31 @@ function bind(name) {{
   return fn;
 }}
 
+// ── 按类分组（GMLIB 风格：类.方法）──
+// 每组一个普通对象, 方法同样是懒绑定; 组对象本身是常量, 解构之后再没有 Proxy 开销。
+function makeGroup(methods) {{
+  const group = Object.create(null);
+  for (const method in methods) {{
+    const exportName = methods[method];
+    group[method] = function () {{
+      return bind(exportName).apply(null, arguments);
+    }};
+  }}
+  return Object.freeze(group);
+}}
+
+const GROUP_MEMBERS = {{
+{group_members}
+}};
+
+const groups = {{}};
+for (const groupName in GROUP_MEMBERS) {{
+  groups[groupName] = makeGroup(GROUP_MEMBERS[groupName]);
+}}
+
 const api = {{
+  /** 全部分组（也可以直接解构到变量） */
+  groups: groups,
   /** 库的 API 版本（如 "1.32.0"）；拿不到时是生成时的那个值 */
   apiVersion: API_VERSION,
   /** 虚表布局戳；消费方升级库时要重新编译（脚本不用管） */
@@ -288,6 +374,13 @@ const api = {{
   /** 显式绑定一个函数（等价于取属性, 但可读性更好） */
   bind: bind,
 }};
+
+// 每个分组也挂成 api 的自有属性, 于是下面两种写法都成立:
+//   const {{ ItemActor }} = require("./HologramLib.js");
+//   const ItemActor = require("./HologramLib.js").ItemActor;
+for (const groupName in groups) {{
+  api[groupName] = groups[groupName];
+}}
 
 module.exports = new Proxy(api, {{
   get: function (target, prop) {{
@@ -332,7 +425,31 @@ def render_dts(exports: list[dict], api_version: str) -> str:
         doc = f'    /** 实现见 {e["file"]} */'
         lines.append(doc)
         lines.append(cast)
-    lines += ["  }", "}", "", "declare const HL: HologramLib.Api;", "export = HL;", ""]
+    lines += ["  }", "", "  // ── 按类分组（同 GMLIB-LegacyRemoteCallApi 的写法）──"]
+
+    by_group: dict[str, list[dict]] = {}
+    for e in exports:
+        by_group.setdefault(e["group"], []).append(e)
+    for group in sorted(by_group):
+        lines.append(f"  interface {group} {{")
+        for e in sorted(by_group[group], key=lambda x: x["method"]):
+            params = ", ".join(f"{n}: {t}" for n, t in e["params"])
+            lines.append(f"    {e['method']}({params}): {e['returns']};")
+        lines.append("  }")
+        lines.append("")
+    lines.append("  interface Groups {")
+    for group in sorted(by_group):
+        lines.append(f"    {group}: {group};")
+    lines.append("  }")
+    lines += [
+        "",
+        "  const groups: Groups;",
+        "}",
+        "",
+        "declare const HL: HologramLib.Api & HologramLib.Groups;",
+        "export = HL;",
+        "",
+    ]
     return "\n".join(lines)
 
 

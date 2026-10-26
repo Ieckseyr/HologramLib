@@ -32,16 +32,58 @@ const HL = require("plugins/HologramLib/lse/HologramLib.js");
 const HL = require("./HologramLib.js");
 ```
 
-两种调法完全一样：
+## 两种写法
+
+拿到模块之后，可以按**类**用（推荐），也可以按**导出名**平铺用 —— 两种都行，同一套实现：
 
 ```js
-// 直接用
+// 写法一：类.方法（同 GMLIB-LegacyRemoteCallApi 的风格）
+const { ItemActor, Visibility, LocatorBar } = require("plugins/HologramLib/lse/HologramLib.js");
+
+ItemActor.spawn("minecraft:diamond", 0, 1, 100.5, 65, 100.5, 0, 0, 0.4, 0);
+ItemActor.setMotion(id, -0.3, 0.2, 0);
+Visibility.setHidden("Steve", true);
+LocatorBar.set("Steve", "boss", x, y, z, 0, 0xFF0000, true);
+```
+
+```js
+// 写法二：平铺（名字就是导出名，跟函数表一一对应）
+const HL = require("plugins/HologramLib/lse/HologramLib.js");
+
 HL.itemActorSpawn("minecraft:diamond", 0, 1, 100.5, 65, 100.5, 0, 0, 0.4, 0);
 HL.playerHideSetHidden("Steve", true);
-
-// 或者在启动时解构一次（之后完全不走 Proxy）
-const { formClose, locatorBarSet, locatorBarClear } = HL;
 ```
+
+平铺写法也可以先解构一次，之后完全不经过 Proxy：`const { formClose, locatorBarSet } = HL;`
+
+## 分组表
+
+方法名 = 导出名去掉前缀（`itemActorSpawn` → `ItemActor.spawn`）：
+
+| 分组 | 方法数 | 前缀 | 例子 |
+|---|---|---|---|
+| `Shape` | 39 | `shape*` | `Shape.create(...)` |
+| `Hologram` | 28 | `holo*` | `Hologram.setLineText(id, 0, "…")` |
+| `GradientLine` | 11 | `gradient*` | `GradientLine.create(...)` |
+| `ItemDetail` | 2 | `itemDetail*` | `ItemDetail.show(...)` |
+| `ItemDisplay` | 44 | `itemDisplay*` | `ItemDisplay.create(...)` |
+| `Entity` | 47 | `entity*` | `Entity.create(...)` |
+| `Ghost` | 2 | `ghost*` | `Ghost.poll(...)` |
+| `Particle` | 22 | `particle*` | `Particle.create(...)` |
+| `PlayerNpc` | 52 | `playerNpc*` | `PlayerNpc.spawn(...)` |
+| `Trade` | 10 | `trade*` | `Trade.open(...)` |
+| `Container` | 11 | `container*` | `Container.open(...)` |
+| `NpcDialog` | 9 | `npcDialog*` | `NpcDialog.open(...)` |
+| `Sensing` | 3 | `sensing*` | `Sensing.inputMode(...)` |
+| `FakeInventory` | 9 | `fakeInv*` | `FakeInventory.apply(...)` |
+| `Sulfur` | 10 | `sulfur*` | `Sulfur.create(...)` |
+| `View` | 19 | `view*` | `View.entity(...)` |
+| `ItemActor` | 8 | `itemActor*` | `ItemActor.spawn(...)` |
+| `LocatorBar` | 6 | `locatorBar*` | `LocatorBar.set(...)` |
+| `Form` | 2 | `form*` | `Form.close(...)` |
+| `Visibility` | 5 | `playerHide*` | `Visibility.setHidden(...)` |
+
+`HL.groups` 里有同一份对象（`HL.groups.ItemActor.spawn`），分组对象是冻结的。
 
 对比一下原来必须写的：
 

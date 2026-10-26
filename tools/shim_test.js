@@ -20,7 +20,7 @@ function fakeImport(ns, name) {
   if (name === "holoInfo") {
     return () => JSON.stringify({ apiVersion: "1.32.0", apiVersionNumber: 0x012600, abiStamp: 1 });
   }
-  if (name === "itemActorSpawn" || name === "formClose") {
+  if (name === "itemActorSpawn" || name === "formClose" || name === "playerHideSetHidden") {
     return (...args) => {
       calls.push([name, args]);
       return name === "itemActorSpawn" ? 7 : true;
@@ -133,5 +133,28 @@ console.log("[9] 没有 lrca 时整套导入层仍然可用（全是空操作）
   assert.strictEqual(HL2.itemActorSpawn("x"), undefined);
   ok("缺 lrca 降级为空操作", () => {});
 }
+
+console.log("[10] 按类分组（GMLIB 风格）：类.方法 可用");
+{
+  global.ll = { import: fakeImport }; // [9] 把 global.ll 删了, 这里恢复
+  const { ItemActor, Visibility, LocatorBar } = HL;
+  assert.ok(ItemActor && Visibility && LocatorBar, "三个分组应该都能解构出来");
+  assert.strictEqual(typeof ItemActor.spawn, "function");
+  assert.strictEqual(typeof Visibility.setHidden, "function");
+  assert.strictEqual(typeof LocatorBar.set, "function");
+  assert.strictEqual(ItemActor.spawn("minecraft:diamond"), 7, "分组方法要转到真导出");
+  assert.strictEqual(Visibility.setHidden("Steve", true), true);
+  assert.ok(Object.keys(HL.groups).length >= 19, `分组数 ${Object.keys(HL.groups).length}`);
+  ok(`分组 ${Object.keys(HL.groups).length} 个，类.方法可用`, () => {});
+}
+
+console.log("[11] 分组对象冻结（不会被误改）");
+{
+  const before = HL.groups.ItemActor.spawn;
+  try { HL.groups.ItemActor.spawn = null; } catch (_) { /* 严格模式抛错, 非严格静默 */ }
+  assert.strictEqual(HL.groups.ItemActor.spawn, before, "分组方法不应该被替换");
+  ok("分组对象只读", () => {});
+}
+
 
 console.log(`\nSHIM-TEST: ${pass} 项通过${process.exitCode ? "（有失败）" : ""}`);
