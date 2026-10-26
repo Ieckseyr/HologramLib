@@ -157,7 +157,7 @@ setInterval(() => {
 | 掉落物生成 | `itemActor*` | [掉落物生成](item-actor.md) |
 | 表单控制 | `form*` | [表单控制](form.md) |
 | 方位条 | `locatorBar*` | [方位条](locator-bar.md) |
-| 隐身与出站包控制 | `playerHide*` | [隐身与出站包控制](visibility.md) |
+| 隐身 | `playerHide*` | [隐身](visibility.md) |
 
 函数总数 339，全部在运行期注册，`ll.import` 都能拿到。
 

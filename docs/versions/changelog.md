@@ -20,41 +20,34 @@
 
 只加能力，没有改动既有行为。**虚表尾部追加**：3 个新接口 + `IContainerMenu` / `IPlayerNpc` 各加 1~2 个方法，
 `HOLOGLIB_ABI_STAMP` 仍为 1；带旧头文件编译的 C++ 消费方需要重新编译（`abi/v1.32.0.json` 已更新）。
-LSE 导出 314 → **330**。
+LSE 导出 298 → **339**。
 
 #### 新域
 
-- **协议层掉落物 `IItemActor`**（`itemActor*` 8 个导出）：客户端凭空出现一只掉落物，服务端没有它 ——
-  不参与拾取、不进存档、没有物理。`spawn` 给初速度，`setMotion` 可以**飞行途中改速度与方向**
-  （`SetActorMotion` 是"设定当前速度"，不是一次性冲量），`take` 只播"飞向玩家"的动画再删掉。
-  走 `AddItemActor` / `SetActorMotion` / `TakeItemActor`。
-  **边界**：物品不带 NBT（普通掉落物不需要），所以不碰物品描述符的 NBT 方言问题；
-  要带名字的物品用 `itemDisplay*`。actor 号段新增 `0x70` 段，不参与 ghost 路由。
-- **客户端表单控制 `IFormControl`**（`form*` 2 个）：库不生成表单，只提供"强制关掉"
-  （`ClientboundCloseForm`），玩家 ESC 不掉、界面被别的插件顶掉、过场收界面时用。
-- **玩家出站包控制 `IPlayerVisibility`**（`playerHide*` 5 个）：按"被看的人（主体）"屏蔽出站包 ——
-  出生 / Tab / 移动 / 状态 / 皮肤逐类可关（`PlayerPacketMask`），或整体隐身（`setHidden`，复用视图覆盖域的
-  hidden 通道），`restore` 清掩码并**立刻把出生包重新发给所有观看者**（借视图覆盖域"撤销即补发真身"那条流程）。
-  在出站钩子上判定：认不出包 / 多玩家混装的 `PlayerList` / 收件人就是本人（且没开 `alsoSelf`）一律放行。
-- **方位条 `ILocatorBar`**（`locatorBar*` 6 个）：按玩家维护航点（`LocatorBar`）。key 由调用方起名，
-  库按 key 稳定派生 UUID，更新/删除不需要保管 UUID。另有 `hideFromOthers` / `isHiddenFromOthers`：
-  把某个玩家从**其他人的客户端**上藏起来（其他人的客户端不再收到他的出生/移动/状态/皮肤/Tab 包），
-  本人照常看得到自己；实现已并入 `IPlayerVisibility`（`locatorBarHideFromOthers` 是它的薄包装）。
-  图标与颜色由客户端按这两个字段渲染。
+- **掉落物 `IItemActor`**（`itemActor*` 8 个）：在客户端显示掉落物，服务端没有对应实体。
+  `setMotion` 可随时修改速度与方向，`take` 播放拾取动画后删除。
+  物品只含 id、数量与 aux，不携带 NBT；需要自定义名称用 `itemDisplay*`。
+  实体号段新增 `0x70`，不参与交互事件路由。
+- **表单关闭 `IFormControl`**（`form*` 2 个）：发送 `ClientboundCloseForm` 关闭客户端当前表单。
+- **隐身 `IPlayerVisibility`**（`playerHide*` 5 个）：控制其他客户端是否接收某个玩家的数据包。
+  掩码可分别屏蔽出生 / Tab / 移动 / 状态 / 皮肤；`setHidden` 使已出生的玩家立即消失；
+  `restore` 清除记录并重新发送出生包。
+- **方位条 `ILocatorBar`**（`locatorBar*` 6 个）：按玩家维护航点，`key` 由调用方命名，库据此生成 UUID，
+  更新与删除无需保存 UUID。`hideFromOthers` 转发到 `IPlayerVisibility`。
 
 #### 既有接口尾部追加
 
-- `IContainerMenu::blockEvent(menuId, b0, b1)`：在假箱子的坐标发 `BlockEvent`（`containerBlockEvent`）。
-  箱子盖 `b0=1` 开 / `0` 合；参数原样透传，别的方块事件也能用。
-- `IPlayerNpc::playEmote(id, pieceId, lengthTicks)`：原版表情动作（`EmotePacket`，`playerNpcPlayEmote`）。
-  只发给已见过该 NPC 的玩家。
+- `IContainerMenu::blockEvent(menuId, b0, b1)`（`containerBlockEvent`）：在假箱子坐标发送 `BlockEvent`。
+- `IPlayerNpc::playEmote(id, pieceId, lengthTicks)`（`playerNpcPlayEmote`）：播放原版表情动作，
+  只发送给已见过该 NPC 的玩家。
 
 #### 脚本导入层
 
-`HologramLib.js`（+ `.d.ts` / `exports.json`，和 DLL 平级）由 `tools/gen_lse_shim.py` 从 `exportAs` 生成：
-`const HL = require("./HologramLib.js")` 之后 `HL.itemActorSpawn(...)`，不用再写 `lrca` 探测与名字清单。
-懒绑定（用几个绑几个）、缺 `lrca`/缺函数降级为空操作、拼错名字给 `undefined` 并警告、首次绑定核对一次版本。
-另有 `holoInfo()` / `holoApiVersion()` 两个元信息导出。设计记录见 `docs/internal/脚本导入层设计.md`。
+发布包内新增 `HologramLib.js`、`HologramLib.d.ts`、`exports.json`（与 DLL 平级）。
+脚本可用 `require("plugins/HologramLib/HologramLib.js")` 后按分组或按函数名调用，
+也可继续使用 `ll.import`。函数首次使用时才与库绑定；缺少 `lrca` 或函数不存在时调用被忽略并记录警告。
+
+另有 `holoInfo()` / `holoApiVersion()` 两个版本信息导出。
 
 #### 工具
 

@@ -152,7 +152,7 @@ nav:
       - 掉落物生成: lse/item-actor.md
       - 表单控制: lse/form.md
       - 方位条: lse/locator-bar.md
-      - 隐身与出站包控制: lse/visibility.md
+      - 隐身: lse/visibility.md
   - C++ 接口参考: reference/cpp-api.md
   - 能力域:
       - 总览: domains/README.md
@@ -169,7 +169,7 @@ nav:
       - 掉落物: domains/item-actor.md
       - 表单控制: domains/form.md
       - 方位条: domains/locator-bar.md
-      - 玩家出站包控制: domains/visibility.md
+      - 隐身: domains/visibility.md
   - 更新日志: versions/changelog.md
 
 markdown_extensions:

@@ -12,7 +12,7 @@ static constexpr const char* NAMESPACE = "HologramLib";
 
 void InfoExporter::exportAll() {
     // holoInfo() -> JSON: {"apiVersion":"1.32.0","apiVersionNumber":73984,"abiStamp":1}
-    //   脚本导入层用它核对"DLL 与生成时的版本是否一致"; 消费方也可用来做能力判断。
+    //   脚本导入模块用它核对版本。
     hologramlib::lse::exportAs(NAMESPACE, "holoInfo", []() -> std::string {
         auto const number = static_cast<std::uint32_t>(HOLOGLIB_API_VERSION);
         auto const major  = number >> 16;
@@ -27,7 +27,7 @@ void InfoExporter::exportAll() {
             static_cast<std::uint32_t>(HOLOGLIB_ABI_STAMP));
     });
 
-    // holoApiVersion() -> int（0x012600 这种原始数字, 方便脚本按位比较）
+    // holoApiVersion() -> int，原始版本号
     hologramlib::lse::exportAs(NAMESPACE, "holoApiVersion", []() -> int64_t {
         return static_cast<int64_t>(HOLOGLIB_API_VERSION);
     });

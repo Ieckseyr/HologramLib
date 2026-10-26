@@ -1,25 +1,23 @@
-// HologramLib.js —— 脚本侧导入层（自动生成，不要手改）
+// HologramLib.js —— 脚本导入模块（由 tools/gen_lse_shim.py 生成）
 //
-// 生成器: tools/gen_lse_shim.py    目标版本: API 1.32.0 / ABI 戳 1
+// 版本: API 1.32.0 / ABI 戳 1
 //
-// 用法一（推荐，按类分组 —— 同 GMLIB-LegacyRemoteCallApi 的写法）:
+// 用法一：按分组调用
 //
-//   const { ItemActor, Visibility, LocatorBar } = require("./HologramLib.js");
+//   const { ItemActor, Visibility, LocatorBar } = require("plugins/HologramLib/HologramLib.js");
 //   ItemActor.spawn("minecraft:diamond", 0, 1, 100.5, 65, 100.5, 0, 0, 0.4, 0);
 //   Visibility.setHidden("Steve", true);
 //
-// 用法二（平铺，名字就是导出名）:
+// 用法二：按函数原名调用
 //
-//   const HL = require("./HologramLib.js");
+//   const HL = require("plugins/HologramLib/HologramLib.js");
 //   HL.itemActorSpawn("minecraft:diamond", 0, 1, 100.5, 65, 100.5, 0, 0, 0.4, 0);
 //
-// 设计要点:
-//   · ll.import 只在**第一次取某个函数**时做一次, 之后用缓存 —— 脚本用几个就绑几个,
-//     不会像"开局循环导入全部导出"那样付几百次绑定;
-//   · 库里没有 lrca / 函数名写错 → 拿到的是**安全空操作**（返回 undefined, 记一条日志）, 
-//     不会让整个脚本在加载期就抛异常;
-//   · 想完全避开 Proxy 的那一点点开销, 在启动时解构一次即可:
-//         const { holoCreate, holoSetLineText } = require("./HologramLib.js");
+// 说明:
+//   · 函数在首次使用时才与库绑定，之后复用。
+//   · 缺少 lrca 或函数不存在时，调用被忽略并记录一条警告，脚本不会中断。
+//   · HL.list() 返回全部函数名，HL.has(name) 判断是否存在。
+
 'use strict';
 
 const NAMESPACE = "HologramLib";

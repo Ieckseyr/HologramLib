@@ -171,7 +171,7 @@ HologramLib/
 │   ├── playernpc/                      #   假玩家 NPC（皮肤注册表 / PlayerList）
 │   ├── itemactor/                      #   协议层掉落物（AddItemActor / SetActorMotion / 取走动画）
 │   ├── ui/                             #   客户端附加: 表单强制关闭 / 方位条航点
-│   ├── visibility/                     #   玩家出站包控制（掩码 / 隐身 / 补发出生包）
+│   ├── visibility/                     #   隐身（掩码 / 整体隐藏 / 重新发送出生包）
 │   ├── fakeinv/                        #   背包虚容器
 │   ├── sulfur/                         #   硫磺立方体展示
 │   ├── view/                           #   客户端视图覆盖

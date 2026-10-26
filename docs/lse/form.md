@@ -1,29 +1,28 @@
 # 表单控制（form*）
 
-库**不生成表单** —— 表单还是 LSE / LeviLamina Form API / MeowMenu 那边的事。
-这里只提供一件事：**把客户端当前打开的表单强制收掉**。
+关闭客户端当前打开的表单。表单的创建仍由 LSE、LeviLamina Form API 或 MeowMenu 负责。
 
-用在：玩家按 ESC 关不掉的界面、被别的插件顶掉的界面、过场需要先清屏、玩家下线前收尾。
+适用于：玩家无法用 ESC 关闭的界面、被其他插件覆盖的界面、过场前清屏、玩家下线前收尾。
 
 ```js
-const formClose = ll.import("HologramLib", "formClose");
+const { Form } = require("plugins/HologramLib/HologramLib.js");
 
-// 出一个全屏过场之前，先把玩家正在看的表单收掉
-formClose(player.realName);
+// 过场前关闭玩家当前打开的表单
+Form.close(player.realName);
 
-// 玩家掉线时顺手收一下（有些表单会残留在客户端）
-mc.listen("onLeft", (p) => formClose(p.realName));
+// 玩家下线时关闭
+mc.listen("onLeft", (p) => Form.close(p.realName));
 ```
 
 ## 函数
 
 | 函数 | 返回 | 说明 |
 |---|---|---|
-| `formClose(playerName)` | `Boolean` | 关掉该玩家当前打开的表单；玩家不在线 = `false` |
-| `formCloseAll()` | `Integer` | 给所有在线玩家各发一条，返回发给了几个 |
+| `formClose(playerName)` | `Boolean` | 关闭该玩家当前打开的表单；玩家不在线返回 `false` |
+| `formCloseAll()` | `Integer` | 向所有在线玩家发送，返回发送数量 |
 
-## 边界
+## 说明
 
-- **不检查表单是谁开的。** 客户端开着表单就关，不管那是 LSE 的、别的插件的，还是原版的。
-- 玩家当时**没有**打开表单时也能调用，成功返回 `true`（客户端不会报错，只是没东西可关）。
-- 这是纯客户端表现：服务端那边的界面状态（谁打开了什么）库不记录，也不改动。
+- 不区分表单来源，客户端当前打开的表单都会被关闭。
+- 玩家未打开表单时调用也会返回 `true`，客户端不会报错。
+- 只影响客户端显示，服务端不记录表单状态。

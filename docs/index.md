@@ -42,7 +42,7 @@ HologramLib 是基岩版服务端（LeviLamina / BDS）的**协议层显示库**
 | 地上摆一个会飞、会被"捡走"的物品 | [掉落物生成 `itemActor*`](lse/item-actor.md) |
 | 强制关掉客户端当前打开的表单 | [表单控制 `form*`](lse/form.md) |
 | 在方位条上给玩家指路 | [方位条 `locatorBar*`](lse/locator-bar.md) |
-| 让某个玩家在别人客户端上消失 / 只挡某几类包 | [隐身与出站包控制 `playerHide*`](lse/visibility.md) |
+| 让某个玩家在别人客户端上消失 / 只屏蔽某几类包 | [隐身 `playerHide*`](lse/visibility.md) |
 
 全部 **339 个脚本函数**见 [LSE 脚本接口](lse/index.md)；C++ 侧对应的接口（`IShapeDrawer` / `IHologramText` / `ICustomEntity` / `IViewOverride` …）见 [C++ 接口参考](reference/cpp-api.md)。
 

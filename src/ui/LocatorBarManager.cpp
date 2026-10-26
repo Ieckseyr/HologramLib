@@ -105,21 +105,11 @@ bool LocatorBarManager::setWaypoint(
 }
 
 bool LocatorBarManager::hideFromOthers(std::string const& playerName, bool hidden) {
-    // 一套实现：转给"玩家出站包控制"域（那边有完整的掩码 / 隐身体系）
-    if (!PlayerVisibilityManager::getInstance().setHidden(playerName, hidden))
-        return false;
-
-    std::lock_guard lock(mMutex);
-    if (hidden)
-        mHiddenFromOthers.insert(playerName);
-    else
-        mHiddenFromOthers.erase(playerName);
-    return true;
+    return PlayerVisibilityManager::getInstance().setHidden(playerName, hidden);
 }
 
 bool LocatorBarManager::isHiddenFromOthers(std::string const& playerName) const {
-    std::lock_guard lock(mMutex);
-    return mHiddenFromOthers.contains(playerName);
+    return PlayerVisibilityManager::getInstance().isHidden(playerName);
 }
 
 bool LocatorBarManager::removeWaypoint(std::string const& playerName, std::string const& key) {
@@ -185,13 +175,11 @@ int LocatorBarManager::waypointCount(std::string const& playerName) const {
 void LocatorBarManager::forget(std::string const& playerName) {
     std::lock_guard lock(mMutex);
     mWaypoints.erase(playerName);
-    mHiddenFromOthers.erase(playerName); // 人已下线，客户端那边自然消失，不用再发撤销
 }
 
 void LocatorBarManager::shutdown() {
     std::lock_guard lock(mMutex);
     mWaypoints.clear();
-    mHiddenFromOthers.clear();
 }
 
 } // namespace debugshape_export

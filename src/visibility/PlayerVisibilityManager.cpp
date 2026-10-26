@@ -181,8 +181,7 @@ void PlayerVisibilityManager::forceRespawn(std::string const& playerName) {
 
     auto const uniqueId = static_cast<std::int64_t>(unwrap(player->getOrCreateUniqueID()).rawID);
 
-    // 借视图覆盖域的"撤销即补发真身"流程：先挂一条隐藏覆盖，再撤销 ——
-    // 撤销那一步会把真身的出生包重新发给所有观看者，正好是"出生包恢复发出"。
+    // 通过视图覆盖的撤销流程重新发送出生包。
     hologramlib::EntityView view;
     view.hidden   = true;
     auto& manager = view::ViewOverrideManager::getInstance();
@@ -237,7 +236,7 @@ bool PlayerVisibilityManager::shouldDrop(::Player& recipient, ::Packet const& pa
             if (entries.empty())
                 return false;
 
-            // 一个包可能带多条（批量进服/离服）；只有"整包都是同一个人"时才按个体判定
+            // 一个包可能包含多名玩家；仅当全部条目属于同一名玩家时才按个体判定
             std::string onlyName;
             bool        allAdd = true;
             for (auto const& entry : entries) {
@@ -287,7 +286,7 @@ bool PlayerVisibilityManager::shouldDrop(::Player& recipient, ::Packet const& pa
         return false;
 
     if (subject == recipient.getRealName()) {
-        return it->second.alsoSelf; // 发给本人：只有 alsoSelf 才丢
+        return it->second.alsoSelf;
     }
 
     auto const& mask = it->second.mask;

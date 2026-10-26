@@ -67,9 +67,7 @@ int64_t ItemActorManager::spawn(hologramlib::ItemActorSpec const& spec) {
     if (spec.itemId.empty())
         return -1;
 
-    // 物品: 先走库内那条"条目 → ItemStack"（SNBT 方言逐字节对拍过），再从 ItemStack 取数字物品 id。
-    // **不带 UserData**: 地上一个普通钻石本来就不需要 NBT，也就绕开了物品描述符的 NBT 方言问题
-    // （BDS 那份描述符的 payload 构造是私有的，模组侧造不出来）。
+    // 取数字物品 id：不带 UserData，普通掉落物不需要 NBT。
     hologramlib::ContainerMenuItem entry;
     entry.type              = spec.itemId;
     entry.count             = spec.count < 1 ? 1 : spec.count;
@@ -94,7 +92,7 @@ int64_t ItemActorManager::spawn(hologramlib::ItemActorSpec const& spec) {
     actor.z         = spec.z;
     actor.dimension = spec.dimension;
 
-    // 该维度没人在线就不占 id（发了也没人看见）
+    // 该维度没有玩家时不占 id
     auto level = ll::service::getLevel();
     if (!level)
         return -1;
@@ -182,7 +180,7 @@ bool ItemActorManager::take(int64_t id, std::string const& playerName) {
     if (player == nullptr)
         return false;
 
-    // 1) 只给这一名玩家播"飞向自己"的动画
+    // 只给该玩家播放拾取动画
     sculk::protocol::TakeItemActorPacket take;
     take.mItemRuntimeId  = actor->runtimeId;
     take.mActorRuntimeId = player->getRuntimeID().rawID;
@@ -190,7 +188,7 @@ bool ItemActorManager::take(int64_t id, std::string const& playerName) {
         wire::sendRaw(*player, bytes);
     }
 
-    // 2) 对所有人生效地删掉
+    // 对所有人删除
     sculk::protocol::RemoveActorPacket remove;
     remove.mActorUniqueId = static_cast<std::int64_t>(actor->uniqueId);
     if (auto bytes = wire::encodeChecked(remove); !bytes.empty()) {

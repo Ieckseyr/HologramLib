@@ -1,13 +1,8 @@
-# 玩家出站包控制（IPlayerVisibility）
+# 隐身（IPlayerVisibility）
 
-按"**被看的人**（主体）"屏蔽出站包。与 `IViewOverride` 的分工：
+控制其他玩家的客户端是否接收某个玩家的数据包。与 `IViewOverride` 的区别：`IViewOverride` 按收件人配置显示内容，本接口按被隐藏的玩家配置发送内容。
 
-- `IViewOverride` 问的是"**看的人**（收件人）看到什么"
-- 这边问的是"**被看的人**（主体）能不能被看到"
-
-两者是同一套出站判定，但参数不同，所以没有塞进视图覆盖。
-
-脚本侧见 [隐身与出站包控制](../lse/visibility.md)。
+脚本用法见[隐身](../lse/visibility.md)。
 
 ## 接口
 
@@ -29,35 +24,31 @@ PlayerPacketMask maskOf(std::string const& playerName) const;
 bool isHidden(std::string const& playerName) const;
 ```
 
-## 判定流程
+## 处理流程
 
-钩子挂在 `NetworkSystem::send`（`ViewOutboundHook`），在视图覆盖判定**之前**执行：
+钩子位于 `NetworkSystem::send`，在视图覆盖判定之前执行。
 
-1. 一条条目都没有 → 直接放行（快路径，零开销）
-2. 认主体：按运行时 id 或 uuid 反查在线玩家
-3. 主体没有条目 / 收件人就是主体本人（且没开 `alsoSelf`）→ 放行
-4. 按包的分类查掩码，命中就丢
+1. 没有任何记录时直接放行
+2. 识别数据包所属玩家：按运行时 id 或 uuid 反查在线玩家
+3. 目标玩家无记录，或收件人即目标玩家（且未开启 `alsoSelf`）时放行
+4. 按数据包类型查询掩码，命中则丢弃
 
-认主体的包：`AddPlayer` / `MovePlayer` / `MoveActorAbsolute` / `SetActorMotion` / `SetActorData` /
-`Animate` / `ActorEvent` / `MobEffect` 按运行时 id；`PlayerList` / `PlayerSkin` 按 uuid。
+识别的数据包：`AddPlayer`、`MovePlayer`、`MoveActorAbsolute`、`SetActorMotion`、`SetActorData`、`Animate`、`ActorEvent`、`MobEffect` 按运行时 id；`PlayerList`、`PlayerSkin` 按 uuid。
 
-## 两套机制不能混
+## 两种方式
 
-| 机制 | 能不能让"已经站在别人屏幕上"的人消失 |
+| 方式 | 对已出生的玩家 |
 |---|---|
-| `setMask` | **不能**，它只挡后续的包 |
-| `setHidden` | **能**，走视图覆盖域的 hidden 通道（出生 + 更新 + 撤销） |
+| `setMask` | 不消失，仅停止更新 |
+| `setHidden` | 立即从其他客户端消失 |
 
-## restore 是怎么补发出生包的
+## restore 的行为
 
-不另写 `AddPlayer`（那要重建皮肤、属性、位置、姿态，容易漏），而是借视图覆盖域已经验证过的
-"撤销即补发真身"流程：
+清除掩码与隐身记录后，通过视图覆盖的撤销流程重新发送该玩家的出生包，因此重新发送的数据包含当前皮肤、装备与姿态。
 
-```cpp
-hologramlib::EntityView view;
-view.hidden = true;
-viewManager.overrideEntity("", uniqueId, view);   // 先挂一条隐藏
-viewManager.clearEntity("", uniqueId);            // 撤销 → 库把真身重新发给所有观看者
-```
+## 说明
 
-好处是补发的出生包里皮肤、装备、姿态全是引擎的真实状态。
+- 无法识别类型的数据包不会被拦截。
+- 一条 `PlayerList` 中包含多个玩家时，整条数据包放行。
+- 玩家下线时清除记录，客户端随下线同步消失。
+- `alsoSelf=true` 时该玩家自己也收不到这些数据包。

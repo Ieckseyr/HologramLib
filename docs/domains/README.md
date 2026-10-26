@@ -52,7 +52,7 @@ HologramLib 的能力域按用途拆成 10 页。这一页管选型：先确定�
 | 多层级对话 / 带按钮的 NPC 剧情 | NPC 对话框 `INpcDialogue` | `NpcDialoguePacket` + 合成载体；按场景名路由层级 |
 | 让客户端「以为自己背包里有这些东西」 | 背包虚容器 `IFakeInventory` | 协议层改写客户端看到的背包内容；服务端背包一个字不动 |
 | 想知道玩家用什么设备，按设备分流 | 感知域 `IPlayerSensing` | 逐包捕获 `InputMode`：触屏 / 手柄 / 键鼠 |
-| 让某个玩家在别人客户端上消失（或只挡出生 / Tab / 移动） | [玩家出站包控制 `IPlayerVisibility`](visibility.md)（26.51.6） | 按主体丢弃出站包；已出生的用 `setHidden`，恢复会补发出生包 |
+| 让某个玩家在别人客户端上消失（或只屏蔽出生 / Tab / 移动） | [隐身 `IPlayerVisibility`](visibility.md)（26.51.6） | 按主体丢弃出站包；已出生的用 `setHidden`，恢复会补发出生包 |
 | 强制关掉客户端当前打开的表单 | [表单控制 `IFormControl`](form.md)（26.51.6） | 一条 `ClientboundCloseForm`，不需要玩家操作 |
 | 在方位条上给玩家指个点 | [方位条 `ILocatorBar`](locator-bar.md)（26.51.6） | 按玩家维护航点，key 自己起名，更新位置不用保管 UUID |
 
@@ -106,7 +106,7 @@ HologramLib 的能力域按用途拆成 10 页。这一页管选型：先确定�
 | `0x012000` · 1.26.0 | 视图覆盖残骸清理；`IPlayerNpc` 追加五方法；悬浮字收缩与补全 |
 | `0x012100` · 1.27.0 | `EntityView::skinId`；真实实体交互监听；ABI 布局戳 |
 | `0x012300` · 1.29.0 | `AddItemActor` 纳入拦截；`EntityView` 补姿态 / 缩放 / 变种 / 颜色 |
-| `26.51.6` | 1.32.0 | `0x012600` | **四个新域 + 两处尾部追加**：掉落物（`itemActor*`）、表单强制关闭（`form*`）、方位条（`locatorBar*`）、玩家出站包控制（`playerHide*`）；假玩家表情、假箱子方块事件。导出 298 → 337。 |
+| `26.51.6` | 1.32.0 | `0x012600` | **四个新域 + 两处尾部追加**：掉落物（`itemActor*`）、表单强制关闭（`form*`）、方位条（`locatorBar*`）、隐身（`playerHide*`）；假玩家表情、假箱子方块事件。导出 298 → 339。 |
 | `26.51.5` | 1.31.0 | `0x012500` | **26.51 线合并 26.40.12**：拉伸、live 变换、动画预设、停止配方、假玩家姿势/装备/骑乘、FMBE 抽搐修复、图片平面与透明图层、容器会话隔离、PlayerSkin trusted 与皮肤 Id 重建。 |
 | `26.51.4` | 1.30.0 | `0x012400` | **只加 3 个纯原语/通知，不含任何功能实现**：`viewPollSpawnEvents`（出生事件通知） · `itemDisplayCreateFull`（建展示即带 NBT/光效） · `itemDisplayEmitForEntity`（让某玩家把某只已有实体看成 FMBE 模型）。判定/状态/策略一律留在消费方（`ItemPhys`）。只加 LSE 导出，虚表未动 → `HOLOGLIB_ABI_STAMP` 不变。 |
 

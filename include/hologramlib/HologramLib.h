@@ -1502,13 +1502,10 @@ public:
 };
 
 // ─────────────────────────────────────────────
-// 玩家出站包控制（26.51.6）
+// 隐身（26.51.6）
 //
-// 让"某个玩家在别人客户端上的存在感"逐类可关：出生包、Tab 条目、移动、状态、皮肤，或整体隐身。
-// 在出站钩子上按"这条包的主体是谁、收件人是谁"丢弃；认不出来的包一律放行。
-//
-// 与 IViewOverride 的分工：那边问"看的人（收件人）看到什么"，这边问"被看的人（主体）能不能被看到"。
-// 两者是同一套出站判定，但参数不同 —— 所以没有塞进视图覆盖。
+// 控制其他玩家的客户端是否接收某个玩家的数据包：出生、Tab、移动、状态、皮肤，或整体隐藏。
+// 与 IViewOverride 的区别：IViewOverride 按收件人配置显示内容，本接口按被隐藏的玩家配置发送内容。
 // ─────────────────────────────────────────────
 struct PlayerPacketMask {
     bool spawn{false};  // AddPlayer / PlayerList(Add)：别人看不到他出生
@@ -1522,15 +1519,15 @@ class IPlayerVisibility {
 public:
     virtual ~IPlayerVisibility() = default;
 
-    // 设置掩码。alsoSelf = true 时连他自己的包也丢（默认只影响其他人）。玩家不在线返回 false。
-    // 全 false 的掩码等价于撤销。
+    // 设置掩码；alsoSelf = true 时该玩家自己也收不到这些包。玩家不在线返回 false。
+    // 全部为 false 表示清除掩码。
     virtual bool setMask(std::string const& playerName, PlayerPacketMask const& mask, bool alsoSelf = false) = 0;
 
-    // 整体隐身：走视图覆盖域的 hidden 通道（出生/移动/状态/皮肤/Tab 一起挡，本人照常看得到自己）。
-    // 与 setMask 的区别：它能让"已经出生在别人屏幕上"的那只消失，setMask 只挡后续的包。
+    // 整体隐身：出生/移动/状态/皮肤/Tab 一并屏蔽，本人仍可看到自己。
+    // 与 setMask 的区别：已出生的玩家会立即消失，而 setMask 只影响后续数据包。
     virtual bool setHidden(std::string const& playerName, bool hidden) = 0;
 
-    // 恢复：清掉掩码与隐身，并**立刻把出生包重新发给所有观看者**（不用重进服）。
+    // 清除掩码与隐身，并立即重新发送出生包。
     virtual bool restore(std::string const& playerName) = 0;
 
     [[nodiscard]] virtual PlayerPacketMask maskOf(std::string const& playerName) const   = 0;

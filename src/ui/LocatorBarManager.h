@@ -10,7 +10,6 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 
 namespace debugshape_export {
 
@@ -49,8 +48,6 @@ private:
 
     // key → 句柄；一个玩家一张表
     std::unordered_map<std::string, std::unordered_map<std::string, Handle>> mWaypoints;
-    // 处于"对其他人隐藏"状态的玩家
-    std::unordered_set<std::string>                                          mHiddenFromOthers;
     mutable std::mutex                                                       mMutex;
 };
 
