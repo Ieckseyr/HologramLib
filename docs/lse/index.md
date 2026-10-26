@@ -6,27 +6,45 @@ HologramLib 在脚本侧只占**一个命名空间** `HologramLib`：装上前�
 
 ---
 
+## 0. 先决定怎么导入
+
+两种方式，都能用，也可以混：
+
+- **统一导入**（推荐）：`const { ItemActor } = require("plugins/HologramLib/HologramLib.js")`
+  —— 懒绑定、缺函数降级、编辑器可补全
+- **lrca 直连**：`ll.import("HologramLib", "itemActorSpawn")` —— 只用一两个函数时更省事
+
+完整说明与对照表见 [脚本导入](importing.md)。
+
 ## 1. 前置
 
 脚本侧只需要 **LegacyRemoteCall（`lrca`）** —— 库靠它把 C++ 接口暴露给脚本。加载顺序无所谓：库在 `enable()` 里探测 `lrca`，没探测到会在服务器启动完成后再试一次。
 
 ---
 
-## 1.5 更省事的导入方式
-
-不想每个脚本都写一遍 `ll.import("HologramLib", "…")`，用库自带的导入层：
-[脚本里怎么导入](importing.md)（`require("./HologramLib.js")` 之后 `HL.xxx(...)`，懒绑定 + 缺函数降级）。
-
 ## 2. 三行上手
 
+统一导入：
+
 ```js
-const holoCreate = ll.import("HologramLib", "holoCreate");   // 拿函数
-const id = holoCreate(0, 70, 0);                             // 在世界原点上方 70 格建一个悬浮字
-ll.import("HologramLib", "holoAddLine")(id, "§e你好");        // 加一行字
-ll.import("HologramLib", "holoDraw")(id);                    // 画给所有人看
+const { Hologram } = require("plugins/HologramLib/HologramLib.js");
+
+const id = Hologram.create(0, 70, 0);        // 在坐标原点的上方 70 格建一块悬浮字
+Hologram.addLine(id, "你好");                 // 加一行
+Hologram.draw(id);                           // 立刻推给客户端
 ```
 
-`ll.import` 拿到的是**函数本身**，直接调用即可。建议像上面第一行那样先存进变量，避免每次调用都查一遍。
+lrca 直连（同样的三件事）：
+
+```js
+const holoCreate = ll.import("HologramLib", "holoCreate");
+const id = holoCreate(0, 70, 0);
+ll.import("HologramLib", "holoAddLine")(id, "你好");
+ll.import("HologramLib", "holoDraw")(id);
+```
+
+直连写法里 `ll.import` 得到的是**函数本身**，直接调用即可 —— 但要在模块加载时取一次存好，
+别在每次调用前重新取（见 [脚本导入](importing.md) 的说明）。
 
 ---
 

@@ -20,7 +20,7 @@ HologramLib 是基岩版服务端（LeviLamina / BDS）的**协议层显示库**
 | 你是 | 先看 | 再往下 |
 |---|---|---|
 | 第一次用这个库 | [快速开始](getting-started.md)：编译、部署、第一个功能 | [能力域指南](domains/README.md) 挑一个域 |
-| 写 LSE 脚本 | [LSE 脚本接口](lse/index.md)：怎么导入、怎么调用、失败怎么办 | [按域查函数](lse/index.md#7-按域查函数) |
+| 写 LSE 脚本 | [脚本导入](lse/importing.md)：lrca 直连 / 统一导入两种方式 | [怎么用](lse/index.md) · [按域查函数](lse/index.md#7-按域查函数) |
 | 写 C++ 插件 | [C++ 接口参考](reference/cpp-api.md)：每个方法的完整签名 | [能力域指南](domains/README.md) |
 | 想知道「这个域能做到什么、有哪些坑」 | [能力域指南](domains/README.md) | 对应域的 C++ / LSE 接口页 |
 | 看某个版本改了什么 | [更新日志](versions/changelog.md) | — |
