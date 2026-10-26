@@ -48,16 +48,3 @@ log(playerHideGetMask("Steve"));   // "spawn=0 tab=0 motion=0 state=0 skin=0 hid
 | `motion` | `MovePlayer` / `MoveActorAbsolute` / `MoveActorDelta` / `SetActorMotion` | 他钉在原地 |
 | `state` | `SetActorData` / `UpdateAttributes` / `MobEffect` / `Animate` / `ActorEvent` | 动作与状态不更新 |
 | `skin` | `PlayerSkin` | 不发皮肤 |
-
-## 边界
-
-- **认不出来的包一律放行** —— 宁可漏挡，也不会误吞别人的包。
-- 一条 `PlayerList` 里混了多个玩家时**整包放行**（不冒险拆包）。
-- 玩家下线时库清掉他的记录（客户端那边随下线消失，不需要再发撤销）。
-- `playerHideRestore` 的"补发出生包"走的是库内既有的补发流程（先挂隐藏再撤销），
-  不是重新构造一份出生包 —— 所以皮肤、装备、当前姿态都是引擎的真实状态。
-
-## 还没实测
-
-五类掩码各自的实际观感、`alsoSelf`、以及 `restore` 之后第三人视角的完整恢复（皮肤 / 手势 / 名字牌）。
-第一次验：两个人同屏 → 对 A 依次试每一类掩码 → 再试隐藏与恢复，看 B 那边的画面。
