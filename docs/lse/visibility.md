@@ -10,7 +10,7 @@
 两种方式互不替代，按需求选择。
 
 ```js
-const { Visibility } = require("plugins/HologramLib/HologramLib.js");
+const { Visibility } = require("plugins/HologramLib/lib/HologramLib.js");
 
 // 只屏蔽出生包与 Tab 条目，移动仍然同步
 Visibility.setMask("Steve", true, true, false, false, false, false);

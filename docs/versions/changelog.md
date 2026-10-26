@@ -43,8 +43,8 @@ LSE 导出 298 → **339**。
 
 #### 脚本导入层
 
-发布包内新增 `HologramLib.js`、`HologramLib.d.ts`、`exports.json`（与 DLL 平级）。
-脚本可用 `require("plugins/HologramLib/HologramLib.js")` 后按分组或按函数名调用，
+发布包内新增 `lib/HologramLib.js`、`lib/HologramLib.d.ts`、`lib/exports.json`。
+脚本可用 `require("plugins/HologramLib/lib/HologramLib.js")` 后按分组或按函数名调用，
 也可继续使用 `ll.import`。函数首次使用时才与库绑定；缺少 `lrca` 或函数不存在时调用被忽略并记录警告。
 
 另有 `holoInfo()` / `holoApiVersion()` 两个版本信息导出。

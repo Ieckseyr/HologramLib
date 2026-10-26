@@ -31,7 +31,7 @@ function fakeImport(ns, name) {
 
 global.ll = { import: fakeImport };
 
-const HL = require(path.join(__dirname, "..", "HologramLib.js"));
+const HL = require(path.join(__dirname, "..", "lib", "HologramLib.js"));
 
 let pass = 0;
 function ok(label, fn) {
@@ -116,7 +116,7 @@ console.log("[7] 解构一次 = 完全避开 Proxy");
 
 console.log("[8] CLI 读法：exports.json 与 JS 清单一致");
 {
-  const manifest = require(path.join(__dirname, "..", "exports.json"));
+  const manifest = require(path.join(__dirname, "..", "lib", "exports.json"));
   const names = new Set(HL.list());
   const missing = manifest.exports.filter((e) => !names.has(e.name));
   assert.strictEqual(missing.length, 0, "exports.json 里有 JS 清单没有的: " + missing.slice(0, 3).map(e => e.name));
@@ -127,8 +127,8 @@ console.log("[8] CLI 读法：exports.json 与 JS 清单一致");
 console.log("[9] 没有 lrca 时整套导入层仍然可用（全是空操作）");
 {
   delete global.ll;
-  delete require.cache[require.resolve(path.join(__dirname, "..", "HologramLib.js"))];
-  const HL2 = require(path.join(__dirname, "..", "HologramLib.js"));
+  delete require.cache[require.resolve(path.join(__dirname, "..", "lib", "HologramLib.js"))];
+  const HL2 = require(path.join(__dirname, "..", "lib", "HologramLib.js"));
   assert.strictEqual(typeof HL2.itemActorSpawn, "function");
   assert.strictEqual(HL2.itemActorSpawn("x"), undefined);
   ok("缺 lrca 降级为空操作", () => {});

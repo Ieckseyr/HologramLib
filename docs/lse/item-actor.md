@@ -5,7 +5,7 @@
 适用于奖励飞出、抽奖、过场道具等展示场景。需要玩家真正拾取的物品请使用原版掉落物。
 
 ```js
-const { ItemActor } = require("plugins/HologramLib/HologramLib.js");
+const { ItemActor } = require("plugins/HologramLib/lib/HologramLib.js");
 
 // 在 (100.5, 65, 100.5) 生成一颗钻石，初速度向上 0.4
 const id = ItemActor.spawn("minecraft:diamond", 0, 1, 100.5, 65, 100.5, 0, 0, 0.4, 0);

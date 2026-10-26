@@ -4,10 +4,10 @@
 
 ## 方式一：统一导入
 
-`plugins/HologramLib/HologramLib.js` 随库一起发布，直接引用即可。
+`plugins/HologramLib/lib/HologramLib.js` 随库一起发布，直接引用即可。
 
 ```js
-const { ItemActor, Visibility, LocatorBar } = require("plugins/HologramLib/HologramLib.js");
+const { ItemActor, Visibility, LocatorBar } = require("plugins/HologramLib/lib/HologramLib.js");
 
 ItemActor.spawn("minecraft:diamond", 0, 1, 100.5, 65, 100.5, 0, 0, 0.4, 0);
 ItemActor.setMotion(id, -0.3, 0.2, 0);
@@ -18,7 +18,7 @@ LocatorBar.set("Steve", "boss", x, y, z, 0, 0xFF0000, true);
 也可以按函数原名调用：
 
 ```js
-const HL = require("plugins/HologramLib/HologramLib.js");
+const HL = require("plugins/HologramLib/lib/HologramLib.js");
 
 HL.itemActorSpawn("minecraft:diamond", 0, 1, 100.5, 65, 100.5, 0, 0, 0.4, 0);
 HL.playerHideSetHidden("Steve", true);
@@ -61,7 +61,7 @@ HL.playerHideSetHidden("Steve", true);
 | `Form` | 2 | `form*` |
 | `Visibility` | 5 | `playerHide*` |
 
-`HologramLib.d.ts` 与 `.js` 放在同一目录即可获得编辑器补全（参数名、类型、返回值）。
+`lib/` 下的 `HologramLib.d.ts` 与 `.js` 放在一起时，编辑器可获得参数名、类型与返回值补全。
 
 ## 方式二：`ll.import` 直连
 
@@ -114,7 +114,7 @@ bindAll(["itemActorSpawn", "itemActorSetMotion", "itemActorTake"]);
 |---|---|
 | 新脚本，使用多个函数 | 统一导入 |
 | 只使用一两个函数 | `ll.import` 直连 |
-| 需要固定库版本 | 统一导入，并把 `HologramLib.js` 复制到自己的插件目录 |
+| 需要固定库版本 | 统一导入，并把 `lib/HologramLib.js` 复制到自己的插件目录 |
 | 已有自己的绑定表 | 保留即可，也可与新脚本的写法混用 |
 | 需要判断某函数是否存在 | `HL.has("函数名")` |
 
@@ -136,14 +136,15 @@ plugins/HologramLib/
   HologramLib.dll
   HologramLib.pdb
   manifest.json
-  HologramLib.js
-  HologramLib.d.ts
-  exports.json
+  lib/
+    HologramLib.js
+    HologramLib.d.ts
+    exports.json
 ```
 
 ## 常见问题
 
-- `require` 的路径相对于当前脚本文件。引用库目录用 `plugins/HologramLib/HologramLib.js`，把文件复制到自己目录则用 `./HologramLib.js`。不要写 `require("HologramLib")`。
+- `require` 的路径相对于当前脚本文件。引用库目录用 `plugins/HologramLib/lib/HologramLib.js`，把文件复制到自己目录则用 `./HologramLib.js`。不要写 `require("HologramLib")`。
 - `ll` 由 `lrca` 提供。未安装 `lrca` 时 `ll` 可能不存在，直连写法需先判断。
 - 库在启用时探测 `lrca`，未探测到会在服务器启动完成后再试一次。脚本如果在模块顶层立即调用，建议把初始化放在 `mc.listen("onServerStarted", …)` 内。
 - 更新库后，直接引用库目录的写法无需修改；复制到自身目录的文件需要重新复制。

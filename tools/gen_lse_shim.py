@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """gen_lse_shim.py —— 从源码里的 exportAs 调用生成脚本侧导入层。
 
-生成三个文件（都在插件根目录，随包分发）：
+生成三个文件（都在 lib/ 下，随包分发）：
 
   HologramLib.js        脚本直接 require 的模块（懒绑定 + 缺 lrca 时安全空操作）
   HologramLib.d.ts      编辑器补全用的类型声明（参数名 / 类型 / 返回）
@@ -25,9 +25,9 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "src")
-# 产物直接放插件根目录：部署后就是 plugins/HologramLib/HologramLib.js，
-# 脚本 require("plugins/HologramLib/HologramLib.js") 即可；发布包里也在根。
-OUT_DIR = ROOT
+# 产物直接放插件根目录：部署后就是 plugins/HologramLib/lib/HologramLib.js，
+# 脚本 require("plugins/HologramLib/lib/HologramLib.js") 即可；发布包里也在根。
+OUT_DIR = os.path.join(ROOT, "lib")
 NAMESPACE = "HologramLib"
 
 # 前缀 → 分组（参考 GMLIB-LegacyRemoteCallApi 的"类.方法"写法）
@@ -246,13 +246,13 @@ def render_js(exports: list[dict], api_version: str, abi_stamp: str) -> str:
 //
 // 用法一：按分组调用
 //
-//   const {{ ItemActor, Visibility, LocatorBar }} = require("plugins/HologramLib/HologramLib.js");
+//   const {{ ItemActor, Visibility, LocatorBar }} = require("plugins/HologramLib/lib/HologramLib.js");
 //   ItemActor.spawn("minecraft:diamond", 0, 1, 100.5, 65, 100.5, 0, 0, 0.4, 0);
 //   Visibility.setHidden("Steve", true);
 //
 // 用法二：按函数原名调用
 //
-//   const HL = require("plugins/HologramLib/HologramLib.js");
+//   const HL = require("plugins/HologramLib/lib/HologramLib.js");
 //   HL.itemActorSpawn("minecraft:diamond", 0, 1, 100.5, 65, 100.5, 0, 0, 0.4, 0);
 //
 // 说明:

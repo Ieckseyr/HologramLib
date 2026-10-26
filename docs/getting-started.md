@@ -32,7 +32,7 @@ xmake -y
 | 路径 | 是什么 |
 |---|---|
 | `build/windows/x64/release/HologramLib.{dll,lib}` | 编译产物（`lib` 给消费方链接用） |
-| `bin/HologramLib.zip` | 发布包（解压得到 `HologramLib/`：DLL、PDB、manifest、脚本导入层 `lse/`） |
+| `bin/HologramLib.zip` | 发布包（解压得到 `HologramLib/`：DLL、PDB、manifest、脚本导入层 `lib/`） |
 
 > ⚠ 在普通 Windows shell（cmd / PowerShell）里跑 xmake。
 > 在 Git Bash / MSYS 下，xmake 会把 host 认成 msys，按 msys 的工具链与包目录解析依赖，
@@ -45,7 +45,7 @@ Release 构建会一并产出 PDB，崩溃栈符号化需要它，部署链已�
 ## 3. 部署
 
 1. 关服；
-2. 解压发布包 `HologramLib.zip`，把得到的 `HologramLib` 文件夹整个放进服务端 `plugins/`，最终为 `plugins/HologramLib/`（内含 `HologramLib.dll`、`manifest.json` 与脚本导入层 `lse/`）；
+2. 解压发布包 `HologramLib.zip`，把得到的 `HologramLib` 文件夹整个放进服务端 `plugins/`，最终为 `plugins/HologramLib/`（内含 `HologramLib.dll`、`manifest.json` 与脚本导入层 `lib/`）；
 3. 开服。
 
 启动顺序没有任何要求。库在 `enable()` 期检测 LSE 兼容层，没检测到就在 `ServerStartedEvent` 兜底重试，双保险意味着它和 LegacyRemoteCall（`lrca`）谁先加载都可以。
@@ -158,7 +158,7 @@ if (ll.hasExported("HologramLib", "containerPollClicks")) {
 | 函数名不存在（旧版库） | `ll.import` 得 `null` |
 
 所以「拿到的函数是 `null`」永远意味着「这个能力你现在没有」，而不是「调用了但没生效」。
-完整的 337 个函数按域分页，见 [LSE 脚本接口](lse/index.md)。
+完整的 339 个函数按域分页，见 [LSE 脚本接口](lse/index.md)。
 
 ---
 

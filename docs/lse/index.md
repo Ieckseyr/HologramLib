@@ -10,7 +10,7 @@ HologramLib 在脚本侧只占**一个命名空间** `HologramLib`：装上前�
 
 两种方式，都能用，也可以混：
 
-- **统一导入**（推荐）：`const { ItemActor } = require("plugins/HologramLib/HologramLib.js")`
+- **统一导入**（推荐）：`const { ItemActor } = require("plugins/HologramLib/lib/HologramLib.js")`
   —— 懒绑定、缺函数降级、编辑器可补全
 - **lrca 直连**：`ll.import("HologramLib", "itemActorSpawn")` —— 只用一两个函数时更省事
 
@@ -27,7 +27,7 @@ HologramLib 在脚本侧只占**一个命名空间** `HologramLib`：装上前�
 统一导入：
 
 ```js
-const { Hologram } = require("plugins/HologramLib/HologramLib.js");
+const { Hologram } = require("plugins/HologramLib/lib/HologramLib.js");
 
 const id = Hologram.create(0, 70, 0);        // 在坐标原点的上方 70 格建一块悬浮字
 Hologram.addLine(id, "你好");                 // 加一行

@@ -5,7 +5,7 @@
 适用于：玩家无法用 ESC 关闭的界面、被其他插件覆盖的界面、过场前清屏、玩家下线前收尾。
 
 ```js
-const { Form } = require("plugins/HologramLib/HologramLib.js");
+const { Form } = require("plugins/HologramLib/lib/HologramLib.js");
 
 // 过场前关闭玩家当前打开的表单
 Form.close(player.realName);

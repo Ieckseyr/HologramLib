@@ -5,7 +5,7 @@
 适用于追踪目标、队友位置、任务点引导。
 
 ```js
-const { LocatorBar } = require("plugins/HologramLib/HologramLib.js");
+const { LocatorBar } = require("plugins/HologramLib/lib/HologramLib.js");
 
 // 每 tick 刷新一次，让航点跟随目标
 mc.listen("onTick", () => {
