@@ -34,6 +34,10 @@ jobs:
       - name: 文档措辞
         run: python tools/check_docs_wording.py
 
+      # tooth.json 决定 lip 装到哪里、装完有没有 lib/ —— 与 manifest / 打包脚本必须一致
+      - name: Lip 包清单（tooth.json）
+        run: python tools/check_tooth.py
+
       # 脚本导入层是生成物：加了导出却忘了重生成，脚本侧会拿到 undefined。
       - name: 脚本导入层（生成物是否最新）
         run: python tools/gen_lse_shim.py --check

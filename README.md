@@ -92,8 +92,16 @@ if (sensingIsTouch("Steve")) {
 
 ## 安装
 
+Lip 安装（推荐）：
+
+```
+lip install github.com/Ieckseyr/HologramLib
+```
+
+手动安装：
+
 1. 关服。
-2. 解压发布包 `HologramLib.zip`，把得到的 `HologramLib` 文件夹整个放进服务端 `plugins/`，最终为 `plugins/HologramLib/`（内含 `HologramLib.dll`、`manifest.json`，以及脚本导入层 `lib/`）。
+2. 解压发布包 `HologramLib.zip`，把得到的 `HologramLib` 文件夹整个放进服务端 `plugins/`，最终为 `plugins/HologramLib/`（内含 `HologramLib.dll`、`manifest.json`、`tooth.json`，以及脚本导入层 `lib/`）。
 3. 开服。启动顺序没有要求：库在 enable 期检测 LSE 兼容层，没检测到就在 `ServerStarted` 兜底重试。
 
 消费方插件只需在 `enable()` 里 `getInstance()`，不必声明前置依赖。

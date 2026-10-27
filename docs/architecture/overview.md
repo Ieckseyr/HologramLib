@@ -279,6 +279,11 @@ HologramLib/
 
 ### 机器守契约（26.51.6 起）
 
+发布侧：`tooth.json`（Lip 包清单）与 `manifest.json`、`tools/pack_release.py` 的产物必须一致 ——
+版本号、发布包文件名、解压后的根目录与安装目标目录，由 `tools/check_tooth.py` 在 CI 里校验。
+
+
+
 「只在尾部追加」不再只靠注释、版本表与记忆力 —— 契约有了基线文件和一个退出码：
 
 | 命令 | 作用 |

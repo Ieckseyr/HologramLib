@@ -1,0 +1,82 @@
+# 发布。打 tag（v26.51.6 这种）时构建并上传发布包 bin/HologramLib.zip，
+# 供 Lip 安装：lip install github.com/Ieckseyr/HologramLib
+#
+# 需要仓库变量 HOLO_PROTOCOL_URL（BedrockProtocol install 包直链）；没配就跳过。
+
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: 构建并发布
+    runs-on: windows-latest
+    if: ${{ vars.HOLO_PROTOCOL_URL != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: xmake-io/github-action-setup-xmake@v2
+        with:
+          xmake-version: latest
+
+      - name: 取 BedrockProtocol
+        shell: pwsh
+        env:
+          URL: ${{ vars.HOLO_PROTOCOL_URL }}
+        run: |
+          Invoke-WebRequest -Uri $env:URL -OutFile "$env:RUNNER_TEMP\protocol.zip"
+          Expand-Archive "$env:RUNNER_TEMP\protocol.zip" -DestinationPath "$env:RUNNER_TEMP\protocol"
+          if (!(Test-Path "$env:RUNNER_TEMP\protocol\install\include")) {
+            New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\protocol\install" | Out-Null
+            Copy-Item "$env:RUNNER_TEMP\protocol\*" "$env:RUNNER_TEMP\protocol\install\" -Recurse -Force
+          }
+          "HOLO_PROTOCOL_DIR=$env:RUNNER_TEMP\protocol\install" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      # tag 与 manifest.json / tooth.json 的版本必须一致，否则包会装到错误版本
+      - name: 版本一致
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}" -replace "^v", ""
+          $manifest = (Get-Content manifest.json -Raw | ConvertFrom-Json).version
+          $tooth = (Get-Content tooth.json -Raw | ConvertFrom-Json).version
+          if ($tag -ne $manifest -or $tag -ne $tooth) {
+            Write-Error "tag=$tag manifest=$manifest tooth=$tooth 不一致"
+            exit 1
+          }
+
+      - name: 包清单检查
+        run: python tools/check_tooth.py
+
+      - name: 配置
+        run: xmake f -c --holo_werror=y -y
+
+      - name: 构建
+        run: xmake build -y
+
+      # after_build 会把 lib/ 拷进 bin/HologramLib/lib/，打包脚本把它们一起压进去
+      - name: 打发布包
+        run: python tools/pack_release.py
+
+      - name: 上传到 Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $file = "bin/HologramLib.zip"
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag $file --title $tag --notes "HologramLib $tag"
+          } else {
+            gh release upload $tag $file --clobber
+          }

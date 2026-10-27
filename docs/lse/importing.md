@@ -136,6 +136,7 @@ plugins/HologramLib/
   HologramLib.dll
   HologramLib.pdb
   manifest.json
+  tooth.json
   lib/
     HologramLib.js
     HologramLib.d.ts
