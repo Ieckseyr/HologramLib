@@ -5,7 +5,7 @@
     "version": "26.51.6",
     "info": {
         "name": "HologramLib",
-        "description": "基岩版协议层统一悬浮显示库 / Bedrock protocol-layer unified hologram & display library",
+        "description": "前置库：基岩版协议层统一悬浮显示库 / Library: Bedrock protocol-layer unified hologram & display library",
         "tags": [
             "type:mod",
             "platform:levilamina",
