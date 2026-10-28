@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """check_tooth.py —— 校验 tooth.json（Lip 包清单）与仓库实际产物一致。
 
-`format_uuid` 是**格式标记，不是每个包各自的 UUID**：格式 3 固定为
-`289f771f-2c9a-4d73-9f3f-8492495a924d`，LeviLamina / LegacyScriptEngine / LegacyRemoteCall
-三份清单用的是同一个值。包的身份由 `tooth` 字段（仓库路径）标识。
-规范：https://docs.levimc.org/lip/zh/concepts/package_manifest.html#旧格式-tooth-json
+`format_uuid` 是**格式标记，不是每个包各自的 UUID**。官方 schema 写的是常量：
+
+    "format_uuid": { "type": "string", "const": "289f771f-2c9a-4d73-9f3f-8492495a924d" }
+
+（`tools/schema/tooth.v3.schema.json`，取自 LiteLDev/lip 的 schemas/manifest.schema.json）
+所以每个格式 3 的包都必须是这个值，随机一个会让清单直接无效。包的身份由 `tooth` 字段
+（仓库路径）标识，不是 UUID。
 
 Lip 按 tooth.json 下载发布包并解压到目标目录。这几处一旦对不上，用户 `lip install` 会装上
 残缺的包（缺 lib/ 或落错目录），所以放进 CI：
 
-  1. 版本号与 manifest.json 一致
-  2. 发布包文件名与 tools/pack_release.py 的产物一致
-  3. 解压后的根目录、目标目录与实际布局一致（HologramLib/ → plugins/HologramLib）
+  1. format_version / format_uuid 与官方 schema 的 const 一致
+  2. 版本号与 manifest.json 一致
+  3. 发布包文件名与 tools/pack_release.py 的产物一致
+  4. 解压后的根目录、目标目录与实际布局一致（HologramLib/ → plugins/HologramLib）
 
 用法：
   python tools/check_tooth.py
@@ -28,9 +32,19 @@ TOOTH = os.path.join(ROOT, "tooth.json")
 MANIFEST = os.path.join(ROOT, "manifest.json")
 PACK = os.path.join(ROOT, "tools", "pack_release.py")
 
+SCHEMA = os.path.join(ROOT, "tools", "schema", "tooth.v3.schema.json")
+
+# 格式标记的合法值只认官方 schema 里的 const —— 不在这里手写一份，避免两处漂移
+try:
+    _schema = json.loads(io.open(SCHEMA, encoding="utf-8").read())
+    _fmt_version = _schema["properties"]["format_version"]["const"]
+    _fmt_uuid = _schema["properties"]["format_uuid"]["const"]
+except Exception as _err:  # noqa: BLE001
+    raise SystemExit(f"[tooth] 读不到 {SCHEMA}: {_err}")
+
 EXPECTED = {
-    "format_version": 3,
-    "format_uuid": "289f771f-2c9a-4d73-9f3f-8492495a924d",
+    "format_version": _fmt_version,
+    "format_uuid": _fmt_uuid,
     "tooth": "github.com/Ieckseyr/HologramLib",
     "zip_name": "HologramLib.zip",
     "zip_root": "HologramLib/",
@@ -111,7 +125,7 @@ def main() -> int:
     print(
         "[tooth] 通过："
         f"{tooth['tooth']} {tooth['version']} → {EXPECTED['dest']}"
-        f"（包里 {EXPECTED['zip_root']}）"
+        f"（包里 {EXPECTED['zip_root']}，格式 {tooth['format_version']} 标记 {tooth['format_uuid']}）"
     )
     return 0
 
