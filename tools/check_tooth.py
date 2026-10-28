@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """check_tooth.py —— 校验 tooth.json（Lip 包清单）与仓库实际产物一致。
 
-Lip 按 tooth.json 下载发布包并解压到目标目录。这三处一旦对不上，用户 `lip install` 会装上
+`format_uuid` 是**格式标记，不是每个包各自的 UUID**：格式 3 固定为
+`289f771f-2c9a-4d73-9f3f-8492495a924d`，LeviLamina / LegacyScriptEngine / LegacyRemoteCall
+三份清单用的是同一个值。包的身份由 `tooth` 字段（仓库路径）标识。
+规范：https://docs.levimc.org/lip/zh/concepts/package_manifest.html#旧格式-tooth-json
+
+Lip 按 tooth.json 下载发布包并解压到目标目录。这几处一旦对不上，用户 `lip install` 会装上
 残缺的包（缺 lib/ 或落错目录），所以放进 CI：
 
   1. 版本号与 manifest.json 一致
