@@ -116,8 +116,8 @@ def main() -> int:
     if (place.get("dest") or "").replace("\\", "/").rstrip("/") != EXPECTED["dest"]:
         return fail(f"placements.dest 应为 {EXPECTED['dest']}，当前 {place.get('dest')!r}")
 
-    # 发布包 URL 的 tag 前缀必须与 release.yml 一致：
-    #   tooth 里写 t/v{{version}} → 打 tag 时也要是 v<version>，否则 lip 下 404
+    # 资产地址的 tag 段必须与 release.yml 的 tag 约定一致：本仓库 Release 的 tag 不带 v
+    # （历史：26.51.6 / 26.51.5 / 26.40.12），所以 URL 里也不能自己加前缀，否则 lip 下 404。
     release_yml = os.path.join(ROOT, ".github", "workflows", "release.yml")
     if os.path.isfile(release_yml):
         rel = io.open(release_yml, encoding="utf-8").read()
@@ -125,11 +125,13 @@ def main() -> int:
         if url_tag is None:
             return fail("发布包 URL 里找不到 {{version}} 占位")
         prefix = url_tag.group(1)
-        if prefix and ('-replace "^' + prefix + '"' not in rel):
+        if prefix:
             return fail(
-                f"tooth 的 tag 前缀 {prefix!r} 与 release.yml 的去前缀规则不一致"
-                f"（应为 -replace \"^{prefix}\"）"
+                f"发布包 URL 的 tag 段应直接是 {{{{version}}}}，当前多了前缀 {prefix!r}"
+                f"（Release 的 tag 不带前缀，会让 lip 下载 404）"
             )
+        if '-replace "^v"' in rel:
+            return fail("release.yml 仍在去掉 tag 的 v 前缀，但 tag 本身不带 v；两处需一致")
 
     # 打包脚本必须真的产出同名 zip、且根目录就是这个文件夹
     pack = io.open(PACK, encoding="utf-8").read()
