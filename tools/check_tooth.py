@@ -25,6 +25,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -114,6 +115,21 @@ def main() -> int:
         return fail(f"placements.src 应为 {EXPECTED['zip_root']}，当前 {place.get('src')!r}")
     if (place.get("dest") or "").replace("\\", "/").rstrip("/") != EXPECTED["dest"]:
         return fail(f"placements.dest 应为 {EXPECTED['dest']}，当前 {place.get('dest')!r}")
+
+    # 发布包 URL 的 tag 前缀必须与 release.yml 一致：
+    #   tooth 里写 t/v{{version}} → 打 tag 时也要是 v<version>，否则 lip 下 404
+    release_yml = os.path.join(ROOT, ".github", "workflows", "release.yml")
+    if os.path.isfile(release_yml):
+        rel = io.open(release_yml, encoding="utf-8").read()
+        url_tag = re.search(r"/releases/download/([^/]*)\{\{version\}\}/", urls[0])
+        if url_tag is None:
+            return fail("发布包 URL 里找不到 {{version}} 占位")
+        prefix = url_tag.group(1)
+        if prefix and ('-replace "^' + prefix + '"' not in rel):
+            return fail(
+                f"tooth 的 tag 前缀 {prefix!r} 与 release.yml 的去前缀规则不一致"
+                f"（应为 -replace \"^{prefix}\"）"
+            )
 
     # 打包脚本必须真的产出同名 zip、且根目录就是这个文件夹
     pack = io.open(PACK, encoding="utf-8").read()
