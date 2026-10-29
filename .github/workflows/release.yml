@@ -1,7 +1,8 @@
-# 发布。打 tag（26.51.6 这种，不带 v；与历史 Release 一致）时构建并上传
-# bin/HologramLib.zip 与 bin/HologramLib-pdb.zip，供 Lip 安装：
+# 发布。打 tag（v26.51.6 这种）时构建并上传 bin/HologramLib.zip 与
+# bin/HologramLib-pdb.zip，供 Lip 安装：
 #   lip install github.com/Ieckseyr/HologramLib
-# tooth.json 的资产地址是 releases/download/{{version}}/HologramLib.zip，tag 必须同名。
+# Lip 只把 v<semver> 形式的 tag 当作版本，所以 tag 必须带 v；
+# tooth.json 的资产地址相应是 releases/download/v{{version}}/HologramLib.zip。
 #
 # 需要仓库变量 HOLO_PROTOCOL_URL（BedrockProtocol install 包直链）；没配就跳过。
 
@@ -9,7 +10,7 @@ name: release
 
 on:
   push:
-    tags: ["[0-9]*"]
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
@@ -48,7 +49,7 @@ jobs:
       - name: 版本一致
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
+          $tag = "${{ github.ref_name }}" -replace "^v", ""
           $manifest = (Get-Content manifest.json -Raw | ConvertFrom-Json).version
           $tooth = (Get-Content tooth.json -Raw | ConvertFrom-Json).version
           if ($tag -ne $manifest -or $tag -ne $tooth) {

@@ -25,7 +25,7 @@
                 {
                     "type": "zip",
                     "urls": [
-                        "https://{{tooth}}/releases/download/{{version}}/HologramLib.zip"
+                        "https://{{tooth}}/releases/download/v{{version}}/HologramLib.zip"
                     ],
                     "placements": [
                         {
