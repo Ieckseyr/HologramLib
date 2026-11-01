@@ -1,7 +1,20 @@
-# ABI 槽位表（0x012600 / ABI 戳 1）
+# ABI 槽位表（0x012700 / ABI 戳 1）
 
 > 本文件由 `python tools/abi_tool.py extract --md-out abi/slots.md` 生成，不要手改。
 > 虚函数声明顺序 = 虚表槽位号。**只能在尾部追加**。
+
+## IShapeDrawerExt
+
+| # | 种类 | 签名 |
+|---|---|---|
+| 0 | default | `~IShapeDrawerExt()` |
+| 1 | pure | `int64_t createCylinder(float, float, float, float, float, float, int segments = 16)` |
+| 2 | pure | `int64_t createPyramid(float, float, float, float, float, float)` |
+| 3 | pure | `int64_t createEllipsoid(float, float, float, float, float, float, int segmentsPerAxis = 12)` |
+| 4 | pure | `int64_t createCone(float, float, float, float, float, float, int segments = 16)` |
+| 5 | pure | `bool setMaxRenderDistance(int64_t, float)` |
+| 6 | pure | `bool setAttachedEntity(int64_t, int64_t)` |
+| 7 | pure | `bool clearAttachedEntity(int64_t)` |
 
 ## IShapeDrawer
 
@@ -440,6 +453,7 @@
 | 26 | pure | `IFormControl& formControl()` |
 | 27 | pure | `ILocatorBar& locatorBar()` |
 | 28 | pure | `IPlayerVisibility& playerVisibility()` |
+| 29 | pure | `IShapeDrawerExt& shapeExt()` |
 
 ## 结构体布局
 

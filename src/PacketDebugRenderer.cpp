@@ -8,6 +8,9 @@
 
 #include "EventIdCompat.h"
 
+#include <algorithm>
+#include <chrono>
+#include <cmath>
 #include <ll/api/event/EventBus.h>
 #include <ll/api/event/player/PlayerJoinEvent.h>
 #include <ll/api/event/world/ServerLevelTickEvent.h>
@@ -17,9 +20,6 @@
 #include <ll/api/thread/ServerThreadExecutor.h>
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/level/Level.h>
-#include <algorithm>
-#include <chrono>
-#include <cmath>
 
 namespace debugshape_export {
 
@@ -111,6 +111,88 @@ int64_t PacketDebugRenderer::createArrow(float x1, float y1, float z1, float x2,
 
 // 属性设置 - 直接修改 DebugShape
 
+// ── 1.33.0：协议层本就支持、之前没暴露的四种形状 ──
+// 半径/高度的含义与协议字段一致；Cylinder/Cone 的 Vec2 半径两个分量填同一值（等径），
+// 见 ProtocolShape.h 的 makeCylinderShape 说明。
+
+int64_t PacketDebugRenderer::createCylinder(
+    float x,
+    float y,
+    float z,
+    float radiusX,
+    float radiusZ,
+    float height,
+    int   segments) {
+    auto shape   = std::make_unique<ShapeData>();
+    shape->type  = LSEShapeType::Cylinder;
+    shape->proto = makeCylinderShape(
+        generateNetworkId(),
+        Vec3{x, y, z},
+        radiusX,
+        radiusZ,
+        height,
+        static_cast<std::uint8_t>(std::clamp(segments, 3, 255)));
+
+    int64_t const id = mShapes.insert(std::move(shape));
+    mShapes.withObject(id, [&](ShapeData& s) {
+        s.id = id;
+    });
+    return id;
+}
+
+int64_t PacketDebugRenderer::createPyramid(float x, float y, float z, float width, float height, float depth) {
+    auto shape   = std::make_unique<ShapeData>();
+    shape->type  = LSEShapeType::Pyramid;
+    shape->proto = makePyramidShape(generateNetworkId(), Vec3{x, y, z}, width, height, depth);
+
+    int64_t const id = mShapes.insert(std::move(shape));
+    mShapes.withObject(id, [&](ShapeData& s) {
+        s.id = id;
+    });
+    return id;
+}
+
+int64_t PacketDebugRenderer::createEllipsoid(
+    float x,
+    float y,
+    float z,
+    float radiusX,
+    float radiusY,
+    float radiusZ,
+    int   segmentsPerAxis) {
+    auto shape   = std::make_unique<ShapeData>();
+    shape->type  = LSEShapeType::Ellipsoid;
+    shape->proto = makeEllipsoidShape(
+        generateNetworkId(),
+        Vec3{x, y, z},
+        Vec3{radiusX, radiusY, radiusZ},
+        static_cast<std::uint8_t>(std::clamp(segmentsPerAxis, 3, 255)));
+
+    int64_t const id = mShapes.insert(std::move(shape));
+    mShapes.withObject(id, [&](ShapeData& s) {
+        s.id = id;
+    });
+    return id;
+}
+
+int64_t PacketDebugRenderer::createCone(float x, float y, float z, float radiusX, float radiusZ, float height, int segments) {
+    auto shape   = std::make_unique<ShapeData>();
+    shape->type  = LSEShapeType::Cone;
+    shape->proto = makeConeShape(
+        generateNetworkId(),
+        Vec3{x, y, z},
+        radiusX,
+        radiusZ,
+        height,
+        static_cast<std::uint8_t>(std::clamp(segments, 3, 255)));
+
+    int64_t const id = mShapes.insert(std::move(shape));
+    mShapes.withObject(id, [&](ShapeData& s) {
+        s.id = id;
+    });
+    return id;
+}
+
 bool PacketDebugRenderer::setText(int64_t id, const std::string& text) {
     return mShapes.withObject(id, [&](ShapeData& shape) {
         auto* textData = std::get_if<DebugText>(&shape.proto.mShape);
@@ -171,6 +253,30 @@ bool PacketDebugRenderer::clearRotation(int64_t id) {
             textData->mShowBackface     = false;
             textData->mShowTextBackface = false;
         }
+    });
+}
+
+// 超出该距离客户端不再绘制。协议字段是 optional：<= 0 表示不限制（置空）。
+bool PacketDebugRenderer::setMaxRenderDistance(int64_t id, float distance) {
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        if (distance > 0.0f) {
+            shape.proto.mMaxRenderDistance = distance;
+        } else {
+            shape.proto.mMaxRenderDistance = std::nullopt;
+        }
+    });
+}
+
+// 挂到实体上：客户端跟着那只实体画，不需要脚本每 tick 改坐标。
+bool PacketDebugRenderer::setAttachedEntity(int64_t id, int64_t entityUniqueId) {
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        shape.proto.mAttachedToEntityId = entityUniqueId;
+    });
+}
+
+bool PacketDebugRenderer::clearAttachedEntity(int64_t id) {
+    return mShapes.withObject(id, [&](ShapeData& shape) {
+        shape.proto.mAttachedToEntityId = std::nullopt;
     });
 }
 
@@ -309,7 +415,8 @@ bool PacketDebugRenderer::drawBatch(const std::vector<int64_t>& ids) {
             shapesList.push_back(shape.proto);
         });
     }
-    if (shapesList.empty()) return true;
+    if (shapesList.empty())
+        return true;
     return ProtocolPacketWriter::sendToAll(shapesList);
 }
 
@@ -453,13 +560,15 @@ bool PacketDebugRenderer::destroyBatch(const std::vector<int64_t>& ids) {
         removes.push_back(makeRemoveShape(networkId));
         mShapes.erase(id);
     }
-    if (removes.empty()) return true;
+    if (removes.empty())
+        return true;
     // 先发移除包再清内存 (与 destroy 一致; 未知 networkId 的移除包对客户端无副作用)
     return ProtocolPacketWriter::sendToAll(removes);
 }
 
 void PacketDebugRenderer::destroyAll() {
-    if (mShapes.empty()) return;
+    if (mShapes.empty())
+        return;
     std::vector<ProtoShape> removes;
     removes.reserve(mShapes.size());
     mShapes.forEachLocked([&](int64_t, ShapeData const& shape) {
@@ -488,17 +597,20 @@ uint64_t PacketDebugRenderer::getNetworkId(int64_t id) {
 //   3. 同 networkId 重复发送 = 客户端原地覆盖, 幂等无副作用
 
 void PacketDebugRenderer::init() {
-    if (mJoinListener) return; // 已初始化
+    if (mJoinListener)
+        return; // 已初始化
 
     mJoinListener = ll::event::EventBus::getInstance().emplaceListener<ll::event::PlayerJoinEvent>(
         [this](ll::event::PlayerJoinEvent& ev) {
-            if (hlibDomainDisabled("HLIB_NO_SHAPE")) return;
+            if (hlibDomainDisabled("HLIB_NO_SHAPE"))
+                return;
             // PlayerJoinEvent 时客户端仍在加载世界, 立即发送的包会丢失;
             // 1s + 5s 双重发兜底（大世界/慢机器加载超 1s 时 5s 补救）
             auto playerKey = ev.self().getNetworkIdentifier().getIPAndPort();
-            auto resend = [this, playerKey]() {
+            auto resend    = [this, playerKey]() {
                 auto level = ll::service::getLevel();
-                if (!level.has_value()) return;
+                if (!level.has_value())
+                    return;
 
                 ::Player* target = nullptr;
                 level->forEachPlayer([&](::Player& p) -> bool {
@@ -508,20 +620,19 @@ void PacketDebugRenderer::init() {
                     }
                     return false;
                 });
-                if (target) resendVisibleToPlayer(*target);
+                if (target)
+                    resendVisibleToPlayer(*target);
             };
             auto& executor = ll::thread::ServerThreadExecutor::getDefault();
             executor.executeAfter(resend, std::chrono::milliseconds(1000));
             executor.executeAfter(resend, std::chrono::milliseconds(5000));
-        }
-    );
+        });
 
     // 周期兜底重发: 无论客户端加载多慢/事件是否异常, 最迟 15s 必定补齐
     mTickListener = ll::event::EventBus::getInstance().emplaceListener<ll::event::ServerLevelTickEvent>(
         [this](ll::event::ServerLevelTickEvent const&) {
             tickResend(0.05f); // 20 tps 固定步长
-        }
-    );
+        });
 }
 
 void PacketDebugRenderer::shutdown() {
@@ -538,7 +649,8 @@ void PacketDebugRenderer::shutdown() {
 // 周期兜底重发（tick 驱动, 每 15s 一次全量静默补发）
 void PacketDebugRenderer::tickResend(float deltaTime) {
     mResendTimer += deltaTime;
-    if (mResendTimer < 15.0f) return;
+    if (mResendTimer < 15.0f)
+        return;
     mResendTimer = 0.0f;
 
     // 无可见形状时跳过（不持锁快查）
@@ -546,7 +658,8 @@ void PacketDebugRenderer::tickResend(float deltaTime) {
         return;
 
     auto level = ll::service::getLevel();
-    if (!level.has_value()) return;
+    if (!level.has_value())
+        return;
     level->forEachPlayer([this](::Player& p) -> bool {
         resendVisibleToPlayer(p, false); // 静默: 周期重发不打日志
         return true;

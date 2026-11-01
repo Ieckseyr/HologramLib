@@ -32,6 +32,26 @@ lib.shapes().draw(line);
 
 ---
 
+### 1.33.0 新增的四种形状与两个属性
+
+协议层一直支持 10 种形状，早期只接了 6 种。现在补齐：
+
+| 形状 | 脚本 | C++ |
+| --- | --- | --- |
+| 圆柱 | `shapeCreateCylinder(x,y,z,radiusX,radiusZ,height,segments)` | `shapeExt().createCylinder(...)` |
+| 金字塔 | `shapeCreatePyramid(x,y,z,width,height,depth)` | `shapeExt().createPyramid(...)` |
+| 椭球 | `shapeCreateEllipsoid(x,y,z,rx,ry,rz,segmentsPerAxis)` | `shapeExt().createEllipsoid(...)` |
+| 圆锥 | `shapeCreateCone(x,y,z,radiusX,radiusZ,height,segments)` | `shapeExt().createCone(...)` |
+
+两个通用属性：
+
+- `shapeSetMaxRenderDistance(id, distance)` —— 超出距离客户端不画，省带宽
+- `shapeAttachEntity(id, entityUniqueId)` / `shapeClearAttachedEntity(id)` —— 挂到实体上，
+  客户端跟着它画，不必每 tick 改坐标
+
+脚本侧的类型编号：`0..5` 沿用旧值，`6` 是历史空洞，新类型依次为 `7`（圆柱）/ `8`（金字塔）/
+`9`（椭球）/ `10`（圆锥）。`shapeGetType` 会返回这些新值。
+
 ## 悬浮字全息
 
 ### 组合模型：多行 = 一个形状

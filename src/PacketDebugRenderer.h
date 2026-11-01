@@ -11,8 +11,8 @@
 #include <string>
 #include <vector>
 
-#include "ProtocolShape.h"
 #include "ProtocolPackets.h"
+#include "ProtocolShape.h"
 
 #include <ll/api/event/Listener.h>
 
@@ -20,13 +20,16 @@ namespace debugshape_export {
 
 // 形状数据 - 直接持有 v944 DebugShape
 struct ShapeData {
-    int64_t     id;          // 插件层ID
-    LSEShapeType type;       // 形状类型（LSE 兼容）
-    ProtoShape  proto;       // v944 协议层数据
-    bool        visible{false};
+    int64_t      id;    // 插件层ID
+    LSEShapeType type;  // 形状类型（LSE 兼容）
+    ProtoShape   proto; // v944 协议层数据
+    bool         visible{false};
 
     // 绘制目标（进服重发时按此过滤接收者）
-    enum class Target : uint8_t { None, All, Dimension, Player };
+    enum class Target : uint8_t { None,
+                                  All,
+                                  Dimension,
+                                  Player };
     Target      target{Target::None};
     std::string targetPlayer; // Target::Player 时的目标玩家名
 };
@@ -35,7 +38,7 @@ class PacketDebugRenderer {
 public:
     static PacketDebugRenderer& getInstance();
 
-    PacketDebugRenderer(const PacketDebugRenderer&) = delete;
+    PacketDebugRenderer(const PacketDebugRenderer&)            = delete;
     PacketDebugRenderer& operator=(const PacketDebugRenderer&) = delete;
 
     // 创建形状（返回插件层ID）
@@ -45,6 +48,12 @@ public:
     int64_t createCircle(float x, float y, float z, float scale);
     int64_t createSphere(float x, float y, float z, float scale);
     int64_t createArrow(float x1, float y1, float z1, float x2, float y2, float z2);
+
+    // 1.33.0: 协议层本就支持、之前没暴露的四种形状
+    int64_t createCylinder(float x, float y, float z, float radiusX, float radiusZ, float height, int segments);
+    int64_t createPyramid(float x, float y, float z, float width, float height, float depth);
+    int64_t createEllipsoid(float x, float y, float z, float radiusX, float radiusY, float radiusZ, int segmentsPerAxis);
+    int64_t createCone(float x, float y, float z, float radiusX, float radiusZ, float height, int segments);
 
     // 属性设置
     bool setText(int64_t id, const std::string& text);
@@ -56,6 +65,13 @@ public:
     bool setRotation(int64_t id, float pitch, float yaw, float roll);
     bool clearRotation(int64_t id);
 
+    // 1.33.0: 两个通用属性（对所有形状生效）
+    //   maxRenderDistance: 超出该距离客户端不再绘制（0 或负数 = 不限制）
+    //   attachedEntity:    形状跟随该实体，省掉每 tick 手动 setLocation
+    bool setMaxRenderDistance(int64_t id, float distance);
+    bool setAttachedEntity(int64_t id, int64_t entityUniqueId);
+    bool clearAttachedEntity(int64_t id);
+
     // 文本形状专属（其它类型返回 false）:
     //   背景框颜色（RGBA 0~1; 与 mColor 同打包）/ 清除（回客户端默认色）/ 穿墙开关
     bool setBackgroundColor(int64_t id, float r, float g, float b, float a);
@@ -63,10 +79,10 @@ public:
     bool setDepthTest(int64_t id, bool enabled);
 
     // 属性获取
-    std::string getText(int64_t id);
+    std::string        getText(int64_t id);
     std::vector<float> getLocation(int64_t id);
     std::vector<float> getColor(int64_t id);
-    int getShapeType(int64_t id);
+    int                getShapeType(int64_t id);
     std::vector<float> getRotation(int64_t id);
 
     // 显示控制
@@ -85,9 +101,9 @@ public:
 
     // 查询
     std::vector<int64_t> findTextByLocation(float x, float y, float z, float radius);
-    int64_t findTextByLocationAndContent(float x, float y, float z, float radius, const std::string& text);
+    int64_t              findTextByLocationAndContent(float x, float y, float z, float radius, const std::string& text);
     std::vector<int64_t> getAllShapeIds();
-    bool exists(int64_t id);
+    bool                 exists(int64_t id);
 
     // 生命周期
     bool destroy(int64_t id);
@@ -106,7 +122,7 @@ private:
     void tickResend(float deltaTime);
 
 private:
-    PacketDebugRenderer() = default;
+    PacketDebugRenderer()  = default;
     ~PacketDebugRenderer() = default;
 
     uint64_t generateNetworkId();
@@ -123,7 +139,7 @@ private:
 
     ll::event::ListenerPtr mJoinListener{nullptr};
     ll::event::ListenerPtr mTickListener{nullptr}; // 周期兜底重发
-    float   mResendTimer{0};  // 距下次全量兜底重发的秒数
+    float                  mResendTimer{0};        // 距下次全量兜底重发的秒数
 };
 
 } // namespace debugshape_export

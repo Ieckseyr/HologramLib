@@ -55,6 +55,12 @@ jobs:
           g++ -std=c++20 -O1 -I src tests/click_event_test.cpp -o /tmp/click_event_test
           /tmp/click_event_test
 
+      # 形状编号：脚本 0..5 固定、6 是空洞、7..10 对应协议 6..9，两套编号不许混
+      - name: 形状编号映射（不依赖 BDS）
+        run: |
+          g++ -std=c++20 -O1 -I src tests/shape_id_map_test.cpp -o /tmp/shape_id_map_test
+          /tmp/shape_id_map_test
+
       # 编译那一关需要 HOLO_PROTOCOL_URL，没配就整关跳过。内核层这几个头是纯标准库，
       # 单独做一次语法检查，保证它们永远编得过。
       - name: 内核头文件语法检查

@@ -1,4 +1,4 @@
-// HologramLib.d.ts —— 自动生成（tools/gen_lse_shim.py），API 1.32.0
+// HologramLib.d.ts —— 自动生成（tools/gen_lse_shim.py），API 1.33.0
 // 放到脚本旁边, 编辑器就能补全 HL.xxx 的参数名与类型。
 
 declare namespace HologramLib {
@@ -537,6 +537,10 @@ declare namespace HologramLib {
     /** 实现见 src/sensing/PlayerSensingExporter.cpp */
     sensingIsTouch(playerName: string): boolean;
     /** 实现见 src/RemoteCallExporter.cpp */
+    shapeAttachEntity(id: number, entityUniqueId: number): boolean;
+    /** 实现见 src/RemoteCallExporter.cpp */
+    shapeClearAttachedEntity(id: number): boolean;
+    /** 实现见 src/RemoteCallExporter.cpp */
     shapeClearBackgroundColor(id: number): boolean;
     /** 实现见 src/RemoteCallExporter.cpp */
     shapeClearRotation(id: number): boolean;
@@ -547,7 +551,15 @@ declare namespace HologramLib {
     /** 实现见 src/RemoteCallExporter.cpp */
     shapeCreateCircle(x: number, y: number, z: number, scale: number): number;
     /** 实现见 src/RemoteCallExporter.cpp */
+    shapeCreateCone(x: number, y: number, z: number, radiusX: number, radiusZ: number, height: number, segments: number): number;
+    /** 实现见 src/RemoteCallExporter.cpp */
+    shapeCreateCylinder(x: number, y: number, z: number, radiusX: number, radiusZ: number, height: number, segments: number): number;
+    /** 实现见 src/RemoteCallExporter.cpp */
+    shapeCreateEllipsoid(x: number, y: number, z: number, radiusX: number, radiusY: number, radiusZ: number, segmentsPerAxis: number): number;
+    /** 实现见 src/RemoteCallExporter.cpp */
     shapeCreateLine(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number): number;
+    /** 实现见 src/RemoteCallExporter.cpp */
+    shapeCreatePyramid(x: number, y: number, z: number, width: number, height: number, depth: number): number;
     /** 实现见 src/RemoteCallExporter.cpp */
     shapeCreateSphere(x: number, y: number, z: number, scale: number): number;
     /** 实现见 src/RemoteCallExporter.cpp */
@@ -602,6 +614,8 @@ declare namespace HologramLib {
     shapeSetDuration(id: number, seconds: number): boolean;
     /** 实现见 src/RemoteCallExporter.cpp */
     shapeSetLocation(id: number, x: number, y: number, z: number): boolean;
+    /** 实现见 src/RemoteCallExporter.cpp */
+    shapeSetMaxRenderDistance(id: number, distance: number): boolean;
     /** 实现见 src/RemoteCallExporter.cpp */
     shapeSetRotation(id: number, pitch: number, yaw: number, roll: number): boolean;
     /** 实现见 src/RemoteCallExporter.cpp */
@@ -997,12 +1011,18 @@ declare namespace HologramLib {
   }
 
   interface Shape {
+    attachEntity(id: number, entityUniqueId: number): boolean;
+    clearAttachedEntity(id: number): boolean;
     clearBackgroundColor(id: number): boolean;
     clearRotation(id: number): boolean;
     createArrow(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number): number;
     createBox(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number): number;
     createCircle(x: number, y: number, z: number, scale: number): number;
+    createCone(x: number, y: number, z: number, radiusX: number, radiusZ: number, height: number, segments: number): number;
+    createCylinder(x: number, y: number, z: number, radiusX: number, radiusZ: number, height: number, segments: number): number;
+    createEllipsoid(x: number, y: number, z: number, radiusX: number, radiusY: number, radiusZ: number, segmentsPerAxis: number): number;
     createLine(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number): number;
+    createPyramid(x: number, y: number, z: number, width: number, height: number, depth: number): number;
     createSphere(x: number, y: number, z: number, scale: number): number;
     createText(x: number, y: number, z: number, text: string): number;
     destroy(id: number): boolean;
@@ -1030,6 +1050,7 @@ declare namespace HologramLib {
     setDimension(id: number, dimId: number): boolean;
     setDuration(id: number, seconds: number): boolean;
     setLocation(id: number, x: number, y: number, z: number): boolean;
+    setMaxRenderDistance(id: number, distance: number): boolean;
     setRotation(id: number, pitch: number, yaw: number, roll: number): boolean;
     setScale(id: number, scale: number): boolean;
     setText(id: number, text: string): boolean;

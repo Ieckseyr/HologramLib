@@ -399,13 +399,25 @@ def compare(base, cur):
         if c is None:
             errors.append(f"枚举消失: {name}")
             continue
-        if b["values"] != c["values"]:
+        # 枚举：只追加新值不破坏 ABI（底层类型是 int，既有取值的线上数值不变），
+        # 所以和虚表一样按"尾部追加允许"处理；改值或删值才算破坏。
+        base_values = b["values"]
+        cur_values = c["values"]
+        changed = [
+            k for k in sorted(set(base_values) | set(cur_values)) if base_values.get(k) != cur_values.get(k)
+        ]
+        removed = [k for k in changed if k in base_values and k not in cur_values]
+        renumbered = [k for k in changed if k in base_values and k in cur_values]
+        added = [k for k in changed if k not in base_values]
+
+        if removed or renumbered:
             diff = [
-                f"      {k}: {b['values'].get(k)} → {c['values'].get(k)}"
-                for k in sorted(set(b["values"]) | set(c["values"]))
-                if b["values"].get(k) != c["values"].get(k)
+                f"      {k}: {base_values.get(k)} → {cur_values.get(k)}" for k in (removed + renumbered)
             ]
             errors.append(f"枚举值变了: {name}（线上/ABI 数值变了）\n" + "\n".join(diff))
+        elif added:
+            detail = "      " + ", ".join(f"{k}={cur_values[k]}" for k in added)
+            lines.append(f"~ {name}: +{len(added)} 个枚举值（尾部追加，旧值不变）\n{detail}")
 
     # 版本与布局戳的一致性
     if cur["apiVersionNumber"] < base["apiVersionNumber"]:

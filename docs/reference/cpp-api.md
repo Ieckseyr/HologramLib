@@ -58,6 +58,23 @@ namespace hologramlib {
 | setLocation | `(int64_t id, float x, float y, float z) -> bool` | 位置 |
 | setText | `(int64_t id, std::string const& text) -> bool` | 文本内容 |
 | setRotation | `(int64_t id, float pitch, float yaw, float roll) -> bool` | 三轴旋转（度; 文本形状自动启用 useRotation + 双面渲染） |
+
+### 1.33.0 追加：IShapeDrawerExt（形状扩展）
+
+形状扩展单独成接口（`lib.shapeExt()`），不往 `IShapeDrawer` 中间插方法 —— 中间插会挪动后面所有接口的虚表槽位。
+
+| 方法 | 签名 | 说明 |
+|------|------|------|
+| createCylinder | `(float x, float y, float z, float radiusX, float radiusZ, float height, int segments = 16) -> int64_t` | 圆柱 |
+| createPyramid | `(float x, float y, float z, float width, float height, float depth) -> int64_t` | 金字塔（底面 width×depth） |
+| createEllipsoid | `(float x, float y, float z, float radiusX, float radiusY, float radiusZ, int segmentsPerAxis = 12) -> int64_t` | 椭球 |
+| createCone | `(float x, float y, float z, float radiusX, float radiusZ, float height, int segments = 16) -> int64_t` | 圆锥 |
+| setMaxRenderDistance | `(int64_t id, float distance) -> bool` | 最远渲染距离；`<= 0` 清空该字段 |
+| setAttachedEntity | `(int64_t id, int64_t entityUniqueId) -> bool` | 挂到实体上（客户端跟随） |
+| clearAttachedEntity | `(int64_t id) -> bool` | 解除挂载 |
+
+`ShapeType` 同步追加 `Cylinder = 7` / `Pyramid = 8` / `Ellipsoid = 9` / `Cone = 10`；`6` 是历史空洞，不复用。
+虚表与枚举都是尾部追加，`HOLOGLIB_ABI_STAMP` 仍为 1，但新增了接口，消费方需要重新编译。 |
 | clearRotation | `(int64_t id) -> bool` | 清除旋转（恢复面向相机） |
 | draw | `(int64_t id) -> bool` | 全维度可见者绘制 |
 | drawToPlayer | `(int64_t id, std::string const& playerName) -> bool` | 指定玩家 |

@@ -1,7 +1,7 @@
 {
   "namespace": "HologramLib",
-  "apiVersion": "1.32.0",
-  "count": 339,
+  "apiVersion": "1.33.0",
+  "count": 346,
   "exports": [
     {
       "name": "containerBlockEvent",
@@ -5281,6 +5281,36 @@
       "method": "isTouch"
     },
     {
+      "name": "shapeAttachEntity",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "entityUniqueId",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "attachEntity"
+    },
+    {
+      "name": "shapeClearAttachedEntity",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "clearAttachedEntity"
+    },
+    {
       "name": "shapeClearBackgroundColor",
       "params": [
         [
@@ -5398,6 +5428,117 @@
       "method": "createCircle"
     },
     {
+      "name": "shapeCreateCone",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "radiusX",
+          "number"
+        ],
+        [
+          "radiusZ",
+          "number"
+        ],
+        [
+          "height",
+          "number"
+        ],
+        [
+          "segments",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "createCone"
+    },
+    {
+      "name": "shapeCreateCylinder",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "radiusX",
+          "number"
+        ],
+        [
+          "radiusZ",
+          "number"
+        ],
+        [
+          "height",
+          "number"
+        ],
+        [
+          "segments",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "createCylinder"
+    },
+    {
+      "name": "shapeCreateEllipsoid",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "radiusX",
+          "number"
+        ],
+        [
+          "radiusY",
+          "number"
+        ],
+        [
+          "radiusZ",
+          "number"
+        ],
+        [
+          "segmentsPerAxis",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "createEllipsoid"
+    },
+    {
       "name": "shapeCreateLine",
       "params": [
         [
@@ -5429,6 +5570,39 @@
       "file": "src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "createLine"
+    },
+    {
+      "name": "shapeCreatePyramid",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "width",
+          "number"
+        ],
+        [
+          "height",
+          "number"
+        ],
+        [
+          "depth",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "createPyramid"
     },
     {
       "name": "shapeCreateSphere",
@@ -5894,6 +6068,23 @@
       "file": "src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "setLocation"
+    },
+    {
+      "name": "shapeSetMaxRenderDistance",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "distance",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/RemoteCallExporter.cpp",
+      "group": "Shape",
+      "method": "setMaxRenderDistance"
     },
     {
       "name": "shapeSetRotation",

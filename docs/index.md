@@ -9,7 +9,7 @@ HologramLib 是基岩版服务端（LeviLamina / BDS）的**协议层显示库**
 | | |
 |---|---|
 | 插件版本 | `26.51.6` |
-| API 版本 | `1.32.0`（`HOLOGLIB_API_VERSION 0x012600`） |
+| API 版本 | `1.33.0`（`HOLOGLIB_API_VERSION 0x012700`） |
 | 运行平台 | LeviLamina 26.51 · BDS 1.26.51（协议 2193） |
 | 脚本前置 | `lrca`（LegacyRemoteCall） |
 
@@ -44,7 +44,7 @@ HologramLib 是基岩版服务端（LeviLamina / BDS）的**协议层显示库**
 | 在方位条上给玩家指路 | [方位条 `locatorBar*`](lse/locator-bar.md) |
 | 让某个玩家在别人客户端上消失 / 只屏蔽某几类包 | [隐身 `playerHide*`](lse/visibility.md) |
 
-全部 **339 个脚本函数**见 [LSE 脚本接口](lse/index.md)；C++ 侧对应的接口（`IShapeDrawer` / `IHologramText` / `ICustomEntity` / `IViewOverride` …）见 [C++ 接口参考](reference/cpp-api.md)。
+全部 **346 个脚本函数**见 [LSE 脚本接口](lse/index.md)；C++ 侧对应的接口（`IShapeDrawer` / `IHologramText` / `ICustomEntity` / `IViewOverride` …）见 [C++ 接口参考](reference/cpp-api.md)。
 
 ---
 

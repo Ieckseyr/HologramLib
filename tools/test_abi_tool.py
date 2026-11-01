@@ -64,9 +64,13 @@ def main():
     # 锚点取"真正最后一条虚函数"（头文件尾部会继续长, 写死字符串会过期）
     last = [ln for ln in original.splitlines() if ln.strip().startswith("virtual ")][-1]
     assert last in original
+    # 版本号也不写死：从当前头文件里取，往上抬一格（次版本 +1）
+    m_ver = re.search(r"#define HOLOGLIB_API_VERSION (0x[0-9A-Fa-f]+)", original)
+    assert m_ver, "头文件里找不到 HOLOGLIB_API_VERSION"
+    bumped_hex = f"0x{int(m_ver.group(1), 16) + 0x100:06X}"
     bumped = re.sub(
         r"#define HOLOGLIB_API_VERSION 0x[0-9A-Fa-f]+",
-        "#define HOLOGLIB_API_VERSION 0x012600",
+        f"#define HOLOGLIB_API_VERSION {bumped_hex}",
         original,
         count=1,
     )

@@ -40,7 +40,7 @@ HL.playerHideSetHidden("Steve", true);
 
 | 分组 | 函数数 | 前缀 |
 |---|---|---|
-| `Shape` | 39 | `shape*` |
+| `Shape` | 46 | `shape*` |
 | `Hologram` | 28 | `holo*` |
 | `GradientLine` | 11 | `gradient*` |
 | `ItemDetail` | 2 | `itemDetail*` |

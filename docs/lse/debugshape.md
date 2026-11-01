@@ -1441,3 +1441,56 @@ gradientDraw(trail);                                            // 默认红 →
 - **玩家进服不用自己补发**：悬浮字和渐变线都只存在客户端内存里，玩家进服后由库自动补发（进服 1 秒、5 秒各一次，之后每 15 秒兜底重发）。
 - **建议在主线程调用**（服务端 tick、事件回调里）。
 - 库没装或没加载时，`ll.import` 会返回 `null`，直接调用会报错；可以先判空，或先调 `ll.hasExported("HologramLib", "holoDraw")` 做能力检查。
+
+## 1.33.0 新增：四种形状与两个属性
+
+协议层一直支持 10 种形状，之前只暴露了 6 种。现在补齐另外四种，并开放两个通用属性。
+
+### 四种形状
+
+```js
+const { Shape } = require("plugins/HologramLib/lib/HologramLib.js");
+
+// 圆柱（半径 X/Z、高度、圆周分段）
+Shape.createCylinder(0, 70, 0, 1.5, 1.5, 4, 16);
+
+// 金字塔（底面宽、高、底面深）
+Shape.createPyramid(0, 70, 0, 3, 4, 3);
+
+// 椭球（三个方向的半径、每轴分段）
+Shape.createEllipsoid(0, 70, 0, 2, 3, 1, 12);
+
+// 圆锥（底面半径 X/Z、高度、圆周分段）
+Shape.createCone(0, 70, 0, 2, 2, 4, 16);
+```
+
+| 函数 | 参数 | 说明 |
+| --- | --- | --- |
+| `shapeCreateCylinder(x, y, z, radiusX, radiusZ, height, segments)` | 分段 3~255 | 半径字段在协议里是二维向量，两个分量未公开含义，这里填同一值（等径） |
+| `shapeCreatePyramid(x, y, z, width, height, depth)` | — | 底面 `width × depth`，`depth` 在协议里可选，这里总是给出 |
+| `shapeCreateEllipsoid(x, y, z, radiusX, radiusY, radiusZ, segmentsPerAxis)` | 分段 3~255 | 三个方向半径独立 |
+| `shapeCreateCone(x, y, z, radiusX, radiusZ, height, segments)` | 分段 3~255 | 底面椭圆可由 X/Z 半径不同做出 |
+
+`shapeGetType(id)` 的返回值相应扩展到 `7`（圆柱）/ `8`（金字塔）/ `9`（椭球）/ `10`（圆锥）。
+脚本侧编号 `0..5` 不变，`6` 是历史空洞（早期填充面方案废弃后留空），新增类型从 `7` 起。
+
+### 两个通用属性
+
+```js
+// 超过 48 格客户端不再绘制（省带宽）；传 0 或负数取消限制
+Shape.setMaxRenderDistance(id, 48);
+
+// 挂到实体上，客户端跟着实体画，不用每 tick 改坐标
+Shape.attachEntity(id, entityUniqueId);
+
+// 解除挂载
+Shape.clearAttachedEntity(id);
+```
+
+| 函数 | 说明 |
+| --- | --- |
+| `shapeSetMaxRenderDistance(id, distance)` | 最远渲染距离；`<= 0` 清掉该字段（不限制） |
+| `shapeAttachEntity(id, entityUniqueId)` | 按实体 uniqueId 挂载 |
+| `shapeClearAttachedEntity(id)` | 解除挂载 |
+
+挂载用的是**服务端实体的 uniqueId**（`entityGetInfo` / `playerNpc*` 一类接口返回的 id），不是插件层的形状 id。

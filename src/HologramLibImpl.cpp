@@ -106,10 +106,65 @@ public:
     bool destroy(int64_t id) override {
         return debugshape_export::PacketDebugRenderer::getInstance().destroy(id);
     }
-    void destroyAll() override { debugshape_export::PacketDebugRenderer::getInstance().destroyAll(); }
-    bool exists(int64_t id) override { return debugshape_export::PacketDebugRenderer::getInstance().exists(id); }
+    void      destroyAll() override { debugshape_export::PacketDebugRenderer::getInstance().destroyAll(); }
+    bool      exists(int64_t id) override { return debugshape_export::PacketDebugRenderer::getInstance().exists(id); }
     ShapeType type(int64_t id) override {
         return static_cast<ShapeType>(debugshape_export::PacketDebugRenderer::getInstance().getShapeType(id));
+    }
+};
+
+class ShapeDrawerExtImpl final : public IShapeDrawerExt {
+public:
+    int64_t createCylinder(float x, float y, float z, float radiusX, float radiusZ, float height, int segments)
+        override {
+        return debugshape_export::PacketDebugRenderer::getInstance().createCylinder(
+            x,
+            y,
+            z,
+            radiusX,
+            radiusZ,
+            height,
+            segments);
+    }
+    int64_t createPyramid(float x, float y, float z, float width, float height, float depth) override {
+        return debugshape_export::PacketDebugRenderer::getInstance().createPyramid(x, y, z, width, height, depth);
+    }
+    int64_t createEllipsoid(
+        float x,
+        float y,
+        float z,
+        float radiusX,
+        float radiusY,
+        float radiusZ,
+        int   segmentsPerAxis) override {
+        return debugshape_export::PacketDebugRenderer::getInstance().createEllipsoid(
+            x,
+            y,
+            z,
+            radiusX,
+            radiusY,
+            radiusZ,
+            segmentsPerAxis);
+    }
+    int64_t createCone(float x, float y, float z, float radiusX, float radiusZ, float height, int segments)
+        override {
+        return debugshape_export::PacketDebugRenderer::getInstance().createCone(
+            x,
+            y,
+            z,
+            radiusX,
+            radiusZ,
+            height,
+            segments);
+    }
+    bool setMaxRenderDistance(int64_t id, float distance) override {
+        return debugshape_export::PacketDebugRenderer::getInstance().setMaxRenderDistance(id, distance);
+    }
+    bool setAttachedEntity(int64_t id, int64_t entityUniqueId) override {
+        return debugshape_export::PacketDebugRenderer::getInstance().setAttachedEntity(id, entityUniqueId);
+    }
+    bool clearAttachedEntity(int64_t id) override {
+        return debugshape_export::PacketDebugRenderer::getInstance().clearAttachedEntity(id);
     }
 };
 
@@ -193,7 +248,6 @@ public:
     bool setLineParseVariables(int64_t id, int lineIndex, bool enabled) override {
         return debugshape_export::FloatingTextManager::getInstance().setLineParseVariables(id, lineIndex, enabled);
     }
-
 };
 
 class ItemDetailImpl final : public IItemDetail {
@@ -206,8 +260,7 @@ public:
         std::string const& itemId,
         int                aux,
         int                count,
-        std::string const& customText
-    ) override {
+        std::string const& customText) override {
         return debugshape_export::ItemDetailManager::getInstance().show(dimId, x, y, z, itemId, aux, count, customText);
     }
     bool hide(int64_t id) override { return debugshape_export::ItemDetailManager::getInstance().hide(id); }
@@ -310,14 +363,12 @@ public:
         return debugshape_export::ItemDisplayManager::getInstance().setScaleLive(id, scale);
     }
     bool setTransformLive(
-        int64_t id,
+        int64_t            id,
         std::string const& ox, std::string const& oy, std::string const& oz,
         std::string const& rx, std::string const& ry, std::string const& rz,
-        std::string const& scale
-    ) override {
+        std::string const& scale) override {
         return debugshape_export::ItemDisplayManager::getInstance().setTransformLive(
-            id, ox, oy, oz, rx, ry, rz, scale
-        );
+            id, ox, oy, oz, rx, ry, rz, scale);
     }
     // 26.40.12: 动画预设
     bool setAnim(int64_t id, ItemDisplayAnim const& anim) override {
@@ -330,8 +381,6 @@ public:
         return debugshape_export::ItemDisplayManager::getInstance().clearAnim(id);
     }
 };
-
-
 
 class CustomEntityImpl final : public ICustomEntity {
 public:
@@ -436,19 +485,15 @@ public:
         return debugshape_export::CustomEntityManager::getInstance().clearRide(id);
     }
     bool playAnimation(
-        int64_t id, std::string const& animation, std::string const& stopExpression, int durationTicks
-    ) override {
+        int64_t id, std::string const& animation, std::string const& stopExpression, int durationTicks) override {
         return debugshape_export::CustomEntityManager::getInstance().playAnimation(
-            id, animation, stopExpression, durationTicks
-        );
+            id, animation, stopExpression, durationTicks);
     }
     bool playAnimationTo(
         int64_t id, std::string const& playerName,
-        std::string const& animation, std::string const& stopExpression, int durationTicks
-    ) override {
+        std::string const& animation, std::string const& stopExpression, int durationTicks) override {
         return debugshape_export::CustomEntityManager::getInstance().playAnimationTo(
-            id, playerName, animation, stopExpression, durationTicks
-        );
+            id, playerName, animation, stopExpression, durationTicks);
     }
     void setEntitySpawnCallback(EntitySpawnCallback callback) override {
         debugshape_export::CustomEntityManager::getInstance().setEntitySpawnCallback(std::move(callback));
@@ -477,8 +522,7 @@ public:
         int                slot,
         std::string const& name,
         int                aux,
-        std::string const& nbt
-    ) override {
+        std::string const& nbt) override {
         return debugshape_export::CustomEntityManager::getInstance()
             .setPlayerEquipmentSlot(id, playerName, slot, name, aux, nbt);
     }
@@ -498,65 +542,51 @@ public:
     int64_t createPoint(
         std::string const& owner, int dimId,
         float x, float y, float z,
-        std::string const& effect, int intervalTicks, int lifetimeTicks
-    ) override {
+        std::string const& effect, int intervalTicks, int lifetimeTicks) override {
         return debugshape_export::ParticleShapeManager::getInstance().createPoint(
-            owner, dimId, x, y, z, effect, intervalTicks, lifetimeTicks
-        );
+            owner, dimId, x, y, z, effect, intervalTicks, lifetimeTicks);
     }
     int64_t createLine(
         std::string const& owner, int dimId,
         float x1, float y1, float z1, float x2, float y2, float z2, float step,
-        std::string const& effect, int intervalTicks, int lifetimeTicks
-    ) override {
+        std::string const& effect, int intervalTicks, int lifetimeTicks) override {
         return debugshape_export::ParticleShapeManager::getInstance().createLine(
-            owner, dimId, x1, y1, z1, x2, y2, z2, step, effect, intervalTicks, lifetimeTicks
-        );
+            owner, dimId, x1, y1, z1, x2, y2, z2, step, effect, intervalTicks, lifetimeTicks);
     }
     int64_t createRect(
         std::string const& owner, int dimId,
         float cx, float cy, float cz, float w, float h, int axis, float step,
-        std::string const& effect, int intervalTicks, int lifetimeTicks
-    ) override {
+        std::string const& effect, int intervalTicks, int lifetimeTicks) override {
         return debugshape_export::ParticleShapeManager::getInstance().createRect(
-            owner, dimId, cx, cy, cz, w, h, axis, step, effect, intervalTicks, lifetimeTicks
-        );
+            owner, dimId, cx, cy, cz, w, h, axis, step, effect, intervalTicks, lifetimeTicks);
     }
     int64_t createPlane(
         std::string const& owner, int dimId,
         float cx, float cy, float cz, float w, float h, int axis, float step,
-        std::string const& effect, int intervalTicks, int lifetimeTicks
-    ) override {
+        std::string const& effect, int intervalTicks, int lifetimeTicks) override {
         return debugshape_export::ParticleShapeManager::getInstance().createPlane(
-            owner, dimId, cx, cy, cz, w, h, axis, step, effect, intervalTicks, lifetimeTicks
-        );
+            owner, dimId, cx, cy, cz, w, h, axis, step, effect, intervalTicks, lifetimeTicks);
     }
     int64_t createBox(
         std::string const& owner, int dimId,
         float cx, float cy, float cz, float hx, float hy, float hz, float step,
-        std::string const& effect, int intervalTicks, int lifetimeTicks
-    ) override {
+        std::string const& effect, int intervalTicks, int lifetimeTicks) override {
         return debugshape_export::ParticleShapeManager::getInstance().createBox(
-            owner, dimId, cx, cy, cz, hx, hy, hz, step, effect, intervalTicks, lifetimeTicks
-        );
+            owner, dimId, cx, cy, cz, hx, hy, hz, step, effect, intervalTicks, lifetimeTicks);
     }
     int64_t createBoxFaces(
         std::string const& owner, int dimId,
         float cx, float cy, float cz, float hx, float hy, float hz, float step,
-        std::string const& effect, int intervalTicks, int lifetimeTicks
-    ) override {
+        std::string const& effect, int intervalTicks, int lifetimeTicks) override {
         return debugshape_export::ParticleShapeManager::getInstance().createBoxFaces(
-            owner, dimId, cx, cy, cz, hx, hy, hz, step, effect, intervalTicks, lifetimeTicks
-        );
+            owner, dimId, cx, cy, cz, hx, hy, hz, step, effect, intervalTicks, lifetimeTicks);
     }
     int64_t createPoly(
         std::string const& owner, int dimId,
         std::vector<float> const& verts, std::vector<std::int32_t> const& edges, float step,
-        std::string const& effect, int intervalTicks, int lifetimeTicks
-    ) override {
+        std::string const& effect, int intervalTicks, int lifetimeTicks) override {
         return debugshape_export::ParticleShapeManager::getInstance().createPoly(
-            owner, dimId, verts, edges, step, effect, intervalTicks, lifetimeTicks
-        );
+            owner, dimId, verts, edges, step, effect, intervalTicks, lifetimeTicks);
     }
 
     bool setPos(int64_t id, float x, float y, float z) override {
@@ -622,9 +652,11 @@ public:
 
 class HologramLibImpl final : public IHologramLib {
 public:
-    IShapeDrawer&  shapes() override { return mShapes; }
-    IHologramText& holograms() override { return mHolograms; }
-    IItemDetail&   itemDetails() override { return mItemDetails; }
+    IShapeDrawer& shapes() override { return mShapes; }
+
+    IShapeDrawerExt& shapeExt() override { return mShapeExt; }
+    IHologramText&   holograms() override { return mHolograms; }
+    IItemDetail&     itemDetails() override { return mItemDetails; }
 
     bool isLseAvailable() override { return lse::isAttached(); }
 
@@ -646,7 +678,7 @@ public:
     ITradeMenu& tradeMenus() override { return debugshape_export::tradeMenuAdapter(); }
 
     // ── 1.22.0 ──
-    INpcDialogue& npcDialogs() override { return debugshape_export::npcDialogueAdapter(); }
+    INpcDialogue&   npcDialogs() override { return debugshape_export::npcDialogueAdapter(); }
     IContainerMenu& containerMenus() override { return debugshape_export::containerMenuAdapter(); }
 
     void setGhostInteractListener(std::function<void(GhostInteractEvent const&)> listener) override {
@@ -663,10 +695,11 @@ public:
     }
 
     std::vector<std::string> pollGhostInteractions() override {
-        auto events = debugshape_export::GhostInteractRouter::getInstance().poll();
+        auto                     events = debugshape_export::GhostInteractRouter::getInstance().poll();
         std::vector<std::string> out;
         out.reserve(events.size());
-        for (auto const& ev : events) out.push_back(debugshape_export::GhostInteractRouter::formatEvent(ev));
+        for (auto const& ev : events)
+            out.push_back(debugshape_export::GhostInteractRouter::formatEvent(ev));
         return out;
     }
 
@@ -674,9 +707,9 @@ public:
     IPlayerSensing& playerSensing() override { return debugshape_export::playerSensingAdapter(); }
 
     // ── 26.51.6 ──
-    IItemActor&   itemActors() override { return debugshape_export::itemActorAdapter(); }
-    IFormControl& formControl() override { return debugshape_export::formControlAdapter(); }
-    ILocatorBar&  locatorBar() override { return debugshape_export::locatorBarAdapter(); }
+    IItemActor&        itemActors() override { return debugshape_export::itemActorAdapter(); }
+    IFormControl&      formControl() override { return debugshape_export::formControlAdapter(); }
+    ILocatorBar&       locatorBar() override { return debugshape_export::locatorBarAdapter(); }
     IPlayerVisibility& playerVisibility() override { return debugshape_export::playerVisibilityAdapter(); }
 
     // ── 1.23.0 未发布线: 背包虚容器 ──
@@ -696,12 +729,13 @@ public:
     }
 
 private:
-    ShapeDrawerImpl  mShapes;
-    HologramTextImpl mHolograms;
-    ItemDetailImpl   mItemDetails;
-    ItemDisplayImpl  mItemDisplays;
-    CustomEntityImpl mCustomEntities;
-    ParticleShapeImpl mParticleShapes;
+    ShapeDrawerImpl    mShapes;
+    ShapeDrawerExtImpl mShapeExt;
+    HologramTextImpl   mHolograms;
+    ItemDetailImpl     mItemDetails;
+    ItemDisplayImpl    mItemDisplays;
+    CustomEntityImpl   mCustomEntities;
+    ParticleShapeImpl  mParticleShapes;
 };
 
 } // namespace

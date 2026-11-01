@@ -23,8 +23,9 @@
 #include <string>
 
 #include "sculk/protocol/codec/level/PrimitiveShapes.hpp"
-#include "sculk/protocol/codec/packet/PrimitiveShapesPacket.hpp"
 #include "sculk/protocol/codec/math/Vec3.hpp"
+#include "sculk/protocol/codec/packet/PrimitiveShapesPacket.hpp"
+#include "shape/ShapeIdMap.h" // 脚本编号 ↔ 协议编号（6 是历史空洞）
 
 namespace debugshape_export {
 
@@ -33,42 +34,61 @@ namespace debugshape_export {
 // 映射关系见下方 toProtoShapeType。
 // 注: FilledQuad(6) 已移除（极薄 Box 模拟填充面方案废弃）; 6 保留空洞防止旧脚本误判
 enum class LSEShapeType : int {
-    Text = 0,
-    Line = 1,
-    Box = 2,
-    Circle = 3,
-    Sphere = 4,
-    Arrow = 5
+    Text   = shape_id::kLseText,
+    Line   = shape_id::kLseLine,
+    Box    = shape_id::kLseBox,
+    Circle = shape_id::kLseCircle,
+    Sphere = shape_id::kLseSphere,
+    Arrow  = shape_id::kLseArrow,
+    // 6 是历史空洞（FilledQuad 废弃后留空），不要复用
+    Cylinder  = shape_id::kLseCylinder,
+    Pyramid   = shape_id::kLsePyramid,
+    Ellipsoid = shape_id::kLseEllipsoid,
+    Cone      = shape_id::kLseCone
 };
 
 // 直接复用 v2168 命名空间下的类型（保留旧别名使上层代码无需改动）
-using ProtoShape          = sculk::protocol::PrimitiveShapes;
-using ProtoShapeType      = sculk::protocol::PrimitiveShapesType;
-using ProtoVec3           = sculk::protocol::Vec3;
-using ProtoTextPayload    = sculk::protocol::TextDataPayload;
-using ProtoBoxPayload     = sculk::protocol::BoxDataPayload;
-using ProtoLinePayload    = sculk::protocol::LineDataPayload;
-using ProtoArrowPayload   = sculk::protocol::ArrowDataPayload;
-using ProtoSpherePayload  = sculk::protocol::SphereDataPayload;
+using ProtoShape         = sculk::protocol::PrimitiveShapes;
+using ProtoShapeType     = sculk::protocol::PrimitiveShapesType;
+using ProtoVec3          = sculk::protocol::Vec3;
+using ProtoTextPayload   = sculk::protocol::TextDataPayload;
+using ProtoBoxPayload    = sculk::protocol::BoxDataPayload;
+using ProtoLinePayload   = sculk::protocol::LineDataPayload;
+using ProtoArrowPayload  = sculk::protocol::ArrowDataPayload;
+using ProtoSpherePayload = sculk::protocol::SphereDataPayload;
 
 // v944 时代的历史别名（上层代码沿用）
-using DebugShape          = ProtoShape;
-using DebugShapeType      = ProtoShapeType;
-using Vec3                = ProtoVec3;
-using DebugText           = ProtoTextPayload;
-using DebugBox            = ProtoBoxPayload;
-using DebugLine           = ProtoLinePayload;
-using DebugArrow          = ProtoArrowPayload;
+using DebugShape     = ProtoShape;
+using DebugShapeType = ProtoShapeType;
+using Vec3           = ProtoVec3;
+using DebugText      = ProtoTextPayload;
+using DebugBox       = ProtoBoxPayload;
+using DebugLine      = ProtoLinePayload;
+using DebugArrow     = ProtoArrowPayload;
 
 // LSE 形状类型 → v2168 协议形状类型（数值重排后的显式映射）
 [[nodiscard]] inline ProtoShapeType toProtoShapeType(LSEShapeType t) {
     switch (t) {
-    case LSEShapeType::Text:   return ProtoShapeType::Text;
-    case LSEShapeType::Line:   return ProtoShapeType::Line;
-    case LSEShapeType::Box:    return ProtoShapeType::Box;
-    case LSEShapeType::Circle: return ProtoShapeType::Circle;
-    case LSEShapeType::Sphere: return ProtoShapeType::Sphere;
-    case LSEShapeType::Arrow:  return ProtoShapeType::Arrow;
+    case LSEShapeType::Text:
+        return ProtoShapeType::Text;
+    case LSEShapeType::Line:
+        return ProtoShapeType::Line;
+    case LSEShapeType::Box:
+        return ProtoShapeType::Box;
+    case LSEShapeType::Circle:
+        return ProtoShapeType::Circle;
+    case LSEShapeType::Sphere:
+        return ProtoShapeType::Sphere;
+    case LSEShapeType::Arrow:
+        return ProtoShapeType::Arrow;
+    case LSEShapeType::Cylinder:
+        return ProtoShapeType::Cylinder;
+    case LSEShapeType::Pyramid:
+        return ProtoShapeType::Pyramid;
+    case LSEShapeType::Ellipsoid:
+        return ProtoShapeType::Ellipsoid;
+    case LSEShapeType::Cone:
+        return ProtoShapeType::Cone;
     }
     return ProtoShapeType::Box;
 }
@@ -84,25 +104,23 @@ struct ProtoColor {
 
     ProtoColor() = default;
     ProtoColor(std::uint8_t r_, std::uint8_t g_, std::uint8_t b_, std::uint8_t a_ = 255)
-        : r(r_), g(g_), b(b_), a(a_) {}
+        : r(r_)
+        , g(g_)
+        , b(b_)
+        , a(a_) {}
 
     static ProtoColor fromFloat(float rf, float gf, float bf, float af = 1.0f) {
         return ProtoColor{
             static_cast<std::uint8_t>(std::clamp(rf * 255.0f, 0.0f, 255.0f)),
             static_cast<std::uint8_t>(std::clamp(gf * 255.0f, 0.0f, 255.0f)),
             static_cast<std::uint8_t>(std::clamp(bf * 255.0f, 0.0f, 255.0f)),
-            static_cast<std::uint8_t>(std::clamp(af * 255.0f, 0.0f, 255.0f))
-        };
+            static_cast<std::uint8_t>(std::clamp(af * 255.0f, 0.0f, 255.0f))};
     }
 
     // 转换为 v2168 使用的 int32 打包颜色（ARGB: A 最高字节, B 最低字节）
     [[nodiscard]] std::int32_t toPacked() const {
         return static_cast<std::int32_t>(
-            (static_cast<std::uint32_t>(a) << 24)
-            | (static_cast<std::uint32_t>(r) << 16)
-            | (static_cast<std::uint32_t>(g) << 8)
-            | static_cast<std::uint32_t>(b)
-        );
+            (static_cast<std::uint32_t>(a) << 24) | (static_cast<std::uint32_t>(r) << 16) | (static_cast<std::uint32_t>(g) << 8) | static_cast<std::uint32_t>(b));
     }
 };
 
@@ -161,7 +179,7 @@ inline ProtoShape makeSphereShape(std::uint64_t networkId, Vec3 const& pos, floa
     shape.mLocation  = pos;
     shape.mScale     = scale;
     // v2168 Sphere 载荷携带 segments（v944 时代为 monostate, 该参数此前被忽略）
-    shape.mShape     = ProtoSpherePayload{.mSegments = segments};
+    shape.mShape = ProtoSpherePayload{.mSegments = segments};
     return shape;
 }
 
@@ -172,6 +190,82 @@ inline ProtoShape makeCircleShape(std::uint64_t networkId, Vec3 const& pos, floa
     shape.mLocation  = pos;
     shape.mScale     = scale;
     // Circle 无专属载荷（variant 中不存在 Circle 项），使用 monostate（variant 0）
+    return shape;
+}
+
+// ── 1.33.0 新增：四种形状 ──
+// CylinderDataPayload / ConeDataPayload 的半径字段是 Vec2，协议文档没写两个分量各是什么，
+// 这里两个分量填同一个值（等径），需要收腰/锥度时再扩展参数。
+inline ProtoShape makeCylinderShape(
+    std::uint64_t networkId,
+    Vec3 const&   pos,
+    float         radiusX,
+    float         radiusZ,
+    float         height,
+    std::uint8_t  segments) {
+    ProtoShape shape;
+    shape.mNetworkId = networkId;
+    shape.mType      = ProtoShapeType::Cylinder;
+    shape.mLocation  = pos;
+    shape.mShape     = sculk::protocol::CylinderDataPayload{
+        .mRadiusX     = sculk::protocol::Vec2{radiusX, radiusX},
+        .mRadiusZ     = sculk::protocol::Vec2{radiusZ, radiusZ},
+        .mHeight      = height,
+        .mNumSegments = segments,
+    };
+    return shape;
+}
+
+inline ProtoShape makePyramidShape(
+    std::uint64_t networkId,
+    Vec3 const&   pos,
+    float         width,
+    float         height,
+    float         depth) {
+    ProtoShape shape;
+    shape.mNetworkId = networkId;
+    shape.mType      = ProtoShapeType::Pyramid;
+    shape.mLocation  = pos;
+    shape.mShape     = sculk::protocol::PyramidDataPayload{
+        .mWidth  = width,
+        .mDepth  = depth, // 可选字段，这里总是给出
+        .mHeight = height,
+    };
+    return shape;
+}
+
+inline ProtoShape makeEllipsoidShape(
+    std::uint64_t networkId,
+    Vec3 const&   pos,
+    Vec3 const&   radii,
+    std::uint8_t  segmentsPerAxis) {
+    ProtoShape shape;
+    shape.mNetworkId = networkId;
+    shape.mType      = ProtoShapeType::Ellipsoid;
+    shape.mLocation  = pos;
+    shape.mShape     = sculk::protocol::EllipsoidDataPayload{
+        .mRadii           = radii,
+        .mSegmentsPerAxis = segmentsPerAxis,
+    };
+    return shape;
+}
+
+inline ProtoShape makeConeShape(
+    std::uint64_t networkId,
+    Vec3 const&   pos,
+    float         radiusX,
+    float         radiusZ,
+    float         height,
+    std::uint8_t  segments) {
+    ProtoShape shape;
+    shape.mNetworkId = networkId;
+    shape.mType      = ProtoShapeType::Cone;
+    shape.mLocation  = pos;
+    shape.mShape     = sculk::protocol::ConeDataPayload{
+        .mRadii       = sculk::protocol::Vec2{radiusX, radiusZ},
+        .mHeight      = height,
+        .mNumSegments = segments,
+    };
     return shape;
 }
 
