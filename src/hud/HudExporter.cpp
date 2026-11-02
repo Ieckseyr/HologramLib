@@ -275,6 +275,39 @@ void HudExporter::exportAll() {
 void LocatorBarExtExporter::exportAll() {
     auto& mgr = LocatorBarManager::getInstance();
 
+    // locatorBarSetEx(playerName, key, x,y,z, dim, color, visible, texturePath, iconW, iconH, authority) -> bool
+    //   一次性写全字段再发：首个包就是完整的 Add（带图标），排查"客户端不画"用
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "locatorBarSetEx",
+        [&mgr](
+            std::string const& playerName,
+            std::string const& key,
+            float              x,
+            float              y,
+            float              z,
+            int                dim,
+            int                color,
+            bool               visible,
+            std::string const& texturePath,
+            float              iconWidth,
+            float              iconHeight,
+            bool               authority) -> bool {
+            return mgr.setWaypointEx(
+                playerName,
+                key,
+                x,
+                y,
+                z,
+                dim,
+                color,
+                visible,
+                texturePath,
+                iconWidth,
+                iconHeight,
+                authority);
+        });
+
     // locatorBarSetClientAuthority(playerName, key, enabled) -> bool
     hologramlib::lse::exportAs(
         NAMESPACE,

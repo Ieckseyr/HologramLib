@@ -36,6 +36,21 @@ public:
         bool               visible);
 
     // ── 1.33.0：四个扩展属性（改完立刻重发该航点）──
+    // 一次性写全字段再发（首个包就带 texture/iconSize/color），避免"先 Add 再补属性"
+    bool setWaypointEx(
+        std::string const& playerName,
+        std::string const& key,
+        float              x,
+        float              y,
+        float              z,
+        int                dimension,
+        int                color,
+        bool               visible,
+        std::string const& texturePath,
+        float              iconWidth,
+        float              iconHeight,
+        bool               clientAuthority);
+
     bool setClientAuthority(std::string const& playerName, std::string const& key, bool enabled);
     bool setIcon(std::string const& playerName, std::string const& key, std::string const& texturePath);
     bool setIconSize(std::string const& playerName, std::string const& key, float width, float height);

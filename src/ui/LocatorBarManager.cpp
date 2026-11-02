@@ -201,6 +201,55 @@ bool LocatorBarManager::setClientAuthority(std::string const& playerName, std::s
     return sendOne(*player, copy, true);
 }
 
+bool LocatorBarManager::setWaypointEx(
+    std::string const& playerName,
+    std::string const& key,
+    float              x,
+    float              y,
+    float              z,
+    int                dimension,
+    int                color,
+    bool               visible,
+    std::string const& texturePath,
+    float              iconWidth,
+    float              iconHeight,
+    bool               clientAuthority) {
+    if (key.empty())
+        return false;
+
+    ::Player* player = findPlayer(playerName);
+    if (player == nullptr)
+        return false;
+
+    Waypoint waypoint;
+    bool     existed = false;
+    {
+        std::lock_guard lock(mMutex);
+        auto&           perPlayer = mWaypoints[playerName];
+        auto            it        = perPlayer.find(key);
+        if (it != perPlayer.end()) {
+            waypoint = it->second;
+            existed  = true;
+        } else {
+            waypoint.handle = Handle{fnv1a(key, 1469598103934665603ULL), fnv1a(key, 1099511628211ULL)};
+        }
+        waypoint.x               = x;
+        waypoint.y               = y;
+        waypoint.z               = z;
+        waypoint.dimension       = dimension;
+        waypoint.color           = color;
+        waypoint.visible         = visible;
+        waypoint.texturePath     = texturePath;
+        waypoint.hasIconSize     = iconWidth > 0.0f && iconHeight > 0.0f;
+        waypoint.iconWidth       = iconWidth;
+        waypoint.iconHeight      = iconHeight;
+        waypoint.clientAuthority = clientAuthority;
+        perPlayer[key]           = waypoint;
+    }
+
+    return sendOne(*player, waypoint, existed);
+}
+
 bool LocatorBarManager::setIcon(std::string const& playerName, std::string const& key, std::string const& texturePath) {
     ::Player* player = findPlayer(playerName);
     if (player == nullptr)

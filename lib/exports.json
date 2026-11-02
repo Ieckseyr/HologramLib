@@ -1,7 +1,7 @@
 {
   "namespace": "HologramLib",
   "apiVersion": "1.33.0",
-  "count": 384,
+  "count": 385,
   "exports": [
     {
       "name": "actorPlayDeath",
@@ -3817,6 +3817,63 @@
       "file": "src/hud/HudExporter.cpp",
       "group": "LocatorBar",
       "method": "setClientAuthority"
+    },
+    {
+      "name": "locatorBarSetEx",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "key",
+          "string"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "color",
+          "number"
+        ],
+        [
+          "visible",
+          "boolean"
+        ],
+        [
+          "texturePath",
+          "string"
+        ],
+        [
+          "iconWidth",
+          "number"
+        ],
+        [
+          "iconHeight",
+          "number"
+        ],
+        [
+          "authority",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "LocatorBar",
+      "method": "setEx"
     },
     {
       "name": "locatorBarSetGroup",

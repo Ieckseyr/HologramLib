@@ -405,6 +405,8 @@ declare namespace HologramLib {
     /** 实现见 src/hud/HudExporter.cpp */
     locatorBarSetClientAuthority(playerName: string, key: string, enabled: boolean): boolean;
     /** 实现见 src/hud/HudExporter.cpp */
+    locatorBarSetEx(playerName: string, key: string, x: number, y: number, z: number, dim: number, color: number, visible: boolean, texturePath: string, iconWidth: number, iconHeight: number, authority: boolean): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
     locatorBarSetGroup(playerName: string, key: string, groupKey: string): boolean;
     /** 实现见 src/hud/HudExporter.cpp */
     locatorBarSetIcon(playerName: string, key: string, texturePath: string): boolean;
@@ -989,6 +991,7 @@ declare namespace HologramLib {
     remove(playerName: string, key: string): boolean;
     set(playerName: string, key: string, x: number, y: number, z: number, dim: number, color: number, visible: boolean): boolean;
     setClientAuthority(playerName: string, key: string, enabled: boolean): boolean;
+    setEx(playerName: string, key: string, x: number, y: number, z: number, dim: number, color: number, visible: boolean, texturePath: string, iconWidth: number, iconHeight: number, authority: boolean): boolean;
     setGroup(playerName: string, key: string, groupKey: string): boolean;
     setIcon(playerName: string, key: string, texturePath: string): boolean;
     setIconSize(playerName: string, key: string, width: number, height: number): boolean;
