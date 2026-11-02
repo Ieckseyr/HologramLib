@@ -266,6 +266,11 @@ void HudExporter::exportAll() {
         return mgr.setElements(playerName, mask, visible);
     });
 
+    // hudProbe() -> string（诊断：隐藏纸娃娃的包体校验 + 十六进制）
+    hologramlib::lse::exportAs(NAMESPACE, "hudProbe", [&mgr]() -> std::string {
+        return mgr.probeWire();
+    });
+
     // hudResetAll(playerName) -> bool
     hologramlib::lse::exportAs(NAMESPACE, "hudResetAll", [&mgr](std::string const& playerName) -> bool {
         return mgr.resetAll(playerName);

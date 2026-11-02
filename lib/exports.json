@@ -1,7 +1,7 @@
 {
   "namespace": "HologramLib",
   "apiVersion": "1.33.0",
-  "count": 385,
+  "count": 386,
   "exports": [
     {
       "name": "actorPlayDeath",
@@ -2255,6 +2255,14 @@
       "file": "src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "setScale"
+    },
+    {
+      "name": "hudProbe",
+      "params": [],
+      "returns": "string",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "hudProbe"
     },
     {
       "name": "hudResetAll",

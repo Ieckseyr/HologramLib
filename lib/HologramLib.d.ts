@@ -273,6 +273,8 @@ declare namespace HologramLib {
     /** 实现见 src/FloatingTextExporter.cpp */
     holoSetScale(id: number, scale: number): boolean;
     /** 实现见 src/hud/HudExporter.cpp */
+    hudProbe(): string;
+    /** 实现见 src/hud/HudExporter.cpp */
     hudResetAll(playerName: string): boolean;
     /** 实现见 src/hud/HudExporter.cpp */
     hudSetElement(playerName: string, element: number, visible: boolean): boolean;
@@ -1018,6 +1020,7 @@ declare namespace HologramLib {
     bossBarSetHealth(id: number, percent: number): boolean;
     bossBarSetStyle(id: number, color: number, overlay: number): boolean;
     bossBarSetTitle(id: number, title: string): boolean;
+    hudProbe(): string;
     hudResetAll(playerName: string): boolean;
     hudSetElement(playerName: string, element: number, visible: boolean): boolean;
     hudSetElements(playerName: string, mask: number, visible: boolean): number;

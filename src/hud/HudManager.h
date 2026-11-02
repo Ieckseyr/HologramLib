@@ -21,6 +21,9 @@ public:
     int  setElements(std::string const& playerName, int mask, bool visible);
     bool resetAll(std::string const& playerName);
 
+    // 诊断: 拼一条「隐藏纸娃娃」的样本包，回报 BDS 回读结果与十六进制
+    std::string probeWire() const;
+
 private:
     HudManager() = default;
 };

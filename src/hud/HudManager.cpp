@@ -3,6 +3,8 @@
 
 #include "core/PacketSink.h"
 
+#include <format>
+
 #include <ll/api/service/Bedrock.h>
 
 #include <mc/world/actor/player/Player.h>
@@ -78,6 +80,25 @@ int HudManager::setElements(std::string const& playerName, int mask, bool visibl
     if (!send(*player, elements, visibilityOf(visible)))
         return 0;
     return static_cast<int>(elements.size());
+}
+
+std::string HudManager::probeWire() const {
+    sculk::protocol::SetHudPacket packet;
+    packet.mHudElements   = {static_cast<ProtoElement>(0)}; // PaperDoll
+    packet.mHudVisibility = ProtoVisibility::Hide;
+
+    // 用与发包同一套编码（但只取包体部分：encodeChecked 的产物含包头，这里拆出来校验）
+    std::vector<std::byte>        buffer;
+    sculk::protocol::BinaryStream stream(buffer);
+    packet.write(stream);
+    std::string const body(reinterpret_cast<char const*>(buffer.data()), buffer.size());
+
+    std::string hex;
+    hex.reserve(body.size() * 2);
+    for (unsigned char c : body)
+        hex += std::format("{:02x}", c);
+
+    return std::format("valid={} bytes={} body_hex={}", wire::validateBody(308, body) ? 1 : 0, body.size(), hex);
 }
 
 bool HudManager::resetAll(std::string const& playerName) {
