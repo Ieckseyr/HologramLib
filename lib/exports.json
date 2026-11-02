@@ -1,7 +1,7 @@
 {
   "namespace": "HologramLib",
   "apiVersion": "1.33.0",
-  "count": 367,
+  "count": 369,
   "exports": [
     {
       "name": "actorPlayDeath",
@@ -87,6 +87,32 @@
       "file": "src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "actorPlayInstantDeath"
+    },
+    {
+      "name": "actorRuntimeIdOfEntity",
+      "params": [
+        [
+          "libId",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "actorRuntimeIdOfEntity"
+    },
+    {
+      "name": "actorRuntimeIdOfPlayer",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "actorRuntimeIdOfPlayer"
     },
     {
       "name": "bossBarAdd",

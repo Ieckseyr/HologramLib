@@ -5,7 +5,14 @@
 #include "../ui/LocatorBarManager.h"
 #include "BossBarManager.h"
 #include "HudManager.h"
+#include "customentity/CustomEntityManager.h"
 #include "lse/LseBridge.h"
+
+#include <ll/api/service/Bedrock.h>
+
+#include <mc/legacy/ActorRuntimeID.h>
+#include <mc/world/actor/player/Player.h>
+#include <mc/world/level/Level.h>
 
 namespace debugshape_export {
 
@@ -265,6 +272,23 @@ void ActorEffectExporter::exportAll() {
         [&mgr](int64_t runtimeId, int eventId, int data) -> bool {
             return mgr.play(runtimeId, eventId, data);
         });
+
+    // actorRuntimeIdOfPlayer(playerName) -> int64（玩家实体的 runtimeId；不在线 -1）
+    hologramlib::lse::exportAs(NAMESPACE, "actorRuntimeIdOfPlayer", [](std::string const& playerName) -> int64_t {
+        auto level = ll::service::getLevel();
+        if (!level) return -1;
+        auto* player = level->getPlayer(playerName);
+        if (player == nullptr) return -1;
+        return static_cast<int64_t>(player->getRuntimeID().rawID);
+    });
+
+    // actorRuntimeIdOfEntity(libId) -> int64（协议层实体的 runtimeId；没有 -1）
+    hologramlib::lse::exportAs(NAMESPACE, "actorRuntimeIdOfEntity", [](int64_t libId) -> int64_t {
+        std::uint64_t runtimeId = 0;
+        std::uint64_t uniqueId  = 0;
+        if (!CustomEntityManager::getInstance().getIdPair(libId, uniqueId, runtimeId)) return -1;
+        return static_cast<int64_t>(runtimeId);
+    });
 
     // actorPlayEventFor(playerName, runtimeId, eventId, data) -> bool
     hologramlib::lse::exportAs(
