@@ -1,7 +1,7 @@
 {
   "namespace": "HologramLib",
   "apiVersion": "1.33.0",
-  "count": 376,
+  "count": 377,
   "exports": [
     {
       "name": "actorPlayDeath",
@@ -155,6 +155,19 @@
       "file": "src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "bossBarCount"
+    },
+    {
+      "name": "bossBarGetInfo",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "string",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "bossBarGetInfo"
     },
     {
       "name": "bossBarRemove",

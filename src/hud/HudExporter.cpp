@@ -196,6 +196,11 @@ void BossBarExporter::exportAll() {
         mgr.removeAll(playerName);
     });
 
+    // bossBarGetInfo(id) -> string（诊断：看 target / pct / 颜色是否如预期）
+    hologramlib::lse::exportAs(NAMESPACE, "bossBarGetInfo", [&mgr](int64_t id) -> std::string {
+        return mgr.getDebugInfo(id);
+    });
+
     // bossBarCount(playerName) -> i
     hologramlib::lse::exportAs(NAMESPACE, "bossBarCount", [&mgr](std::string const& playerName) -> int {
         return mgr.count(playerName);

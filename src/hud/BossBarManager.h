@@ -31,12 +31,13 @@ public:
         float                       healthPercent,
         hologramlib::BossBarColor   color,
         hologramlib::BossBarOverlay overlay);
-    bool setTitle(int64_t id, std::string const& title);
-    bool setHealth(int64_t id, float healthPercent);
-    bool setStyle(int64_t id, hologramlib::BossBarColor color, hologramlib::BossBarOverlay overlay);
-    bool remove(int64_t id);
-    void removeAll(std::string const& playerName);
-    int  count(std::string const& playerName) const;
+    bool        setTitle(int64_t id, std::string const& title);
+    bool        setHealth(int64_t id, float healthPercent);
+    bool        setStyle(int64_t id, hologramlib::BossBarColor color, hologramlib::BossBarOverlay overlay);
+    bool        remove(int64_t id);
+    void        removeAll(std::string const& playerName);
+    int         count(std::string const& playerName) const;
+    std::string getDebugInfo(int64_t id) const;
 
     void onPlayerLeave(std::string const& playerName);
     void shutdown();
@@ -55,7 +56,7 @@ private:
     };
 
     // 组包并只发给这条 Boss 条的持有者；返回是否发出
-    static bool         send(Player& player, Bar const& bar, int eventType);
+    static bool         send(Player& player, Bar const& bar, int eventType, std::int64_t playerId);
     static std::int64_t nextTargetId();
 
     mutable std::mutex               mMutex;

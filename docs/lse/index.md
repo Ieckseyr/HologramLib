@@ -159,7 +159,7 @@ setInterval(() => {
 | 方位条 | `locatorBar*` | [方位条](locator-bar.md) |
 | 隐身 | `playerHide*` | [隐身](visibility.md) |
 
-函数总数 376，全部在运行期注册，`ll.import` 都能拿到。
+函数总数 377，全部在运行期注册，`ll.import` 都能拿到。
 
 ---
 

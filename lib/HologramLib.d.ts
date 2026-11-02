@@ -33,6 +33,8 @@ declare namespace HologramLib {
     /** 实现见 src/hud/HudExporter.cpp */
     bossBarCount(playerName: string): number;
     /** 实现见 src/hud/HudExporter.cpp */
+    bossBarGetInfo(id: number): string;
+    /** 实现见 src/hud/HudExporter.cpp */
     bossBarRemove(id: number): boolean;
     /** 实现见 src/hud/HudExporter.cpp */
     bossBarRemoveAll(playerName: string): any;
@@ -988,6 +990,7 @@ declare namespace HologramLib {
     actorRuntimeIdOfPlayer(playerName: string): number;
     bossBarAdd(playerName: string, title: string, healthPercent: number, color: number, overlay: number): number;
     bossBarCount(playerName: string): number;
+    bossBarGetInfo(id: number): string;
     bossBarRemove(id: number): boolean;
     bossBarRemoveAll(playerName: string): any;
     bossBarSetHealth(id: number, percent: number): boolean;

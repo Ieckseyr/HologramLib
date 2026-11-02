@@ -11,6 +11,8 @@
 
 #include <sculk/protocol/codec/packet/BossEventPacket.hpp>
 
+#include <format>
+
 namespace debugshape_export {
 
 namespace {
@@ -33,9 +35,10 @@ std::int64_t BossBarManager::nextTargetId() {
     return static_cast<std::int64_t>(counter.fetch_add(1, std::memory_order_relaxed));
 }
 
-bool BossBarManager::send(::Player& player, Bar const& bar, int eventType) {
+bool BossBarManager::send(::Player& player, Bar const& bar, int eventType, std::int64_t playerId) {
     sculk::protocol::BossEventPacket packet;
     packet.mTargetActorID = bar.targetId;
+    packet.mPlayerID      = playerId;
     packet.mType          = static_cast<sculk::protocol::BossEventPacket::EventType>(eventType);
     packet.mName          = bar.title;
     packet.mFilteredName  = bar.title;
@@ -69,7 +72,14 @@ int64_t BossBarManager::add(
     bar.color      = color;
     bar.overlay    = overlay;
 
-    if (!send(*player, bar, static_cast<int>(sculk::protocol::BossEventPacket::EventType::Add))) {
+    auto const playerUid = static_cast<std::int64_t>(player->getOrCreateUniqueID().rawID);
+
+    // 原版是两步：Add 建条（发给所有人），PlayerAdded 把某名玩家加进这条（发给他）。
+    // 只发 Add 时客户端可能不建条 —— 实测没显示就是这个原因。
+    if (!send(*player, bar, static_cast<int>(sculk::protocol::BossEventPacket::EventType::Add), 0)) {
+        return -1;
+    }
+    if (!send(*player, bar, static_cast<int>(sculk::protocol::BossEventPacket::EventType::PlayerAdded), playerUid)) {
         return -1;
     }
 
@@ -92,7 +102,7 @@ bool BossBarManager::setTitle(int64_t id, std::string const& title) {
     ::Player* player = findPlayer(copy.playerName);
     if (player == nullptr)
         return false;
-    return send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::UpdateName));
+    return send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::UpdateName), 0);
 }
 
 bool BossBarManager::setHealth(int64_t id, float healthPercent) {
@@ -108,7 +118,7 @@ bool BossBarManager::setHealth(int64_t id, float healthPercent) {
     ::Player* player = findPlayer(copy.playerName);
     if (player == nullptr)
         return false;
-    return send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::UpdatePercent));
+    return send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::UpdatePercent), 0);
 }
 
 bool BossBarManager::setStyle(int64_t id, hologramlib::BossBarColor color, hologramlib::BossBarOverlay overlay) {
@@ -125,7 +135,7 @@ bool BossBarManager::setStyle(int64_t id, hologramlib::BossBarColor color, holog
     ::Player* player = findPlayer(copy.playerName);
     if (player == nullptr)
         return false;
-    return send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::UpdateStyle));
+    return send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::UpdateStyle), 0);
 }
 
 bool BossBarManager::remove(int64_t id) {
@@ -141,7 +151,9 @@ bool BossBarManager::remove(int64_t id) {
     ::Player* player = findPlayer(copy.playerName);
     if (player == nullptr)
         return true; // 人已下线，客户端那边早没了
-    send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::Remove));
+    auto const playerUid = static_cast<std::int64_t>(player->getOrCreateUniqueID().rawID);
+    send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::PlayerRemoved), playerUid);
+    send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::Remove), 0);
     return true;
 }
 
@@ -162,7 +174,7 @@ void BossBarManager::removeAll(std::string const& playerName) {
     if (player == nullptr)
         return;
     for (auto const& bar : victims) {
-        send(*player, bar, static_cast<int>(sculk::protocol::BossEventPacket::EventType::Remove));
+        send(*player, bar, static_cast<int>(sculk::protocol::BossEventPacket::EventType::Remove), 0);
     }
 }
 
@@ -174,6 +186,23 @@ int BossBarManager::count(std::string const& playerName) const {
             ++n;
     }
     return n;
+}
+
+std::string BossBarManager::getDebugInfo(int64_t id) const {
+    std::lock_guard lock(mMutex);
+    auto            it = mBars.find(id);
+    if (it == mBars.end())
+        return "not_found";
+    auto const& bar = it->second;
+    return std::format(
+        "id={} player={} target={} title='{}' pct={:.3f} color={} overlay={}",
+        bar.id,
+        bar.playerName,
+        bar.targetId,
+        bar.title,
+        bar.percent,
+        static_cast<int>(bar.color),
+        static_cast<int>(bar.overlay));
 }
 
 void BossBarManager::onPlayerLeave(std::string const& playerName) {
