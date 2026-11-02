@@ -83,6 +83,8 @@ int64_t BossBarManager::add(
     if (!send(*player, bar, static_cast<int>(sculk::protocol::BossEventPacket::EventType::Add), 0)) {
         return -1;
     }
+    // 原版流程: Add 建条 → PlayerAdded 把收件人加进这条。少第二步时客户端可能不显示。
+    send(*player, bar, static_cast<int>(sculk::protocol::BossEventPacket::EventType::PlayerAdded), 0);
 
     std::lock_guard lock(mMutex);
     bar.id = static_cast<int64_t>(bar.targetId); // 对外 id 直接用虚拟 actor id，简且唯一
@@ -152,6 +154,7 @@ bool BossBarManager::remove(int64_t id) {
     ::Player* player = findPlayer(copy.playerName);
     if (player == nullptr)
         return true; // 人已下线，客户端那边早没了
+    send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::PlayerRemoved), 0);
     send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::Remove), 0);
     return true;
 }
@@ -188,32 +191,33 @@ int BossBarManager::count(std::string const& playerName) const {
 }
 
 std::string BossBarManager::probeWire() const {
-    Bar sample;
-    sample.targetId = 0x71000001;
-    sample.title    = "Probe";
-    sample.percent  = 0.5f;
-    sample.color    = hologramlib::BossBarColor::Purple;
-    sample.overlay  = hologramlib::BossBarOverlay::Progress;
+    auto build = [](bool optionalFiltered) {
+        ::BinaryStream body;
+        body.writeVarInt64(0x71000001, nullptr, nullptr);
+        body.writeByte(static_cast<uchar>(0), nullptr, nullptr); // Add
+        body.writeString("Probe", nullptr, nullptr);
+        if (optionalFiltered) {
+            // 布局 B: Name 是 RedactableString → string + optional<string>
+            body.writeBool(true, nullptr, nullptr);
+            body.writeString("Probe", nullptr, nullptr);
+        } else {
+            // 布局 A: Name + FilteredName 两个平铺字符串（协议文档的写法）
+            body.writeString("Probe", nullptr, nullptr);
+        }
+        body.writeFloat(0.5f, nullptr, nullptr);
+        body.writeByte(static_cast<uchar>(5), nullptr, nullptr); // Purple
+        body.writeByte(static_cast<uchar>(0), nullptr, nullptr); // Progress
+        return body.mBuffer;
+    };
 
-    // 与 send() 完全同一套拼法（不含包头）
-    ::BinaryStream body;
-    body.writeVarInt64(sample.targetId, nullptr, nullptr);
-    body.writeByte(static_cast<uchar>(0), nullptr, nullptr); // Add
-    body.writeString(sample.title, nullptr, nullptr);
-    body.writeString(sample.title, nullptr, nullptr);
-    body.writeFloat(sample.percent, nullptr, nullptr);
-    body.writeByte(static_cast<uchar>(static_cast<int>(sample.color)), nullptr, nullptr);
-    body.writeByte(static_cast<uchar>(static_cast<int>(sample.overlay)), nullptr, nullptr);
-
-    std::string const bytes = body.mBuffer;
-    bool const        valid = wire::validateBody(74, bytes);
-
-    std::string hex;
-    hex.reserve(bytes.size() * 2);
-    for (unsigned char c : bytes) {
-        hex += std::format("{:02x}", c);
-    }
-    return std::format("valid={} bytes={} body_hex={}", valid ? 1 : 0, bytes.size(), hex);
+    std::string const a = build(false);
+    std::string const b = build(true);
+    return std::format(
+        "A(两个平铺字符串) valid={} bytes={} | B(string+optional) valid={} bytes={}",
+        wire::validateBody(74, a) ? 1 : 0,
+        a.size(),
+        wire::validateBody(74, b) ? 1 : 0,
+        b.size());
 }
 
 std::string BossBarManager::getDebugInfo(int64_t id) const {
