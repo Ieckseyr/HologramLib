@@ -1,7 +1,7 @@
 {
   "namespace": "HologramLib",
   "apiVersion": "1.33.0",
-  "count": 381,
+  "count": 382,
   "exports": [
     {
       "name": "actorPlayDeath",
@@ -142,6 +142,39 @@
       "file": "src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "bossBarAdd"
+    },
+    {
+      "name": "bossBarAddOn",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "targetId",
+          "number"
+        ],
+        [
+          "title",
+          "string"
+        ],
+        [
+          "percent",
+          "number"
+        ],
+        [
+          "color",
+          "number"
+        ],
+        [
+          "overlay",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "bossBarAddOn"
     },
     {
       "name": "bossBarCount",

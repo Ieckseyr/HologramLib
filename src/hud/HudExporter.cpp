@@ -196,6 +196,27 @@ void BossBarExporter::exportAll() {
         mgr.removeAll(playerName);
     });
 
+    // bossBarAddOn(playerName, targetId, title, percent, color, overlay) -> id
+    //   实验：targetId 用真实实体（例如玩家自己的 uniqueId），验证客户端是否要求 boss 对应实体
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "bossBarAddOn",
+        [&mgr](
+            std::string const& playerName,
+            int64_t            targetId,
+            std::string const& title,
+            float              percent,
+            int                color,
+            int                overlay) -> int64_t {
+            return mgr.addOn(
+                playerName,
+                targetId,
+                title,
+                percent,
+                static_cast<hologramlib::BossBarColor>(color),
+                static_cast<hologramlib::BossBarOverlay>(overlay));
+        });
+
     // bossBarProbe() -> string（诊断：手写包体能否被 BDS 读回 + 十六进制）
     hologramlib::lse::exportAs(NAMESPACE, "bossBarProbe", [&mgr]() -> std::string {
         return mgr.probeWire();

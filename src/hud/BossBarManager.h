@@ -38,6 +38,14 @@ public:
     void        removeAll(std::string const& playerName);
     int         count(std::string const& playerName) const;
     std::string getDebugInfo(int64_t id) const;
+    // 实验用: 用指定的 target id 建条（例如玩家自己的 uniqueId，客户端一定认识这个实体）
+    int64_t addOn(
+        std::string const&          playerName,
+        std::int64_t                targetId,
+        std::string const&          title,
+        float                       healthPercent,
+        hologramlib::BossBarColor   color,
+        hologramlib::BossBarOverlay overlay);
     // 诊断: 用手写格式拼一条样本包，回报 BDS 回读是否通过 + 十六进制
     std::string probeWire() const;
 

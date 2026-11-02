@@ -92,6 +92,35 @@ int64_t BossBarManager::add(
     return bar.id;
 }
 
+int64_t BossBarManager::addOn(
+    std::string const&          playerName,
+    std::int64_t                targetId,
+    std::string const&          title,
+    float                       healthPercent,
+    hologramlib::BossBarColor   color,
+    hologramlib::BossBarOverlay overlay) {
+    ::Player* player = findPlayer(playerName);
+    if (player == nullptr)
+        return -1;
+
+    Bar bar;
+    bar.id         = targetId;
+    bar.playerName = playerName;
+    bar.targetId   = targetId;
+    bar.title      = title;
+    bar.percent    = healthPercent < 0.0f ? 0.0f : (healthPercent > 1.0f ? 1.0f : healthPercent);
+    bar.color      = color;
+    bar.overlay    = overlay;
+
+    if (!send(*player, bar, static_cast<int>(sculk::protocol::BossEventPacket::EventType::Add), 0))
+        return -1;
+    send(*player, bar, static_cast<int>(sculk::protocol::BossEventPacket::EventType::PlayerAdded), 0);
+
+    std::lock_guard lock(mMutex);
+    mBars[bar.id] = bar;
+    return bar.id;
+}
+
 bool BossBarManager::setTitle(int64_t id, std::string const& title) {
     Bar copy;
     {
