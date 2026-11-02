@@ -4,6 +4,14 @@
 
 协议：`LocatorBar`。
 
+> **当前限制：客户端不渲染服务端下发的航点。**
+>
+> 这条 HUD 只显示服务端"玩家方位"系统里注册过的玩家：正常进服的玩家会出现，本库的假玩家不会，
+> 服务端凭空发的航点也不会。原生注册要经过 `ServerWaypoint` / `ServerWaypointGroup`，这两个类
+> 没有导出构造函数，`Waypoint::mWorldPos` 的 `WorldPosition` 也禁止构造，插件侧走不通。
+>
+> 需要标记点、玩家方位这类功能，请用 Boss 条（`IBossBar`）或侧边栏（`ISidebar`）。
+
 脚本用法见[方位条](../lse/locator-bar.md)。
 
 ## 接口

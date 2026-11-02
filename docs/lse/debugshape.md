@@ -1466,12 +1466,21 @@ Shape.createCone(0, 70, 0, 2, 2, 4, 16);
 
 | 函数 | 参数 | 说明 |
 | --- | --- | --- |
-| `shapeCreateCylinder(x, y, z, radiusX, radiusZ, height, segments)` | 分段 3~255 | 半径字段在协议里是二维向量，两个分量未公开含义，这里填同一值（等径） |
+| `shapeCreateCylinder(x, y, z, radiusX, radiusZ, height, segments)` | 分段 3~255 | 半径是**两个** Vec2（Radius X / Radius Z），这里两个分量填同一值（等径）；`radiusX` 与 `radiusZ` 不同可做椭圆截面 |
 | `shapeCreatePyramid(x, y, z, width, height, depth)` | — | 底面 `width × depth`，`depth` 在协议里可选，这里总是给出 |
 | `shapeCreateEllipsoid(x, y, z, radiusX, radiusY, radiusZ, segmentsPerAxis)` | 分段 3~255 | 三个方向半径独立 |
 | `shapeCreateCone(x, y, z, radiusX, radiusZ, height, segments)` | 分段 3~255 | 底面椭圆可由 X/Z 半径不同做出 |
 
-`shapeGetType(id)` 的返回值相应扩展到 `7`（圆柱）/ `8`（金字塔）/ `9`（椭球）/ `10`（圆锥）。
+`shapeCreate*` 只**登记**形状，不会发包 —— 和其余形状一样要再调一次 `shapeDraw(id)` 客户端才会出现：
+
+```js
+const id = Shape.createCylinder(0, 70, 0, 1.5, 1.5, 4, 16);
+Shape.setColor(id, 0.2, 0.8, 1.0, 1.0);
+Shape.setDimension(id, 0);
+Shape.draw(id);            // ← 不发这一步什么都看不到
+```
+
+`shapeGetShapeType(id)` 的返回值相应扩展到 `7`（圆柱）/ `8`（金字塔）/ `9`（椭球）/ `10`（圆锥）。
 脚本侧编号 `0..5` 不变，`6` 是历史空洞（早期填充面方案废弃后留空），新增类型从 `7` 起。
 
 ### 两个通用属性
