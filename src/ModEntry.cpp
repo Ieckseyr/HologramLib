@@ -12,6 +12,7 @@
 
 #include "InfoExporter.h"
 #include "actor/ActorEffectManager.h"
+#include "anchor/AnchorPool.h"
 #include "container/ContainerMenuExporter.h"
 #include "container/ContainerMenuManager.h"
 #include "core/TickDriver.h"
@@ -224,6 +225,11 @@ struct LocatorBarExtDomain final : core::IDomain {
     void        exportLse() override { LocatorBarExtExporter::exportAll(); }
 };
 
+struct AnchorDomain final : core::IDomain {
+    char const* name() const noexcept override { return "anchor"; }
+    void        stop() noexcept override { AnchorPool::getInstance().shutdown(); }
+};
+
 struct SidebarDomain final : core::IDomain {
     char const* name() const noexcept override { return "sidebar"; }
     void        stop() noexcept override { SidebarManager::getInstance().shutdown(); }
@@ -312,6 +318,7 @@ bool ModEntry::enable() {
     mHost.add<HudDomain>();
     mHost.add<LocatorBarExtDomain>();
     mHost.add<ActorEffectDomain>();
+    mHost.add<AnchorDomain>();
     mHost.add<SidebarDomain>();
     mHost.add<ItemActorDomain>();
     mHost.add<FormControlDomain>();

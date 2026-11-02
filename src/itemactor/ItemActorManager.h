@@ -29,7 +29,9 @@ public:
     bool    destroy(int64_t id);
     void    destroyAll();
 
-    [[nodiscard]] bool                 exists(int64_t id) const;
+    [[nodiscard]] bool exists(int64_t id) const;
+    // 该掉落物的 ActorUniqueID（作 Boss 条 / 方位点的锚点实体用）；0 = 不存在
+    [[nodiscard]] std::uint64_t        uniqueIdOf(int64_t id) const;
     [[nodiscard]] std::vector<int64_t> getAllIds() const;
 
     // 玩家离开/换维度时不需要特别处理: 掉落物按维度发, 客户端走远了自然清。

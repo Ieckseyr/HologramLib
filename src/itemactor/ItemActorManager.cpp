@@ -231,6 +231,15 @@ void ItemActorManager::destroyAll() {
     mActors.clear();
 }
 
+std::uint64_t ItemActorManager::uniqueIdOf(int64_t id) const {
+    std::uint64_t   uniqueId = 0;
+    std::lock_guard lock(mMutex);
+    mActors.withObject(id, [&](Actor const& actor) {
+        uniqueId = actor.uniqueId;
+    });
+    return uniqueId;
+}
+
 bool ItemActorManager::exists(int64_t id) const {
     std::lock_guard lock(mMutex);
     return mActors.peek(id) != nullptr;

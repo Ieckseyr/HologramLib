@@ -2,6 +2,7 @@
 #include "HudExporter.h"
 
 #include "../actor/ActorEffectManager.h"
+#include "../anchor/AnchorPool.h"
 #include "../scoreboard/SidebarManager.h"
 #include "../ui/LocatorBarManager.h"
 #include "BossBarManager.h"
@@ -194,6 +195,22 @@ void BossBarExporter::exportAll() {
     // bossBarRemoveAll(playerName) -> null
     hologramlib::lse::exportAs(NAMESPACE, "bossBarRemoveAll", [&mgr](std::string const& playerName) {
         mgr.removeAll(playerName);
+    });
+
+    // anchorAcquire(playerName) -> uniqueId（在玩家所在维度开一个虚空锚点实体）
+    hologramlib::lse::exportAs(NAMESPACE, "anchorAcquire", [](std::string const& playerName) -> int64_t {
+        auto level = ll::service::getLevel();
+        if (!level)
+            return -1;
+        auto* player = level->getPlayer(playerName);
+        if (player == nullptr)
+            return -1;
+        return AnchorPool::getInstance().acquire(static_cast<int>(player->getDimensionId()));
+    });
+
+    // anchorRelease(uniqueId) -> bool
+    hologramlib::lse::exportAs(NAMESPACE, "anchorRelease", [](int64_t uniqueId) -> bool {
+        return AnchorPool::getInstance().release(uniqueId);
     });
 
     // bossBarAddOn(playerName, targetId, title, percent, color, overlay) -> id

@@ -1,6 +1,7 @@
 // BossBarManager.cpp - Boss 条
 #include "BossBarManager.h"
 
+#include "../anchor/AnchorPool.h"
 #include "core/PacketSink.h"
 #include "core/VirtualActorIds.h"
 
@@ -68,9 +69,15 @@ int64_t BossBarManager::add(
     if (player == nullptr)
         return -1;
 
+    // 锚点实体：客户端认的 boss 条要对应一个它知道的实体，
+    // 所以在虚空里放一只"没有模型的掉落物"当锚点（和 NPC 对话菜单的载体同一思路）。
+    std::int64_t const anchor = AnchorPool::getInstance().acquire(static_cast<int>(player->getDimensionId()));
+    if (anchor < 0)
+        return -1;
+
     Bar bar;
     bar.playerName = playerName;
-    bar.targetId   = nextTargetId();
+    bar.targetId   = anchor;
     bar.title      = title;
     bar.percent    = healthPercent < 0.0f ? 0.0f : (healthPercent > 1.0f ? 1.0f : healthPercent);
     bar.color      = color;
@@ -183,6 +190,9 @@ bool BossBarManager::remove(int64_t id) {
     ::Player* player = findPlayer(copy.playerName);
     if (player == nullptr)
         return true; // 人已下线，客户端那边早没了
+
+    // 锚点实体跟着这条 Boss 条一起回收
+    AnchorPool::getInstance().release(copy.targetId);
     send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::PlayerRemoved), 0);
     send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::Remove), 0);
     return true;
