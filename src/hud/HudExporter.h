@@ -1,7 +1,7 @@
 // HudExporter.h - Boss 条 / HUD / 方位条扩展 / 实体表现事件的导出与适配（1.33.0）
 #pragma once
 
-#include "hologramlib/HologramLib.h" // IBossBar / IHud / ILocatorBarExt / IActorEffect
+#include "hologramlib/HologramLib.h" // IBossBar / IHud / ILocatorBarExt / IActorEffect / IPlayerRespawn
 
 namespace debugshape_export {
 
@@ -36,5 +36,6 @@ hologramlib::IHud&           hudAdapter();
 hologramlib::ILocatorBarExt& locatorBarExtAdapter();
 hologramlib::IActorEffect&   actorEffectAdapter();
 hologramlib::ISidebar&       sidebarAdapter();
+hologramlib::IPlayerRespawn& playerRespawnAdapter();
 
 } // namespace debugshape_export

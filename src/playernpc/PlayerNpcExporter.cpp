@@ -471,6 +471,12 @@ void PlayerNpcExporter::exportAll() {
         "playerNpcSetVisiblePlayer",
         [&mgr](int64_t id, std::string const& playerName) -> bool { return mgr.setVisiblePlayer(id, playerName); });
 
+    // playerNpcRuntimeId(id) -> int64（假玩家的 ActorRuntimeID；不存在 -1）
+    hologramlib::lse::exportAs(NAMESPACE, "playerNpcRuntimeId", [&mgr](int64_t id) -> int64_t {
+        auto rid = mgr.runtimeIdOf(id);
+        return rid == 0 ? -1 : static_cast<int64_t>(rid);
+    });
+
     // 诊断
     // playerNpcGetDebugInfo(id) -> string
     hologramlib::lse::exportAs(

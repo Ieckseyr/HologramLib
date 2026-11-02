@@ -946,6 +946,12 @@ bool PlayerNpcManager::setVisiblePlayer(int64_t id, std::string const& playerNam
 
 // ── 诊断 ──
 
+std::uint64_t PlayerNpcManager::runtimeIdOf(int64_t id) const {
+    std::lock_guard lock(mMutex);
+    auto*           rt = runtimeOf(id);
+    return rt == nullptr ? 0 : rt->runtimeId;
+}
+
 std::string PlayerNpcManager::getDebugInfo(int64_t id) const {
     std::lock_guard lock(mMutex);
     auto*           it  = configOf(id);

@@ -13,6 +13,7 @@
 // - 接口方法线程安全（内部互斥）; 发包在调用线程执行, 建议主线程调用
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <functional>
@@ -58,7 +59,7 @@
 //   ⚠ 与 `skinId` 搭配的"模型缩放"仍是 `EntityView::scale`（1.27.0 起）, 本版新增的**元数据缩放**叫
 //     `metaScale`（两个都在结构尾部, 别混: 前者走玩家模型出生包, 后者走元数据 + 客户端碰撞箱）。
 // 0x012500（26.40.12 / 26.51.5，API 1.31.0）：拉伸 / live 变换 / 动画预设 / 停止配方 / 假玩家姿势装备骑乘。
-#define HOLOGLIB_API_VERSION 0x012700
+#define HOLOGLIB_API_VERSION 0x012800
 
 // ── ABI 布局戳（消费方自检用; 与上面的"功能版本"是两件事, 别混）──
 // 语义: 只在**破坏虚表槽位**的改动时 +1 —— 在接口**中段**插入/删除/重排虚函数、改已发布方法的签名;
@@ -1883,6 +1884,26 @@ public:
     [[nodiscard]] virtual int  lineCount(std::string const& playerName) const = 0;
 };
 
+// ─────────────────────────────────────────────
+// 玩家复活（1.34.0，只发包）
+//
+// 场景：给玩家放死亡动画（IActorEffect::playDeath）后，客户端进入死亡界面并向服务端发
+// PlayerAction(Respawn) 请求复活；但服务端认为玩家一直活着，于是**拒绝**发出复活。
+// 客户端就一直卡在死亡界面。这里由库直接补一个 RespawnPacket(ClientReadyToSpawn) 给客户端，
+// 把它拉回正常状态（服务端实体没有任何变化，不动血量/位置/维度）。
+//
+// 默认 state = 2（ClientReadyToSpawn，等价于"服务端已同意复活"）；
+// 若客户端仍停在死亡界面，可传 state = 1（ReadyToSpawn）再跟一次 2。
+class IPlayerRespawn {
+public:
+    virtual ~IPlayerRespawn() = default;
+
+    // 原地复活：用玩家当前位置发 RespawnPacket
+    virtual bool respawn(std::string const& playerName, int state = 2) = 0;
+    // 指定坐标复活
+    virtual bool respawnAt(std::string const& playerName, float x, float y, float z, int state = 2) = 0;
+};
+
 class IHologramLib {
 public:
     HOLOGLIB_API static IHologramLib& getInstance();
@@ -1977,7 +1998,34 @@ public:
     virtual ILocatorBarExt& locatorBarExt() = 0; // 方位条：图标 / 大小 / 绑定实体 / 分组
     virtual IActorEffect&   actorEffects()  = 0; // 受伤 / 死亡动画
     virtual ISidebar&       sidebar()       = 0; // 侧边栏计分板（只发包）
+
+    // ── 1.34.0 ──
+    virtual IPlayerRespawn& playerRespawn() = 0; // 死亡动画后的复活（只发包）
 };
+
+// ─────────────────────────────────────────────
+// 发包审计（测试用；不进接口虚表，因此不影响 ABI）
+//
+// 记录"真的交给 NetworkPeer 的包"：包名 / 包 id / 收件人 / 字节数 / 时间 / 序号。
+// 只有 wireTraceStart() 之后才记录，平时零开销。
+// trace 进行中若收件人退出，会自动把退出前的记录写成
+//   plugins/HologramLib/wire-trace-<player>-<epoch>.json
+// 并在日志里打一份按包名统计的摘要（测试到一半掉线时用它看"退出前发了哪些包"）。
+//
+// 典型用法（C++ 测试）：
+//   wireTraceStart("hltestcpp");
+//   ... 调接口 ...
+//   auto n = wireTraceCount();
+//   auto json = wireTraceDumpJson();
+//   wireTraceStop();
+// ─────────────────────────────────────────────
+HOLOGLIB_API bool        wireTraceStart(std::string const& tag);
+HOLOGLIB_API void        wireTraceStop();
+HOLOGLIB_API void        wireTraceClear();
+HOLOGLIB_API bool        wireTraceActive();
+HOLOGLIB_API std::size_t wireTraceCount();
+HOLOGLIB_API std::string wireTraceDumpJson();
+HOLOGLIB_API void        wireTraceMark(std::string const& tag);
 
 } // namespace hologramlib
 

@@ -35,6 +35,7 @@
 #include <sculk/protocol/codec/packet/RemoveActorPacket.hpp>
 #include <sculk/protocol/utility/BinaryStream.hpp>
 
+#include "core/PacketSink.h"
 #include "NpcSkinRegistry.h"
 #include "NpcPlayerList.h"
 
@@ -47,46 +48,23 @@ namespace debugshape_export::npc_protocol {
 // 其余包保留原有 BDS 反序列化校验。
 template <typename PacketT>
 bool sendToPlayer(Player& player, PacketT const& packet, NetworkPeer::Reliability reliability) {
-    std::vector<std::byte>        bodyBuffer;
-    sculk::protocol::BinaryStream bodyStream(bodyBuffer);
-    packet.write(bodyStream);
-
-    constexpr bool kIsPlayerList = std::is_same_v<PacketT, sculk::protocol::PlayerListPacket>;
-    constexpr bool kSkipBdsReadCheck = kIsPlayerList || std::is_same_v<PacketT, sculk::protocol::AddPlayerPacket>;
-
-    if constexpr (kIsPlayerList) {
-        if (!hasValidPlayerListPrefix(packet, bodyBuffer)) {
-            static std::atomic<bool> warned{false};
-            if (!warned.exchange(true)) {
-                HLIB_LOG_WARN(
-                    "[PlayerNpc] PlayerList 2168 framing rejected: action={} entries={} bytes={} bodyPrefix=[{}]",
-                    static_cast<unsigned>(packet.mAction), packet.mPlayerEntryList.size(),
-                    bodyBuffer.size(), bodyPrefixHex(bodyBuffer)
-                );
-            }
-            return false;
-        }
+    // 26.60: body 统一走 wire26（AddPlayer/PlayerList/PlayerSkin 有字段级变更，其余走 sculk）
+    std::string body = wire26::body26(packet);
+    if (body.empty()) {
+        return false;
     }
 
-    if constexpr (!kSkipBdsReadCheck) {
-        std::string          checkBuffer(reinterpret_cast<char const*>(bodyBuffer.data()), bodyBuffer.size());
-        ReadOnlyBinaryStream checkStream(checkBuffer, true);
-        auto checkPacket = MinecraftPackets::createPacket(static_cast<MinecraftPacketIds>(packet.getId()));
-        if (!checkPacket || !checkPacket->read(checkStream)) {
-            // 校验失败: 不发, 调用方保留 shown 状态下轮重试。
-            // 首次失败打 warn（此后静默, 防每秒重试刷屏）——否则 NPC 链路断点完全不可见。
-            static std::atomic<bool> warned{false};
-            if (!warned.exchange(true)) {
-                HLIB_LOG_WARN(
-                        "[PlayerNpc] {} BDS read 校验失败, 丢弃 (read {}/{} bytes, bodyPrefix=[{}]) —— 此类失败不再重复记录",
-                        std::string(packet.getName()),
-                        checkStream.mReadPointer,
-                        checkStream.mView.size(),
-                        bodyPrefixHex(bodyBuffer)
-                    );
-            }
-            return false;
+    // 26.60 编码后这些包都能过 BDS 回读校验；校验失败说明线格式还有偏差，宁可不发也不发错字节。
+    if (!wire::validateBody(static_cast<std::uint32_t>(packet.getId()), body)) {
+        static std::atomic<bool> warned{false};
+        if (!warned.exchange(true)) {
+            HLIB_LOG_WARN(
+                "[PlayerNpc] {} BDS read 校验失败, 丢弃 ({} bytes) —— 此类失败不再重复记录",
+                std::string(packet.getName()),
+                body.size()
+            );
         }
+        return false;
     }
 
     BinaryStream sendStream;
@@ -95,27 +73,13 @@ bool sendToPlayer(Player& player, PacketT const& packet, NetworkPeer::Reliabilit
         nullptr,
         nullptr
     );
-    sendStream.mBuffer.append(reinterpret_cast<char const*>(bodyBuffer.data()), bodyBuffer.size());
+    sendStream.mBuffer.append(body);
 
     auto networkSystem = ll::service::getNetworkSystem();
     if (!networkSystem) return false;
     auto* peer = networkSystem->getPeerForUser(player.getNetworkIdentifier());
     if (peer == nullptr) return false;
     peer->sendPacket(sendStream.mBuffer, reliability, Compressibility::Compressible);
-    if constexpr (kIsPlayerList) {
-        // One sample per action, after the exact validated buffer is handed to NetworkPeer.
-        // This proves local serialization/submission, not that a client rendered the skin.
-        static std::atomic<bool> logged[2]{};
-        auto const action = static_cast<unsigned>(packet.mAction);
-        if (!logged[action].exchange(true)) {
-            auto const& skin = packet.mPlayerEntryList.front().mSerializedSkin;
-            HLIB_LOG_INFO(
-                "[PlayerNpc] PlayerList submitted: protocol={} action={} bytes={} bodyPrefix=[{}] skinId='{}' fullId='{}'",
-                SCULK_NETWORK_PROTOCOL_VERSION, action, bodyBuffer.size(), bodyPrefixHex(bodyBuffer),
-                skin.mId, skin.mFullId
-            );
-        }
-    }
     return true;
 }
 

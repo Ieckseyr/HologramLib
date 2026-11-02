@@ -620,9 +620,11 @@ bool NpcSkinRegistry::captureSkin(std::string const& skinId, std::string const& 
     // BDS 原生 SerializedSkinImpl → sculk SerializedSkin 全字段拷贝（快照注册）
     sculk::protocol::SerializedSkin proto;
     proto.mId            = impl.mId;
-    proto.mPlayFabId     = impl.mPlayFabId;
+    // 26.60：BDS 去掉了 SerializedSkinImpl::mPlayFabId（协议 2225 也删了这个字段），
+    // 这里保持空串；下面 finalizeSkin 会按 registryId 重建 Id / FullId。
+    proto.mPlayFabId     = {};
     proto.mResourcePatch = impl.mResourcePatch;
-    // 26.40：FullId 最后统一重建。
+    // 26.60：FullId 最后统一重建。
 
     // 主皮肤贴图
     proto.mSkinImageWidth  = impl.mSkinImage.get().mWidth;

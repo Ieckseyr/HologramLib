@@ -245,6 +245,12 @@ bool ItemActorManager::exists(int64_t id) const {
     return mActors.peek(id) != nullptr;
 }
 
+std::uint64_t ItemActorManager::runtimeIdOf(int64_t id) const {
+    std::lock_guard lock(mMutex);
+    auto*           a = mActors.peek(id);
+    return a == nullptr ? 0 : a->runtimeId;
+}
+
 std::vector<int64_t> ItemActorManager::getAllIds() const {
     std::lock_guard lock(mMutex);
     return mActors.snapshotAll();

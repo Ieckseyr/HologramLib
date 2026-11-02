@@ -143,6 +143,9 @@ public:
     // runtimeId -> 库内 id 反查（ghost 交互路由用; 无匹配返回 false）
     bool findByRuntimeId(std::uint64_t runtimeId, int64_t& outId) const;
 
+    // 该展示实体的 ActorRuntimeID（0 = 不存在）
+    std::uint64_t runtimeIdOf(int64_t id) const;
+
 private:
     ItemDisplayManager()  = default;
     ~ItemDisplayManager() = default;

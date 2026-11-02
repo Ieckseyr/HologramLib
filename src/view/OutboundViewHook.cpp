@@ -27,6 +27,7 @@
 #include <mc/network/NetworkIdentifier.h>
 #include <mc/world/actor/Actor.h>
 #include <mc/network/NetworkIdentifierWithSubId.h>
+#include <mc/network/LoopbackPacketSender.h>
 #include <mc/network/NetworkSystem.h>
 #include <mc/network/Packet.h>
 #include <mc/world/actor/player/Player.h>
@@ -171,11 +172,14 @@ LL_TYPE_INSTANCE_HOOK(
 static ll::memory::HookRegistrar<ViewNetSendHook> gViewNetSendHook;
 
 // ── 汇合点: 多收件人 —— 展开成逐个 send（重入上面的钩子, 逐收件人改写/还原）──
+// 26.60: NetworkSystem::sendToMultiple 已移除（协议层重构），多收件人发送搬到
+// PacketSender::sendToClients（服务端实现 = LoopbackPacketSender::$sendToClients）。
+// 钩实现体（$ 前缀）而不是虚函数指针：虚表调用不收 vcall thunk 影响。
 LL_TYPE_INSTANCE_HOOK(
     ViewNetSendToMultipleHook,
     ll::memory::HookPriority::Normal,
-    NetworkSystem,
-    &NetworkSystem::sendToMultiple,
+    LoopbackPacketSender,
+    &LoopbackPacketSender::$sendToClients,
     void,
     ::std::vector<::NetworkIdentifierWithSubId> const& ids,
     ::Packet const&                                    packet
@@ -190,7 +194,7 @@ LL_TYPE_INSTANCE_HOOK(
         }
         dispatched = true;
         for (auto const& entry : ids) {
-            this->send(entry.id, packet, entry.subClientId); // 重入 ViewNetSendHook（逐收件人判定）
+            this->sendToClient(entry.id, packet, entry.subClientId); // 重入 ViewNetSendHook（逐收件人判定）
         }
     });
     if (!ran && !dispatched) origin(ids, packet); // 展开前就抛了 → 按原样多播, 不丢包

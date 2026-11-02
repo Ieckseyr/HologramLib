@@ -1,4 +1,4 @@
-// HologramLib.d.ts —— 自动生成（tools/gen_lse_shim.py），API 1.33.0
+// HologramLib.d.ts —— 自动生成（tools/gen_lse_shim.py），API 1.34.0
 // 放到脚本旁边, 编辑器就能补全 HL.xxx 的参数名与类型。
 
 declare namespace HologramLib {
@@ -293,6 +293,8 @@ declare namespace HologramLib {
     /** 实现见 src/itemactor/ItemActorExporter.cpp */
     itemActorMoveTo(id: number, x: number, y: number, z: number): boolean;
     /** 实现见 src/itemactor/ItemActorExporter.cpp */
+    itemActorRuntimeId(id: number): number;
+    /** 实现见 src/itemactor/ItemActorExporter.cpp */
     itemActorSetMotion(id: number, vx: number, vy: number, vz: number): boolean;
     /** 实现见 src/itemactor/ItemActorExporter.cpp */
     itemActorSpawn(itemId: string, aux: number, count: number, x: number, y: number, z: number, dim: number, vx: number, vy: number, vz: number): number;
@@ -338,6 +340,8 @@ declare namespace HologramLib {
     itemDisplayIsIdUsed(id: number): boolean;
     /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayRotateY(id: number, delta: number): boolean;
+    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    itemDisplayRuntimeId(id: number): number;
     /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayScaleBy(id: number, factor: number): boolean;
     /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
@@ -555,6 +559,8 @@ declare namespace HologramLib {
     /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
     playerNpcRegisterSkinFromBlobFile(path: string): boolean;
     /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    playerNpcRuntimeId(id: number): number;
+    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetEnabled(id: number, enabled: boolean): boolean;
     /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetEquipment(id: number, slot: number, name: string, aux: number, nbt: string): boolean;
@@ -594,6 +600,12 @@ declare namespace HologramLib {
     playerNpcStopAnimationTo(id: number, playerName: string): boolean;
     /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
     playerNpcUnregisterSkin(skinId: string): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    playerRespawn(playerName: string): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    playerRespawnAt(playerName: string, x: number, y: number, z: number): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    playerRespawnState(playerName: string, state: number): boolean;
     /** 实现见 src/sensing/PlayerSensingExporter.cpp */
     sensingDeviceCode(playerName: string): number;
     /** 实现见 src/sensing/PlayerSensingExporter.cpp */
@@ -788,6 +800,20 @@ declare namespace HologramLib {
     wireResetStats(): any;
     /** 实现见 src/InfoExporter.cpp */
     wireStats(): string;
+    /** 实现见 src/InfoExporter.cpp */
+    wireTraceActive(): boolean;
+    /** 实现见 src/InfoExporter.cpp */
+    wireTraceClear(): any;
+    /** 实现见 src/InfoExporter.cpp */
+    wireTraceCount(): number;
+    /** 实现见 src/InfoExporter.cpp */
+    wireTraceDump(): string;
+    /** 实现见 src/InfoExporter.cpp */
+    wireTraceMark(tag: string): any;
+    /** 实现见 src/InfoExporter.cpp */
+    wireTraceStart(tag: string): boolean;
+    /** 实现见 src/InfoExporter.cpp */
+    wireTraceStop(): boolean;
   }
 
   // ── 按类分组（同 GMLIB-LegacyRemoteCallApi 的写法）──
@@ -928,6 +954,7 @@ declare namespace HologramLib {
     exists(id: number): boolean;
     getIds(): number;
     moveTo(id: number, x: number, y: number, z: number): boolean;
+    runtimeId(id: number): number;
     setMotion(id: number, vx: number, vy: number, vz: number): boolean;
     spawn(itemId: string, aux: number, count: number, x: number, y: number, z: number, dim: number, vx: number, vy: number, vz: number): number;
     take(id: number, playerName: string): boolean;
@@ -957,6 +984,7 @@ declare namespace HologramLib {
     getInfo(id: number): string;
     isIdUsed(id: number): boolean;
     rotateY(id: number, delta: number): boolean;
+    runtimeId(id: number): number;
     scaleBy(id: number, factor: number): boolean;
     scaleTo(id: number, targetScale: number): boolean;
     setAnim(id: number, spinSpeed: number, spinAxis: number, bobAmp: number, bobPeriod: number, pulseAmp: number, pulsePeriod: number, swayAmp: number, swayPeriod: number, phase: number, billboard: boolean): boolean;
@@ -1027,6 +1055,7 @@ declare namespace HologramLib {
     hudSetElement(playerName: string, element: number, visible: boolean): boolean;
     hudSetElements(playerName: string, mask: number, visible: boolean): number;
     hudSetRaw(playerName: string, mask: number, visibility: number): boolean;
+    playerRespawn(playerName: string): boolean;
     sidebarIsShown(playerName: string): boolean;
     sidebarLineCount(playerName: string): number;
     sidebarRemove(playerName: string): boolean;
@@ -1036,6 +1065,13 @@ declare namespace HologramLib {
     sidebarSetTitle(playerName: string, title: string): boolean;
     wireResetStats(): any;
     wireStats(): string;
+    wireTraceActive(): boolean;
+    wireTraceClear(): any;
+    wireTraceCount(): number;
+    wireTraceDump(): string;
+    wireTraceMark(tag: string): any;
+    wireTraceStart(tag: string): boolean;
+    wireTraceStop(): boolean;
   }
 
   interface NpcDialog {
@@ -1108,6 +1144,7 @@ declare namespace HologramLib {
     registerSkinDataOpaque(pngPath: string, skinId: string, armSize: string, geometryData: string): boolean;
     registerSkinFromBlobB64(b64: string): boolean;
     registerSkinFromBlobFile(path: string): boolean;
+    runtimeId(id: number): number;
     setEnabled(id: number, enabled: boolean): boolean;
     setEquipment(id: number, slot: number, name: string, aux: number, nbt: string): boolean;
     setNametag(id: number, text: string): boolean;
@@ -1128,6 +1165,11 @@ declare namespace HologramLib {
     stopAnimation(id: number): boolean;
     stopAnimationTo(id: number, playerName: string): boolean;
     unregisterSkin(skinId: string): boolean;
+  }
+
+  interface PlayerRespawn {
+    at(playerName: string, x: number, y: number, z: number): boolean;
+    state(playerName: string, state: number): boolean;
   }
 
   interface Sensing {
@@ -1257,6 +1299,7 @@ declare namespace HologramLib {
     NpcDialog: NpcDialog;
     Particle: Particle;
     PlayerNpc: PlayerNpc;
+    PlayerRespawn: PlayerRespawn;
     Sensing: Sensing;
     Shape: Shape;
     Sulfur: Sulfur;

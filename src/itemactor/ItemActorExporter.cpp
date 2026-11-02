@@ -82,6 +82,12 @@ void ItemActorExporter::exportAll() {
             return mgr.exists(id);
         });
 
+    // itemActorRuntimeId(id) -> int64（掉落物的 ActorRuntimeID；不存在 -1）
+    hologramlib::lse::exportAs(NAMESPACE, "itemActorRuntimeId", [&mgr](int64_t id) -> int64_t {
+        auto rid = mgr.runtimeIdOf(id);
+        return rid == 0 ? -1 : static_cast<int64_t>(rid);
+    });
+
     // itemActorGetIds() -> [i]
     hologramlib::lse::exportAs(NAMESPACE, "itemActorGetIds", [&mgr]() -> std::vector<int64_t> {
         return mgr.getAllIds();

@@ -51,6 +51,7 @@ GROUPS = [
     ("sulfur", "Sulfur"),
     ("view", "View"),
     ("itemActor", "ItemActor"),
+    ("playerRespawn", "PlayerRespawn"),
     ("playerHide", "Visibility"),
     ("locatorBar", "LocatorBar"),
     ("form", "Form"),

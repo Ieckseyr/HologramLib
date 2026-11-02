@@ -1461,6 +1461,12 @@ std::vector<int64_t> ItemDisplayManager::getAllIds() const {
     return mEntries.snapshotAll();
 }
 
+std::uint64_t ItemDisplayManager::runtimeIdOf(int64_t id) const {
+    std::lock_guard lock(mMutex);
+    auto*           rt = runtimeOf(id);
+    return rt == nullptr ? 0 : rt->runtimeId;
+}
+
 bool ItemDisplayManager::findByRuntimeId(std::uint64_t runtimeId, int64_t& outId) const {
     std::lock_guard lock(mMutex);
     bool            found = false;

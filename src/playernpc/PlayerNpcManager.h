@@ -87,6 +87,9 @@ public:
 
     std::string getDebugInfo(int64_t id) const;
 
+    // 该假玩家的 ActorRuntimeID（0 = 不存在）；给 ActorEvent/Respawn 一类按 runtimeId 寻址的包用
+    std::uint64_t runtimeIdOf(int64_t id) const;
+
     // runtimeId -> 库内 id 反查（ghost 交互路由用; 无匹配返回 false）
     bool findByRuntimeId(std::uint64_t runtimeId, int64_t& outId) const;
 

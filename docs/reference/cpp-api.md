@@ -846,3 +846,34 @@ bool isHidden(playerName) const;
 
 这一版虚表尾部变长（3 个新接口 + 两个方法），`HOLOGLIB_ABI_STAMP` 仍为 1，
 但用旧头文件编译的消费方要重新编译；基线是 `abi/v1.32.0.json`。
+
+### 1.34.0 追加：IPlayerRespawn（死亡动画后的复活，只发包）
+
+`IPlayerRespawn` 追加在头文件尾部（`IHologramLib` 之前），访问器 `playerRespawn()` 追加在
+`IHologramLib` 尾部；`HOLOGLIB_ABI_STAMP` 仍为 `1`，但用旧头文件编译的消费方需要重新编译。
+基线 `abi/v1.34.0.json`。
+
+```cpp
+class IPlayerRespawn {
+public:
+    virtual ~IPlayerRespawn() = default;
+    // 原地复活（玩家当前坐标）; state 默认 2 = ClientReadyToSpawn
+    virtual bool respawn(std::string const& playerName, int state = 2) = 0;
+    // 指定坐标复活
+    virtual bool respawnAt(std::string const& playerName, float x, float y, float z, int state = 2) = 0;
+};
+```
+
+**为什么需要它**：`IActorEffect::playDeath()` 只是给客户端发 `ActorEvent::DEATH`，
+服务端实体并未死亡；客户端进死亡界面后发 `PlayerAction(Respawn)`，服务端判定"无需复活"不会回包，
+客户端于是卡住。`IPlayerRespawn` 直接补一个 `RespawnPacket`(45) 给客户端：
+
+```cpp
+auto& api = hologramlib::IHologramLib::getInstance();
+api.actorEffects().playDeath(runtimeId);      // 播死亡动画
+// ……稍后
+api.playerRespawn().respawn("Steve");        // 把客户端从死亡界面拉回来
+```
+
+协议：`RespawnPacket`(45) = `Position`(Vec3) + `State`(uint8: 0/1/2) + `PlayerRuntimeId`(uvarint64)。
+服务端实体的血量 / 位置 / 维度 / 背包都不变，也不会触发死亡或重生事件。

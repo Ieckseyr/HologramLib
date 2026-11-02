@@ -15,19 +15,21 @@
 #include <ll/api/event/world/ServerLevelTickEvent.h>
 
 namespace ll::event {
+// 显式特化不是隐式 inline（变量模板本体才是），多 TU 包含会 LNK2005；
+// 26.60 的链接器不再当作 COMDAT 合并，必须显式 inline。
 template <>
-constexpr EventIdView getEventId<::ll::event::player::PlayerJoinEvent> =
+inline constexpr EventIdView getEventId<::ll::event::player::PlayerJoinEvent> =
     EventIdView{"ll::event::PlayerJoinEvent"};
 
 template <>
-constexpr EventIdView getEventId<::ll::event::player::PlayerDisconnectEvent> =
+inline constexpr EventIdView getEventId<::ll::event::player::PlayerDisconnectEvent> =
     EventIdView{"ll::event::PlayerDisconnectEvent"};
 
 template <>
-constexpr EventIdView getEventId<::ll::event::world::ServerLevelTickEvent> =
+inline constexpr EventIdView getEventId<::ll::event::world::ServerLevelTickEvent> =
     EventIdView{"ll::event::ServerLevelTickEvent"};
 
 template <>
-constexpr EventIdView getEventId<::ll::event::server::ServerStartedEvent> =
+inline constexpr EventIdView getEventId<::ll::event::server::ServerStartedEvent> =
     EventIdView{"ll::event::ServerStartedEvent"};
 } // namespace ll::event

@@ -24,6 +24,9 @@
 #include <sculk/protocol/codec/packet/IPacket.hpp>
 #include <sculk/protocol/utility/BinaryStream.hpp>
 
+#include "compat/Wire26.h"
+#include "core/PacketTrace.h"
+
 class Player;
 
 namespace debugshape_export {
@@ -50,7 +53,13 @@ void noteValidationFailure(std::string_view packetName);
 
 // ── 传输: 只认字节流 ──────────────────────────────────────────────────────────
 // bytes 必须是**含包头**的完整包体（两个 encode 的产物都满足）。
-bool sendRaw(::Player& player, std::string_view bytes, Reliability r = Reliability::Reliable);
+bool sendRaw(
+    ::Player&       player,
+    std::string_view bytes,
+    Reliability     r    = Reliability::Reliable,
+    std::string_view name = {},
+    std::uint32_t    id   = 0
+);
 bool sendRawToAll(std::string_view bytes, Reliability r = Reliability::Reliable);
 bool sendRawToDimension(int dimId, std::string_view bytes, Reliability r = Reliability::Reliable);
 
@@ -58,21 +67,33 @@ bool sendRawToDimension(int dimId, std::string_view bytes, Reliability r = Relia
 // 项目约定是手写线格式，这个函数不参与发包，只在诊断路径上用来确认字节与 BDS 一致。
 bool validateBody(std::uint32_t packetId, std::string const& body);
 
+// 直接发送一段「用 BDS 原生包类序列化出来的 body（不含包头）」。
+// 26.60 起部分包的 sculk 2168 模型与线上格式不一致（SetScore 就是：sculk 还是
+// packetType+count 的旧格式，26.60 是 count + 每条目 varuint variant + tag + 字段）。
+// 这类包改为「BDS 类构造 → write() → 这里校验 + 补包头 + 发送」，
+// 字节由 BDS 自己产生，天然与客户端线格式一致。
+bool sendBodyChecked(::Player& player, std::uint32_t packetId, std::string const& body, char const* packetName);
+
+// 同上，但**不做 BDS 回读校验**：用于"BDS 读后校验会拒绝、但客户端确实能吃"的合成包
+// （NPC 对话的合成 JSON、交易报价、容器块数据等）。仍然走 wire26::body26 的 26.60 编码，
+// 并且照常计入发包审计（trace）。
+bool sendBodyUnchecked(::Player& player, std::uint32_t packetId, std::string body, std::string_view packetName);
+
 // ── 编码 ─────────────────────────────────────────────────────────────────────
 // checked（默认）: body 写出 → 用 BDS 同型包回读校验 → 手动补 VarUInt 包头。
 //   校验失败返回空串并计入 droppedInvalid，绝不把错位字节发给客户端。
+//   body 统一走 wire26::body26()：26.60 有字段级变更的包（AddPlayer/AddActor/BossEvent/
+//   PlayerList/PlayerSkin）用 26.60 编码，其余包仍用 sculk 的 write()。
 // Unchecked: writeWithHeader 一次成型，不做回读。
 //   用于形状列表这条热路径（每 tick 可能多次），与收敛前的行为逐字一致。
 template <class PacketT>
 std::string encodeChecked(PacketT const& packet) {
-    std::vector<std::byte>        bodyBuffer;
-    sculk::protocol::BinaryStream bodyStream(bodyBuffer);
-    packet.write(bodyStream);
+    std::string body = wire26::body26(packet);
+    if (body.empty()) {
+        return {};
+    }
 
-    std::string          checkBuffer(reinterpret_cast<char const*>(bodyBuffer.data()), bodyBuffer.size());
-    ReadOnlyBinaryStream checkStream(checkBuffer, true);
-    auto                 checkPacket = ::MinecraftPackets::createPacket(static_cast<::MinecraftPacketIds>(packet.getId()));
-    if (!checkPacket || !checkPacket->read(checkStream)) {
+    if (!validateBody(static_cast<std::uint32_t>(packet.getId()), body)) {
         noteValidationFailure(packet.getName());
         return {};
     }
@@ -82,7 +103,7 @@ std::string encodeChecked(PacketT const& packet) {
         (static_cast<int>(packet.getId()) & 0x3FF) | ((0 & 3) << 10) | ((0 & 3) << 12),
         nullptr,
         nullptr);
-    sendStream.mBuffer.append(reinterpret_cast<char const*>(bodyBuffer.data()), bodyBuffer.size());
+    sendStream.mBuffer.append(body);
 
     counters().encoded.fetch_add(1, std::memory_order_relaxed);
     return sendStream.mBuffer;
@@ -105,7 +126,7 @@ bool send(::Player& player, PacketT const& packet, Reliability r = Reliability::
     auto bytes = encodeChecked(packet);
     if (bytes.empty())
         return false;
-    return sendRaw(player, bytes, r);
+    return sendRaw(player, bytes, r, packet.getName(), static_cast<std::uint32_t>(packet.getId()));
 }
 
 } // namespace wire

@@ -8,9 +8,16 @@
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/level/Level.h>
 
+#include <mc/deps/core/utility/BinaryStream.h>
+#include <mc/network/MinecraftPacketIds.h>
+#include <mc/network/packet/ChangeFakePlayerScore.h>
+#include <mc/network/packet/RemoveScore.h>
+#include <mc/network/packet/SetScorePacket.h>
+#include <mc/network/packet/SetScorePacketPayload.h>
+#include <mc/world/scores/ScoreboardId.h>
+
 #include <sculk/protocol/codec/packet/RemoveObjectivePacket.hpp>
 #include <sculk/protocol/codec/packet/SetDisplayObjectivePacket.hpp>
-#include <sculk/protocol/codec/packet/SetScorePacket.hpp>
 
 #include <format>
 
@@ -74,25 +81,29 @@ bool SidebarManager::sendScores(
     std::string const&              objective,
     std::vector<std::string> const& lines,
     std::int64_t                    idBase) {
-    sculk::protocol::SetScorePacket packet;
-    packet.mPacketType = sculk::protocol::SetScorePacket::PacketType::Change;
-    packet.mScoresInfo.reserve(lines.size());
-
+    // 26.60 的 SetScore 线格式（用 BDS 自己的包类序列化，避免 sculk 2168 的旧格式）：
+    //   count(varuint) + 每条目 [variant(varuint) + tag(string) + scoreboardId(varint64)
+    //                            + objective(string) + score(int32) + fakePlayerName(string)]
+    ::SetScorePacketPayload payload;
+    payload.mScoreInfo->reserve(lines.size());
     for (std::size_t i = 0; i < lines.size(); ++i) {
-        sculk::protocol::SetScorePacket::ScoreInfo info;
-        info.mScoreboardId   = idBase + static_cast<std::int64_t>(i);
-        info.mObjectiveName  = objective;
-        info.mScoreValue     = static_cast<std::int32_t>(i + 1);
-        info.mIdentityType   = sculk::protocol::SetScorePacket::IdentityType::FakePlayer;
-        info.mFakePlayerName = lines[i];
-        packet.mScoresInfo.push_back(std::move(info));
+        ::ChangeFakePlayerScore entry;
+        entry.mScoreboardId->mRawID = idBase + static_cast<std::int64_t>(i);
+        entry.mObjectiveName        = objective;
+        entry.mScoreValue           = static_cast<int>(i + 1);
+        entry.mFakePlayerName       = lines[i];
+        payload.mScoreInfo->emplace_back(entry);
     }
 
-    auto bytes = wire::encodeChecked(packet);
-    if (bytes.empty())
-        return false;
-    wire::sendRaw(player, bytes);
-    return true;
+    ::SetScorePacket packet{payload};
+    ::BinaryStream   stream;
+    packet.write(stream);
+    return wire::sendBodyChecked(
+        player,
+        static_cast<std::uint32_t>(::MinecraftPacketIds::SetScore),
+        stream.mBuffer,
+        "SetScorePacket"
+    );
 }
 
 bool SidebarManager::sendRemoveScores(
@@ -103,22 +114,25 @@ bool SidebarManager::sendRemoveScores(
     if (count <= 0)
         return true;
 
-    sculk::protocol::SetScorePacket packet;
-    packet.mPacketType = sculk::protocol::SetScorePacket::PacketType::Remove;
-    packet.mScoresInfo.reserve(static_cast<std::size_t>(count));
-
+    // Remove 条目：variant(0) + tag("remove") + scoreboardId + bool(hasObjective) + objective
+    ::SetScorePacketPayload payload;
+    payload.mScoreInfo->reserve(static_cast<std::size_t>(count));
     for (int i = 0; i < count; ++i) {
-        sculk::protocol::SetScorePacket::ScoreInfo info;
-        info.mScoreboardId  = idBase + static_cast<std::int64_t>(i);
-        info.mObjectiveName = objective;
-        packet.mScoresInfo.push_back(std::move(info));
+        ::RemoveScore entry;
+        entry.mScoreboardId->mRawID = idBase + static_cast<std::int64_t>(i);
+        entry.mObjectiveName        = objective;
+        payload.mScoreInfo->emplace_back(entry);
     }
 
-    auto bytes = wire::encodeChecked(packet);
-    if (bytes.empty())
-        return false;
-    wire::sendRaw(player, bytes);
-    return true;
+    ::SetScorePacket packet{payload};
+    ::BinaryStream   stream;
+    packet.write(stream);
+    return wire::sendBodyChecked(
+        player,
+        static_cast<std::uint32_t>(::MinecraftPacketIds::SetScore),
+        stream.mBuffer,
+        "SetScorePacket(remove)"
+    );
 }
 
 bool SidebarManager::sendRemoveObjective(::Player& player, std::string const& objective) {

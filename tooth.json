@@ -2,7 +2,7 @@
     "format_version": 3,
     "format_uuid": "289f771f-2c9a-4d73-9f3f-8492495a924d",
     "tooth": "github.com/Ieckseyr/HologramLib",
-    "version": "26.51.7",
+    "version": "26.60.0",
     "info": {
         "name": "HologramLib",
         "description": "前置库：基岩版协议层统一悬浮显示库 / Library: Bedrock protocol-layer unified hologram & display library",
@@ -18,7 +18,7 @@
         {
             "platform": "win-x64",
             "dependencies": {
-                "github.com/LiteLDev/LeviLamina": "26.51.*",
+                "github.com/LiteLDev/LeviLamina": "26.60.*",
                 "github.com/LiteLDev/LegacyRemoteCall": "0.22.*"
             },
             "assets": [

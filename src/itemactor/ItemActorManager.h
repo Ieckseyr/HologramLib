@@ -34,6 +34,9 @@ public:
     [[nodiscard]] std::uint64_t        uniqueIdOf(int64_t id) const;
     [[nodiscard]] std::vector<int64_t> getAllIds() const;
 
+    // 该掉落物的 ActorRuntimeID（0 = 不存在）
+    std::uint64_t runtimeIdOf(int64_t id) const;
+
     // 玩家离开/换维度时不需要特别处理: 掉落物按维度发, 客户端走远了自然清。
     void shutdown();
 

@@ -1,6 +1,7 @@
 // TradeMenuManager.cpp - 村民交易菜单（协议层）实现
 #include "trade/TradeMenuManager.h"
 
+#include "core/PacketSink.h"
 #include "DiagLog.h"
 
 #include "customentity/CustomEntityManager.h"
@@ -73,25 +74,15 @@ Player* findPlayerByName(std::string const& name) {
 // 合成 offers 可能被 BDS 的读后校验拒绝, 但那不代表客户端收不到（PlayerList/AddPlayer 同此判断）。
 template <typename PacketT>
 bool sendTradePacket(Player& player, PacketT const& packet) {
-    std::vector<std::byte>        body;
-    sculk::protocol::BinaryStream bodyStream(body);
-    packet.write(bodyStream);
-    if (body.empty()) return false;
 
-    BinaryStream out;
-    out.writeUnsignedVarInt(
-        (static_cast<int>(packet.getId()) & 0x3FF) | ((0 & 3) << 10) | ((0 & 3) << 12),
-        nullptr,
-        nullptr
+    // 26.60: 统一走 wire26 编码（AddActor/AddPlayer/BossEvent/PlayerList/PlayerSkin 有字段级变更），
+    // 这些合成包不做 BDS 回读校验（合成的 JSON / NBT 会被读后校验拒绝，但客户端能吃）。
+    return wire::sendBodyUnchecked(
+        player,
+        static_cast<std::uint32_t>(packet.getId()),
+        wire26::body26(packet),
+        packet.getName()
     );
-    out.mBuffer.append(reinterpret_cast<char const*>(body.data()), body.size());
-
-    auto networkSystem = ll::service::getNetworkSystem();
-    if (!networkSystem) return false;
-    auto* peer = networkSystem->getPeerForUser(player.getNetworkIdentifier());
-    if (peer == nullptr) return false;
-    peer->sendPacket(out.mBuffer, NetworkPeer::Reliability::Reliable, Compressibility::Compressible);
-    return true;
 }
 
 // 公开 API 的显示栏值是 1 基（1=新手 … 5=大师）; wire 上是 0 基（抓包实测）。

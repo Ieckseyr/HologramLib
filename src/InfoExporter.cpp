@@ -54,6 +54,33 @@ void InfoExporter::exportAll() {
     hologramlib::lse::exportAs(NAMESPACE, "holoApiVersion", []() -> int64_t {
         return static_cast<int64_t>(HOLOGLIB_API_VERSION);
     });
+
+    // ── 发包审计（测试用）──────────────────────────────────────────────
+    // 只记录 trace 期间"真的交给 NetworkPeer"的包；测试期间玩家退出会自动落盘
+    // plugins/HologramLib/wire-trace-<player>-<epoch>.json
+    hologramlib::lse::exportAs(NAMESPACE, "wireTraceStart", [](std::string const& tag) -> bool {
+        wire::traceStart(tag);
+        return true;
+    });
+    hologramlib::lse::exportAs(NAMESPACE, "wireTraceStop", []() -> bool {
+        wire::traceStop();
+        return true;
+    });
+    hologramlib::lse::exportAs(NAMESPACE, "wireTraceClear", []() {
+        wire::traceClear();
+    });
+    hologramlib::lse::exportAs(NAMESPACE, "wireTraceActive", []() -> bool {
+        return wire::traceActive();
+    });
+    hologramlib::lse::exportAs(NAMESPACE, "wireTraceCount", []() -> int64_t {
+        return static_cast<int64_t>(wire::traceCount());
+    });
+    hologramlib::lse::exportAs(NAMESPACE, "wireTraceDump", []() -> std::string {
+        return wire::traceDumpJson();
+    });
+    hologramlib::lse::exportAs(NAMESPACE, "wireTraceMark", [](std::string const& tag) {
+        wire::traceMark(tag);
+    });
 }
 
 } // namespace debugshape_export

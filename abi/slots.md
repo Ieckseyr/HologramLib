@@ -1,4 +1,4 @@
-# ABI 槽位表（0x012700 / ABI 戳 1）
+# ABI 槽位表（0x012800 / ABI 戳 1）
 
 > 本文件由 `python tools/abi_tool.py extract --md-out abi/slots.md` 生成，不要手改。
 > 虚函数声明顺序 = 虚表槽位号。**只能在尾部追加**。
@@ -476,6 +476,14 @@
 | 6 | pure | `bool isShown(std::string const&)` |
 | 7 | pure | `int lineCount(std::string const&)` |
 
+## IPlayerRespawn
+
+| # | 种类 | 签名 |
+|---|---|---|
+| 0 | default | `~IPlayerRespawn()` |
+| 1 | pure | `bool respawn(std::string const&, int state = 2)` |
+| 2 | pure | `bool respawnAt(std::string const&, float, float, float, int state = 2)` |
+
 ## IHologramLib
 
 | # | 种类 | 签名 |
@@ -515,6 +523,7 @@
 | 32 | pure | `ILocatorBarExt& locatorBarExt()` |
 | 33 | pure | `IActorEffect& actorEffects()` |
 | 34 | pure | `ISidebar& sidebar()` |
+| 35 | pure | `IPlayerRespawn& playerRespawn()` |
 
 ## 结构体布局
 

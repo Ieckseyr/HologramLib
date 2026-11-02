@@ -1,6 +1,7 @@
 // NpcDialogueManager.cpp - NPC 对话界面（协议层）实现
 #include "npcdialog/NpcDialogueManager.h"
 
+#include "core/PacketSink.h"
 #include "DiagLog.h"
 
 #include "customentity/CustomEntityManager.h"
@@ -128,25 +129,15 @@ std::string resolveActionJson(hologramlib::NpcDialogSpec const& spec) {
 // 与交易菜单同款: 不做 BDS 回读硬校验（合成 JSON 可能被读后校验拒绝, 但不影响客户端收包）
 template <typename PacketT>
 bool sendPacket(Player& player, PacketT const& packet) {
-    std::vector<std::byte>        body;
-    sculk::protocol::BinaryStream bodyStream(body);
-    packet.write(bodyStream);
-    if (body.empty()) return false;
 
-    BinaryStream out;
-    out.writeUnsignedVarInt(
-        (static_cast<int>(packet.getId()) & 0x3FF) | ((0 & 3) << 10) | ((0 & 3) << 12),
-        nullptr,
-        nullptr
+    // 26.60: 统一走 wire26 编码（AddActor/AddPlayer/BossEvent/PlayerList/PlayerSkin 有字段级变更），
+    // 这些合成包不做 BDS 回读校验（合成的 JSON / NBT 会被读后校验拒绝，但客户端能吃）。
+    return wire::sendBodyUnchecked(
+        player,
+        static_cast<std::uint32_t>(packet.getId()),
+        wire26::body26(packet),
+        packet.getName()
     );
-    out.mBuffer.append(reinterpret_cast<char const*>(body.data()), body.size());
-
-    auto networkSystem = ll::service::getNetworkSystem();
-    if (!networkSystem) return false;
-    auto* peer = networkSystem->getPeerForUser(player.getNetworkIdentifier());
-    if (peer == nullptr) return false;
-    peer->sendPacket(out.mBuffer, NetworkPeer::Reliability::Reliable, Compressibility::Compressible);
-    return true;
 }
 
 // 合成载体 NPC 的生成包（纯协议实体, 不进 BDS 实体系统 —— BDS 侧没有它, 所以 NpcRequest 钩子恒调 origin）。

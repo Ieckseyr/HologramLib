@@ -41,12 +41,49 @@ bool validateBody(std::uint32_t packetId, std::string const& body) {
     return static_cast<bool>(packet->read(stream));
 }
 
+bool sendBodyChecked(::Player& player, std::uint32_t packetId, std::string const& body, char const* packetName) {
+    if (body.empty())
+        return false;
+    if (!validateBody(packetId, body)) {
+        noteValidationFailure(packetName);
+        return false;
+    }
+
+    ::BinaryStream stream;
+    stream.writeUnsignedVarInt(
+        (packetId & 0x3FF) | ((0 & 3) << 10) | ((0 & 3) << 12),
+        nullptr,
+        nullptr
+    );
+    stream.mBuffer.append(body);
+    return sendRaw(player, stream.mBuffer, Reliability::Reliable, packetName, packetId);
+}
+
+bool sendBodyUnchecked(::Player& player, std::uint32_t packetId, std::string body, std::string_view packetName) {
+    if (body.empty())
+        return false;
+    ::BinaryStream stream;
+    stream.writeUnsignedVarInt(
+        (packetId & 0x3FF) | ((0 & 3) << 10) | ((0 & 3) << 12),
+        nullptr,
+        nullptr
+    );
+    stream.mBuffer.append(body);
+    return sendRaw(player, stream.mBuffer, Reliability::Reliable, packetName, packetId);
+}
+
 void noteValidationFailure(std::string_view packetName) {
     gCounters.droppedInvalid.fetch_add(1, std::memory_order_relaxed);
     HLIB_LOG_WARN("[wire] sculk packet validation failed for {}", packetName);
 }
 
-bool sendRaw(::Player& player, std::string_view bytes, Reliability r) {
+bool sendRaw(
+    ::Player&        player,
+    std::string_view bytes,
+    Reliability      r,
+    std::string_view name,
+    std::uint32_t    id
+) {
     auto* peer = peerFor(player);
     if (peer == nullptr) {
         gCounters.droppedNoPeer.fetch_add(1, std::memory_order_relaxed);
@@ -54,6 +91,7 @@ bool sendRaw(::Player& player, std::string_view bytes, Reliability r) {
     }
     peer->sendPacket(std::string{bytes}, toBds(r), ::Compressibility::Compressible);
     gCounters.sent.fetch_add(1, std::memory_order_relaxed);
+    noteSent(name, id, player, bytes.size());
     return true;
 }
 

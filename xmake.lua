@@ -1,5 +1,98 @@
 add_rules("mode.debug", "mode.release")
 
+-- 缺失符号报告规则（丢在项目根目录的 symbol_missing.lua / symbol_missing.exe）
+-- 编译后会在项目根目录产出 symbol_missing.txt / symbol_missing.json
+includes("symbol_missing.lua")
+
+-- 构建后部署: DLL / PDB / 导入库落回插件目录（服务器实际加载位置），
+-- 并把脚本导入层（lib/*.js|d.ts|exports.json）搬到 bin/HologramLib/lib/。
+-- 用 rule 承载 after_build：与 @levibuildscript/modpacker 同用时 target 级 after_build 实测不触发，
+-- rule 级能稳定触发。
+rule("holo_deploy")
+    after_build(function (target)
+        local projectdir = os.projectdir()
+        local targetfile = target:targetfile()
+        if not os.isfile(targetfile) then
+            return
+        end
+        -- 部署单个文件：直接 cp 失败（目标被正在跑的服务端加载占用）就改名旧文件再拷。
+        -- 注意：xmake 回调沙箱里没有 pcall，用 try/catch（在回调环境里才有）。
+        local function deploy(src, dst)
+            if not os.isfile(src) then
+                return false
+            end
+            local ok = false
+            try {
+                function ()
+                    os.cp(src, dst, {force = true})
+                    ok = true
+                end,
+                catch {
+                    function (e)
+                    end
+                }
+            }
+            if ok then
+                return true
+            end
+            local backup = dst .. ".old"
+            try {
+                function ()
+                    os.rm(backup)
+                end,
+                catch {
+                    function (e)
+                    end
+                }
+            }
+            try {
+                function ()
+                    os.mv(dst, backup)
+                end,
+                catch {
+                    function (e)
+                    end
+                }
+            }
+            try {
+                function ()
+                    os.cp(src, dst, {force = true})
+                    ok = true
+                end,
+                catch {
+                    function (e)
+                    end
+                }
+            }
+            if ok then
+                cprint("${yellow}[HoloDeploy]: ${reset}目标被占用，旧文件改名为 " .. backup)
+            else
+                print("warn: 部署失败（文件被占用且改名失败）: " .. dst)
+            end
+            return ok
+        end
+
+        deploy(targetfile, path.join(projectdir, "HologramLib.dll"))
+        local pdbfile = targetfile:gsub("%.dll$", ".pdb")
+        deploy(pdbfile, path.join(projectdir, "HologramLib.pdb"))
+        local implib = targetfile:gsub("%.dll$", ".lib")
+        deploy(implib, path.join(projectdir, "HologramLib.lib"))
+        cprint("${bright green}[HoloDeploy]: ${reset}DLL / PDB / 导入库已部署到插件目录")
+
+        local outdir = path.join(projectdir, "bin", target:name(), "lib")
+        os.mkdir(outdir)
+        for _, name in ipairs({ "HologramLib.js", "HologramLib.d.ts", "exports.json" }) do
+            local src = path.join(projectdir, "lib", name)
+            if os.isfile(src) then
+                deploy(src, path.join(outdir, name))
+            else
+                print("warn: 缺少 lib/" .. name .. "（先跑 python tools/gen_lse_shim.py）")
+            end
+        end
+    end)
+rule_end()
+
+
 -- release 产 PDB（部署链已含 PDB; 崩溃栈符号化必需）
 if is_mode("release") then
     add_cxflags("/Zi", "/FS", {force = true})
@@ -14,14 +107,16 @@ local function find_local_repo()
     if env_repo and env_repo ~= "" then
         table.insert(candidates, env_repo)
     end
+    -- 服务器根目录的离线仓库（26.60 SDK，预构建 levilamina 26.60.0）
+    table.insert(candidates, path.join(os.projectdir(), "..", "..", ".llsdk", "liteldev-repo"))
     -- 本机缓存, 再退到兄弟工程
     table.insert(candidates, path.join(os.projectdir(), ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"))
     for _, sibling in ipairs({ "MeowMenu", "MeowKb", "MeowPAPI", "MeowSidebar", "ItemPhys-main" }) do
         table.insert(candidates, path.join(os.projectdir(), "..", sibling, ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"))
     end
-    -- 只认带 26.51.0 登记的那份, 别捡到旧缓存
+    -- 只认带 26.60.0 登记的那份, 别捡到旧缓存
     for _, p in ipairs(candidates) do
-        if os.exists(path.join(p, "packages", "l", "levilamina", "versions", "26_51_0.lua")) then
+        if os.exists(path.join(p, "packages", "l", "levilamina", "versions", "26_60_0.lua")) then
             return p
         end
     end
@@ -34,11 +129,16 @@ else
     add_repositories("liteldev-repo https://github.com/LiteLDev/xmake-repo.git")
 end
 
--- 与服务端(26.51 / BDS 1.26.51)匹配的 levilamina 版本（bedrockdata v26.51.1-server.2）
+-- 插件统一用 clang-cl（与 LeviLamina 本体一致；缓存里的依赖包也是这套工具链）
+if is_plat("windows") then
+    set_toolchains("clang-cl")
+end
+
+-- 与服务端(26.60 / BDS 1.26.60.6)匹配的 levilamina 版本（bedrockdata v26.60.6-server.1）
 if is_config("target_type", "server") then
-    add_requires("levilamina 26.51.0", {configs = {target_type = "server"}})
+    add_requires("levilamina 26.60.0", {configs = {target_type = "server"}})
 else
-    add_requires("levilamina 26.51.0", {configs = {target_type = "client"}})
+    add_requires("levilamina 26.60.0", {configs = {target_type = "client"}})
 end
 
 add_requires("levibuildscript")
@@ -78,7 +178,9 @@ option_end()
 
 target("HologramLib")
     add_rules("@levibuildscript/linkrule")
+    add_rules("symbol_missing")
     add_rules("@levibuildscript/modpacker")
+    add_rules("holo_deploy")
     -- 不加 /EHa, 与 set_exceptions 冲突
     add_cxflags("/utf-8", "/W4")
     if has_config("holo_werror") then
@@ -137,32 +239,3 @@ target("HologramLib")
     else
         add_defines("LL_PLAT_C")
     end
-
-    -- 脚本导入层随包发布：bin/HologramLib/lib/（部署后是 plugins/HologramLib/lib/），
-    -- 脚本 require("plugins/HologramLib/lib/HologramLib.js")。
-    -- 生成物在 lib/（python tools/gen_lse_shim.py），这里只负责搬到 bin/。
-    -- 构建完直接把产物落到插件目录（plugins/HologramLib/ 就是服务器加载的位置）。
-    -- 不这么做的话，lib/ 与 manifest 已经是新版本、DLL 还是旧的，
-    -- 表现是"脚本导入层有 376 个导出，DLL 里只有 339 个" → LSE 报
-    -- `Fail to import! Function [HologramLib::xxx] has not been exported!`
-    after_build(function(target)
-        local projectdir = os.projectdir()
-        local built = path.join(projectdir, "bin", target:name(), "HologramLib.dll")
-        if os.isfile(built) then
-            os.cp(built, path.join(projectdir, "HologramLib.dll"))
-            print("已部署到插件目录: HologramLib.dll")
-        end
-    end)
-
-    after_build(function(target)
-        local outdir = path.join(os.projectdir(), "bin", target:name(), "lib")
-        os.mkdir(outdir)
-        for _, name in ipairs({ "HologramLib.js", "HologramLib.d.ts", "exports.json" }) do
-            local src = path.join(os.projectdir(), "lib", name)
-            if os.isfile(src) then
-                os.cp(src, path.join(outdir, name))
-            else
-                print("warn: 缺少 lib/" .. name .. "（先跑 python tools/gen_lse_shim.py）")
-            end
-        end
-    end)

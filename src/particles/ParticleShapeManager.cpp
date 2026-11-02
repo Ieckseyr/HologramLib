@@ -1,5 +1,6 @@
 // ParticleShapeManager.cpp - 通用协议层粒子形状系统实现
 #include "ParticleShapeManager.h"
+#include "core/PacketSink.h"
 #include "core/TickDriver.h" // 每 tick 驱动（全库唯一 Level::$tick hook）
 
 #include <ll/api/memory/Hook.h>
@@ -869,11 +870,17 @@ bool ParticleShapeManager::emitShape(Shape& s, [[maybe_unused]] std::uint64_t no
 
     static thread_local std::string frame; // 复用缓冲: 粒子间只改 12 字节
     frame             = s.frameTpl;
-    auto patchAndSend = [&](NetworkPeer* peer, size_t i) {
+    auto patchAndSend = [&](NetworkPeer* peer, size_t i, ::Player* pl) {
         std::memcpy(&frame[s.framePosOff], &world[i * 3], 4);
         std::memcpy(&frame[s.framePosOff + 4], &world[i * 3 + 1], 4);
         std::memcpy(&frame[s.framePosOff + 8], &world[i * 3 + 2], 4);
         peer->sendPacket(frame, NetworkPeer::Reliability::Reliable, Compressibility::Compressible);
+        ::debugshape_export::wire::noteSent(
+            "SpawnParticleEffectPacket",
+            static_cast<std::uint32_t>(MinecraftPacketIds::SpawnParticleEffect),
+            *pl,
+            frame.size()
+        );
     };
 
     for (auto* player : targets) {
@@ -888,11 +895,11 @@ bool ParticleShapeManager::emitShape(Shape& s, [[maybe_unused]] std::uint64_t no
                 double dx = world[i * 3] - px, dy = world[i * 3 + 1] - py, dz = world[i * 3 + 2] - pz;
                 if (dx * dx + dy * dy + dz * dz > r2)
                     continue;
-                patchAndSend(peer, i);
+                patchAndSend(peer, i, player);
             }
         } else {
             for (size_t i = 0; i < n; i++) {
-                patchAndSend(peer, i);
+                patchAndSend(peer, i, player);
             }
         }
     }

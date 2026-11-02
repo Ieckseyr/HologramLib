@@ -2,6 +2,7 @@
 #include "HudExporter.h"
 
 #include "../actor/ActorEffectManager.h"
+#include "../actor/PlayerRespawnManager.h"
 #include "../anchor/AnchorPool.h"
 #include "../scoreboard/SidebarManager.h"
 #include "../ui/LocatorBarManager.h"
@@ -107,6 +108,16 @@ public:
     }
 };
 
+class PlayerRespawnAdapter final : public hologramlib::IPlayerRespawn {
+public:
+    bool respawn(std::string const& playerName, int state) override {
+        return PlayerRespawnManager::getInstance().respawn(playerName, state);
+    }
+    bool respawnAt(std::string const& playerName, float x, float y, float z, int state) override {
+        return PlayerRespawnManager::getInstance().respawnAt(playerName, x, y, z, state);
+    }
+};
+
 class ActorEffectAdapter final : public hologramlib::IActorEffect {
 public:
     bool playHurt(int64_t runtimeId) override { return ActorEffectManager::getInstance().playHurt(runtimeId); }
@@ -143,6 +154,11 @@ hologramlib::IActorEffect& actorEffectAdapter() {
 
 hologramlib::ISidebar& sidebarAdapter() {
     static SidebarAdapter adapter;
+    return adapter;
+}
+
+hologramlib::IPlayerRespawn& playerRespawnAdapter() {
+    static PlayerRespawnAdapter adapter;
     return adapter;
 }
 
@@ -465,6 +481,28 @@ void ActorEffectExporter::exportAll() {
             return -1;
         return static_cast<int64_t>(runtimeId);
     });
+
+    // playerRespawn(playerName) -> bool
+    //   死亡动画后把客户端从死亡界面拉回来（只发包；服务端实体不动）。
+    //   默认 state=2（ClientReadyToSpawn）。
+    hologramlib::lse::exportAs(NAMESPACE, "playerRespawn", [](std::string const& playerName) -> bool {
+        return PlayerRespawnManager::getInstance().respawn(playerName, 2);
+    });
+
+    // playerRespawnState(playerName, state) -> bool
+    //   state: 0=SearchingForSpawn 1=ReadyToSpawn 2=ClientReadyToSpawn
+    //   客户端卡住时先 1 再 2（有些版本要看到 ReadyToSpawn 才继续）。
+    hologramlib::lse::exportAs(NAMESPACE, "playerRespawnState", [](std::string const& playerName, int state) -> bool {
+        return PlayerRespawnManager::getInstance().respawn(playerName, state);
+    });
+
+    // playerRespawnAt(playerName, x, y, z) -> bool
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "playerRespawnAt",
+        [](std::string const& playerName, float x, float y, float z) -> bool {
+            return PlayerRespawnManager::getInstance().respawnAt(playerName, x, y, z, 2);
+        });
 
     // actorPlayEventFor(playerName, runtimeId, eventId, data) -> bool
     hologramlib::lse::exportAs(

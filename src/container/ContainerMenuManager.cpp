@@ -11,6 +11,7 @@
 #include "container/ContainerMenuManager.h"
 #include "item/MenuItemStack.h"
 
+#include "core/PacketSink.h"
 #include "DiagLog.h"
 
 #include "container/ContainerPackets.h" // 三个包 + 箱子方块实体 NBT（与离线 fixture 共用同一份）
@@ -83,26 +84,15 @@ Player* findPlayerByName(std::string const& name) {
 // 与交易域同款: 自己拼字节 + 经 NetworkPeer 发, 不做 BDS 回读硬校验
 template <typename PacketT>
 bool sendPacket(Player& player, PacketT const& packet) {
-    if (hlibDomainDisabled("HLIB_NO_CONTAINER")) return false;
-    std::vector<std::byte>        body;
-    sculk::protocol::BinaryStream bodyStream(body);
-    packet.write(bodyStream);
-    if (body.empty()) return false;
-
-    BinaryStream out;
-    out.writeUnsignedVarInt(
-        (static_cast<int>(packet.getId()) & 0x3FF) | ((0 & 3) << 10) | ((0 & 3) << 12),
-        nullptr,
-        nullptr
+if (hlibDomainDisabled("HLIB_NO_CONTAINER")) return false;
+    // 26.60: 统一走 wire26 编码（AddActor/AddPlayer/BossEvent/PlayerList/PlayerSkin 有字段级变更），
+    // 这些合成包不做 BDS 回读校验（合成的 JSON / NBT 会被读后校验拒绝，但客户端能吃）。
+    return wire::sendBodyUnchecked(
+        player,
+        static_cast<std::uint32_t>(packet.getId()),
+        wire26::body26(packet),
+        packet.getName()
     );
-    out.mBuffer.append(reinterpret_cast<char const*>(body.data()), body.size());
-
-    auto networkSystem = ll::service::getNetworkSystem();
-    if (!networkSystem) return false;
-    auto* peer = networkSystem->getPeerForUser(player.getNetworkIdentifier());
-    if (peer == nullptr) return false;
-    peer->sendPacket(out.mBuffer, NetworkPeer::Reliability::Reliable, Compressibility::Compressible);
-    return true;
 }
 
 // 箱子方块的**网络 id**（UpdateBlockPacket 要的是它, 不是方块名）

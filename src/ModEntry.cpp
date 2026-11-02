@@ -15,6 +15,7 @@
 #include "anchor/AnchorPool.h"
 #include "container/ContainerMenuExporter.h"
 #include "container/ContainerMenuManager.h"
+#include "core/PacketTrace.h"
 #include "core/TickDriver.h"
 #include "customentity/CustomEntityExporter.h"
 #include "customentity/CustomEntityManager.h"
@@ -350,6 +351,8 @@ bool ModEntry::enable() {
                 }
             });
     }
+
+    wire::traceInit(); // 发包审计: 注册断线落盘监听（trace 未开启时零开销）
 
     HLIB_LOG_INFO("HologramLib enabled successfully.");
     return true;

@@ -113,6 +113,12 @@ void ItemDisplayExporter::exportAll() {
         [&mgr](int64_t id) -> bool { return mgr.destroy(id); });
     hologramlib::lse::exportAs(NAMESPACE, "itemDisplayDestroyAll",
         [&mgr]() -> void { mgr.destroyAll(); });
+    // itemDisplayRuntimeId(id) -> int64（展示实体的 ActorRuntimeID；不存在 -1）
+    hologramlib::lse::exportAs(NAMESPACE, "itemDisplayRuntimeId", [&mgr](int64_t id) -> int64_t {
+        auto rid = mgr.runtimeIdOf(id);
+        return rid == 0 ? -1 : static_cast<int64_t>(rid);
+    });
+
     hologramlib::lse::exportAs(NAMESPACE, "itemDisplayExists",
         [&mgr](int64_t id) -> bool { return mgr.exists(id); });
     hologramlib::lse::exportAs(NAMESPACE, "itemDisplayGetAllIds",

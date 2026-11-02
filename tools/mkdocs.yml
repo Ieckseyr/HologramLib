@@ -155,6 +155,7 @@ nav:
       - 隐身: lse/visibility.md
       - Boss 条与 HUD 显隐: lse/hud.md
       - 实体表现事件: lse/actor-effect.md
+      - 死亡后的复活: lse/respawn.md
       - 侧边栏计分板: lse/sidebar.md
   - C++ 接口参考: reference/cpp-api.md
   - 能力域:

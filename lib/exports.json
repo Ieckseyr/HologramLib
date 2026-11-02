@@ -1,7 +1,7 @@
 {
   "namespace": "HologramLib",
-  "apiVersion": "1.33.0",
-  "count": 387,
+  "apiVersion": "1.34.0",
+  "count": 400,
   "exports": [
     {
       "name": "actorPlayDeath",
@@ -2408,6 +2408,19 @@
       "method": "moveTo"
     },
     {
+      "name": "itemActorRuntimeId",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/itemactor/ItemActorExporter.cpp",
+      "group": "ItemActor",
+      "method": "runtimeId"
+    },
+    {
       "name": "itemActorSetMotion",
       "params": [
         [
@@ -3079,6 +3092,19 @@
       "file": "src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "rotateY"
+    },
+    {
+      "name": "itemDisplayRuntimeId",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "ItemDisplay",
+      "method": "runtimeId"
     },
     {
       "name": "itemDisplayScaleBy",
@@ -5468,6 +5494,19 @@
       "method": "registerSkinFromBlobFile"
     },
     {
+      "name": "playerNpcRuntimeId",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "runtimeId"
+    },
+    {
       "name": "playerNpcSetEnabled",
       "params": [
         [
@@ -5838,6 +5877,61 @@
       "file": "src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "unregisterSkin"
+    },
+    {
+      "name": "playerRespawn",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "playerRespawn"
+    },
+    {
+      "name": "playerRespawnAt",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "PlayerRespawn",
+      "method": "at"
+    },
+    {
+      "name": "playerRespawnState",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "state",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "PlayerRespawn",
+      "method": "state"
     },
     {
       "name": "sensingDeviceCode",
@@ -7583,6 +7677,72 @@
       "file": "src/InfoExporter.cpp",
       "group": "Misc",
       "method": "wireStats"
+    },
+    {
+      "name": "wireTraceActive",
+      "params": [],
+      "returns": "boolean",
+      "file": "src/InfoExporter.cpp",
+      "group": "Misc",
+      "method": "wireTraceActive"
+    },
+    {
+      "name": "wireTraceClear",
+      "params": [],
+      "returns": "any",
+      "file": "src/InfoExporter.cpp",
+      "group": "Misc",
+      "method": "wireTraceClear"
+    },
+    {
+      "name": "wireTraceCount",
+      "params": [],
+      "returns": "number",
+      "file": "src/InfoExporter.cpp",
+      "group": "Misc",
+      "method": "wireTraceCount"
+    },
+    {
+      "name": "wireTraceDump",
+      "params": [],
+      "returns": "string",
+      "file": "src/InfoExporter.cpp",
+      "group": "Misc",
+      "method": "wireTraceDump"
+    },
+    {
+      "name": "wireTraceMark",
+      "params": [
+        [
+          "tag",
+          "string"
+        ]
+      ],
+      "returns": "any",
+      "file": "src/InfoExporter.cpp",
+      "group": "Misc",
+      "method": "wireTraceMark"
+    },
+    {
+      "name": "wireTraceStart",
+      "params": [
+        [
+          "tag",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/InfoExporter.cpp",
+      "group": "Misc",
+      "method": "wireTraceStart"
+    },
+    {
+      "name": "wireTraceStop",
+      "params": [],
+      "returns": "boolean",
+      "file": "src/InfoExporter.cpp",
+      "group": "Misc",
+      "method": "wireTraceStop"
     }
   ]
 }
