@@ -24,6 +24,10 @@ public:
     // 诊断: 拼一条「隐藏纸娃娃」的样本包，回报 BDS 回读结果与十六进制
     std::string probeWire() const;
 
+    // 实验: 直接按位掩码发一颗 SetHudPacket —— 元素列表 = 掩码置位的那些，可见性照传。
+    // 用来穷举「列表语义」与「可见性取值」的组合，确认客户端到底吃哪一套。
+    bool setRaw(std::string const& playerName, int mask, int visibility);
+
 private:
     HudManager() = default;
 };

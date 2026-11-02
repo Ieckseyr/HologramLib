@@ -280,6 +280,8 @@ declare namespace HologramLib {
     hudSetElement(playerName: string, element: number, visible: boolean): boolean;
     /** 实现见 src/hud/HudExporter.cpp */
     hudSetElements(playerName: string, mask: number, visible: boolean): number;
+    /** 实现见 src/hud/HudExporter.cpp */
+    hudSetRaw(playerName: string, mask: number, visibility: number): boolean;
     /** 实现见 src/itemactor/ItemActorExporter.cpp */
     itemActorDestroy(id: number): boolean;
     /** 实现见 src/itemactor/ItemActorExporter.cpp */
@@ -1024,6 +1026,7 @@ declare namespace HologramLib {
     hudResetAll(playerName: string): boolean;
     hudSetElement(playerName: string, element: number, visible: boolean): boolean;
     hudSetElements(playerName: string, mask: number, visible: boolean): number;
+    hudSetRaw(playerName: string, mask: number, visibility: number): boolean;
     sidebarIsShown(playerName: string): boolean;
     sidebarLineCount(playerName: string): number;
     sidebarRemove(playerName: string): boolean;

@@ -1,7 +1,7 @@
 {
   "namespace": "HologramLib",
   "apiVersion": "1.33.0",
-  "count": 386,
+  "count": 387,
   "exports": [
     {
       "name": "actorPlayDeath",
@@ -2318,6 +2318,27 @@
       "file": "src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "hudSetElements"
+    },
+    {
+      "name": "hudSetRaw",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "mask",
+          "number"
+        ],
+        [
+          "visibility",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "hudSetRaw"
     },
     {
       "name": "itemActorDestroy",

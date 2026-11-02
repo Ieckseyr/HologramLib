@@ -25,23 +25,19 @@ namespace {
 using ProtoElement    = sculk::protocol::SetHudPacket::HudElement;
 using ProtoVisibility = sculk::protocol::SetHudPacket::HudVisibility;
 
-// 手写 SetHudPacket（308）包体：
-//   uvarint 元素个数 | 每个元素 uvarint | uvarint 可见性
-// 注意：协议文档写的是 varint32（普通 varint），而协议库的 writeVarInt 是 **zigzag**，
-// 非零元素会被读成两倍的值（1 → 2、12 → 24），客户端直接不认这颗包。
+// 编码照官方 Primitives 文档：数组长度 uvarint32（普通）、每个元素 varint32（**ZigZag**）、
+// 可见性 varint32（ZigZag）。协议库的 writeVarInt 正好是 ZigZag，所以这里直接用协议库编码。
 bool send(::Player& player, std::vector<ProtoElement> const& elements, ProtoVisibility visibility) {
-    ::BinaryStream body;
-    body.writeUnsignedVarInt(static_cast<uint>(elements.size()), nullptr, nullptr);
-    for (auto element : elements) {
-        body.writeUnsignedVarInt(static_cast<uint>(static_cast<int>(element)), nullptr, nullptr);
-    }
-    body.writeUnsignedVarInt(static_cast<uint>(static_cast<int>(visibility)), nullptr, nullptr);
+    sculk::protocol::SetHudPacket packet;
+    packet.mHudElements   = elements;
+    packet.mHudVisibility = visibility;
 
-    ::BinaryStream out;
-    out.writeUnsignedVarInt((308 & 0x3FF) | ((0 & 3) << 10) | ((0 & 3) << 12), nullptr, nullptr);
-    out.mBuffer.append(body.mBuffer.data(), body.mBuffer.size());
+    auto bytes = wire::encodeChecked(packet);
+    if (bytes.empty())
+        return false;
 
-    return wire::sendRaw(player, out.mBuffer);
+    wire::sendRaw(player, bytes);
+    return true;
 }
 
 ProtoVisibility visibilityOf(bool visible) {
@@ -107,6 +103,19 @@ int HudManager::setElements(std::string const& playerName, int mask, bool visibl
     if (!send(*player, keep, ProtoVisibility::Hide))
         return 0;
     return 13 - static_cast<int>(keep.size()); // 返回被隐藏的个数
+}
+
+bool HudManager::setRaw(std::string const& playerName, int mask, int visibility) {
+    ::Player* player = findPlayer(playerName);
+    if (player == nullptr)
+        return false;
+
+    std::vector<ProtoElement> elements;
+    for (int bit = 0; bit <= 12; ++bit) {
+        if ((mask & (1 << bit)) != 0)
+            elements.push_back(static_cast<ProtoElement>(bit));
+    }
+    return send(*player, elements, static_cast<ProtoVisibility>(visibility));
 }
 
 std::string HudManager::probeWire() const {
