@@ -9,7 +9,12 @@
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/level/Level.h>
 
-#include <mc/deps/core/utility/BinaryStream.h>
+#include <mc/legacy/ActorUniqueID.h>
+#include <mc/network/packet/BossEventPacket.h>
+#include <mc/safety/RedactableString.h>
+#include <mc/world/actor/ai/util/BossBarColor.h>
+#include <mc/world/actor/ai/util/BossBarOverlay.h>
+#include <mc/world/actor/ai/util/BossEventUpdateType.h>
 
 #include <sculk/protocol/codec/packet/BossEventPacket.hpp>
 
@@ -38,25 +43,22 @@ std::int64_t BossBarManager::nextTargetId() {
 }
 
 bool BossBarManager::send(::Player& player, Bar const& bar, int eventType, std::int64_t /*playerId*/) {
-    // 手写线格式（26.51 BDS 的 BossEventPacketPayload）:
-    //   varint64 bossId | byte eventType | string name | string filteredName | float percent | byte color | byte overlay
-    // 为什么不用 sculk 的 BossEventPacket: 它按老格式多写一个 varint64 mPlayerID，
-    // BDS 26.51 的回读校验直接失败 → 包被丢弃（表现就是 bossBarAdd 返回 -1、客户端没有条）。
-    ::BinaryStream stream;
-    stream.writeVarInt64(bar.targetId, nullptr, nullptr);
-    stream.writeByte(static_cast<uchar>(eventType), nullptr, nullptr);
-    stream.writeString(bar.title, nullptr, nullptr);
-    stream.writeString(bar.title, nullptr, nullptr); // filtered name：没有过滤就用同一份
-    stream.writeFloat(bar.percent, nullptr, nullptr);
-    stream.writeByte(static_cast<uchar>(static_cast<int>(bar.color)), nullptr, nullptr);
-    stream.writeByte(static_cast<uchar>(static_cast<int>(bar.overlay)), nullptr, nullptr);
+    // 直接用 BDS 自己的 BossEventPacket 发包 —— 让 BDS 序列化，线格式必然与客户端一致。
+    // 之前用协议库的 BossEventPacket 手拼字节：那颗包比 26.51 多一个 varint64 playerID
+    // （26.51 的 BossEventPacketPayload 只有 BossID/EventType/Name/Percent/Color/Overlay），
+    // BDS 回读校验失败 → 包被丢弃 → bossBarAdd 返回 -1、客户端没有条。
+    ::BossEventPacket packet;
+    packet.mBossID        = ::ActorUniqueID{bar.targetId};
+    packet.mEventType     = static_cast<::BossEventUpdateType>(eventType);
+    packet.mName          = ::Bedrock::Safety::RedactableString{bar.title};
+    packet.mHealthPercent = bar.percent;
+    packet.mColor         = static_cast<::BossBarColor>(static_cast<int>(bar.color));
+    packet.mOverlay       = static_cast<::BossBarOverlay>(static_cast<int>(bar.overlay));
 
-    // 补包头（与 wire::encodeChecked 同一套：包 id | 标志位）
-    ::BinaryStream sendStream;
-    sendStream.writeUnsignedVarInt((74 & 0x3FF) | ((0 & 3) << 10) | ((0 & 3) << 12), nullptr, nullptr);
-    sendStream.mBuffer.append(stream.mBuffer.data(), stream.mBuffer.size());
-
-    return wire::sendRaw(player, sendStream.mBuffer);
+    player.sendNetworkPacket(packet);
+    wire::counters().encoded.fetch_add(1, std::memory_order_relaxed);
+    wire::counters().sent.fetch_add(1, std::memory_order_relaxed);
+    return true;
 }
 
 int64_t BossBarManager::add(
