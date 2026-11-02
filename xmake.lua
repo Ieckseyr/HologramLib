@@ -141,6 +141,19 @@ target("HologramLib")
     -- 脚本导入层随包发布：bin/HologramLib/lib/（部署后是 plugins/HologramLib/lib/），
     -- 脚本 require("plugins/HologramLib/lib/HologramLib.js")。
     -- 生成物在 lib/（python tools/gen_lse_shim.py），这里只负责搬到 bin/。
+    -- 构建完直接把产物落到插件目录（plugins/HologramLib/ 就是服务器加载的位置）。
+    -- 不这么做的话，lib/ 与 manifest 已经是新版本、DLL 还是旧的，
+    -- 表现是"脚本导入层有 376 个导出，DLL 里只有 339 个" → LSE 报
+    -- `Fail to import! Function [HologramLib::xxx] has not been exported!`
+    after_build(function(target)
+        local projectdir = os.projectdir()
+        local built = path.join(projectdir, "bin", target:name(), "HologramLib.dll")
+        if os.isfile(built) then
+            os.cp(built, path.join(projectdir, "HologramLib.dll"))
+            print("已部署到插件目录: HologramLib.dll")
+        end
+    end)
+
     after_build(function(target)
         local outdir = path.join(os.projectdir(), "bin", target:name(), "lib")
         os.mkdir(outdir)
