@@ -9,7 +9,6 @@
 #include "DiagFlags.h"
 
 #include "core/PacketSink.h"
-#include "shape/ShapeWire.h"
 
 namespace debugshape_export {
 
@@ -19,10 +18,14 @@ static bool shapePacketsEnabled() {
 }
 
 std::string ProtocolPacketWriter::buildDebugDrawerPacket(std::vector<DebugShape> const& shapes) {
-    // 手写线格式，不用协议库的 PrimitiveShapesPacket::write：
-    // 那颗库的 CylinderDataPayload 是两个 Vec2，26.51 只有一个，多写 8 字节会让客户端
-    // 把整个包判成错位（一个形状都不画）。详见 shape/ShapeWire.h 的说明。
-    return shapewire::buildPacket(shapes);
+    // 用协议库的编码器（与协议文档逐字段一致，含圆柱的两个 Vec2 半径）。
+    // 曾手写过一版"单 Vec2 圆柱"，那是错的：协议文档写的是 Radius X + Radius Z 两个 Vec2，
+    // 删掉其中一个会让整包错位。这里恢复成协议库。
+    using sculk::protocol::PrimitiveShapesPacket;
+
+    PrimitiveShapesPacket packet;
+    packet.mShapes = shapes;
+    return wire::encodeUnchecked(packet);
 }
 
 bool ProtocolPacketWriter::sendToPlayer(::Player& player, std::vector<DebugShape> const& shapes) {
