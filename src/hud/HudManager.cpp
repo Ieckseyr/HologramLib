@@ -25,20 +25,23 @@ namespace {
 using ProtoElement    = sculk::protocol::SetHudPacket::HudElement;
 using ProtoVisibility = sculk::protocol::SetHudPacket::HudVisibility;
 
+// 手写 SetHudPacket（308）包体：
+//   uvarint 元素个数 | 每个元素 uvarint | uvarint 可见性
+// 注意：协议文档写的是 varint32（普通 varint），而协议库的 writeVarInt 是 **zigzag**，
+// 非零元素会被读成两倍的值（1 → 2、12 → 24），客户端直接不认这颗包。
 bool send(::Player& player, std::vector<ProtoElement> const& elements, ProtoVisibility visibility) {
-    if (elements.empty())
-        return true;
+    ::BinaryStream body;
+    body.writeUnsignedVarInt(static_cast<uint>(elements.size()), nullptr, nullptr);
+    for (auto element : elements) {
+        body.writeUnsignedVarInt(static_cast<uint>(static_cast<int>(element)), nullptr, nullptr);
+    }
+    body.writeUnsignedVarInt(static_cast<uint>(static_cast<int>(visibility)), nullptr, nullptr);
 
-    sculk::protocol::SetHudPacket packet;
-    packet.mHudElements   = elements;
-    packet.mHudVisibility = visibility;
+    ::BinaryStream out;
+    out.writeUnsignedVarInt((308 & 0x3FF) | ((0 & 3) << 10) | ((0 & 3) << 12), nullptr, nullptr);
+    out.mBuffer.append(body.mBuffer.data(), body.mBuffer.size());
 
-    auto bytes = wire::encodeChecked(packet);
-    if (bytes.empty())
-        return false;
-
-    wire::sendRaw(player, bytes);
-    return true;
+    return wire::sendRaw(player, out.mBuffer);
 }
 
 ProtoVisibility visibilityOf(bool visible) {
@@ -107,32 +110,27 @@ int HudManager::setElements(std::string const& playerName, int mask, bool visibl
 }
 
 std::string HudManager::probeWire() const {
-    // 与 setElement(隐藏) 同一套语义: Hide + "除目标外全部保留"
-    std::vector<ProtoElement> keep;
-    for (int bit = 0; bit <= 12; ++bit) {
-        if (bit != 0)
-            keep.push_back(static_cast<ProtoElement>(bit));
-    }
+    // 与 send(隐藏) 同一套：Hide + "除纸娃娃外全部保留"，普通 varint
+    ::BinaryStream   body;
+    std::vector<int> keep;
+    for (int bit = 1; bit <= 12; ++bit)
+        keep.push_back(bit);
+    body.writeUnsignedVarInt(static_cast<uint>(keep.size()), nullptr, nullptr);
+    for (int value : keep)
+        body.writeUnsignedVarInt(static_cast<uint>(value), nullptr, nullptr);
+    body.writeUnsignedVarInt(0, nullptr, nullptr); // Hide
 
-    sculk::protocol::SetHudPacket packet;
-    packet.mHudElements   = keep;
-    packet.mHudVisibility = ProtoVisibility::Hide;
-
-    std::vector<std::byte>        buffer;
-    sculk::protocol::BinaryStream stream(buffer);
-    packet.write(stream);
-    std::string const body(reinterpret_cast<char const*>(buffer.data()), buffer.size());
-
-    std::string head;
-    head.reserve(6 * 2);
-    for (std::size_t i = 0; i < body.size() && i < 6; ++i)
-        head += std::format("{:02x}", static_cast<unsigned char>(body[i]));
+    std::string const bytes = body.mBuffer;
+    std::string       hex;
+    hex.reserve(bytes.size() * 2);
+    for (unsigned char c : bytes)
+        hex += std::format("{:02x}", c);
 
     return std::format(
-        "valid={} bytes={} head_hex={} (Hide + 保留 12 项)",
-        wire::validateBody(308, body) ? 1 : 0,
-        body.size(),
-        head);
+        "valid={} bytes={} body_hex={} (Hide + 保留 12 项，普通 varint)",
+        wire::validateBody(308, bytes) ? 1 : 0,
+        bytes.size(),
+        hex);
 }
 
 bool HudManager::resetAll(std::string const& playerName) {
