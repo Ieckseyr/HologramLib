@@ -196,6 +196,11 @@ void BossBarExporter::exportAll() {
         mgr.removeAll(playerName);
     });
 
+    // bossBarProbe() -> string（诊断：手写包体能否被 BDS 读回 + 十六进制）
+    hologramlib::lse::exportAs(NAMESPACE, "bossBarProbe", [&mgr]() -> std::string {
+        return mgr.probeWire();
+    });
+
     // bossBarGetInfo(id) -> string（诊断：看 target / pct / 颜色是否如预期）
     hologramlib::lse::exportAs(NAMESPACE, "bossBarGetInfo", [&mgr](int64_t id) -> std::string {
         return mgr.getDebugInfo(id);

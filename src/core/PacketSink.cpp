@@ -17,7 +17,8 @@ Counters gCounters;
 
 ::NetworkPeer* peerFor(::Player& player) noexcept {
     auto networkSystem = ::ll::service::getNetworkSystem();
-    if (!networkSystem) return nullptr;
+    if (!networkSystem)
+        return nullptr;
     return networkSystem->getPeerForUser(player.getNetworkIdentifier());
 }
 
@@ -28,7 +29,17 @@ constexpr ::NetworkPeer::Reliability toBds(Reliability r) noexcept {
 
 } // namespace
 
-Counters& counters() { return gCounters; }
+Counters& counters() {
+    return gCounters;
+}
+
+bool validateBody(std::uint32_t packetId, std::string const& body) {
+    ReadOnlyBinaryStream stream(body, true);
+    auto                 packet = ::MinecraftPackets::createPacket(static_cast<::MinecraftPacketIds>(packetId));
+    if (!packet)
+        return false;
+    return static_cast<bool>(packet->read(stream));
+}
 
 void noteValidationFailure(std::string_view packetName) {
     gCounters.droppedInvalid.fetch_add(1, std::memory_order_relaxed);
@@ -53,7 +64,8 @@ bool sendRaw(::Player& player, std::string_view bytes, Reliability r) {
 bool sendRawToAll(std::string_view bytes, Reliability r) {
     auto level         = ::ll::service::getLevel();
     auto networkSystem = ::ll::service::getNetworkSystem();
-    if (!level || !networkSystem) return false;
+    if (!level || !networkSystem)
+        return false;
 
     std::string const data{bytes};
     level->forEachPlayer([&](::Player& player) -> bool {
@@ -66,11 +78,13 @@ bool sendRawToAll(std::string_view bytes, Reliability r) {
 bool sendRawToDimension(int dimId, std::string_view bytes, Reliability r) {
     auto level         = ::ll::service::getLevel();
     auto networkSystem = ::ll::service::getNetworkSystem();
-    if (!level || !networkSystem) return false;
+    if (!level || !networkSystem)
+        return false;
 
     std::string const data{bytes};
     level->forEachPlayer([&](::Player& player) -> bool {
-        if (static_cast<int>(player.getDimensionId()) != dimId) return true;
+        if (static_cast<int>(player.getDimensionId()) != dimId)
+            return true;
         (void)sendRaw(player, data, r);
         return true;
     });

@@ -54,6 +54,10 @@ bool sendRaw(::Player& player, std::string_view bytes, Reliability r = Reliabili
 bool sendRawToAll(std::string_view bytes, Reliability r = Reliability::Reliable);
 bool sendRawToDimension(int dimId, std::string_view bytes, Reliability r = Reliability::Reliable);
 
+// 用 BDS 的同型包读回一段**手写**的包体（不含包头），只用于校验线格式对不对。
+// 项目约定是手写线格式，这个函数不参与发包，只在诊断路径上用来确认字节与 BDS 一致。
+bool validateBody(std::uint32_t packetId, std::string const& body);
+
 // ── 编码 ─────────────────────────────────────────────────────────────────────
 // checked（默认）: body 写出 → 用 BDS 同型包回读校验 → 手动补 VarUInt 包头。
 //   校验失败返回空串并计入 droppedInvalid，绝不把错位字节发给客户端。
@@ -77,8 +81,7 @@ std::string encodeChecked(PacketT const& packet) {
     sendStream.writeUnsignedVarInt(
         (static_cast<int>(packet.getId()) & 0x3FF) | ((0 & 3) << 10) | ((0 & 3) << 12),
         nullptr,
-        nullptr
-    );
+        nullptr);
     sendStream.mBuffer.append(reinterpret_cast<char const*>(bodyBuffer.data()), bodyBuffer.size());
 
     counters().encoded.fetch_add(1, std::memory_order_relaxed);
@@ -100,7 +103,8 @@ std::string encodeUnchecked(PacketT const& packet) {
 template <class PacketT>
 bool send(::Player& player, PacketT const& packet, Reliability r = Reliability::Reliable) {
     auto bytes = encodeChecked(packet);
-    if (bytes.empty()) return false;
+    if (bytes.empty())
+        return false;
     return sendRaw(player, bytes, r);
 }
 

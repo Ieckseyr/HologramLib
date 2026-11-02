@@ -38,6 +38,8 @@ public:
     void        removeAll(std::string const& playerName);
     int         count(std::string const& playerName) const;
     std::string getDebugInfo(int64_t id) const;
+    // 诊断: 用手写格式拼一条样本包，回报 BDS 回读是否通过 + 十六进制
+    std::string probeWire() const;
 
     void onPlayerLeave(std::string const& playerName);
     void shutdown();

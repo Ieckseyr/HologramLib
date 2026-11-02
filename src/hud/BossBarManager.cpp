@@ -9,13 +9,6 @@
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/level/Level.h>
 
-#include <mc/legacy/ActorUniqueID.h>
-#include <mc/network/packet/BossEventPacket.h>
-#include <mc/safety/RedactableString.h>
-#include <mc/world/actor/ai/util/BossBarColor.h>
-#include <mc/world/actor/ai/util/BossBarOverlay.h>
-#include <mc/world/actor/ai/util/BossEventUpdateType.h>
-
 #include <sculk/protocol/codec/packet/BossEventPacket.hpp>
 
 #include <format>
@@ -43,22 +36,26 @@ std::int64_t BossBarManager::nextTargetId() {
 }
 
 bool BossBarManager::send(::Player& player, Bar const& bar, int eventType, std::int64_t /*playerId*/) {
-    // 直接用 BDS 自己的 BossEventPacket 发包 —— 让 BDS 序列化，线格式必然与客户端一致。
-    // 之前用协议库的 BossEventPacket 手拼字节：那颗包比 26.51 多一个 varint64 playerID
-    // （26.51 的 BossEventPacketPayload 只有 BossID/EventType/Name/Percent/Color/Overlay），
-    // BDS 回读校验失败 → 包被丢弃 → bossBarAdd 返回 -1、客户端没有条。
-    ::BossEventPacket packet;
-    packet.mBossID        = ::ActorUniqueID{bar.targetId};
-    packet.mEventType     = static_cast<::BossEventUpdateType>(eventType);
-    packet.mName          = ::Bedrock::Safety::RedactableString{bar.title};
-    packet.mHealthPercent = bar.percent;
-    packet.mColor         = static_cast<::BossBarColor>(static_cast<int>(bar.color));
-    packet.mOverlay       = static_cast<::BossBarOverlay>(static_cast<int>(bar.overlay));
+    // 手写线格式（26.51 BDS 的 BossEventPacketPayload）:
+    //   varint64 bossId | byte eventType | string name | string filteredName | float percent | byte color | byte overlay
+    // 规矩：本库**一律手写线格式**，不构造 BDS 的 Packet 对象（项目约定）。
+    // 不用 sculk 的 BossEventPacket 的原因: 它按老格式多写一个 varint64 playerID，
+    // 26.51 的 payload 里没有这个字段 → 字节错位，客户端不认。
+    ::BinaryStream stream;
+    stream.writeVarInt64(bar.targetId, nullptr, nullptr);
+    stream.writeByte(static_cast<uchar>(eventType), nullptr, nullptr);
+    stream.writeString(bar.title, nullptr, nullptr);
+    stream.writeString(bar.title, nullptr, nullptr); // filtered name：没有过滤就用同一份
+    stream.writeFloat(bar.percent, nullptr, nullptr);
+    stream.writeByte(static_cast<uchar>(static_cast<int>(bar.color)), nullptr, nullptr);
+    stream.writeByte(static_cast<uchar>(static_cast<int>(bar.overlay)), nullptr, nullptr);
 
-    player.sendNetworkPacket(packet);
-    wire::counters().encoded.fetch_add(1, std::memory_order_relaxed);
-    wire::counters().sent.fetch_add(1, std::memory_order_relaxed);
-    return true;
+    // 补包头（与 wire::encodeChecked 同一套：包 id | 标志位）
+    ::BinaryStream sendStream;
+    sendStream.writeUnsignedVarInt((74 & 0x3FF) | ((0 & 3) << 10) | ((0 & 3) << 12), nullptr, nullptr);
+    sendStream.mBuffer.append(stream.mBuffer.data(), stream.mBuffer.size());
+
+    return wire::sendRaw(player, sendStream.mBuffer);
 }
 
 int64_t BossBarManager::add(
@@ -188,6 +185,35 @@ int BossBarManager::count(std::string const& playerName) const {
             ++n;
     }
     return n;
+}
+
+std::string BossBarManager::probeWire() const {
+    Bar sample;
+    sample.targetId = 0x71000001;
+    sample.title    = "Probe";
+    sample.percent  = 0.5f;
+    sample.color    = hologramlib::BossBarColor::Purple;
+    sample.overlay  = hologramlib::BossBarOverlay::Progress;
+
+    // 与 send() 完全同一套拼法（不含包头）
+    ::BinaryStream body;
+    body.writeVarInt64(sample.targetId, nullptr, nullptr);
+    body.writeByte(static_cast<uchar>(0), nullptr, nullptr); // Add
+    body.writeString(sample.title, nullptr, nullptr);
+    body.writeString(sample.title, nullptr, nullptr);
+    body.writeFloat(sample.percent, nullptr, nullptr);
+    body.writeByte(static_cast<uchar>(static_cast<int>(sample.color)), nullptr, nullptr);
+    body.writeByte(static_cast<uchar>(static_cast<int>(sample.overlay)), nullptr, nullptr);
+
+    std::string const bytes = body.mBuffer;
+    bool const        valid = wire::validateBody(74, bytes);
+
+    std::string hex;
+    hex.reserve(bytes.size() * 2);
+    for (unsigned char c : bytes) {
+        hex += std::format("{:02x}", c);
+    }
+    return std::format("valid={} bytes={} body_hex={}", valid ? 1 : 0, bytes.size(), hex);
 }
 
 std::string BossBarManager::getDebugInfo(int64_t id) const {

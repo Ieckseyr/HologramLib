@@ -132,7 +132,7 @@ setInterval(() => {
 | Client view override (swap model / hide / re-skin) | `view*` | [View override](view.md) |
 | Device sensing | `sensing*` | [Client sensing](sensing.md) |
 
-380 functions in total, all registered at runtime, and `ll.import` can fetch every one of them.
+381 functions in total, all registered at runtime, and `ll.import` can fetch every one of them.
 
 ---
 
