@@ -1,4 +1,4 @@
-// HologramLib.d.ts —— 自动生成（tools/gen_lse_shim.py），API 1.34.0
+// HologramLib.d.ts —— 自动生成（tools/gen_lse_shim.py），API 1.33.0
 // 放到脚本旁边, 编辑器就能补全 HL.xxx 的参数名与类型。
 
 declare namespace HologramLib {

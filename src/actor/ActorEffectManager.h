@@ -1,4 +1,4 @@
-// ActorEffectManager.h - 实体表现事件（受伤 / 死亡动画，1.34.0）
+// ActorEffectManager.h - 实体表现事件（受伤 / 死亡动画，1.33.0）
 //
 // 协议: ActorEventPacket(27)。字段: RuntimeId / EventId(ActorEvent) / Data / FireAtPosition。
 // 事件值见协议枚举: HURT=2 / DEATH=3 / STARVE=… / SHAKE=39 / INSTANT_DEATH=61 等。

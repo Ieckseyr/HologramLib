@@ -1,4 +1,4 @@
-// HudExporter.h - Boss 条 / HUD / 方位条扩展 / 实体表现事件的导出与适配（1.34.0）
+// HudExporter.h - Boss 条 / HUD / 方位条扩展 / 实体表现事件的导出与适配（1.33.0）
 #pragma once
 
 #include "hologramlib/HologramLib.h" // IBossBar / IHud / ILocatorBarExt / IActorEffect

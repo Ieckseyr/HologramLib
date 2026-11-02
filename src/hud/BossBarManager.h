@@ -1,4 +1,4 @@
-// BossBarManager.h - Boss 条（1.34.0）
+// BossBarManager.h - Boss 条（1.33.0）
 //
 // 协议: BossEventPacket(74)。字段: TargetActorID / EventType / Name / FilteredName /
 //       Percentage(float 0~1) / Color(BossBarColor) / Overlay(BossBarOverlay)。

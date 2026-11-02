@@ -1,4 +1,4 @@
-// HudManager.h - HUD 元素显隐（1.34.0）
+// HudManager.h - HUD 元素显隐（1.33.0）
 //
 // 协议: SetHudPacket(308)。字段: HudElements（元素列表，重复 uvarint32）+ HudVisibility（0=Hide / 1=Reset）。
 //

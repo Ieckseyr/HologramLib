@@ -657,7 +657,7 @@ public:
 
     IShapeDrawerExt& shapeExt() override { return mShapeExt; }
 
-    // ── 1.34.0 ──
+    // ── 1.33.0 ──
     IBossBar&       bossBars() override { return debugshape_export::bossBarAdapter(); }
     IHud&           hud() override { return debugshape_export::hudAdapter(); }
     ILocatorBarExt& locatorBarExt() override { return debugshape_export::locatorBarExtAdapter(); }

@@ -1,9 +1,9 @@
-// LocatorBarManager.h - 方位条航点（26.51.6 起；1.34.0 加图标 / 大小 / 绑定实体 / 分组）
+// LocatorBarManager.h - 方位条航点（26.51.6 起；1.33.0 加图标 / 大小 / 绑定实体 / 分组）
 //
 // 每个玩家一组航点，key 由调用方起名；库按 key 稳定派生 UUID（同一 key 永远同一 UUID），
 // 所以删除/更新不需要调用方保管 UUID。
 //
-// 1.34.0 追加的四个属性都只是 LocatorBarServerWaypointPayload 里的可选字段：
+// 1.33.0 追加的四个属性都只是 LocatorBarServerWaypointPayload 里的可选字段：
 //   TexturePath(图标) / IconSize(大小) / ActorUniqueId(绑定实体) / ClientPositionAuthority。
 // 「分组」在协议里没有独立字段（一条 LocatorBarPacket 的 mWaypoints 是数组），
 // 所以分组 = 把同组航点合进同一条包发送 —— 见 syncGroup()。
@@ -35,7 +35,7 @@ public:
         int                color,
         bool               visible);
 
-    // ── 1.34.0：四个扩展属性（改完立刻重发该航点）──
+    // ── 1.33.0：四个扩展属性（改完立刻重发该航点）──
     bool setIcon(std::string const& playerName, std::string const& key, std::string const& texturePath);
     bool setIconSize(std::string const& playerName, std::string const& key, float width, float height);
     bool attachEntity(std::string const& playerName, std::string const& key, int64_t entityUniqueId);

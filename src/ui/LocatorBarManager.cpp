@@ -1,4 +1,4 @@
-// LocatorBarManager.cpp - 方位条航点（1.34.0：图标 / 大小 / 绑定实体 / 分组）
+// LocatorBarManager.cpp - 方位条航点（1.33.0：图标 / 大小 / 绑定实体 / 分组）
 #include "LocatorBarManager.h"
 
 #include "../visibility/PlayerVisibilityManager.h" // 隐藏的实现搬到了那边

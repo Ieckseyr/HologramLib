@@ -26,7 +26,7 @@ LocatorBar.clear("Steve");
 | `locatorBarHideFromOthers(playerName, hidden)` | `Boolean` | 将玩家从其他客户端隐藏，见[隐身](visibility.md) |
 | `locatorBarIsHiddenFromOthers(playerName)` | `Boolean` | 查询隐藏状态 |
 
-## 1.34.0 扩展：图标 / 大小 / 绑定实体 / 分组
+## 1.33.0 扩展：图标 / 大小 / 绑定实体 / 分组
 
 ```js
 // 自定义图标贴图（资源包里的路径；空字符串回到默认图标）

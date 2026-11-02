@@ -1653,6 +1653,129 @@
         "sig": "std::string describeFor(std::string const&)"
       }
     ],
+    "IBossBar": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~IBossBar()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "int64_t add(std::string const&, std::string const&, float, BossBarColor color = BossBarColor::Purple, BossBarOverlay overlay = BossBarOverlay::Progress)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "bool setTitle(int64_t, std::string const&)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "bool setHealth(int64_t, float)"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "bool setStyle(int64_t, BossBarColor, BossBarOverlay)"
+      },
+      {
+        "index": 5,
+        "kind": "pure",
+        "sig": "bool remove(int64_t)"
+      },
+      {
+        "index": 6,
+        "kind": "pure",
+        "sig": "void removeAll(std::string const&)"
+      },
+      {
+        "index": 7,
+        "kind": "pure",
+        "sig": "int count(std::string const&)"
+      }
+    ],
+    "IHud": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~IHud()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "bool setElement(std::string const&, HudElement, bool)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "int setElements(std::string const&, int, bool)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "bool resetAll(std::string const&)"
+      }
+    ],
+    "ILocatorBarExt": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~ILocatorBarExt()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "bool setIcon(std::string const&, std::string const&, std::string const&)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "bool setIconSize(std::string const&, std::string const&, float, float)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "bool attachEntity(std::string const&, std::string const&, int64_t)"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "bool clearAttach(std::string const&, std::string const&)"
+      },
+      {
+        "index": 5,
+        "kind": "pure",
+        "sig": "bool setGroup(std::string const&, std::string const&, std::string const&)"
+      }
+    ],
+    "IActorEffect": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~IActorEffect()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "bool playHurt(int64_t)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "bool playDeath(int64_t)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "bool playInstantDeath(int64_t)"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "bool play(int64_t, int, int data = 0)"
+      }
+    ],
     "IHologramLib": [
       {
         "index": 0,
@@ -1803,6 +1926,26 @@
         "index": 29,
         "kind": "pure",
         "sig": "IShapeDrawerExt& shapeExt()"
+      },
+      {
+        "index": 30,
+        "kind": "pure",
+        "sig": "IBossBar& bossBars()"
+      },
+      {
+        "index": 31,
+        "kind": "pure",
+        "sig": "IHud& hud()"
+      },
+      {
+        "index": 32,
+        "kind": "pure",
+        "sig": "ILocatorBarExt& locatorBarExt()"
+      },
+      {
+        "index": 33,
+        "kind": "pure",
+        "sig": "IActorEffect& actorEffects()"
       }
     ]
   },
@@ -2178,6 +2321,47 @@
         "Touch": 2,
         "Gamepad": 3,
         "MotionController": 4
+      }
+    },
+    "BossBarColor": {
+      "underlying": "int",
+      "values": {
+        "Pink": 0,
+        "Blue": 1,
+        "Red": 2,
+        "Green": 3,
+        "Yellow": 4,
+        "Purple": 5,
+        "RebeccaPurple": 6,
+        "White": 7
+      }
+    },
+    "BossBarOverlay": {
+      "underlying": "int",
+      "values": {
+        "Progress": 0,
+        "Notched6": 1,
+        "Notched10": 2,
+        "Notched12": 3,
+        "Notched20": 4
+      }
+    },
+    "HudElement": {
+      "underlying": "int",
+      "values": {
+        "PaperDoll": 0,
+        "Armor": 1,
+        "ToolTips": 2,
+        "TouchControls": 3,
+        "Crosshair": 4,
+        "HotBar": 5,
+        "Health": 6,
+        "ProgressBar": 7,
+        "Hunger": 8,
+        "AirBubbles": 9,
+        "HorseHealth": 10,
+        "StatusEffects": 11,
+        "ItemText": 12
       }
     }
   }
