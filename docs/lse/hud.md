@@ -56,8 +56,8 @@ Hud.resetAll("Steve");
 
 | 函数 | 返回 | 说明 |
 |---|---|---|
-| `hudSetElement(playerName, element, visible)` | `Boolean` | `visible=false` 隐藏，`true` 恢复默认 |
-| `hudSetElements(playerName, mask, visible)` | `Integer` | 按位掩码批量设置，返回生效个数 |
+| `hudSetElement(playerName, element, visible)` | `Boolean` | `visible=false` 只藏这一个元素（其余保留），`true` 恢复默认 |
+| `hudSetElements(playerName, mask, visible)` | `Integer` | `visible=false` 时掩码里的元素**保留**、其余隐藏，返回被隐藏的个数 |
 | `hudResetAll(playerName)` | `Boolean` | 13 项全部恢复默认 |
 
 13 个元素（`element` 与掩码位一致）：
@@ -73,3 +73,6 @@ Hud.resetAll("Steve");
 | 6 | 血条 Health | | |
 
 协议只有两种状态：`Hide`（隐藏）与 `Reset`（恢复默认），没有单独的 "Show"，所以 `visible=true` 发的是 `Reset`。
+
+**`Hide` 时包里的元素列表是"要保留的"**（BDS 内部就是 `ServerPlayer::hideAllExcept`）：
+只藏纸娃娃 = `Hide` + 除纸娃娃外的 12 项。库已经按这个语义包好了，调用方按"我想藏哪一个"来传即可。

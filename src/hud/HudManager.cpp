@@ -61,7 +61,23 @@ bool HudManager::setElement(std::string const& playerName, hologramlib::HudEleme
     if (value < 0 || value > 12)
         return false;
 
-    return send(*player, {static_cast<ProtoElement>(value)}, visibilityOf(visible));
+    // 语义（与 BDS 的 ServerPlayer::hideAllExcept 一致）:
+    //   Hide 时，包里的元素列表是"**要保留**"的那些，其余全隐藏；
+    //   Reset 时列表被忽略（一律恢复默认）。
+    // 所以"只藏纸娃娃"= Hide + [除纸娃娃外的 12 项]，而不是 Hide + [纸娃娃]。
+    if (visible) {
+        std::vector<ProtoElement> all;
+        for (int bit = 0; bit <= 12; ++bit)
+            all.push_back(static_cast<ProtoElement>(bit));
+        return send(*player, all, ProtoVisibility::Reset);
+    }
+
+    std::vector<ProtoElement> keep;
+    for (int bit = 0; bit <= 12; ++bit) {
+        if (bit != value)
+            keep.push_back(static_cast<ProtoElement>(bit));
+    }
+    return send(*player, keep, ProtoVisibility::Hide);
 }
 
 int HudManager::setElements(std::string const& playerName, int mask, bool visible) {
@@ -69,36 +85,54 @@ int HudManager::setElements(std::string const& playerName, int mask, bool visibl
     if (player == nullptr)
         return 0;
 
-    std::vector<ProtoElement> elements;
+    std::vector<ProtoElement> all;
+    for (int bit = 0; bit <= 12; ++bit)
+        all.push_back(static_cast<ProtoElement>(bit));
+
+    if (visible) {
+        if (!send(*player, all, ProtoVisibility::Reset))
+            return 0;
+        return static_cast<int>(all.size());
+    }
+
+    // mask 里的元素**要保留**，其余隐藏（同 setElement 的语义）
+    std::vector<ProtoElement> keep;
     for (int bit = 0; bit <= 12; ++bit) {
         if ((mask & (1 << bit)) != 0)
-            elements.push_back(static_cast<ProtoElement>(bit));
+            keep.push_back(static_cast<ProtoElement>(bit));
     }
-    if (elements.empty())
+    if (!send(*player, keep, ProtoVisibility::Hide))
         return 0;
-
-    if (!send(*player, elements, visibilityOf(visible)))
-        return 0;
-    return static_cast<int>(elements.size());
+    return 13 - static_cast<int>(keep.size()); // 返回被隐藏的个数
 }
 
 std::string HudManager::probeWire() const {
+    // 与 setElement(隐藏) 同一套语义: Hide + "除目标外全部保留"
+    std::vector<ProtoElement> keep;
+    for (int bit = 0; bit <= 12; ++bit) {
+        if (bit != 0)
+            keep.push_back(static_cast<ProtoElement>(bit));
+    }
+
     sculk::protocol::SetHudPacket packet;
-    packet.mHudElements   = {static_cast<ProtoElement>(0)}; // PaperDoll
+    packet.mHudElements   = keep;
     packet.mHudVisibility = ProtoVisibility::Hide;
 
-    // 用与发包同一套编码（但只取包体部分：encodeChecked 的产物含包头，这里拆出来校验）
     std::vector<std::byte>        buffer;
     sculk::protocol::BinaryStream stream(buffer);
     packet.write(stream);
     std::string const body(reinterpret_cast<char const*>(buffer.data()), buffer.size());
 
-    std::string hex;
-    hex.reserve(body.size() * 2);
-    for (unsigned char c : body)
-        hex += std::format("{:02x}", c);
+    std::string head;
+    head.reserve(6 * 2);
+    for (std::size_t i = 0; i < body.size() && i < 6; ++i)
+        head += std::format("{:02x}", static_cast<unsigned char>(body[i]));
 
-    return std::format("valid={} bytes={} body_hex={}", wire::validateBody(308, body) ? 1 : 0, body.size(), hex);
+    return std::format(
+        "valid={} bytes={} head_hex={} (Hide + 保留 12 项)",
+        wire::validateBody(308, body) ? 1 : 0,
+        body.size(),
+        head);
 }
 
 bool HudManager::resetAll(std::string const& playerName) {
