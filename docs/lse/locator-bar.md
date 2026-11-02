@@ -26,6 +26,37 @@ LocatorBar.clear("Steve");
 | `locatorBarHideFromOthers(playerName, hidden)` | `Boolean` | 将玩家从其他客户端隐藏，见[隐身](visibility.md) |
 | `locatorBarIsHiddenFromOthers(playerName)` | `Boolean` | 查询隐藏状态 |
 
+## 1.34.0 扩展：图标 / 大小 / 绑定实体 / 分组
+
+```js
+// 自定义图标贴图（资源包里的路径；空字符串回到默认图标）
+LocatorBar.setIcon("Steve", "boss", "textures/ui/icon_boss");
+
+// 图标显示大小（像素；<=0 回到默认）
+LocatorBar.setIconSize("Steve", "boss", 24, 24);
+
+// 绑定实体：航点跟随该实体，不用每 tick 改坐标
+LocatorBar.attachEntity("Steve", "boss", entityUniqueId);
+LocatorBar.clearAttach("Steve", "boss");
+
+// 分组：同一 groupKey 的航点合进一条包发送
+LocatorBar.setGroup("Steve", "boss", "raid");
+LocatorBar.setGroup("Steve", "healer", "raid");
+const n = LocatorBar.syncGroup("Steve", "raid");   // 一条包发出该组全部航点
+```
+
+| 函数 | 返回 | 说明 |
+|---|---|---|
+| `locatorBarSetIcon(playerName, key, texturePath)` | `Boolean` | 自定义图标；空串=默认 |
+| `locatorBarSetIconSize(playerName, key, width, height)` | `Boolean` | 图标像素尺寸；`<=0`=默认 |
+| `locatorBarAttachEntity(playerName, key, entityUniqueId)` | `Boolean` | 绑定实体（按 uniqueId） |
+| `locatorBarClearAttach(playerName, key)` | `Boolean` | 解除绑定 |
+| `locatorBarSetGroup(playerName, key, groupKey)` | `Boolean` | 归入分组 |
+| `locatorBarSyncGroup(playerName, groupKey)` | `Integer` | 把该组全部航点合成一条包发出 |
+
+协议里没有独立的"分组"字段（一条 `LocatorBarPacket` 的 `mWaypoints` 是数组），所以分组落在**合并发送**这一层；
+绑定实体也没有专属的标志位，实体 id 随位置一起带上。
+
 ## 说明
 
 - `key` 由调用方命名，同一玩家下唯一，不同玩家之间互不影响。

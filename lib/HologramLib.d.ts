@@ -1,4 +1,4 @@
-// HologramLib.d.ts —— 自动生成（tools/gen_lse_shim.py），API 1.33.0
+// HologramLib.d.ts —— 自动生成（tools/gen_lse_shim.py），API 1.34.0
 // 放到脚本旁边, 编辑器就能补全 HL.xxx 的参数名与类型。
 
 declare namespace HologramLib {
@@ -14,6 +14,30 @@ declare namespace HologramLib {
     /** 显式绑定（等价于取属性） */
     bind(name: string): (...args: any[]) => any;
 
+    /** 实现见 src/hud/HudExporter.cpp */
+    actorPlayDeath(runtimeId: number): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    actorPlayEvent(runtimeId: number, eventId: number, data: number): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    actorPlayEventFor(playerName: string, runtimeId: number, eventId: number, data: number): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    actorPlayHurt(runtimeId: number): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    actorPlayInstantDeath(runtimeId: number): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    bossBarAdd(playerName: string, title: string, healthPercent: number, color: number, overlay: number): number;
+    /** 实现见 src/hud/HudExporter.cpp */
+    bossBarCount(playerName: string): number;
+    /** 实现见 src/hud/HudExporter.cpp */
+    bossBarRemove(id: number): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    bossBarRemoveAll(playerName: string): any;
+    /** 实现见 src/hud/HudExporter.cpp */
+    bossBarSetHealth(id: number, percent: number): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    bossBarSetStyle(id: number, color: number, overlay: number): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    bossBarSetTitle(id: number, title: string): boolean;
     /** 实现见 src/container/ContainerMenuExporter.cpp */
     containerBlockEvent(menuId: number, b0: number, b1: number): boolean;
     /** 实现见 src/container/ContainerMenuExporter.cpp */
@@ -234,6 +258,12 @@ declare namespace HologramLib {
     holoSetRotation(id: number, pitch: number, yaw: number, roll: number): boolean;
     /** 实现见 src/FloatingTextExporter.cpp */
     holoSetScale(id: number, scale: number): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    hudResetAll(playerName: string): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    hudSetElement(playerName: string, element: number, visible: boolean): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    hudSetElements(playerName: string, mask: number, visible: boolean): number;
     /** 实现见 src/itemactor/ItemActorExporter.cpp */
     itemActorDestroy(id: number): boolean;
     /** 实现见 src/itemactor/ItemActorExporter.cpp */
@@ -342,8 +372,12 @@ declare namespace HologramLib {
     itemDisplaySetVisiblePlayers(id: number, playerNames: string): boolean;
     /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayUnfollow(id: number): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    locatorBarAttachEntity(playerName: string, key: string, entityUniqueId: number): boolean;
     /** 实现见 src/ui/ClientUiExporter.cpp */
     locatorBarClear(playerName: string): number;
+    /** 实现见 src/hud/HudExporter.cpp */
+    locatorBarClearAttach(playerName: string, key: string): boolean;
     /** 实现见 src/ui/ClientUiExporter.cpp */
     locatorBarCount(playerName: string): number;
     /** 实现见 src/ui/ClientUiExporter.cpp */
@@ -354,6 +388,14 @@ declare namespace HologramLib {
     locatorBarRemove(playerName: string, key: string): boolean;
     /** 实现见 src/ui/ClientUiExporter.cpp */
     locatorBarSet(playerName: string, key: string, x: number, y: number, z: number, dim: number, color: number, visible: boolean): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    locatorBarSetGroup(playerName: string, key: string, groupKey: string): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    locatorBarSetIcon(playerName: string, key: string, texturePath: string): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    locatorBarSetIconSize(playerName: string, key: string, width: number, height: number): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    locatorBarSyncGroup(playerName: string, groupKey: string): number;
     /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
     npcDialogClearClicks(): any;
     /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
@@ -904,12 +946,36 @@ declare namespace HologramLib {
   }
 
   interface LocatorBar {
+    attachEntity(playerName: string, key: string, entityUniqueId: number): boolean;
     clear(playerName: string): number;
+    clearAttach(playerName: string, key: string): boolean;
     count(playerName: string): number;
     hideFromOthers(playerName: string, hidden: boolean): boolean;
     isHiddenFromOthers(playerName: string): boolean;
     remove(playerName: string, key: string): boolean;
     set(playerName: string, key: string, x: number, y: number, z: number, dim: number, color: number, visible: boolean): boolean;
+    setGroup(playerName: string, key: string, groupKey: string): boolean;
+    setIcon(playerName: string, key: string, texturePath: string): boolean;
+    setIconSize(playerName: string, key: string, width: number, height: number): boolean;
+    syncGroup(playerName: string, groupKey: string): number;
+  }
+
+  interface Misc {
+    actorPlayDeath(runtimeId: number): boolean;
+    actorPlayEvent(runtimeId: number, eventId: number, data: number): boolean;
+    actorPlayEventFor(playerName: string, runtimeId: number, eventId: number, data: number): boolean;
+    actorPlayHurt(runtimeId: number): boolean;
+    actorPlayInstantDeath(runtimeId: number): boolean;
+    bossBarAdd(playerName: string, title: string, healthPercent: number, color: number, overlay: number): number;
+    bossBarCount(playerName: string): number;
+    bossBarRemove(id: number): boolean;
+    bossBarRemoveAll(playerName: string): any;
+    bossBarSetHealth(id: number, percent: number): boolean;
+    bossBarSetStyle(id: number, color: number, overlay: number): boolean;
+    bossBarSetTitle(id: number, title: string): boolean;
+    hudResetAll(playerName: string): boolean;
+    hudSetElement(playerName: string, element: number, visible: boolean): boolean;
+    hudSetElements(playerName: string, mask: number, visible: boolean): number;
   }
 
   interface NpcDialog {
@@ -1127,6 +1193,7 @@ declare namespace HologramLib {
     ItemDetail: ItemDetail;
     ItemDisplay: ItemDisplay;
     LocatorBar: LocatorBar;
+    Misc: Misc;
     NpcDialog: NpcDialog;
     Particle: Particle;
     PlayerNpc: PlayerNpc;

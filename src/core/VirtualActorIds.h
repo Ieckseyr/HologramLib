@@ -37,6 +37,9 @@ inline constexpr Range playerNpc{0x6F000000ULL, 0x70000000ULL};
 // 它只是摆在客户端的一个 actor。所以它单独占一段、且不在 anyContains 里。
 inline constexpr Range itemActor{0x70000000ULL, 0x71000000ULL};
 
+// Boss 条。**不参与 ghost 路由**：BossEventPacket 的 target 只是个"条的键"，客户端不需要存在该实体。
+inline constexpr Range bossBar{0x71000000ULL, 0x72000000ULL};
+
 // 插件层随机 id 段（各域 createRandom 用）: 与自增段（从 1 起）长期隔离，不会撞车
 inline constexpr std::int64_t randomIdBase = 0x10000000;
 inline constexpr std::int64_t randomIdSpan = 0x70000000;
@@ -46,16 +49,18 @@ inline constexpr std::int64_t randomIdSpan = 0x70000000;
 static_assert(itemDisplay.last == customEntity.first, "itemDisplay 与 customEntity 段必须首尾相接");
 static_assert(customEntity.last == playerNpc.first, "customEntity 与 playerNpc 段必须首尾相接");
 static_assert(playerNpc.last == itemActor.first, "playerNpc 与 itemActor 段必须首尾相接");
-static_assert(itemActor.last == 0x71000000ULL, "itemActor 段的终点决定整块号段的上界");
+static_assert(itemActor.last == bossBar.first, "itemActor 与 bossBar 段必须首尾相接");
+static_assert(bossBar.last == 0x72000000ULL, "bossBar 段的终点决定整块号段的上界");
 
 // 2) 每段大小一致，且都是 0x01000000 的整数倍位置（现在正好就是）
 static_assert(itemDisplay.size() == customEntity.size(), "各段大小必须一致，否则 0x6D/0x6E/0x6F 前缀不再对应");
 static_assert(customEntity.size() == playerNpc.size(), "各段大小必须一致");
 static_assert(playerNpc.size() == itemActor.size(), "各段大小必须一致");
+static_assert(itemActor.size() == bossBar.size(), "各段大小必须一致");
 
 // 3) 整块号段落在 [0x60000000, 0x70000000)，避开真实实体的 runtimeId
 static_assert(itemDisplay.first >= 0x60000000ULL, "虚拟号段必须避开真实实体的 runtimeId 区");
-static_assert(itemActor.last <= 0x71000000ULL, "虚拟号段上界不得越过 0x71000000");
+static_assert(bossBar.last <= 0x72000000ULL, "虚拟号段上界不得越过 0x72000000");
 
 constexpr bool anyContains(std::uint64_t value) noexcept {
     return itemDisplay.contains(value) || customEntity.contains(value) || playerNpc.contains(value);

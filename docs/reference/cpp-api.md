@@ -822,6 +822,24 @@ PlayerPacketMask maskOf(playerName) const;
 bool isHidden(playerName) const;
 ```
 
+### 1.34.0 追加：IBossBar / IHud / ILocatorBarExt / IActorEffect
+
+四个接口都追加在头文件尾部（`HologramLib.h` 里 `IHologramLib` 之前），访问器追加在 `IHologramLib` 尾部。
+
+| 接口 | 访问器 | 方法 |
+|------|--------|------|
+| `IBossBar` | `bossBars()` | `add(playerName, title, healthPercent, color, overlays)` / `setTitle` / `setHealth` / `setStyle` / `remove` / `removeAll` / `count` |
+| `IHud` | `hud()` | `setElement(playerName, HudElement, visible)` / `setElements(playerName, mask, visible)` / `resetAll(playerName)` |
+| `ILocatorBarExt` | `locatorBarExt()` | `setIcon` / `setIconSize` / `attachEntity` / `clearAttach` / `setGroup` |
+| `IActorEffect` | `actorEffects()` | `playHurt(runtimeId)` / `playDeath` / `playInstantDeath` / `play(runtimeId, eventId, data)` |
+
+枚举：`BossBarColor`（0~7）、`BossBarOverlay`（0~4）、`HudElement`（0~12）。
+
+协议：`BossEventPacket`(74) / `SetHudPacket`(308) / `LocatorBarPacket`(341) / `ActorEventPacket`(27)。
+`IBossBar` 的 target 用虚拟号段（`actorIds::bossBar`）里的值，服务端不需要实体。
+
+`HOLOGLIB_ABI_STAMP` 仍为 1（尾部追加），但新增了接口，消费方需要重新编译。基线 `abi/v1.34.0.json`。
+
 **既有接口的尾部追加**：`IContainerMenu::blockEvent(menuId, b0, b1)`（`BlockEvent`，假箱子的方块事件）、
 `IPlayerNpc::playEmote(id, pieceId, lengthTicks)`（`Emote`，原版表情动作）。
 

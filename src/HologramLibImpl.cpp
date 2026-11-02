@@ -18,6 +18,7 @@ void checkCaller(void const* returnAddress) noexcept;
 #include "customentity/CustomEntityManager.h"
 #include "fakeinv/FakeInventoryManager.h" // fakeInventoryAdapter()
 #include "ghost/GhostInteractRouter.h"    // 独立编译单元（xmake: add_files("src/**.cpp")）
+#include "hud/HudExporter.h"              // bossBarAdapter() / hudAdapter() / locatorBarExtAdapter() / actorEffectAdapter()
 #include "itemactor/ItemActorExporter.h"  // itemActorAdapter()
 #include "itemdetail/ItemDetailManager.h"
 #include "itemdisplay/ItemDisplayManager.h"
@@ -655,8 +656,14 @@ public:
     IShapeDrawer& shapes() override { return mShapes; }
 
     IShapeDrawerExt& shapeExt() override { return mShapeExt; }
-    IHologramText&   holograms() override { return mHolograms; }
-    IItemDetail&     itemDetails() override { return mItemDetails; }
+
+    // ── 1.34.0 ──
+    IBossBar&       bossBars() override { return debugshape_export::bossBarAdapter(); }
+    IHud&           hud() override { return debugshape_export::hudAdapter(); }
+    ILocatorBarExt& locatorBarExt() override { return debugshape_export::locatorBarExtAdapter(); }
+    IActorEffect&   actorEffects() override { return debugshape_export::actorEffectAdapter(); }
+    IHologramText&  holograms() override { return mHolograms; }
+    IItemDetail&    itemDetails() override { return mItemDetails; }
 
     bool isLseAvailable() override { return lse::isAttached(); }
 

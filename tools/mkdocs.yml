@@ -153,6 +153,8 @@ nav:
       - 表单控制: lse/form.md
       - 方位条: lse/locator-bar.md
       - 隐身: lse/visibility.md
+      - Boss 条与 HUD 显隐: lse/hud.md
+      - 实体表现事件: lse/actor-effect.md
   - C++ 接口参考: reference/cpp-api.md
   - 能力域:
       - 总览: domains/README.md

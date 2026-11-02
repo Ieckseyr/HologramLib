@@ -58,7 +58,7 @@
 //   ⚠ 与 `skinId` 搭配的"模型缩放"仍是 `EntityView::scale`（1.27.0 起）, 本版新增的**元数据缩放**叫
 //     `metaScale`（两个都在结构尾部, 别混: 前者走玩家模型出生包, 后者走元数据 + 客户端碰撞箱）。
 // 0x012500（26.40.12 / 26.51.5，API 1.31.0）：拉伸 / live 变换 / 动画预设 / 停止配方 / 假玩家姿势装备骑乘。
-#define HOLOGLIB_API_VERSION 0x012700
+#define HOLOGLIB_API_VERSION 0x012800
 
 // ── ABI 布局戳（消费方自检用; 与上面的"功能版本"是两件事, 别混）──
 // 语义: 只在**破坏虚表槽位**的改动时 +1 —— 在接口**中段**插入/删除/重排虚函数、改已发布方法的签名;
@@ -1741,6 +1741,125 @@ public:
 // ─────────────────────────────────────────────
 // 库入口单例
 // ─────────────────────────────────────────────
+// Boss 条 / HUD / 方位条扩展 / 实体表现事件（1.34.0）
+// ─────────────────────────────────────────────
+
+// Boss 条颜色（与协议 BossBarColor 一致）
+enum class BossBarColor : int {
+    Pink          = 0,
+    Blue          = 1,
+    Red           = 2,
+    Green         = 3,
+    Yellow        = 4,
+    Purple        = 5,
+    RebeccaPurple = 6,
+    White         = 7
+};
+
+// Boss 条样式（与协议 BossBarOverlay 一致）
+enum class BossBarOverlay : int {
+    Progress  = 0,
+    Notched6  = 1,
+    Notched10 = 2,
+    Notched12 = 3,
+    Notched20 = 4
+};
+
+// HUD 元素（与协议 HudElement 一致，共 13 项）
+enum class HudElement : int {
+    PaperDoll     = 0,
+    Armor         = 1,
+    ToolTips      = 2,
+    TouchControls = 3,
+    Crosshair     = 4,
+    HotBar        = 5,
+    Health        = 6,
+    ProgressBar   = 7,
+    Hunger        = 8,
+    AirBubbles    = 9,
+    HorseHealth   = 10,
+    StatusEffects = 11,
+    ItemText      = 12
+};
+
+// Boss 条：按玩家维护，不需要实体（用库内虚拟 id 作 target）。
+// 每条只发给创建时指定的那名玩家；给所有人看得每人各建一条。
+class IBossBar {
+public:
+    virtual ~IBossBar() = default;
+
+    // 创建一条 Boss 条，返回 id；玩家不在线返回 -1。
+    // healthPercent 是 0.0~1.0 的比例（不是血量数值）。
+    virtual int64_t add(
+        std::string const& playerName,
+        std::string const& title,
+        float              healthPercent,
+        BossBarColor       color   = BossBarColor::Purple,
+        BossBarOverlay     overlay = BossBarOverlay::Progress) = 0;
+
+    virtual bool              setTitle(int64_t id, std::string const& title)                   = 0;
+    virtual bool              setHealth(int64_t id, float healthPercent)                       = 0;
+    virtual bool              setStyle(int64_t id, BossBarColor color, BossBarOverlay overlay) = 0;
+    virtual bool              remove(int64_t id)                                               = 0;
+    virtual void              removeAll(std::string const& playerName)                         = 0;
+    [[nodiscard]] virtual int count(std::string const& playerName) const                       = 0;
+};
+
+// HUD 元素显隐。
+class IHud {
+public:
+    virtual ~IHud() = default;
+
+    // visible=false 隐藏该元素；true 恢复默认显示
+    virtual bool setElement(std::string const& playerName, HudElement element, bool visible) = 0;
+
+    // 按位掩码一次改多个：bit0 = PaperDoll … bit12 = ItemText。
+    // 返回实际应用的元素个数（掩码里置位的都按 visible 设置）。
+    virtual int setElements(std::string const& playerName, int mask, bool visible) = 0;
+
+    // 全部恢复默认显示
+    virtual bool resetAll(std::string const& playerName) = 0;
+};
+
+// 方位条扩展：自定义图标贴图 / 图标大小 / 绑定实体 / 分组。
+// 与 ILocatorBar 用同一套 (playerName, key)；改完立刻重发该航点。
+class ILocatorBarExt {
+public:
+    virtual ~ILocatorBarExt() = default;
+
+    // 自定义图标贴图（资源包里的路径，例如 "textures/ui/icon_boss"）。
+    // 空字符串表示清除，回到客户端默认图标。
+    virtual bool setIcon(std::string const& playerName, std::string const& key, std::string const& texturePath) = 0;
+
+    // 图标显示大小（像素）。<= 0 表示清除，回到客户端默认尺寸。
+    virtual bool setIconSize(std::string const& playerName, std::string const& key, float width, float height) = 0;
+
+    // 绑定实体：航点跟随该实体（按 uniqueId）。绑定后位置由实体决定。
+    virtual bool attachEntity(std::string const& playerName, std::string const& key, int64_t entityUniqueId) = 0;
+
+    // 解除绑定
+    virtual bool clearAttach(std::string const& playerName, std::string const& key) = 0;
+
+    // 分组：同一 groupKey 的航点在客户端归为一组；空字符串 = 各自独立。
+    // 分组标识由库按 groupKey 稳定派生，跨调用一致。
+    virtual bool setGroup(std::string const& playerName, std::string const& key, std::string const& groupKey) = 0;
+};
+
+// 实体表现事件：受伤 / 死亡动画，以及通用 ActorEvent。
+// 目标是我们用协议层显示的那些实体（自定义实体 / 假玩家 / 掉落物）的 runtimeId。
+class IActorEffect {
+public:
+    virtual ~IActorEffect() = default;
+
+    virtual bool playHurt(int64_t entityRuntimeId)         = 0;
+    virtual bool playDeath(int64_t entityRuntimeId)        = 0;
+    virtual bool playInstantDeath(int64_t entityRuntimeId) = 0;
+
+    // 通用：eventId 见协议 ActorEvent（HURT=2 / DEATH=3 / SHAKE=39 / EAT_GRASS=10 …）
+    virtual bool play(int64_t entityRuntimeId, int eventId, int data = 0) = 0;
+};
+
+// ─────────────────────────────────────────────
 class IHologramLib {
 public:
     HOLOGLIB_API static IHologramLib& getInstance();
@@ -1828,6 +1947,12 @@ public:
 
     // 形状扩展（1.33.0）：四种新形状 + 最远渲染距离 + 挂载实体
     virtual IShapeDrawerExt& shapeExt() = 0;
+
+    // ── 1.34.0 ──
+    virtual IBossBar&       bossBars()      = 0; // Boss 条
+    virtual IHud&           hud()           = 0; // HUD 元素显隐
+    virtual ILocatorBarExt& locatorBarExt() = 0; // 方位条：图标 / 大小 / 绑定实体 / 分组
+    virtual IActorEffect&   actorEffects()  = 0; // 受伤 / 死亡动画
 };
 
 } // namespace hologramlib

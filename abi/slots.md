@@ -1,4 +1,4 @@
-# ABI 槽位表（0x012700 / ABI 戳 1）
+# ABI 槽位表（0x012800 / ABI 戳 1）
 
 > 本文件由 `python tools/abi_tool.py extract --md-out abi/slots.md` 生成，不要手改。
 > 虚函数声明顺序 = 虚表槽位号。**只能在尾部追加**。
@@ -420,6 +420,49 @@
 | 5 | pure | `void clearAll(std::string const&)` |
 | 6 | pure | `std::string describeFor(std::string const&)` |
 
+## IBossBar
+
+| # | 种类 | 签名 |
+|---|---|---|
+| 0 | default | `~IBossBar()` |
+| 1 | pure | `int64_t add(std::string const&, std::string const&, float, BossBarColor color = BossBarColor::Purple, BossBarOverlay overlay = BossBarOverlay::Progress)` |
+| 2 | pure | `bool setTitle(int64_t, std::string const&)` |
+| 3 | pure | `bool setHealth(int64_t, float)` |
+| 4 | pure | `bool setStyle(int64_t, BossBarColor, BossBarOverlay)` |
+| 5 | pure | `bool remove(int64_t)` |
+| 6 | pure | `void removeAll(std::string const&)` |
+| 7 | pure | `int count(std::string const&)` |
+
+## IHud
+
+| # | 种类 | 签名 |
+|---|---|---|
+| 0 | default | `~IHud()` |
+| 1 | pure | `bool setElement(std::string const&, HudElement, bool)` |
+| 2 | pure | `int setElements(std::string const&, int, bool)` |
+| 3 | pure | `bool resetAll(std::string const&)` |
+
+## ILocatorBarExt
+
+| # | 种类 | 签名 |
+|---|---|---|
+| 0 | default | `~ILocatorBarExt()` |
+| 1 | pure | `bool setIcon(std::string const&, std::string const&, std::string const&)` |
+| 2 | pure | `bool setIconSize(std::string const&, std::string const&, float, float)` |
+| 3 | pure | `bool attachEntity(std::string const&, std::string const&, int64_t)` |
+| 4 | pure | `bool clearAttach(std::string const&, std::string const&)` |
+| 5 | pure | `bool setGroup(std::string const&, std::string const&, std::string const&)` |
+
+## IActorEffect
+
+| # | 种类 | 签名 |
+|---|---|---|
+| 0 | default | `~IActorEffect()` |
+| 1 | pure | `bool playHurt(int64_t)` |
+| 2 | pure | `bool playDeath(int64_t)` |
+| 3 | pure | `bool playInstantDeath(int64_t)` |
+| 4 | pure | `bool play(int64_t, int, int data = 0)` |
+
 ## IHologramLib
 
 | # | 种类 | 签名 |
@@ -454,6 +497,10 @@
 | 27 | pure | `ILocatorBar& locatorBar()` |
 | 28 | pure | `IPlayerVisibility& playerVisibility()` |
 | 29 | pure | `IShapeDrawerExt& shapeExt()` |
+| 30 | pure | `IBossBar& bossBars()` |
+| 31 | pure | `IHud& hud()` |
+| 32 | pure | `ILocatorBarExt& locatorBarExt()` |
+| 33 | pure | `IActorEffect& actorEffects()` |
 
 ## 结构体布局
 

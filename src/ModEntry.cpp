@@ -11,6 +11,7 @@
 #include "RemoteCallExporter.h"
 
 #include "InfoExporter.h"
+#include "actor/ActorEffectManager.h"
 #include "container/ContainerMenuExporter.h"
 #include "container/ContainerMenuManager.h"
 #include "core/TickDriver.h"
@@ -19,6 +20,9 @@
 #include "fakeinv/FakeInventoryExporter.h"
 #include "fakeinv/FakeInventoryManager.h"
 #include "ghost/GhostInteractRouter.h"
+#include "hud/BossBarManager.h"
+#include "hud/HudExporter.h"
+#include "hud/HudManager.h"
 #include "itemactor/ItemActorExporter.h"
 #include "itemactor/ItemActorManager.h"
 #include "itemdetail/ItemDetailExporter.h"
@@ -203,6 +207,27 @@ struct InfoDomain final : core::IDomain {
     void        exportLse() override { InfoExporter::exportAll(); }
 };
 
+struct BossBarDomain final : core::IDomain {
+    char const* name() const noexcept override { return "bossbar"; }
+    void        stop() noexcept override { BossBarManager::getInstance().shutdown(); }
+    void        exportLse() override { BossBarExporter::exportAll(); }
+};
+
+struct HudDomain final : core::IDomain {
+    char const* name() const noexcept override { return "hud"; }
+    void        exportLse() override { HudExporter::exportAll(); }
+};
+
+struct LocatorBarExtDomain final : core::IDomain {
+    char const* name() const noexcept override { return "locatorbarExt"; }
+    void        exportLse() override { LocatorBarExtExporter::exportAll(); }
+};
+
+struct ActorEffectDomain final : core::IDomain {
+    char const* name() const noexcept override { return "actoreffect"; }
+    void        exportLse() override { ActorEffectExporter::exportAll(); }
+};
+
 struct ItemActorDomain final : core::IDomain {
     char const* name() const noexcept override { return "itemactor"; }
     void        stop() noexcept override { ItemActorManager::getInstance().shutdown(); }
@@ -276,6 +301,10 @@ bool ModEntry::enable() {
     mHost.add<SulfurDisplayDomain>();
     mHost.add<GhostDomain>();
     mHost.add<InfoDomain>();
+    mHost.add<BossBarDomain>();
+    mHost.add<HudDomain>();
+    mHost.add<LocatorBarExtDomain>();
+    mHost.add<ActorEffectDomain>();
     mHost.add<ItemActorDomain>();
     mHost.add<FormControlDomain>();
     mHost.add<LocatorBarDomain>();
