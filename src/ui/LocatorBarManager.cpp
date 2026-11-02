@@ -72,6 +72,8 @@ bool LocatorBarManager::sendOne(::Player& player, Waypoint const& waypoint, bool
         server.mIconSize = sculk::protocol::Vec2{waypoint.iconWidth, waypoint.iconHeight};
         flags            = static_cast<std::uint8_t>(flags) | static_cast<std::uint8_t>(Payload::UpdateFlags::IconSize);
     }
+    server.mClientPositionAuthority = waypoint.clientAuthority;
+    flags                           = static_cast<std::uint8_t>(flags) | static_cast<std::uint8_t>(Payload::UpdateFlags::ClientPositionAuthority);
     if (waypoint.actorUniqueId != 0) {
         // 绑定实体：协议里没有专门的 UpdateFlag 位，随位置一起带上
         server.mActorUniqueId = waypoint.actorUniqueId;
@@ -122,6 +124,8 @@ bool LocatorBarManager::sendMany(::Player& player, std::vector<Waypoint> const& 
             server.mIconSize = sculk::protocol::Vec2{waypoint.iconWidth, waypoint.iconHeight};
             flags            = static_cast<std::uint8_t>(flags) | static_cast<std::uint8_t>(Payload::UpdateFlags::IconSize);
         }
+        server.mClientPositionAuthority = waypoint.clientAuthority;
+        flags                           = static_cast<std::uint8_t>(flags) | static_cast<std::uint8_t>(Payload::UpdateFlags::ClientPositionAuthority);
         if (waypoint.actorUniqueId != 0) {
             server.mActorUniqueId = waypoint.actorUniqueId;
         }
@@ -175,6 +179,26 @@ bool LocatorBarManager::setWaypoint(
     }
 
     return sendOne(*player, waypoint, existed);
+}
+
+bool LocatorBarManager::setClientAuthority(std::string const& playerName, std::string const& key, bool enabled) {
+    ::Player* player = findPlayer(playerName);
+    if (player == nullptr)
+        return false;
+
+    Waypoint copy;
+    {
+        std::lock_guard lock(mMutex);
+        auto            outer = mWaypoints.find(playerName);
+        if (outer == mWaypoints.end())
+            return false;
+        auto inner = outer->second.find(key);
+        if (inner == outer->second.end())
+            return false;
+        inner->second.clientAuthority = enabled;
+        copy                          = inner->second;
+    }
+    return sendOne(*player, copy, true);
 }
 
 bool LocatorBarManager::setIcon(std::string const& playerName, std::string const& key, std::string const& texturePath) {

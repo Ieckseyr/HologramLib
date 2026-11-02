@@ -36,6 +36,7 @@ public:
         bool               visible);
 
     // ── 1.33.0：四个扩展属性（改完立刻重发该航点）──
+    bool setClientAuthority(std::string const& playerName, std::string const& key, bool enabled);
     bool setIcon(std::string const& playerName, std::string const& key, std::string const& texturePath);
     bool setIconSize(std::string const& playerName, std::string const& key, float width, float height);
     bool attachEntity(std::string const& playerName, std::string const& key, int64_t entityUniqueId);
@@ -71,6 +72,7 @@ private:
         int          dimension{0};
         int          color{-1};
         bool         visible{true};
+        bool         clientAuthority{false};
         std::string  texturePath;
         bool         hasIconSize{false};
         float        iconWidth{0}, iconHeight{0};

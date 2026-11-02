@@ -9,6 +9,8 @@
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/level/Level.h>
 
+#include <mc/deps/core/utility/BinaryStream.h>
+
 #include <sculk/protocol/codec/packet/BossEventPacket.hpp>
 
 #include <format>
@@ -35,23 +37,26 @@ std::int64_t BossBarManager::nextTargetId() {
     return static_cast<std::int64_t>(counter.fetch_add(1, std::memory_order_relaxed));
 }
 
-bool BossBarManager::send(::Player& player, Bar const& bar, int eventType, std::int64_t playerId) {
-    sculk::protocol::BossEventPacket packet;
-    packet.mTargetActorID = bar.targetId;
-    packet.mPlayerID      = playerId;
-    packet.mType          = static_cast<sculk::protocol::BossEventPacket::EventType>(eventType);
-    packet.mName          = bar.title;
-    packet.mFilteredName  = bar.title;
-    packet.mPercentage    = bar.percent;
-    packet.mColor         = static_cast<std::uint32_t>(bar.color);
-    packet.mOverlay       = static_cast<std::uint32_t>(bar.overlay);
+bool BossBarManager::send(::Player& player, Bar const& bar, int eventType, std::int64_t /*playerId*/) {
+    // 手写线格式（26.51 BDS 的 BossEventPacketPayload）:
+    //   varint64 bossId | byte eventType | string name | string filteredName | float percent | byte color | byte overlay
+    // 为什么不用 sculk 的 BossEventPacket: 它按老格式多写一个 varint64 mPlayerID，
+    // BDS 26.51 的回读校验直接失败 → 包被丢弃（表现就是 bossBarAdd 返回 -1、客户端没有条）。
+    ::BinaryStream stream;
+    stream.writeVarInt64(bar.targetId, nullptr, nullptr);
+    stream.writeByte(static_cast<uchar>(eventType), nullptr, nullptr);
+    stream.writeString(bar.title, nullptr, nullptr);
+    stream.writeString(bar.title, nullptr, nullptr); // filtered name：没有过滤就用同一份
+    stream.writeFloat(bar.percent, nullptr, nullptr);
+    stream.writeByte(static_cast<uchar>(static_cast<int>(bar.color)), nullptr, nullptr);
+    stream.writeByte(static_cast<uchar>(static_cast<int>(bar.overlay)), nullptr, nullptr);
 
-    auto bytes = wire::encodeChecked(packet);
-    if (bytes.empty())
-        return false;
+    // 补包头（与 wire::encodeChecked 同一套：包 id | 标志位）
+    ::BinaryStream sendStream;
+    sendStream.writeUnsignedVarInt((74 & 0x3FF) | ((0 & 3) << 10) | ((0 & 3) << 12), nullptr, nullptr);
+    sendStream.mBuffer.append(stream.mBuffer.data(), stream.mBuffer.size());
 
-    wire::sendRaw(player, bytes);
-    return true;
+    return wire::sendRaw(player, sendStream.mBuffer);
 }
 
 int64_t BossBarManager::add(
@@ -77,9 +82,6 @@ int64_t BossBarManager::add(
     // 原版是两步：Add 建条（发给所有人），PlayerAdded 把某名玩家加进这条（发给他）。
     // 只发 Add 时客户端可能不建条 —— 实测没显示就是这个原因。
     if (!send(*player, bar, static_cast<int>(sculk::protocol::BossEventPacket::EventType::Add), 0)) {
-        return -1;
-    }
-    if (!send(*player, bar, static_cast<int>(sculk::protocol::BossEventPacket::EventType::PlayerAdded), playerUid)) {
         return -1;
     }
 
@@ -151,8 +153,6 @@ bool BossBarManager::remove(int64_t id) {
     ::Player* player = findPlayer(copy.playerName);
     if (player == nullptr)
         return true; // 人已下线，客户端那边早没了
-    auto const playerUid = static_cast<std::int64_t>(player->getOrCreateUniqueID().rawID);
-    send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::PlayerRemoved), playerUid);
     send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::Remove), 0);
     return true;
 }

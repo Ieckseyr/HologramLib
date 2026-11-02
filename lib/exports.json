@@ -1,7 +1,7 @@
 {
   "namespace": "HologramLib",
   "apiVersion": "1.33.0",
-  "count": 377,
+  "count": 380,
   "exports": [
     {
       "name": "actorPlayDeath",
@@ -3731,6 +3731,27 @@
       "method": "set"
     },
     {
+      "name": "locatorBarSetClientAuthority",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "key",
+          "string"
+        ],
+        [
+          "enabled",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "LocatorBar",
+      "method": "setClientAuthority"
+    },
+    {
       "name": "locatorBarSetGroup",
       "params": [
         [
@@ -7393,6 +7414,22 @@
       "file": "src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "uniqueIdOf"
+    },
+    {
+      "name": "wireResetStats",
+      "params": [],
+      "returns": "any",
+      "file": "src/InfoExporter.cpp",
+      "group": "Misc",
+      "method": "wireResetStats"
+    },
+    {
+      "name": "wireStats",
+      "params": [],
+      "returns": "string",
+      "file": "src/InfoExporter.cpp",
+      "group": "Misc",
+      "method": "wireStats"
     }
   ]
 }

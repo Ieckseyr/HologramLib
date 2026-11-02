@@ -395,6 +395,8 @@ declare namespace HologramLib {
     /** 实现见 src/ui/ClientUiExporter.cpp */
     locatorBarSet(playerName: string, key: string, x: number, y: number, z: number, dim: number, color: number, visible: boolean): boolean;
     /** 实现见 src/hud/HudExporter.cpp */
+    locatorBarSetClientAuthority(playerName: string, key: string, enabled: boolean): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
     locatorBarSetGroup(playerName: string, key: string, groupKey: string): boolean;
     /** 实现见 src/hud/HudExporter.cpp */
     locatorBarSetIcon(playerName: string, key: string, texturePath: string): boolean;
@@ -768,6 +770,10 @@ declare namespace HologramLib {
     viewTargetType(uniqueId: number, type: string): boolean;
     /** 实现见 src/view/ViewOverrideExporter.cpp */
     viewUniqueIdOf(playerName: string): number;
+    /** 实现见 src/InfoExporter.cpp */
+    wireResetStats(): any;
+    /** 实现见 src/InfoExporter.cpp */
+    wireStats(): string;
   }
 
   // ── 按类分组（同 GMLIB-LegacyRemoteCallApi 的写法）──
@@ -974,6 +980,7 @@ declare namespace HologramLib {
     isHiddenFromOthers(playerName: string): boolean;
     remove(playerName: string, key: string): boolean;
     set(playerName: string, key: string, x: number, y: number, z: number, dim: number, color: number, visible: boolean): boolean;
+    setClientAuthority(playerName: string, key: string, enabled: boolean): boolean;
     setGroup(playerName: string, key: string, groupKey: string): boolean;
     setIcon(playerName: string, key: string, texturePath: string): boolean;
     setIconSize(playerName: string, key: string, width: number, height: number): boolean;
@@ -1006,6 +1013,8 @@ declare namespace HologramLib {
     sidebarSet(playerName: string, title: string, lines: string): boolean;
     sidebarSetLine(playerName: string, index: number, text: string): boolean;
     sidebarSetTitle(playerName: string, title: string): boolean;
+    wireResetStats(): any;
+    wireStats(): string;
   }
 
   interface NpcDialog {

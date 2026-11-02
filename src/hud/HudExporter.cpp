@@ -232,6 +232,14 @@ void HudExporter::exportAll() {
 void LocatorBarExtExporter::exportAll() {
     auto& mgr = LocatorBarManager::getInstance();
 
+    // locatorBarSetClientAuthority(playerName, key, enabled) -> bool
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "locatorBarSetClientAuthority",
+        [&mgr](std::string const& playerName, std::string const& key, bool enabled) -> bool {
+            return mgr.setClientAuthority(playerName, key, enabled);
+        });
+
     // locatorBarSetIcon(playerName, key, texturePath) -> bool
     hologramlib::lse::exportAs(
         NAMESPACE,
