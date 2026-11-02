@@ -662,6 +662,7 @@ public:
     IHud&           hud() override { return debugshape_export::hudAdapter(); }
     ILocatorBarExt& locatorBarExt() override { return debugshape_export::locatorBarExtAdapter(); }
     IActorEffect&   actorEffects() override { return debugshape_export::actorEffectAdapter(); }
+    ISidebar&       sidebar() override { return debugshape_export::sidebarAdapter(); }
     IHologramText&  holograms() override { return mHolograms; }
     IItemDetail&    itemDetails() override { return mItemDetails; }
 

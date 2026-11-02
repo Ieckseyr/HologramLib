@@ -2,6 +2,7 @@
 #include "HudExporter.h"
 
 #include "../actor/ActorEffectManager.h"
+#include "../scoreboard/SidebarManager.h"
 #include "../ui/LocatorBarManager.h"
 #include "BossBarManager.h"
 #include "HudManager.h"
@@ -82,6 +83,29 @@ public:
     }
 };
 
+class SidebarAdapter final : public hologramlib::ISidebar {
+public:
+    bool set(std::string const& playerName, std::string const& title, std::vector<std::string> const& lines) override {
+        return SidebarManager::getInstance().set(playerName, title, lines);
+    }
+    bool setTitle(std::string const& playerName, std::string const& title) override {
+        return SidebarManager::getInstance().setTitle(playerName, title);
+    }
+    bool setLine(std::string const& playerName, int index, std::string const& text) override {
+        return SidebarManager::getInstance().setLine(playerName, index, text);
+    }
+    bool remove(std::string const& playerName) override {
+        return SidebarManager::getInstance().remove(playerName);
+    }
+    void               removeAll() override { SidebarManager::getInstance().removeAll(); }
+    [[nodiscard]] bool isShown(std::string const& playerName) const override {
+        return SidebarManager::getInstance().isShown(playerName);
+    }
+    [[nodiscard]] int lineCount(std::string const& playerName) const override {
+        return SidebarManager::getInstance().lineCount(playerName);
+    }
+};
+
 class ActorEffectAdapter final : public hologramlib::IActorEffect {
 public:
     bool playHurt(int64_t runtimeId) override { return ActorEffectManager::getInstance().playHurt(runtimeId); }
@@ -113,6 +137,11 @@ hologramlib::ILocatorBarExt& locatorBarExtAdapter() {
 
 hologramlib::IActorEffect& actorEffectAdapter() {
     static ActorEffectAdapter adapter;
+    return adapter;
+}
+
+hologramlib::ISidebar& sidebarAdapter() {
+    static SidebarAdapter adapter;
     return adapter;
 }
 
@@ -247,6 +276,51 @@ void LocatorBarExtExporter::exportAll() {
         });
 }
 
+void SidebarExporter::exportAll() {
+    auto& mgr = SidebarManager::getInstance();
+
+    // sidebarSet(playerName, title, [lines]) -> bool（空数组 = 移除）
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "sidebarSet",
+        [&mgr](std::string const& playerName, std::string const& title, std::vector<std::string> lines) -> bool {
+            return mgr.set(playerName, title, lines);
+        });
+
+    // sidebarSetTitle(playerName, title) -> bool
+    hologramlib::lse::exportAs(NAMESPACE, "sidebarSetTitle", [&mgr](std::string const& playerName, std::string const& title) -> bool {
+        return mgr.setTitle(playerName, title);
+    });
+
+    // sidebarSetLine(playerName, index, text) -> bool
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "sidebarSetLine",
+        [&mgr](std::string const& playerName, int index, std::string const& text) -> bool {
+            return mgr.setLine(playerName, index, text);
+        });
+
+    // sidebarRemove(playerName) -> bool
+    hologramlib::lse::exportAs(NAMESPACE, "sidebarRemove", [&mgr](std::string const& playerName) -> bool {
+        return mgr.remove(playerName);
+    });
+
+    // sidebarRemoveAll() -> null
+    hologramlib::lse::exportAs(NAMESPACE, "sidebarRemoveAll", [&mgr]() {
+        mgr.removeAll();
+    });
+
+    // sidebarIsShown(playerName) -> bool
+    hologramlib::lse::exportAs(NAMESPACE, "sidebarIsShown", [&mgr](std::string const& playerName) -> bool {
+        return mgr.isShown(playerName);
+    });
+
+    // sidebarLineCount(playerName) -> i
+    hologramlib::lse::exportAs(NAMESPACE, "sidebarLineCount", [&mgr](std::string const& playerName) -> int {
+        return mgr.lineCount(playerName);
+    });
+}
+
 void ActorEffectExporter::exportAll() {
     auto& mgr = ActorEffectManager::getInstance();
 
@@ -276,9 +350,11 @@ void ActorEffectExporter::exportAll() {
     // actorRuntimeIdOfPlayer(playerName) -> int64（玩家实体的 runtimeId；不在线 -1）
     hologramlib::lse::exportAs(NAMESPACE, "actorRuntimeIdOfPlayer", [](std::string const& playerName) -> int64_t {
         auto level = ll::service::getLevel();
-        if (!level) return -1;
+        if (!level)
+            return -1;
         auto* player = level->getPlayer(playerName);
-        if (player == nullptr) return -1;
+        if (player == nullptr)
+            return -1;
         return static_cast<int64_t>(player->getRuntimeID().rawID);
     });
 
@@ -286,7 +362,8 @@ void ActorEffectExporter::exportAll() {
     hologramlib::lse::exportAs(NAMESPACE, "actorRuntimeIdOfEntity", [](int64_t libId) -> int64_t {
         std::uint64_t runtimeId = 0;
         std::uint64_t uniqueId  = 0;
-        if (!CustomEntityManager::getInstance().getIdPair(libId, uniqueId, runtimeId)) return -1;
+        if (!CustomEntityManager::getInstance().getIdPair(libId, uniqueId, runtimeId))
+            return -1;
         return static_cast<int64_t>(runtimeId);
     });
 

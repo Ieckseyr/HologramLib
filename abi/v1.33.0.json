@@ -1776,6 +1776,48 @@
         "sig": "bool play(int64_t, int, int data = 0)"
       }
     ],
+    "ISidebar": [
+      {
+        "index": 0,
+        "kind": "default",
+        "sig": "~ISidebar()"
+      },
+      {
+        "index": 1,
+        "kind": "pure",
+        "sig": "bool set(std::string const&, std::string const&, std::vector<std::string> const&)"
+      },
+      {
+        "index": 2,
+        "kind": "pure",
+        "sig": "bool setTitle(std::string const&, std::string const&)"
+      },
+      {
+        "index": 3,
+        "kind": "pure",
+        "sig": "bool setLine(std::string const&, int, std::string const&)"
+      },
+      {
+        "index": 4,
+        "kind": "pure",
+        "sig": "bool remove(std::string const&)"
+      },
+      {
+        "index": 5,
+        "kind": "pure",
+        "sig": "void removeAll()"
+      },
+      {
+        "index": 6,
+        "kind": "pure",
+        "sig": "bool isShown(std::string const&)"
+      },
+      {
+        "index": 7,
+        "kind": "pure",
+        "sig": "int lineCount(std::string const&)"
+      }
+    ],
     "IHologramLib": [
       {
         "index": 0,
@@ -1946,6 +1988,11 @@
         "index": 33,
         "kind": "pure",
         "sig": "IActorEffect& actorEffects()"
+      },
+      {
+        "index": 34,
+        "kind": "pure",
+        "sig": "ISidebar& sidebar()"
       }
     ]
   },

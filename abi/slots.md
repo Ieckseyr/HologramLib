@@ -463,6 +463,19 @@
 | 3 | pure | `bool playInstantDeath(int64_t)` |
 | 4 | pure | `bool play(int64_t, int, int data = 0)` |
 
+## ISidebar
+
+| # | 种类 | 签名 |
+|---|---|---|
+| 0 | default | `~ISidebar()` |
+| 1 | pure | `bool set(std::string const&, std::string const&, std::vector<std::string> const&)` |
+| 2 | pure | `bool setTitle(std::string const&, std::string const&)` |
+| 3 | pure | `bool setLine(std::string const&, int, std::string const&)` |
+| 4 | pure | `bool remove(std::string const&)` |
+| 5 | pure | `void removeAll()` |
+| 6 | pure | `bool isShown(std::string const&)` |
+| 7 | pure | `int lineCount(std::string const&)` |
+
 ## IHologramLib
 
 | # | 种类 | 签名 |
@@ -501,6 +514,7 @@
 | 31 | pure | `IHud& hud()` |
 | 32 | pure | `ILocatorBarExt& locatorBarExt()` |
 | 33 | pure | `IActorEffect& actorEffects()` |
+| 34 | pure | `ISidebar& sidebar()` |
 
 ## 结构体布局
 

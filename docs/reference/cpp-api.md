@@ -832,10 +832,11 @@ bool isHidden(playerName) const;
 | `IHud` | `hud()` | `setElement(playerName, HudElement, visible)` / `setElements(playerName, mask, visible)` / `resetAll(playerName)` |
 | `ILocatorBarExt` | `locatorBarExt()` | `setIcon` / `setIconSize` / `attachEntity` / `clearAttach` / `setGroup` |
 | `IActorEffect` | `actorEffects()` | `playHurt(runtimeId)` / `playDeath` / `playInstantDeath` / `play(runtimeId, eventId, data)` |
+| `ISidebar` | `sidebar()` | `set(playerName, title, lines)` / `setTitle` / `setLine` / `remove` / `removeAll` / `isShown` / `lineCount` |
 
 枚举：`BossBarColor`（0~7）、`BossBarOverlay`（0~4）、`HudElement`（0~12）。
 
-协议：`BossEventPacket`(74) / `SetHudPacket`(308) / `LocatorBarPacket`(341) / `ActorEventPacket`(27)。
+协议：`BossEventPacket`(74) / `SetHudPacket`(308) / `LocatorBarPacket`(341) / `ActorEventPacket`(27) / `SetDisplayObjectivePacket`(107) + `SetScorePacket`(108) + `RemoveObjectivePacket`(106)。
 `IBossBar` 的 target 用虚拟号段（`actorIds::bossBar`）里的值，服务端不需要实体。
 
 `HOLOGLIB_ABI_STAMP` 仍为 1（尾部追加），但新增了接口，消费方需要重新编译。基线 `abi/v1.33.0.json`。

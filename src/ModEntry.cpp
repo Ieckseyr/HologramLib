@@ -35,6 +35,7 @@
 #include "particles/ParticleShapeManager.h"
 #include "playernpc/PlayerNpcExporter.h"
 #include "playernpc/PlayerNpcManager.h"
+#include "scoreboard/SidebarManager.h"
 #include "sensing/PlayerSensingExporter.h"
 #include "sensing/PlayerSensingManager.h"
 #include "sulfur/SulfurDisplayExporter.h"
@@ -223,6 +224,12 @@ struct LocatorBarExtDomain final : core::IDomain {
     void        exportLse() override { LocatorBarExtExporter::exportAll(); }
 };
 
+struct SidebarDomain final : core::IDomain {
+    char const* name() const noexcept override { return "sidebar"; }
+    void        stop() noexcept override { SidebarManager::getInstance().shutdown(); }
+    void        exportLse() override { SidebarExporter::exportAll(); }
+};
+
 struct ActorEffectDomain final : core::IDomain {
     char const* name() const noexcept override { return "actoreffect"; }
     void        exportLse() override { ActorEffectExporter::exportAll(); }
@@ -305,6 +312,7 @@ bool ModEntry::enable() {
     mHost.add<HudDomain>();
     mHost.add<LocatorBarExtDomain>();
     mHost.add<ActorEffectDomain>();
+    mHost.add<SidebarDomain>();
     mHost.add<ItemActorDomain>();
     mHost.add<FormControlDomain>();
     mHost.add<LocatorBarDomain>();

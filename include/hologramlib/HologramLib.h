@@ -1860,6 +1860,26 @@ public:
 };
 
 // ─────────────────────────────────────────────
+// 侧边栏计分板（1.33.0）
+//
+// 只发包，不动服务端记分板：给某名玩家显示一个只有他看得到的侧边栏。
+// 协议：SetDisplayObjective(107) + SetScore(108) + RemoveObjective(106)。
+// 行是 FakePlayer 条目，score 用作排序键（第 0 行在最上面）。
+class ISidebar {
+public:
+    virtual ~ISidebar() = default;
+
+    // 显示或更新：title 是标题，lines 自上而下（空 = 移除）
+    virtual bool set(std::string const& playerName, std::string const& title, std::vector<std::string> const& lines) = 0;
+    virtual bool setTitle(std::string const& playerName, std::string const& title)                                   = 0;
+    virtual bool setLine(std::string const& playerName, int index, std::string const& text)                          = 0;
+    virtual bool remove(std::string const& playerName)                                                               = 0;
+    virtual void removeAll()                                                                                         = 0;
+
+    [[nodiscard]] virtual bool isShown(std::string const& playerName) const   = 0;
+    [[nodiscard]] virtual int  lineCount(std::string const& playerName) const = 0;
+};
+
 class IHologramLib {
 public:
     HOLOGLIB_API static IHologramLib& getInstance();
@@ -1953,6 +1973,7 @@ public:
     virtual IHud&           hud()           = 0; // HUD 元素显隐
     virtual ILocatorBarExt& locatorBarExt() = 0; // 方位条：图标 / 大小 / 绑定实体 / 分组
     virtual IActorEffect&   actorEffects()  = 0; // 受伤 / 死亡动画
+    virtual ISidebar&       sidebar()       = 0; // 侧边栏计分板（只发包）
 };
 
 } // namespace hologramlib

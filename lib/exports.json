@@ -1,7 +1,7 @@
 {
   "namespace": "HologramLib",
   "apiVersion": "1.33.0",
-  "count": 369,
+  "count": 376,
   "exports": [
     {
       "name": "actorPlayDeath",
@@ -6602,6 +6602,112 @@
       "file": "src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "updateToPlayer"
+    },
+    {
+      "name": "sidebarIsShown",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "sidebarIsShown"
+    },
+    {
+      "name": "sidebarLineCount",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "sidebarLineCount"
+    },
+    {
+      "name": "sidebarRemove",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "sidebarRemove"
+    },
+    {
+      "name": "sidebarRemoveAll",
+      "params": [],
+      "returns": "any",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "sidebarRemoveAll"
+    },
+    {
+      "name": "sidebarSet",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "title",
+          "string"
+        ],
+        [
+          "lines",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "sidebarSet"
+    },
+    {
+      "name": "sidebarSetLine",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "index",
+          "number"
+        ],
+        [
+          "text",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "sidebarSetLine"
+    },
+    {
+      "name": "sidebarSetTitle",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "title",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "sidebarSetTitle"
     },
     {
       "name": "sulfurCreate",

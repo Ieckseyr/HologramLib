@@ -674,6 +674,20 @@ declare namespace HologramLib {
     shapeUpdateToDimension(id: number, dimId: number): boolean;
     /** 实现见 src/RemoteCallExporter.cpp */
     shapeUpdateToPlayer(id: number, playerName: string): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    sidebarIsShown(playerName: string): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    sidebarLineCount(playerName: string): number;
+    /** 实现见 src/hud/HudExporter.cpp */
+    sidebarRemove(playerName: string): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    sidebarRemoveAll(): any;
+    /** 实现见 src/hud/HudExporter.cpp */
+    sidebarSet(playerName: string, title: string, lines: string): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    sidebarSetLine(playerName: string, index: number, text: string): boolean;
+    /** 实现见 src/hud/HudExporter.cpp */
+    sidebarSetTitle(playerName: string, title: string): boolean;
     /** 实现见 src/sulfur/SulfurDisplayExporter.cpp */
     sulfurCreate(x: number, y: number, z: number, dim: number, blockType: string, blockCount: number, blockDamage: number, blockName: string, archetype: string, invisible: boolean): number;
     /** 实现见 src/sulfur/SulfurDisplayExporter.cpp */
@@ -982,6 +996,13 @@ declare namespace HologramLib {
     hudResetAll(playerName: string): boolean;
     hudSetElement(playerName: string, element: number, visible: boolean): boolean;
     hudSetElements(playerName: string, mask: number, visible: boolean): number;
+    sidebarIsShown(playerName: string): boolean;
+    sidebarLineCount(playerName: string): number;
+    sidebarRemove(playerName: string): boolean;
+    sidebarRemoveAll(): any;
+    sidebarSet(playerName: string, title: string, lines: string): boolean;
+    sidebarSetLine(playerName: string, index: number, text: string): boolean;
+    sidebarSetTitle(playerName: string, title: string): boolean;
   }
 
   interface NpcDialog {
