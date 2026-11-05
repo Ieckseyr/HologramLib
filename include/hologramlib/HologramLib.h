@@ -1,16 +1,3 @@
-// HologramLib.h - 统一悬浮显示库对外 C++ 接口（唯一公开头）
-//
-// 消费方式（native 插件）:
-//   1. xmake: add_includedirs("../HologramLib/include") + add_linkdirs(...) + add_links("HologramLib")
-//   2. #include "hologramlib/HologramLib.h"
-//   3. auto& shapes = hologramlib::IHologramLib::getInstance().shapes();
-//
-// LSE 脚本经 ll.import("HologramLib", "shape*/holo*/gradient*/itemDetail*") 统一命名空间调用，
-// 由库内 LseBridge 在运行时检测 LegacyRemoteCall 是否存在（可选，无前置依赖）。
-//
-// - 接口对象全部在 HologramLib.dll 内创建/销毁, 消费者只持有引用, 不跨边界 new/delete
-// - 所有字符串 UTF-8
-// - 接口方法线程安全（内部互斥）; 发包在调用线程执行, 建议主线程调用
 #pragma once
 
 #include <cstddef>
@@ -20,67 +7,10 @@
 #include <string>
 #include <vector>
 
-// 库 API 版本（与 IHologramLib::version() 同值; 编码规律与完整对照见 VERSION-HISTORY.md）
-//   中间字节 = 次版本号, 按十六进制递增: 1.15.0 -> 0x011500, 1.19.0 -> 0x011900,
-//   1.20.0 -> 0x011A00, 1.21.0 -> 0x011B00, 1.22.0 -> 0x011C00, 1.23.0 -> 0x011D00（补丁位通常为 00）
-// 消费方可用于编译期静态断言最低版本要求。
-// 注意: 只有**正式发布新版本**才推高本宏; 在同一条尚未发布的线上继续加能力域时不改变它。
-// 本值 0x011C00 随 26.40.4 发布: 交易菜单（1.21.0 引入）改为**纯展示**, 撤回了它在 26.40.3 里
-// 短暂存在的点击回调（TradeClickEvent / TradeActionCallback / TradeRawAction 与对应的
-// ITradeMenu 监听方法全部移除）—— 这是收缩而非新增, 所以抬到新的次版本, 消费方可以用
-// >= 0x011C00 门住『交易菜单没有点击回调、且带 addOffer / setTier』这一形态。
-// 本值 0x012000 随 26.40.8 发布（1.26.0）: 一次**追加 + 收缩 + 补全**（收缩明记, 见 VERSION-HISTORY.md）——
-//   追加: IPlayerNpc 尾部补 setPositionLight / injectSkin / injectSkinAll / playAnimation / playAnimationTo /
-//   setEntitySpawnCallback（轻量位置更新 + 玩家皮肤注入 + 按名动画）; view* LSE 导出补齐逐字段（6→16 函数）;
-//   收缩: 移除 setLineGradient / setLineRainbow / setLineScroll / setVerticalAnimation / setLineSpacing /
-//   setLineColor / setLineScale 与 tick（前六项在"整块单形状"模型下不可实现或空转, tick 的库内自驱按"基础轮子"原则移除;
-//   C++ 侧这 8 个方法保留**废弃空槽**（非纯虚空实现 + [[deprecated]]）, 虚表槽位不变 —— 旧二进制不错位, 真正清槽留到 2.0.0）;
-//   补全: 文本形状补齐 背景框颜色 / 穿墙开关(depthTest) / 三轴旋转(useRotation) / 整块缩放,
-//   且 setRotation 对文本形状真正生效（此前缺 useRotation 标志）; 视图覆盖清理旧世界残骸（过期注释 + 就地改写死代码, 行为不变: 严格只拦不发）。
-//   消费方用 >= 0x012000 门住这些新方法。
-// 本值 0x012100 随 26.40.9 发布（1.27.0）: 视图覆盖 `EntityView::skinId`（非玩家实体同-id 换"我们的模型"）+
-//   真实实体交互多播（addActorInteractListener / removeActorInteractListener, 类尾追加）;
-//   配套 ABI 布局戳（消费方编译期自检, 库侧运行期拦截布局不一致的消费方）。消费方用 >= 0x012100 门住这些新方法。
-// 本值 0x012300 随 26.40.10 发布（1.29.0）—— 本版两件事一起出:
-//   ① **视图覆盖补上 `AddItemActor`(id 15) 这条出生包**: 此前只拦 `AddActor`, 于是"把 item 实体（掉落物）
-//      换类型 / 隐藏"永远只做一半 —— 设覆盖那一刻能把已经在看的玩家换掉, 但引擎自己随后发的 AddItemActor
-//      会把物品图标又塞回客户端（2026-10-16 抓包实证）。现在 hidden = 丢该包; identifier = 丢该包 +
-//      同 runtimeId/uniqueId 手写一只 AddActor（属性用 health 20/scale 1 的已验证配方, 不照抄 ItemActor 的 0 血）。
-//      纯行为修复, 接口无变化。LSE 侧新增 `viewItemSpawnHooked()` 供脚本做能力协商。
-//   ② **视图覆盖补上"变成生物之后的姿态等设置"**: `EntityView` 尾部追加
-//      pose / hasPose · metaScale / hasMetaScale · variant / hasVariant · markVariant / hasMarkVariant ·
-//      colorIndex / hasColorIndex · color2 / hasColor2（`hasXxx = false` = 该项不动, 与 hasNametag 同约定）;
-//      LSE `viewEntity` 的 spec 串补 `pose= / scale= / variant= / mark= / color= / color2=` 六个键。
-//      协议项: PoseIndex(79) / Reserved38(scale) / Variant(2) / MarkVariant(43) / ColorIndex(3) /
-//      Color2Index(82) / Reserved53·54(客户端碰撞箱) —— **颜色两项的类型是 Byte, 另两项是 Int**,
-//      这是解码引擎自己的真实出生包得到的（不是照协议表猜的）。
-//      消费方用 >= 0x012300 门住这些新字段。
-//   ⚠ 尾部追加不改虚表槽位, 但**改了 EntityView 的大小** —— 直接构造该结构体的消费方要重新编译。
-//   ⚠ 与 `skinId` 搭配的"模型缩放"仍是 `EntityView::scale`（1.27.0 起）, 本版新增的**元数据缩放**叫
-//     `metaScale`（两个都在结构尾部, 别混: 前者走玩家模型出生包, 后者走元数据 + 客户端碰撞箱）。
-// 0x012500（26.40.12 / 26.51.5，API 1.31.0）：拉伸 / live 变换 / 动画预设 / 停止配方 / 假玩家姿势装备骑乘。
-#define HOLOGLIB_API_VERSION 0x012800
+#define HOLOGLIB_API_VERSION 0x012900
 
-// ── ABI 布局戳（消费方自检用; 与上面的"功能版本"是两件事, 别混）──
-// 语义: 只在**破坏虚表槽位**的改动时 +1 —— 在接口**中段**插入/删除/重排虚函数、改已发布方法的签名;
-//      **尾部追加不动它**（追加不改变已有槽位, 用旧头文件编译的消费方照样兼容 —— 这正是"冻结契约"的价值）。
-// 为什么需要: 消费方把虚函数的**声明顺序**在编译期固化成槽位号, 运行时才去 DLL 的虚表里取。DLL 布局与
-//   消费方编译时的头文件不是同一版时, 调用会落到**别的方法**上。实测两次（2026-10-09 / 10-10 启动崩溃）:
-//   addActorInteractListener / removeActorInteractListener 的第一版被插在 ghost 段之后（中段）→
-//   playerNpcs() 及其后整体前移 2 格 → 旧二进制的 playerNpcs() 取到"返回 bool"的方法 → 拿到 0 当引用用 →
-//   解引用 0xC0000005 崩服; 而栈全在消费方自己代码里, 看起来像"两个插件互相冲突"。
-//   功能版本号挡不住这种情况: 错位的那版 DLL 版本号反而更高（>= kRequired 照样通过）。
-// 实现方式: DLL 导出纯 C 符号（见下面 Symbol）—— 消费方用 GetProcAddress **动态**取, 老 DLL 没有它时
-//   拿到 null 而不是链接/加载期失败, 也不动虚表（加虚函数槽本身在"批次不一致"时也会崩）。
-// 用法（消费方 enable() 里做一次; 取不到或不一致 = 库不是同一批构建, 应**拒绝启用**并提示用户）:
-//   auto h = ::GetModuleHandleA("HologramLib.dll");
-//   auto fn = h ? ::GetProcAddress(h, HOLOGLIB_ABI_STAMP_SYMBOL) : nullptr;
-//   if (!fn || reinterpret_cast<std::uint32_t(__cdecl*)()>(fn)() != HOLOGLIB_ABI_STAMP) { 拒绝启用 }
-// 提示语要点: 把**同一批构建**的 HologramLib.dll 部署到 plugins/HologramLib/ 并重启;
-//   若插件的槽位已错位, 必须重新**编译**（槽位号写死在机器码里）, 只重新链接不算。
-//   例: MSkinventory::HoloLoad.cpp / MeowHolographicRenderer::ModEntry.cpp 各有一份实现。
 inline constexpr std::uint32_t HOLOGLIB_ABI_STAMP = 1;
-// 布局戳的导出符号名（纯 C; 见上）
+
 inline constexpr char const* HOLOGLIB_ABI_STAMP_SYMBOL = "hologramlib_abiStamp";
 
 #ifdef HOLOGLIB_EXPORTS
@@ -91,14 +21,11 @@ inline constexpr char const* HOLOGLIB_ABI_STAMP_SYMBOL = "hologramlib_abiStamp";
 
 namespace hologramlib {
 
-// 单玩家朝向（度; 逐客户端朝向功能用）
-// Bedrock yaw 约定: 0°=南(+Z) 90°=西(-X) 180°=北(-Z) 270°=东(+X); 前向 = (-sin yaw, cos yaw)
 struct PerPlayerRotation {
     float yaw{0};
     float pitch{0};
 };
 
-// 形状类型（与 LSE 导出的 DebugShape::getShapeType 数值一致）
 enum class ShapeType : int {
     Text   = 0,
     Line   = 1,
@@ -106,30 +33,18 @@ enum class ShapeType : int {
     Circle = 3,
     Sphere = 4,
     Arrow  = 5,
-    // 6 是历史空洞（早期的 FilledQuad 已废弃），不要复用
+
     Cylinder  = 7,
     Pyramid   = 8,
     Ellipsoid = 9,
     Cone      = 10
 };
 
-// ─────────────────────────────────────────────
-// 形状扩展（1.33.0）
-//
-// 协议层本来就支持 10 种形状与两个通用属性，早期只暴露了 6 种。这里补上剩下的：
-//   · Cylinder / Pyramid / Ellipsoid / Cone
-//   · 最远渲染距离（超出后客户端不画，省带宽）
-//   · 挂到实体上（客户端跟着实体画，不需要每 tick 改坐标）
-//
-// 单独做成一个接口而不是往 IShapeDrawer 中间插方法：往中间插会挪动后面所有接口的虚表槽位，
-// 破坏了"只在尾部追加"的契约。取用: `lib.shapeExt()`。
-// ─────────────────────────────────────────────
+// 形状的圆柱/金字塔/椭球/圆锥与通用属性
 class IShapeDrawerExt {
 public:
     virtual ~IShapeDrawerExt() = default;
 
-    // 圆柱。radiusX/radiusZ 是水平半径，height 是高度，segments 是圆周分段（3~255）。
-    // 协议里两个半径字段各是 Vec2，两个分量含义未公开，这里填同一值（等径）。
     virtual int64_t createCylinder(
         float x,
         float y,
@@ -139,10 +54,8 @@ public:
         float height,
         int   segments = 16) = 0;
 
-    // 金字塔。width/depth 是底面尺寸，height 是高度（depth 在协议里是可选字段，这里总是给出）。
     virtual int64_t createPyramid(float x, float y, float z, float width, float height, float depth) = 0;
 
-    // 椭球。三个方向的半径 + 每个轴的分段数（3~255）。
     virtual int64_t createEllipsoid(
         float x,
         float y,
@@ -152,7 +65,6 @@ public:
         float radiusZ,
         int   segmentsPerAxis = 12) = 0;
 
-    // 圆锥。radiusX/radiusZ 是底面水平半径，height 是高度，segments 是圆周分段（3~255）。
     virtual int64_t createCone(
         float x,
         float y,
@@ -162,25 +74,18 @@ public:
         float height,
         int   segments = 16) = 0;
 
-    // 最远渲染距离（格）。超出后客户端不再绘制该形状；<= 0 表示不限制（清掉该字段）。
     virtual bool setMaxRenderDistance(int64_t id, float distance) = 0;
 
-    // 挂到实体上（按实体的 uniqueId）。挂上后客户端跟着实体画，不必每 tick 改坐标。
     virtual bool setAttachedEntity(int64_t id, int64_t entityUniqueId) = 0;
 
-    // 解除挂载
     virtual bool clearAttachedEntity(int64_t id) = 0;
 };
 
-// ─────────────────────────────────────────────
-// 形状渲染（原 DebugShape-Protocol 能力域）
-// 坐标为世界坐标; 颜色各分量 0.0~1.0
-// ─────────────────────────────────────────────
+// 基础形状：线、方框、球、圆、文本
 class IShapeDrawer {
 public:
     virtual ~IShapeDrawer() = default;
 
-    // 创建（返回形状 ID, <=0 为失败）
     virtual int64_t createText(float x, float y, float z, std::string const& text)          = 0;
     virtual int64_t createLine(float x1, float y1, float z1, float x2, float y2, float z2)  = 0;
     virtual int64_t createBox(float x1, float y1, float z1, float x2, float y2, float z2)   = 0;
@@ -188,48 +93,34 @@ public:
     virtual int64_t createSphere(float x, float y, float z, float scale)                    = 0;
     virtual int64_t createArrow(float x1, float y1, float z1, float x2, float y2, float z2) = 0;
 
-    // 属性
     virtual bool setColor(int64_t id, float r, float g, float b, float a) = 0;
     virtual bool setScale(int64_t id, float scale)                        = 0;
     virtual bool setDuration(int64_t id, float seconds)                   = 0;
     virtual bool setDimension(int64_t id, int dimId)                      = 0;
     virtual bool setLocation(int64_t id, float x, float y, float z)       = 0;
     virtual bool setText(int64_t id, std::string const& text)             = 0;
-    // 三轴欧拉角 [Pitch, Yaw, Roll]（度, 官方脚本 API 口径; 本库直通线格式, 不做换算）。
-    // 文本形状: 自动启用 useRotation（不再面向相机）并打开双面渲染; clearRotation 恢复面向相机。
+
     virtual bool setRotation(int64_t id, float pitch, float yaw, float roll) = 0;
     virtual bool clearRotation(int64_t id)                                   = 0;
 
-    // 显示控制
-    virtual bool draw(int64_t id)                                        = 0; // 全维度可见者
+    virtual bool draw(int64_t id)                                        = 0;
     virtual bool drawToPlayer(int64_t id, std::string const& playerName) = 0;
     virtual bool drawToDimension(int64_t id, int dimId)                  = 0;
-    virtual bool remove(int64_t id)                                      = 0; // 隐藏（保留数据）
-    virtual bool update(int64_t id)                                      = 0; // 可见时原地重发（同 networkId 覆盖, 无闪烁）
+    virtual bool remove(int64_t id)                                      = 0;
+    virtual bool update(int64_t id)                                      = 0;
 
-    // 生命周期
     virtual bool      destroy(int64_t id) = 0;
     virtual void      destroyAll()        = 0;
     virtual bool      exists(int64_t id)  = 0;
     virtual ShapeType type(int64_t id)    = 0;
 
-    // ── 1.26.0 追加（冻结契约: 只在尾部追加）──
-    // 以下三项仅对文本形状（createText）有效, 其它类型返回 false。
-    // 背景框（文本底板）颜色（RGBA 0~1）; clearBackgroundColor = 回客户端默认色。
     virtual bool setBackgroundColor(int64_t id, float r, float g, float b, float a) = 0;
     virtual bool clearBackgroundColor(int64_t id)                                   = 0;
-    // 穿墙可见性（depthTest）: true = 被方块/实体遮挡; false = 始终渲染（穿墙可见, 默认）。
+
     virtual bool setDepthTest(int64_t id, bool enabled) = 0;
 };
 
-// ─────────────────────────────────────────────
-// 悬浮字 / 全息（多行、整块样式、跟随、动态变量; 1.26.0 收缩后口径）
-// 实现"整块文本单一背景框"渲染（非逐字符分框）:
-//   整块 = 一个文本形状 —— 颜色/缩放/背景框/穿墙/旋转都是**整块**属性;
-//   行级样式差异由调用方在文本内嵌 § 颜色代码承担（不再提供行级颜色/缩放 API）。
-// ABI: 1.26.0 收缩掉的 8 个方法保留为**废弃空槽**（非纯虚空实现, 虚表槽位与 1.25.0 一致）
-//   —— 旧二进制按旧槽位调用命中空实现、不会错位; 细节见 VERSION-HISTORY.md「第二次收缩」。
-// ─────────────────────────────────────────────
+// 多行悬浮字（内容池/变量/跟随/渐变）
 class IHologramText {
 public:
     virtual ~IHologramText() = default;
@@ -238,101 +129,78 @@ public:
     virtual bool    destroy(int64_t id)               = 0;
     virtual void    destroyAll()                      = 0;
 
-    // 行管理（行索引 0 起; 行只负责文本）
     virtual bool addLine(int64_t id, std::string const& text)                    = 0;
     virtual bool setLineText(int64_t id, int lineIndex, std::string const& text) = 0;
-    // ── 以下 8 个是**废弃空槽**（1.26.0 收缩; 功能整体移除, 调用一律无动作/返回 false）──
-    // 保留**虚表槽位**（非纯虚 + 内联空实现）只为不动既有 ABI: 1.26.0 之前编译且未重编译的
-    // 消费方二进制照旧按旧槽位调用、命中空实现, 不会错位打到别的函数; 重编译得到 [[deprecated]] 警告。
-    // 真正清槽留到下一个大版本（2.0.0）。
+
     [[deprecated("1.26.0 移除: 行级缩放从未生效; 整块缩放请用 setScale")]]
-    virtual bool setLineScale(int64_t /*id*/, int /*lineIndex*/, float /*scale*/) { return false; }
+    virtual bool setLineScale(int64_t, int, float) { return false; }
     virtual bool removeLine(int64_t id, int lineIndex) = 0;
     virtual bool clearLines(int64_t id)                = 0;
     virtual int  getLineCount(int64_t id)              = 0;
 
-    // 整块颜色（RGBA 0~1）
     virtual bool setColor(int64_t id, float r, float g, float b, float a) = 0;
     [[deprecated("1.26.0 移除: 行级颜色无协议支撑; 行级颜色请用文本内嵌 § 颜色代码")]]
-    virtual bool setLineColor(int64_t /*id*/, int /*lineIndex*/, float /*r*/, float /*g*/, float /*b*/, float /*a*/) {
+    virtual bool setLineColor(int64_t, int, float, float, float, float) {
         return false;
     }
     [[deprecated("1.26.0 移除: 行级渐变无协议支撑")]]
     virtual bool setLineGradient(
-        int64_t /*id*/,
-        int /*lineIndex*/,
-        float /*r1*/,
-        float /*g1*/,
-        float /*b1*/,
-        float /*r2*/,
-        float /*g2*/,
-        float /*b2*/
-    ) {
+        int64_t,
+        int,
+        float,
+        float,
+        float,
+        float,
+        float,
+        float) {
         return false;
     }
     [[deprecated("1.26.0 移除: 彩虹模式会把文本涂白")]]
-    virtual bool setLineRainbow(int64_t /*id*/, int /*lineIndex*/, float /*speed*/) { return false; }
+    virtual bool setLineRainbow(int64_t, int, float) { return false; }
     [[deprecated("1.26.0 移除: 依赖已删除的库内自驱动画")]]
-    virtual bool setLineScroll(int64_t /*id*/, int /*lineIndex*/, int /*direction*/, float /*speed*/) { return false; }
+    virtual bool setLineScroll(int64_t, int, int, float) { return false; }
     [[deprecated("1.26.0 移除: 依赖已删除的库内自驱动画")]]
-    virtual bool setVerticalAnimation(int64_t /*id*/, int /*type*/, float /*speed*/, float /*range*/) {
+    virtual bool setVerticalAnimation(int64_t, int, float, float) {
         return false;
     }
     [[deprecated("1.26.0 移除: 协议 2168 无行间距字段")]]
-    virtual bool setLineSpacing(int64_t /*id*/, float /*spacing*/) { return false; }
+    virtual bool setLineSpacing(int64_t, float) { return false; }
 
-    // 位置与跟随（跟随位置在 setFollowPlayer / draw / refresh 调用时就地解析 —— 无库内自驱 tick）
     virtual bool setLocation(int64_t id, float x, float y, float z)                        = 0;
     virtual bool setFollowPlayer(int64_t id, std::string const& playerName, float offsetY) = 0;
     virtual bool clearFollowPlayer(int64_t id)                                             = 0;
 
-    // 显示
     virtual bool draw(int64_t id)                                        = 0;
     virtual bool drawToDimension(int64_t id, int dimId)                  = 0;
     virtual bool drawToPlayer(int64_t id, std::string const& playerName) = 0;
     virtual bool remove(int64_t id)                                      = 0;
-    virtual bool refresh(int64_t id)                                     = 0; // 重新解析变量/跟随坐标并原地重发
+    virtual bool refresh(int64_t id)                                     = 0;
 
     [[deprecated("1.26.0 移除: 库内自驱已删; 跟随/变量在 draw / refresh 时就地解析")]]
-    virtual void tick(float /*deltaTime*/) {} // 废弃空槽（同上, 只为保持虚表槽位）
+    virtual void tick(float) {}
 
-    // ── 1.12.0 追加（冻结契约: 只在尾部追加）──
-    // 迁移维度: 已绘制时同步底层形状维度并按原绘制目标原地重发（无闪烁）
     virtual bool setDimension(int64_t id, int dimId) = 0;
 
-    // ── 1.26.0 追加 ──
-    // 整块缩放（替代原行级 setLineScale —— 行级缩放从未生效）
     virtual bool setScale(int64_t id, float scale) = 0;
-    // 背景框（文本底板）颜色（RGBA 0~1; 不设 = 客户端默认色）
+
     virtual bool setBackgroundColor(int64_t id, float r, float g, float b, float a) = 0;
     virtual bool clearBackgroundColor(int64_t id)                                   = 0;
-    // 穿墙可见性（depthTest）: true = 被方块/实体遮挡; false = 始终渲染（穿墙可见, 默认）
+
     virtual bool setDepthTest(int64_t id, bool enabled) = 0;
-    // 整块三轴旋转（度, [Pitch, Yaw, Roll]; 官方脚本 API 口径）:
-    // 设置后整块不再面向相机（useRotation）; clearRotation 恢复面向相机。
+
     virtual bool setRotation(int64_t id, float pitch, float yaw, float roll) = 0;
     virtual bool clearRotation(int64_t id)                                   = 0;
 
-    // ── 1.26.0 追加: 动态行（**重构自 Phantom**, LGPL-3.0 —— 见 src/FloatingTextManager.h 文件头标注）──
-    // setLinePool: 该行的候选内容池 —— 每 intervalMs 毫秒轮播一项（时间取模 = 无状态, 多个浮字
-    //   同池同相）; 池 <=1 项或 intervalMs<=0 = 不轮播; content 为空 = 清除池（回到 setLineText 文本）。
-    //   轮播由库内 0.5s 节流刷新承担（**内容变了才重发**）—— 区别于本版移除的自驱"偏移"
-    //   （那时每拍都在动、但驱出来的东西没有消费方）; 这里每次刷新都是客户端可见的真变化。
     virtual bool setLinePool(int64_t id, int lineIndex, std::vector<std::string> const& content, int intervalMs) = 0;
-    // setLineParseVariables: 该行是否解析变量（内置 {player}/{online}/{time}/{tps}/{dimension}/{x}/{y}/{z}
-    //   + 经 MeowPAPI 的外部占位符）。默认 true; 关掉 = { } 按字面量原样显示。
+
     virtual bool setLineParseVariables(int64_t id, int lineIndex, bool enabled) = 0;
 };
 
-// ─────────────────────────────────────────────
-// 物品详情显示（原 itemdetail 能力域: 掉落物/商店等场景的"物品名 ×数量"悬浮）
-// ─────────────────────────────────────────────
+// 物品详情悬浮字
 class IItemDetail {
 public:
     virtual ~IItemDetail() = default;
 
-    // 在指定位置显示物品详情（自动翻译物品名; count<=1 时不带数量后缀）
-    // 返回详情 ID（内部即悬浮字 ID, 可继续用 holograms() 精修）
     virtual int64_t show(
         int                dimId,
         float              x,
@@ -343,103 +211,86 @@ public:
         int                count,
         std::string const& customText = "") = 0;
 
-    // customText 非空时完全替代自动文本（支持 § 颜色码与 {变量}）
     virtual bool hide(int64_t id) = 0;
 };
 
-// ─────────────────────────────────────────────
-// 物品悬浮显示（FMBE 狐狸+发包技术; 1.6.0 追加）
-// 用隐形狐狸手持物品渲染任意物品/方块的悬浮展示,
-// 三轴旋转/函数平移/缩放全部支持 Molang 表达式
-// ─────────────────────────────────────────────
 struct ItemDisplayConfig {
-    std::string item{"minecraft:diamond"}; // 显示的物品标识符
-    int         itemAux{0};                // 物品附加值（data 值）
-    float       x{0}, y{64}, z{0};         // 世界坐标
-    int         dimension{0};              // 维度 ID
-    // 平移（函数平移：常量数字或 Molang 表达式）
-    std::string offsetX{"0"};     // v.xpos   模型单位平移 X
-    std::string offsetY{"-4"};    // v.ypos   模型单位平移 Y（物品模式默认 -4）
-    std::string offsetZ{"0"};     // v.zpos   模型单位平移 Z
-    std::string baseOffsetX{"0"}; // v.xbasepos 渲染像素基础偏移 X
-    std::string baseOffsetY{"0"}; // v.ybasepos 渲染像素基础偏移 Y
-    std::string baseOffsetZ{"0"}; // v.zbasepos 渲染像素基础偏移 Z
-    // 三轴旋转（度, 支持 Molang 表达式）
-    std::string rotX{"180"}; // v.xrot 俯仰（物品模式默认 180 = 水平放置）
-    std::string rotY{"0"};   // v.yrot 偏航（物品模式内部自动 +205 补偿狐狸头朝向）
-    std::string rotZ{"180"}; // v.zrot 翻滚（物品模式默认 180 = 正面朝上）
-    // 缩放
-    std::string scale{"0.375"}; // v.scale（物品模式默认 0.375; 方块模式建议 0.5）
-    // 方块模式附加变换（仅 blockMode 生效）
-    std::string extendScale{"1"};  // v.extend_scale 二段缩放
-    std::string extendRotX{"-90"}; // v.extend_xrot   二段旋转 X
-    std::string extendRotY{"0"};   // v.extend_yrot   二段旋转 Y
-    // 行为
-    int    mode{0};            // 0=auto（按物品 3D/2D 自动） 1=item 2=block
-    double viewDistance{64.0}; // 可见距离（方块; <=0 无限制）
+    std::string item{"minecraft:diamond"};
+    int         itemAux{0};
+    float       x{0}, y{64}, z{0};
+    int         dimension{0};
+
+    std::string offsetX{"0"};
+    std::string offsetY{"-4"};
+    std::string offsetZ{"0"};
+    std::string baseOffsetX{"0"};
+    std::string baseOffsetY{"0"};
+    std::string baseOffsetZ{"0"};
+
+    std::string rotX{"180"};
+    std::string rotY{"0"};
+    std::string rotZ{"180"};
+
+    std::string scale{"0.375"};
+
+    std::string extendScale{"1"};
+    std::string extendRotX{"-90"};
+    std::string extendRotY{"0"};
+
+    int    mode{0};
+    double viewDistance{64.0};
     bool   enabled{true};
-    // 物品附加数据（SNBT 字符串; 空 = 无; 1.8.0 追加）
-    // 携带自定义名称等用户数据; 由消费者从手持物品快照或手写 SNBT
+
     std::string itemNbt{};
-    // 附魔光效开关（1.9.0 追加）: true = 经 BDS 原生 saveEnchantsToUserData
-    // 注入 1 级锋利（仅取光效）; 与 itemNbt 独立叠加
+
     bool itemGlint{false};
-    // ── 1.17.0 追加（冻结契约: 结构尾部追加）──
-    // AABB 判定体积（SetActorData R53=Width R54=Height; 0/0 = 无判定体积不可命中,
-    // 默认值与历史行为一致）。> 0 时客户端射线可命中 → 攻击经 ghost 交互路由回库内 id
+
     float hitboxWidth{0.0f};
     float hitboxHeight{0.0f};
 };
 
-// ─────────────────────────────────────────────
-// 展示动画预设（26.40.12; 库内逻辑 —— 一次调用生成 Molang 表达式并 live 重发）
-// 单位: spin 度/秒, period 秒, phase 秒（多个展示错开相位）; 运行时客户端每帧算, 服务端零 tick。
-// 组合顺序: spin → billboard → bob / pulse / sway; clearAnim 恢复 setAnim 之前的常量。
-// ─────────────────────────────────────────────
 struct ItemDisplayAnim {
-    float spinSpeed{0.0f};      // 匀速自转（度/秒; 0 = 不转）
-    int   spinAxis{1};          // 0=X 1=Y 2=Z
-    float bobAmplitude{0.0f};   // 上下浮动幅度（模型单位; 0 = 不浮）
-    float bobPeriod{2.0f};      // 浮动周期（秒）
-    float pulseAmplitude{0.0f}; // 缩放呼吸幅度（比例; 0.2 = ±20%）
-    float pulsePeriod{2.0f};    // 呼吸周期（秒）
-    float swayAmplitude{0.0f};  // 摇摆幅度（度; 同时作用于 X/Z）
-    float swayPeriod{3.0f};     // 摇摆周期（秒）
-    float phase{0.0f};          // 相位偏移（秒）
-    bool  billboard{false};     // 面向相机（仅物品模式; q.rotation_to_camera(1)）
+    float spinSpeed{0.0f};
+    int   spinAxis{1};
+    float bobAmplitude{0.0f};
+    float bobPeriod{2.0f};
+    float pulseAmplitude{0.0f};
+    float pulsePeriod{2.0f};
+    float swayAmplitude{0.0f};
+    float swayPeriod{3.0f};
+    float phase{0.0f};
+    bool  billboard{false};
 
-    // ── 26.40.12 扩展预设（全部是持续循环, 不含一次性动画）──
-    float orbitRadius{0.0f};        // 绕基准点画圈（模型单位; 0 = 不绕）
-    float orbitPeriod{4.0f};        // 绕圈周期（秒）
-    int   orbitPlane{2};            // 0=XY 1=YZ 2=XZ
-    float tumbleSpeed{0.0f};        // X/Z 双轴翻滚（度/秒; 0 = 不翻）
-    float wobbleAmplitude{0.0f};    // 双正弦微晃幅度（度）
-    float wobbleSpeed{1.0f};        // 微晃倍率
-    float heartbeatAmplitude{0.0f}; // 心跳缩放（比例; 0.15 = 峰值 +15%）
-    float heartbeatPeriod{1.2f};    // 心跳周期（秒）
-    float pendulumAmplitude{0.0f};  // 绕 Y 钟摆幅度（度）
-    float pendulumPeriod{3.0f};     // 钟摆周期（秒）
-    bool  billboardPitch{false};    // 面向相机时同时跟随俯仰
-    float lodNear{0.0f};            // 距离 LOD 近端（格; 与 lodFar 同时 > 0 才生效）
-    float lodFar{0.0f};             // 距离 LOD 远端
-    float lodMinScale{1.0f};        // 远端最小缩放
-    bool  hideInFirstPerson{false}; // 第一人称隐藏（缩放乘 1-q.is_first_person）
+    float orbitRadius{0.0f};
+    float orbitPeriod{4.0f};
+    int   orbitPlane{2};
+    float tumbleSpeed{0.0f};
+    float wobbleAmplitude{0.0f};
+    float wobbleSpeed{1.0f};
+    float heartbeatAmplitude{0.0f};
+    float heartbeatPeriod{1.2f};
+    float pendulumAmplitude{0.0f};
+    float pendulumPeriod{3.0f};
+    bool  billboardPitch{false};
+    float lodNear{0.0f};
+    float lodFar{0.0f};
+    float lodMinScale{1.0f};
+    bool  hideInFirstPerson{false};
 };
 
+// 物品展示实体（图标/缩放/动画）
 class IItemDisplay {
 public:
     virtual ~IItemDisplay() = default;
 
-    // 生命周期（id 驱动; 创建失败返回 < 0; 持久化由消费者负责）
     virtual int64_t create(ItemDisplayConfig const& config)       = 0;
     virtual bool    destroy(int64_t id)                           = 0;
     virtual void    destroyAll()                                  = 0;
     virtual bool    exists(int64_t id) const                      = 0;
-    virtual bool    get(int64_t id, ItemDisplayConfig& out) const = 0; // 拷贝输出当前配置
+    virtual bool    get(int64_t id, ItemDisplayConfig& out) const = 0;
 
-    // 属性（变换字段为常量数字或 Molang 表达式字符串）
     virtual bool setItem(int64_t id, std::string const& item, int aux)                                          = 0;
-    virtual bool setPosition(int64_t id, float x, float y, float z, int dim)                                    = 0; // dim<0 仅改坐标
+    virtual bool setPosition(int64_t id, float x, float y, float z, int dim)                                    = 0;
     virtual bool setOffset(int64_t id, std::string const& ox, std::string const& oy, std::string const& oz)     = 0;
     virtual bool setBaseOffset(int64_t id, std::string const& ox, std::string const& oy, std::string const& oz) = 0;
     virtual bool setRotation(int64_t id, std::string const& rx, std::string const& ry, std::string const& rz)   = 0;
@@ -448,242 +299,167 @@ public:
     virtual bool setMode(int64_t id, int mode)                                                                  = 0;
     virtual bool setEnabled(int64_t id, bool enabled)                                                           = 0;
     virtual bool setViewDistance(int64_t id, double dist)                                                       = 0;
-    virtual bool rotateY(int64_t id, float delta)                                                               = 0; // 在现有 rotY 上叠加增量
+    virtual bool rotateY(int64_t id, float delta)                                                               = 0;
 
     virtual std::vector<int64_t> getAllIds() const = 0;
 
-    // ── 1.7.0 追加（冻结契约: 只在尾部追加）──
-    // 随机 ID 创建: ID 由库在随机段 [0x10000000, 0x7FFFFFFF) 自动生成（查重保证不与现有冲突,
-    // 且与自增段长期隔离）; 成功返回生成的 ID, 失败返回 < 0
     virtual int64_t createRandom(ItemDisplayConfig const& config) = 0;
-    // 指定 ID 创建: 用于持久化恢复（如随机 ID 重启后原位还原）; desiredId <= 0 或已被占用返回 -2
+
     virtual int64_t createWithId(ItemDisplayConfig const& config, int64_t desiredId) = 0;
-    // 查询 ID 是否在用
+
     virtual bool isIdUsed(int64_t id) const = 0;
 
-    // ── 1.7.1 追加（冻结契约: 只在尾部追加）──
-    // 相对缩放（放大/缩小）: 在现有 scale 上乘以 factor
-    // 常量缩放直接相乘, 表达式缩放包裹 (expr)*factor
-    // factor<=0 或 id 不存在返回 false
     virtual bool scaleBy(int64_t id, double factor) = 0;
 
-    // ── 1.8.0 追加（冻结契约: 只在尾部追加）──
-    // 换物品（带附加数据）: nbt 为 SNBT 字符串（附魔/自定义名称等用户数据）,
-    // 空串 = 清除附加数据; SNBT 解析失败按无 NBT 处理并告警; id 不存在返回 false
     virtual bool setItemWithNbt(int64_t id, std::string const& item, int aux, std::string const& nbt) = 0;
 
-    // ── 1.9.0 追加（冻结契约: 只在尾部追加）──
-    // 附魔光效开关: 开 = BDS 原生路径注入 1 级锋利（客户端紫色光效）,
-    // 关 = 移除附魔; 幂等（值未变不重发）; id 不存在返回 false
     virtual bool setGlint(int64_t id, bool on) = 0;
 
-    // ── 1.17.0 追加（冻结契约: 只在尾部追加）──
-    // 展示跟随玩家: 每 tick 读取目标玩家实时坐标（含跨维度自动 respawn）,
-    // 对已见玩家发 MoveActorAbsolute（非 teleport 标志, 客户端插值）驱动狐狸载体
-    // 平滑位移 —— 全程无 respawn、无 Remove/Add、无闪烁。
-    // 目标玩家下线自动解除跟随（方块原地保留）; setPosition 手动设位解除跟随。
-    // playerName 按玩家名（Player::getRealName 即 LSE realName）匹配; id 不存在返回 false
     virtual bool follow(int64_t id, std::string const& playerName, float offX, float offY, float offZ) = 0;
-    // 解除跟随（方块保留在当前位置）; 无跟随关系时返回 true
+
     virtual bool unfollow(int64_t id) = 0;
-    // AABB 判定体积: 对已见玩家广播 SetActorDataPacket(R53/R54), 轻量即时无 respawn;
-    // 数值持久入配置（后续 respawn 自动按当前值发包）; width/height=0 恢复不可选中;
-    // id 不存在返回 false
+
     virtual bool setHitbox(int64_t id, float width, float height) = 0;
 
-    // ── 26.40.12 追加（冻结契约: 只在尾部追加）──
-    // 非等比拉伸: FMBE 的缩放只有两条通道 —— XZ（v.swelling_scale1）与 Y（v.swelling_scale2）。
-    //   · 值写常量或 Molang 表达式字符串（"1" = 不拉伸, 默认）; 与 scale 相乘, 不影响偏移/旋转;
-    //   · **X 与 Z 共轴**（同一个通道）—— 不能只拉伸其中一个; 平面物品看起来就是"横向拉伸";
-    //   · 方块需要"任意方向单轴拉伸（会同时改变方块朝向）"用 setExtend, 不是这里。
-    // setStretch 持久化并 respawn（有闪烁）; setStretchLive 只重发 FMBE 动画包（无闪烁）。
     virtual bool setStretch(int64_t id, std::string const& xz, std::string const& y)     = 0;
     virtual bool setStretchLive(int64_t id, std::string const& xz, std::string const& y) = 0;
 
-    // 原地更新变换: 持久化配置并只重发 FMBE 动画包（item 2 包 / block 5 包）,
-    // **不 despawn、不换 uniqueId/runtimeId、不闪** —— 适合运行时连续改表达式/动画阶段。
-    // 与 setRotation/setScale/setOffset（标脏 → 下一 tick 单次 respawn）的区别仅此一处。
     virtual bool setRotationLive(int64_t id, std::string const& rx, std::string const& ry, std::string const& rz) = 0;
     virtual bool setOffsetLive(int64_t id, std::string const& ox, std::string const& oy, std::string const& oz)   = 0;
     virtual bool setScaleLive(int64_t id, std::string const& scale)                                               = 0;
-    // 一次性改齐 offset/rot/scale（一次重发, 不叠加多次抖动）; 拉伸走 setStretchLive
+
     virtual bool setTransformLive(
         int64_t            id,
         std::string const& ox, std::string const& oy, std::string const& oz,
         std::string const& rx, std::string const& ry, std::string const& rz,
         std::string const& scale) = 0;
 
-    // 动画预设（库内逻辑）: 把 spin/bob/pulse/sway/billboard 组合成 Molang 表达式,
-    // 写入配置并 live 重发（不 despawn）。重复调用只更新参数, 基准值仍是第一次 setAnim 时的。
     virtual bool setAnim(int64_t id, ItemDisplayAnim const& anim) = 0;
-    // 单通道预设（26.40.12）: preset = spin/bob/pulse/sway/orbit/tumble/wobble/heartbeat/
-    //   pendulum/billboard/lod/firstperson/clear; 只改这一路, 其余保持; 立即 live 重发。
-    //   a/b/c 含义随 preset 变（见 README）; clear = 等价 clearAnim。
+
     virtual bool setAnimPreset(int64_t id, std::string const& preset, float a, float b, int c) = 0;
-    // 停止动画, 恢复 setAnim 之前的 offset/rot/scale（同样是 live 重发）
+
     virtual bool clearAnim(int64_t id) = 0;
 };
 
-// ─────────────────────────────────────────────
-// 自定义实体协议层生成（任意类型实体; 1.10.0 追加）
-// AddActorPacket 直发客户端生成纯视觉实体, 不占服务端实体系统;
-// 适合 NPC 壳 / 装饰生物 / 盔甲架布景等（不可交互, 无碰撞）
-// ─────────────────────────────────────────────
 struct CustomEntityEquipment {
-    std::string name; // item name（空 = 空槽位）
+    std::string name;
     int         aux{0};
-    std::string nbt{}; // SNBT 形式, 空 = 无附加 NBT
+    std::string nbt{};
 };
 
-// 实体属性（按名同步, ChangeMobProperty）: 目前用于 minecraft:sulfur_cube 的外观档位
-// minecraft:sulfur_cube_archetype; 其它实体的 client_sync 属性同样适用。
 struct EntityMobProperty {
-    std::string name;  // 完整属性名, 如 "minecraft:sulfur_cube_archetype"
-    std::string value; // 字符串取值, 如 "sticky"
+    std::string name;
+    std::string value;
 };
 
 struct CustomEntityConfig {
-    std::string  identifier{"minecraft:armor_stand"}; // 实体类型标识符（短名自动补 minecraft:）
-    float        x{0}, y{64}, z{0};                   // 世界坐标
-    int          dimension{0};                        // 维度 ID
-    float        yaw{0}, pitch{0};                    // 朝向（度; 头/身旋转同值）
-    std::string  nametag{};                           // 头顶名字（支持 § 颜色码; 空 = 无）
-    bool         nametagAlwaysShow{false};            // 名字常显开关（默认 false = 准星对准才显示）
-    float        scale{1.0f};                         // 实体缩放（客户端有效域 0.0625~10, 自动钳制）
-    int          variant{0};                          // 变种（皮肤/亚种, 依实体定义）
-    int          markVariant{0};                      // 二级变种
-    int          colorIndex{0};                       // 颜色索引（羊/项圈等染色实体）
-    std::int64_t flags{0};                            // 原始 flags 位掩码（0x01=着火 0x20=隐身 等）
-    bool         invisible{false};                    // 隐身便捷开关（与 flags 独立, 发包时合成 0x20）
-    double       viewDistance{64.0};                  // 可见距离（方块; <=0 无限制）
+    std::string  identifier{"minecraft:armor_stand"};
+    float        x{0}, y{64}, z{0};
+    int          dimension{0};
+    float        yaw{0}, pitch{0};
+    std::string  nametag{};
+    bool         nametagAlwaysShow{false};
+    float        scale{1.0f};
+    int          variant{0};
+    int          markVariant{0};
+    int          colorIndex{0};
+    std::int64_t flags{0};
+    bool         invisible{false};
+    double       viewDistance{64.0};
     bool         enabled{true};
-    int          pose{0}; // 盔甲架 / 玩家 PoseIndex (ActorDataIDs::PoseIndex) 0=Standing 1=NoBasePlate 2=ShowArms 3..13 坐姿/睡姿/跳舞
-    // 装备槽位（slot 编码与 MobEquipmentPacket 一致: 0=mainhand 1=offhand 2=head 3=chest 4=legs 5=feet）
+    int          pose{0};
+
     CustomEntityEquipment equipment[6];
-    // ── 1.12.0 追加（冻结契约: 结构尾部追加）──
-    // 骑乘链接目标（SetActorLinkPacket; 两者互斥, 后设置者生效; 空名/0 = 无链接）
-    std::string ridePlayerName{}; // 实体骑到指定玩家头上（玩家为载具; 须在线）
-    int64_t     rideEntityId{0};  // 实体骑到另一自定义实体上（对方库内 id 为载具）
-    // ── 1.23.0 追加（冻结契约: 结构尾部追加）──
-    // 实体属性（ChangeMobProperty, 按名同步的 client_sync 属性; 目前用于硫磺立方体的外观档位）
+
+    std::string ridePlayerName{};
+    int64_t     rideEntityId{0};
+
     std::vector<EntityMobProperty> mobProperties;
 };
 
+// 自定义实体（模型/动画/装备/骑乘）
 class ICustomEntity {
 public:
     virtual ~ICustomEntity() = default;
 
-    // 生命周期（id 驱动; 创建失败返回 < 0; 持久化由消费者负责）
     virtual int64_t              create(CustomEntityConfig const& config)                          = 0;
-    virtual int64_t              createRandom(CustomEntityConfig const& config)                    = 0; // 随机段 ID
-    virtual int64_t              createWithId(CustomEntityConfig const& config, int64_t desiredId) = 0; // <=0/占用返回 -2
+    virtual int64_t              createRandom(CustomEntityConfig const& config)                    = 0;
+    virtual int64_t              createWithId(CustomEntityConfig const& config, int64_t desiredId) = 0;
     virtual bool                 destroy(int64_t id)                                               = 0;
     virtual void                 destroyAll()                                                      = 0;
     virtual bool                 exists(int64_t id) const                                          = 0;
-    virtual bool                 get(int64_t id, CustomEntityConfig& out) const                    = 0; // 拷贝输出当前配置
+    virtual bool                 get(int64_t id, CustomEntityConfig& out) const                    = 0;
     virtual bool                 isIdUsed(int64_t id) const                                        = 0;
     virtual std::vector<int64_t> getAllIds() const                                                 = 0;
 
-    // 属性（变更经 tick 脏刷新合并为单次 respawn, 无闪烁串台）
     virtual bool setIdentifier(int64_t id, std::string const& identifier)    = 0;
-    virtual bool setPosition(int64_t id, float x, float y, float z, int dim) = 0; // dim<0 仅改坐标
+    virtual bool setPosition(int64_t id, float x, float y, float z, int dim) = 0;
     virtual bool setRotation(int64_t id, float yaw, float pitch)             = 0;
-    virtual bool setNametag(int64_t id, std::string const& text)             = 0; // 空串清除
-    virtual bool setScale(int64_t id, float scale)                           = 0; // <=0 拒绝
+    virtual bool setNametag(int64_t id, std::string const& text)             = 0;
+    virtual bool setScale(int64_t id, float scale)                           = 0;
     virtual bool setVariant(int64_t id, int variant)                         = 0;
     virtual bool setMarkVariant(int64_t id, int markVariant)                 = 0;
     virtual bool setColorIndex(int64_t id, int colorIndex)                   = 0;
-    virtual bool setFlags(int64_t id, std::int64_t flags)                    = 0; // 原始位掩码
-    virtual bool setInvisible(int64_t id, bool on)                           = 0; // 便捷开关（幂等）
+    virtual bool setFlags(int64_t id, std::int64_t flags)                    = 0;
+    virtual bool setInvisible(int64_t id, bool on)                           = 0;
     virtual bool setEnabled(int64_t id, bool enabled)                        = 0;
     virtual bool setViewDistance(int64_t id, double dist)                    = 0;
-    // 盔甲架/玩家姿态（PoseIndex 0..13）
+
     virtual bool setPose(int64_t id, int pose) = 0;
-    // 装备槽位: 0=mainhand 1=offhand 2=head 3=chest 4=legs 5=feet；name 空清空槽位
+
     virtual bool setEquipmentSlot(int64_t id, int slot, std::string const& name, int aux, std::string const& nbt) = 0;
 
-    // ── 1.23.0 追加: 实体属性同步（ChangeMobProperty）──
-    // 按属性名下发一个字符串取值（enum 型 client_sync 属性, 如硫磺立方体的外观档位）。
-    // 实体尚未送到客户端时会记下来, spawn 之后自动补发; respawn 后也会重放。
     virtual bool setMobProperty(int64_t id, std::string const& name, std::string const& value) = 0;
     virtual bool clearMobProperties(int64_t id)                                                = 0;
 
-    virtual int64_t findNearest(float x, float y, float z, int dim, double maxDist) const = 0; // 无匹配 -1
+    virtual int64_t findNearest(float x, float y, float z, int dim, double maxDist) const = 0;
 
-    // ── 1.12.0 追加（冻结契约: 只在尾部追加）──
-    // 相对缩放: 在现有 scale 上乘以 factor（结果自动钳制 0.0625~10）
-    // factor<=0 或 id 不存在返回 false
     virtual bool scaleBy(int64_t id, double factor) = 0;
-    // 可见玩家白名单（仅指定玩家可见; 按 Player::getRealName 即 LSE realName 匹配）
-    // setVisiblePlayers 空列表 = 清除限制 = 全员可见
+
     virtual bool setVisiblePlayers(int64_t id, std::vector<std::string> const& playerNames) = 0;
     virtual bool clearVisiblePlayers(int64_t id)                                            = 0;
     virtual bool setVisiblePlayer(int64_t id, std::string const& playerName)                = 0;
-    // 诊断探针: 返回实体运行态摘要字符串（找不到返回 "not_found"）
+
     virtual std::string getDebugInfo(int64_t id) const = 0;
-    // 骑乘链接（SetActorLinkPacket; 变更经 respawn 重放链接; 两者互斥, 后设者生效）
-    virtual bool setRidePlayer(int64_t id, std::string const& playerName) = 0; // 骑到指定玩家头上（须在线）
-    virtual bool setRideEntity(int64_t id, int64_t vehicleEntityId)       = 0; // 骑到另一自定义实体上
+
+    virtual bool setRidePlayer(int64_t id, std::string const& playerName) = 0;
+    virtual bool setRideEntity(int64_t id, int64_t vehicleEntityId)       = 0;
     virtual bool clearRide(int64_t id)                                    = 0;
-    // 播放原版动画（AnimateEntityPacket; controller 名库内按实体 id 自动唯一化）
-    // stopExpression 空串 = 常驻; durationTicks>0 时到期自动停止; id 不存在返回 false
-    // 注意: 一次性发包, 不持久化 —— 无观察者时返回 false; 新观察者的补发由消费方经 spawn 回调自行处理
+
     virtual bool playAnimation(
         int64_t id, std::string const& animation, std::string const& stopExpression, int durationTicks) = 0;
-    // 对指定玩家单发该实体的动画包（spawn 回调里补发用; 玩家未在线/未见过该实体返回 false）
+
     virtual bool playAnimationTo(
         int64_t id, std::string const& playerName,
         std::string const& animation, std::string const& stopExpression, int durationTicks) = 0;
-    // ── 1.19.0: 实体 spawn 时机通知（纯通知, 无库内状态; 补发决策与数据归消费方）──
-    // 实体对某玩家 spawn/respawn 完成后回调; 消费方可在此用 playAnimationTo 补发自己的持久数据
-    using EntitySpawnCallback                                         = std::function<void(int64_t id, std::string const& playerName)>;
-    virtual void setEntitySpawnCallback(EntitySpawnCallback callback) = 0; // 传 nullptr 清除
 
-    // ── 1.20.0 追加: 逐客户端朝向（每个观察者看到不同朝向; "看向自己"玩法）──
-    // 覆盖指定玩家收到的该实体 yaw/pitch（AddActor 出生包与后续增量包都按覆盖值下发）;
-    // 未覆盖的玩家仍用 config 朝向; 玩家离线/未见过该实体返回 false。
-    // 变更走轻脏增量（不发 RemoveActor, 无闪烁）, 需在下一 tick 生效。
+    using EntitySpawnCallback                                         = std::function<void(int64_t id, std::string const& playerName)>;
+    virtual void setEntitySpawnCallback(EntitySpawnCallback callback) = 0;
+
     virtual bool setPlayerRotation(int64_t id, std::string const& playerName, float yaw, float pitch) = 0;
-    // 清除单个玩家的朝向覆盖（回到 config 朝向）
+
     virtual bool clearPlayerRotation(int64_t id, std::string const& playerName) = 0;
-    // 清除该实体全部玩家的朝向覆盖（关闭逐客户端朝向时调用）
+
     virtual bool clearPlayerRotations(int64_t id) = 0;
 
-    // ── 1.21.0 追加: 千人千面（按观看者覆盖外观字段; "千人千面实体"）──
-    // 同一套机制与逐客户端朝向一致: 覆盖值按玩家 uuid 保存, 出生包与增量包都按覆盖值下发;
-    // 未覆盖的玩家仍用 config 值。装备变更即时单发（不 respawn, 无闪烁）。
-    // 覆盖名字（text 空 = 清除该玩家的覆盖, 回到 config 名字牌）
     virtual bool setPlayerNametag(int64_t id, std::string const& playerName, std::string const& text) = 0;
-    // 覆盖缩放（<=0 = 清除覆盖; 有效域 0.0625~10）
+
     virtual bool setPlayerScale(int64_t id, std::string const& playerName, float scale) = 0;
-    // 覆盖单个装备槽（slot: 0=主手 1=副手 2=头 3=胸 4=腿 5=脚; name 空 = 该槽回退 config）
+
     virtual bool setPlayerEquipmentSlot(
         int64_t id, std::string const& playerName, int slot, std::string const& name, int aux, std::string const& nbt) = 0;
-    // 清除该玩家对实体的全部外观覆盖（名字/缩放/装备; 朝向覆盖单独由 clearPlayerRotation 管理）
+
     virtual bool clearPlayerAppearance(int64_t id, std::string const& playerName) = 0;
 
-    // ── 26.40.12 追加: 显式停止动画 ──
-    // 取消配方: 同一个 controller 换播"空动作" animation.player.attack.positions,
-    // stopExpression 为常量 1（客户端当帧判定为真 → transition 到 none → 原动画被取消）。
-    // 说明: 旧文档推荐的 "query.any_animation" 不是合法 Molang 查询, 实际会按 0 处理、停不掉;
-    // 为兼容旧调用, playAnimation 收到该字符串时仍按"立刻停"处理（内部走本配方）。
-    // 无观察者 / id 不存在返回 false。
     virtual bool stopAnimation(int64_t id)                                  = 0;
     virtual bool stopAnimationTo(int64_t id, std::string const& playerName) = 0;
 };
-// ─────────────────────────────────────────────
-// 通用协议层粒子形状系统（1.14.0 追加; 1.15.0 发送通道升级 + moveTo）
-// 点/线/矩形环/填充面/长方体框/六面/多面体 + 平移/平滑移动/旋转/自旋/缩放/跟随;
-// 批量并发发送: 逐玩家 vanilla SpawnParticleEffectPacket 经 NetworkSystem 入队,
-// BDS tick flush 自动聚合压缩单 Batch 数据报（与原版粒子广播同路径）;
-// 采样/视距裁剪/周期重发由库内 tick 自驱动, 消费者只管创建与控制
-// ─────────────────────────────────────────────
+
+// 粒子形状（点/线/面/盒/多边形）
 class IParticleShape {
 public:
     virtual ~IParticleShape() = default;
 
-    // ── 创建（世界坐标; 返回形状 id, <0 = 失败; lifetimeTicks 0 = 永久）──
-    // intervalTicks = 周期整批重发间隔（粒子瞬态, 靠重发维持常驻视觉）
     virtual int64_t createPoint(
         std::string const& owner, int dimId,
         float x, float y, float z,
@@ -692,7 +468,7 @@ public:
         std::string const& owner, int dimId,
         float x1, float y1, float z1, float x2, float y2, float z2, float step,
         std::string const& effect, int intervalTicks, int lifetimeTicks) = 0;
-    // axis: 0=XY 1=YZ 2=XZ（w/h 沿平面两轴; rect=环线, plane=填充网格）
+
     virtual int64_t createRect(
         std::string const& owner, int dimId,
         float cx, float cy, float cz, float w, float h, int axis, float step,
@@ -701,7 +477,7 @@ public:
         std::string const& owner, int dimId,
         float cx, float cy, float cz, float w, float h, int axis, float step,
         std::string const& effect, int intervalTicks, int lifetimeTicks) = 0;
-    // hx/hy/hz = 半尺寸; box=12 边线框, boxFaces=六面填充
+
     virtual int64_t createBox(
         std::string const& owner, int dimId,
         float cx, float cy, float cz, float hx, float hy, float hz, float step,
@@ -710,364 +486,221 @@ public:
         std::string const& owner, int dimId,
         float cx, float cy, float cz, float hx, float hy, float hz, float step,
         std::string const& effect, int intervalTicks, int lifetimeTicks) = 0;
-    // 多面体: verts 为顶点数组 (x,y,z)*N; edges 为顶点索引对 (i,j)*M
-    // （锚点 = 质心, 旋转绕质心; 本地拷贝存储, 调用后可释放）
+
     virtual int64_t createPoly(
         std::string const& owner, int dimId,
         std::vector<float> const& verts, std::vector<std::int32_t> const& edges, float step,
         std::string const& effect, int intervalTicks, int lifetimeTicks) = 0;
 
-    // ── 智能控制 ──
-    // 平移锚点（= 粒子移动: 下次发射整批重发在新位置）; 同时解除跟随
     virtual bool setPos(int64_t id, float x, float y, float z)    = 0;
     virtual bool moveBy(int64_t id, float dx, float dy, float dz) = 0;
-    // 欧拉角（度, ZYX 序, 绕形状锚点）
+
     virtual bool setRot(int64_t id, float rx, float ry, float rz) = 0;
-    // 自旋速率（度/tick; 0,0,0 停止）
+
     virtual bool spin(int64_t id, float sx, float sy, float sz) = 0;
     virtual bool setScale(int64_t id, float scale)              = 0;
-    // 锚点跟随玩家位置 + 偏移（每 tick 自动更新, 跨维度自动跟随）
+
     virtual bool follow(int64_t id, std::string const& playerUuid, float offX, float offY, float offZ) = 0;
     virtual bool unfollow(int64_t id)                                                                  = 0;
 
-    // ── 渲染 / 可见性 / 生命周期 ──
     virtual bool setEffect(int64_t id, std::string const& effect) = 0;
-    // 白名单（玩家 UUID）; 空列表 = 形状所在维度全员可见
+
     virtual bool setVisiblePlayers(int64_t id, std::vector<std::string> const& playerUuids) = 0;
     virtual bool clearVisiblePlayers(int64_t id)                                            = 0;
     virtual bool setInterval(int64_t id, int ticks)                                         = 0;
-    virtual bool setViewDistance(int64_t id, int blocks)                                    = 0; // 逐玩家 3D 裁剪; 0 = 不裁剪
-    virtual bool setLifetime(int64_t id, int ticks)                                         = 0; // 从现在起; 0 = 永久
+    virtual bool setViewDistance(int64_t id, int blocks)                                    = 0;
+    virtual bool setLifetime(int64_t id, int ticks)                                         = 0;
 
-    // ── 生命周期 ──
     virtual bool                 destroy(int64_t id)      = 0;
     virtual void                 destroyAll()             = 0;
     virtual bool                 exists(int64_t id) const = 0;
     virtual std::vector<int64_t> getAllIds() const        = 0;
-    // 诊断探针: 运行态摘要字符串（找不到返回 "not_found"）
+
     virtual std::string getDebugInfo(int64_t id) const = 0;
 
-    // ── 1.15.0 追加（冻结契约: 只在尾部追加）──
-    // 平滑点对点移动: 锚点 easeOutCubic 插值逼近目标（单点/整面/整体形状均适用）; 解除跟随
-    // durationTicks <= 0 = 立即到达（等价 setPos）
     virtual bool moveTo(int64_t id, float x, float y, float z, int durationTicks) = 0;
 };
 
-// ─────────────────────────────────────────────
-// ghost 交互事件（1.12.0）: 玩家点击库内协议层实体（CustomEntity / ItemDisplay）
-// 客户端会对"协议上存在"的实体发 InteractPacket; 库 hook 收包后将 runtimeId
-// 反查回库内 id 并派发, 实现"可点击 NPC / 全息菜单"
-// ─────────────────────────────────────────────
-// ─────────────────────────────────────────────
-// 真实实体交互事件（1.27.0）: 玩家右键 / 攻击**服务端真实实体**时回调
-//   · 来源与 ghost 同一处（协议 944+ 的 ItemUseOnActor 事务 + InteractPacket 兜底）:
-//     ghost 路由管"库内协议实体", 这里管"真实实体"（原版生物 / 自定义生物 / 玩家）。
-//   · 为什么由库来做: 消费方自己挂钩子 = 往 BDS 热路径上叠 detour 层, 叠到第 4 层会毁掉
-//     最内层 trampoline（实测崩溃）。库已经挂在收包点上, 顺手派发即可 —— **零新增层**。
-//   · 事件在主线程（收包处理路径）上回调: 回调里只做"入队 / 轻量判断", 重活留给自己的 tick。
-// ─────────────────────────────────────────────
 struct ActorInteractEvent {
-    std::string   playerName; // 交互发起者（realName）
-    std::string   targetType; // 目标实体类型（如 minecraft:cow; 服务端查不到时为空）
-    int           action{0};  // 1 = 右键交互, 2 = 左键攻击（与 GhostInteractEvent 对齐）
+    std::string   playerName;
+    std::string   targetType;
+    int           action{0};
     std::uint64_t runtimeId{0};
-    std::int64_t  uniqueId{0}; // 目标 uniqueId（0 = 服务端查不到这只实体）
+    std::int64_t  uniqueId{0};
     bool          hasPos{false};
     float         x{0}, y{0}, z{0};
 };
 
 struct GhostInteractEvent {
-    std::string playerName; // 点击者（realName）
-    int         action{0};  // InteractPacket Action 原始值（1=Interact 2=Attack 3=StopRiding 4=InteractUpdate 5=NpcOpen 6=OpenInventory）
-    std::string domain;     // "entity" / "itemDisplay" / "npc"
-    int64_t     id{-1};     // 对应域的库内 id
+    std::string playerName;
+    int         action{0};
+    std::string domain;
+    int64_t     id{-1};
     bool        hasPos{false};
     float       x{0}, y{0}, z{0};
 };
 
-// ─────────────────────────────────────────────
-// 假玩家 NPC（自定义皮肤; 1.16.0 追加）
-// PlayerListPacket + AddPlayerPacket 纯协议假玩家:
-// 不占服务端实体系统（无 AI/碰撞/寻路/存档开销）,
-// 完整 3D 玩家模型 + 任意自定义皮肤, 点击经 ghost 交互派发
-// ─────────────────────────────────────────────
-
-// 皮肤注册入参（PNG 文件路径方式; 几何/手臂尺寸等可自定义）
 struct PlayerNpcSkin {
-    std::string pngPath{}; // PNG 文件路径（方形 2 的幂: 64/128/256/512/1024）
-    std::string skinId{};  // 注册名（空 = 用 pngPath 文件名）
-    // 几何自定义（resourcePatch; 默认标准玩家模型）
+    std::string pngPath{};
+    std::string skinId{};
+
     std::string geometry{"geometry.humanoid.custom"};
-    // 手臂尺寸: "wide"（粗） / "slim"（细）; 默认 wide
+
     std::string armSize{"wide"};
-    // 完整几何 JSON 内容（1.18.0; 可选, 提供时启用自定义模型, identifier 自动从 JSON 提取）
+
     std::string geometryData{};
 };
 
 struct PlayerNpcConfig {
-    std::string name{"NPC"};        // 显示名（nametag 同步; 即 PlayerList 条目名）
-    std::string skinId{"default"};  // 已注册皮肤 ID（未注册 = 创建失败 -3）
-    float       x{0}, y{64}, z{0};  // 世界坐标
-    int         dimension{0};       // 维度 ID
-    float       yaw{0};             // 朝向（度; 头/身旋转同值）
-    double      viewDistance{96.0}; // 可见距离（方块; <=0 无限制）
-    float       scale{1.0f};        // 模型缩放（1.19.0; 0.0625~10 客户端硬限, 碰撞箱等比）
+    std::string name{"NPC"};
+    std::string skinId{"default"};
+    float       x{0}, y{64}, z{0};
+    int         dimension{0};
+    float       yaw{0};
+    double      viewDistance{96.0};
+    float       scale{1.0f};
     bool        enabled{true};
 };
 
-// 注意：早前"客户端不渲染皮肤、外观回退默认模型"的问题已在 26.40.2 修复
-// （PlayerList 皮肤条目的 Id / FullId 补全 + 2168 帧格式校验）。本域全部接口可用且数据链路完整：
-// 皮肤注册/在线采集/目录导入、getSkinBlob/registerSkinFromBlob 导出恢复、
-// 创建/移动/朝向/缩放/视距/显隐/交互均正常渲染。
+// 假玩家 NPC（皮肤/姿势/装备/骑乘）
 class IPlayerNpc {
 public:
     virtual ~IPlayerNpc() = default;
 
-    // ── 皮肤注册表（全局; NPC 引用 skinId, 解码一次多处复用）──
-    // PNG 注册（方形 2 的幂 ≥ 64; 失败返回 false 并给出错误; 重复注册覆盖）
     virtual bool registerSkin(PlayerNpcSkin const& skin) = 0;
-    // 从在线玩家采集当前皮肤（含几何/披风/动画全部字段）→ 以 skinId 永久注册
-    // 玩家不在线返回 false; 重复 skinId 覆盖
+
     virtual bool                     captureSkin(std::string const& skinId, std::string const& playerName) = 0;
     virtual bool                     hasSkin(std::string const& skinId) const                              = 0;
-    virtual bool                     unregisterSkin(std::string const& skinId)                             = 0; // 有 NPC 引用时拒绝并返回 false
+    virtual bool                     unregisterSkin(std::string const& skinId)                             = 0;
     virtual std::vector<std::string> getSkinIds() const                                                    = 0;
 
-    // ── 生命周期（id 驱动; 创建失败返回 < 0; 持久化由消费者负责）──
-    // 返回: <0 失败 -3=皮肤未注册
     virtual int64_t              create(PlayerNpcConfig const& config)                          = 0;
-    virtual int64_t              createRandom(PlayerNpcConfig const& config)                    = 0; // 随机段 ID
-    virtual int64_t              createWithId(PlayerNpcConfig const& config, int64_t desiredId) = 0; // <=0/占用返回 -2
+    virtual int64_t              createRandom(PlayerNpcConfig const& config)                    = 0;
+    virtual int64_t              createWithId(PlayerNpcConfig const& config, int64_t desiredId) = 0;
     virtual bool                 destroy(int64_t id)                                            = 0;
     virtual void                 destroyAll()                                                   = 0;
     virtual bool                 exists(int64_t id) const                                       = 0;
-    virtual bool                 get(int64_t id, PlayerNpcConfig& out) const                    = 0; // 拷贝输出当前配置
+    virtual bool                 get(int64_t id, PlayerNpcConfig& out) const                    = 0;
     virtual bool                 isIdUsed(int64_t id) const                                     = 0;
     virtual std::vector<int64_t> getAllIds() const                                              = 0;
 
-    // ── 属性（变更经 tick 脏刷新合并为单次 respawn, 无闪烁串台）──
-    virtual bool setPosition(int64_t id, float x, float y, float z, int dim) = 0; // dim<0 仅改坐标
+    virtual bool setPosition(int64_t id, float x, float y, float z, int dim) = 0;
     virtual bool setRotation(int64_t id, float yaw)                          = 0;
-    virtual bool setNametag(int64_t id, std::string const& text)             = 0; // 空串清除
-    // 换皮肤 = Remove + PlayerList Add + AddPlayer（协议限制, 有一次重入; 未注册返回 false）
+    virtual bool setNametag(int64_t id, std::string const& text)             = 0;
+
     virtual bool setSkin(int64_t id, std::string const& skinId) = 0;
     virtual bool setViewDistance(int64_t id, double dist)       = 0;
-    virtual bool setScale(int64_t id, float scale)              = 0; // 1.19.0; <0.0625 或 >10 拒绝
+    virtual bool setScale(int64_t id, float scale)              = 0;
     virtual bool setEnabled(int64_t id, bool enabled)           = 0;
 
-    // ── 可见玩家白名单（仅指定玩家可见; 按 Player::getRealName 即 LSE realName 匹配）──
-    // setVisiblePlayers 空列表 = 清除限制 = 全员可见
     virtual bool setVisiblePlayers(int64_t id, std::vector<std::string> const& playerNames) = 0;
     virtual bool clearVisiblePlayers(int64_t id)                                            = 0;
     virtual bool setVisiblePlayer(int64_t id, std::string const& playerName)                = 0;
 
-    // 诊断探针: 返回 NPC 运行态摘要字符串（找不到返回 "not_found"）
     virtual std::string getDebugInfo(int64_t id) const = 0;
 
-    // ── 1.18.0 追加: 目录批量导入皮肤（一个子文件夹 = 一套皮肤）──
-    // 子文件夹内: PNG 贴图（必需）+ .json 几何模型（可选, 缺省 = 标准玩家模型）
-    // skinId = 子文件夹名; 返回导入数量（目录无效返回 -1）
     virtual int importSkins(std::string const& dirPath) = 0;
-    // 皮肤全字段序列化导出（消费方持久化用; 未注册返回 false）
+
     virtual bool getSkinBlob(std::string const& skinId, std::string& out) const = 0;
-    // blob 反序列化注册（与 getSkinBlob 配对; 格式非法返回 false）
+
     virtual bool registerSkinFromBlob(std::string const& blob) = 0;
 
-    // ── 1.20.0 追加: 轻量朝向更新 + 逐客户端朝向 ──
-    // 只发朝向增量包（MoveActorAbsolute, 不重建实体/不重发皮肤, 无闪烁）;
-    // 与 setRotation（走 respawn）区别: 适合每 tick 跟踪式改朝向
     virtual bool setRotationLight(int64_t id, float yaw) = 0;
-    // 覆盖指定玩家收到的该 NPC 朝向（出生包与增量包都按覆盖值下发）;
-    // 未覆盖的玩家仍用 config 朝向; 玩家离线/未见过该 NPC 返回 false。下一 tick 生效。
+
     virtual bool setPlayerRotation(int64_t id, std::string const& playerName, float yaw) = 0;
-    // 清除单个玩家的朝向覆盖（回到 config 朝向）
+
     virtual bool clearPlayerRotation(int64_t id, std::string const& playerName) = 0;
-    // 清除该 NPC 全部玩家的朝向覆盖（关闭逐客户端朝向时调用）
+
     virtual bool clearPlayerRotations(int64_t id) = 0;
 
-    // ── 1.26.0 追加（冻结契约: 只在尾部追加）──
-    // 轻量位置更新: 只发 MoveActorAbsolute（不重建实体 / 不重发皮肤, 无闪烁）,
-    // 与 setRotationLight 走同一条轻脏通道, 同一 tick 内自动合并为一条包。
-    // 用途: 每 tick 跟随会移动的东西（如"给生物换肤"的载体跟随真身）。
-    // dim 与当前不同时返回 false（跨维度请用 setPosition 走重建式刷新）; id 不存在返回 false。
     virtual bool setPositionLight(int64_t id, float x, float y, float z, int dim) = 0;
 
-    // ── 1.26.0 追加: 玩家皮肤注入（把注册表里的皮肤发给玩家看, 含"自己看自己"）──
-    // 机制: 用 **target 自己的 UUID / uniqueId** 发一条 PlayerList(Add) 就地更新皮肤条目
-    //   （与原版"皮肤更新"、Geyser 对 session 玩家自身的处理一致）。
-    //   · viewerName 空串 = 所有在线玩家（含 target 本人）; 非空 = 只发给该玩家;
-    //   · targetName 必须是**在线玩家**的 realName（离线/查无此人返回 false）;
-    //   · skinId 必须已注册（未注册返回 false）;
-    //   · 皮肤条目按注册表原样下发（含 OverridesPlayerAppearance=true 与 trust 三态 ——
-    //     这是"覆盖玩家客户端上已装备皮肤"的前提, 不然客户端会拒绝、继续用他自己的皮肤）;
-    //   · **不自动重发**: 客户端偶发丢帧时由消费方自己再调一次（Geyser 的做法是 ~100ms 后重发）。
     virtual bool injectSkin(std::string const& viewerName, std::string const& targetName, std::string const& skinId) = 0;
-    // 便捷: 注入给所有在线玩家（含本人）; 等价 injectSkin("", targetName, skinId)
+
     virtual bool injectSkinAll(std::string const& targetName, std::string const& skinId) = 0;
 
-    // ── 1.26.0 追加: 播放动画（AnimateEntityPacket）──
-    // 与 ICustomEntity::playAnimation 同一套机制: 库对"已见过该 NPC 的玩家"发一条
-    // AnimateEntityPacket（animation = 资源包里的动画标识符, 如 animation.ms.xxx.idle）,
-    // controller 名库内按 NPC id 自动唯一化（不需要资源包里预先存在同名控制器）。
-    //   · stopExpression 空串 = 常驻循环; "1" = 立刻停（推荐, 见下）;
-    //     "query.any_animation" 为历史写法, **不是合法查询**（文档只有 any_animation_finished）——
-    //     本版起库识别该字符串并按"立刻停"处理, 内部走真正的取消配方;
-    //   · durationTicks > 0 时到期自动补发取消包（空动作 + stopExpression=1）;
-    //   · 动画名必须是**客户端能解析的**（原版动画名, 或随资源包下发的自定义动画）——
-    //     皮肤几何里内嵌的 animations 段不参与解析（见 README 的说明）。
-    //   · 无观察者 / NPC 不存在时返回 false; 新观察者的补发由消费方经 EntitySpawnCallback 自行处理。
     virtual bool playAnimation(
         int64_t id, std::string const& animation, std::string const& stopExpression, int durationTicks) = 0;
-    // 只发给指定玩家（补发用; 玩家未见过该 NPC 返回 false）
+
     virtual bool playAnimationTo(
         int64_t            id,
         std::string const& playerName,
         std::string const& animation,
         std::string const& stopExpression,
         int                durationTicks) = 0;
-    // 同一套 EntitySpawnCallback 语义: NPC 对某玩家出生完成后回调（补发动画/状态用）
+
     using EntitySpawnCallback                                         = std::function<void(int64_t id, std::string const& playerName)>;
     virtual void setEntitySpawnCallback(EntitySpawnCallback callback) = 0;
 
-    // ── 26.40.12 追加: 显式停止动画 ──
-    // 与 ICustomEntity::stopAnimation 同一配方（空动作 + stopExpression=1, 同 controller 覆盖）。
-    // 无观察者 / NPC 不存在返回 false。
     virtual bool stopAnimation(int64_t id)                                  = 0;
     virtual bool stopAnimationTo(int64_t id, std::string const& playerName) = 0;
 
-    // ── 26.40.12 追加: 假玩家姿势 / 装备 / 骑乘 ──
-    // 姿势: PoseIndex（ActorPose）0=站 1=潜行 2=睡 3=游泳 4=爬行; 库内同时补 ActorFlags 位
-    // （Sneaking/Sleeping/Swimming）。只发 SetActorData, 不重建实体; 客户端是否按玩家模型摆姿势需实测。
     virtual bool setPose(int64_t id, int pose) = 0;
-    // 装备槽: 0=主手 1=副手 2=头 3=胸 4=腿 5=脚; name 空 = 清空该槽（走一次 respawn）。
-    // 主/副手走 MobEquipmentPacket, 四甲走 MobArmorEquipmentPacket; 非空变更即时生效, 无闪烁。
+
     virtual bool setEquipment(int64_t id, int slot, std::string const& name, int aux, std::string const& nbt) = 0;
-    // 骑乘: 载具用 **ActorUniqueID**, 且必须是**真实服务端实体**（猪/马/船/矿车/在线玩家）。
-    // 库内纯协议实体（ICustomEntity）不能当载具 —— 客户端没有它的服务端记录, 挂接会崩;
-    // 0 = 解除链接（发 type=None 的链接包, 不 respawn）。
+
     virtual bool setRideUniqueId(int64_t id, std::int64_t vehicleUniqueId) = 0;
-    virtual bool setRidePlayer(int64_t id, std::string const& playerName)  = 0; // 骑到在线玩家头上
-    // 仅排查用: 自定义实体 id → uniqueId 后仍会被"必须是真实实体"的校验拒绝
+    virtual bool setRidePlayer(int64_t id, std::string const& playerName)  = 0;
+
     virtual bool setRideEntity(int64_t id, int64_t vehicleEntityId) = 0;
     virtual bool clearRide(int64_t id)                              = 0;
 
-    // ── 26.51.6 追加: 原版表情动作（EmotePacket）──
-    // pieceId 是资源包里的表情标识，例如 "animation.player.emote.wave"；lengthTicks = 0 表示
-    // 由客户端按表情自身时长播。只发给已经见过该 NPC 的玩家；NPC 不存在返回 false。
     virtual bool playEmote(int64_t id, std::string const& pieceId, int lengthTicks = 0) = 0;
 };
 
-// ─────────────────────────────────────────────
-// 村民交易菜单（协议层; 1.21.0 追加, 1.22.0 起为纯展示）
-//
-// 界面完全由我们自己构造的 UpdateTradePacket 打开, 载荷与 BDS 26.40 原生交易逐字节一致
-// （整包对拍: tests/check-trade-packet.bat; Offers 单独对拍: tests/check-trade-offers.bat）。
-//   · 交易类型是自由字符串（原生值为翻译键, 如 entity.villager.butcher / entity.villager.priest）,
-//     可填任意自定义值 —— 客户端按翻译键显示, 未知键原样显示
-//   · 显示栏值用 1 基: 1=新手 2=学徒 3=老手 4=专家 5=大师（wire 上是 0..4, 本接口替你换算）
-//   · 某条交易的 tier 高于 spec.tier → 客户端把它显示为未解锁（原版同款机制）;
-//     想强制某条显示为锁, 直接给该条 `locked = true`
-//   · 经验条不在包内: 由载体实体的 TradeTier/MaxTradeTier/TradeExperience 元数据驱动
-//     （三项都是 Int, 与真实村民生成包实测一致; MaxTradeTier 恒为 4）
-//
-// 三条路径（`usePacketOffers` × `settleLocally`）:
-//   · 纯展示（默认: usePacketOffers=true, settleLocally=false）: 只发 UpdateTrade, 服务端没有
-//     交易表 —— 付费放不进交易槽、点了不成交（天然只读）。
-//   · 真结算（1.24.0 追加: usePacketOffers=true, settleLocally=true）: 界面仍是我们自建的,
-//     但库把客户端的**付费放置 / 取回 / 成交**请求接住并自己结算 —— 真的从玩家背包扣付费、
-//     真的把产物发进背包; 结果走 `TradeSettlementEvent` 回传（LSE 侧 `tradePollSettlements`）。
-//     **已知限制（实测, 未打通）**: 客户端要求服务端在物品应答里回带交易槽的**槽位更正**
-//     （按客户端分配的物品网络 id）, 而该段在本协议版本与协议库的线格式不一致（协议库多写一个
-//     字符串、时长按 varint; 客户端要定长 short）—— 手写会直接把客户端打崩。因此放料虽然被服务端
-//     受理（扣款/暂存/退还都是真的）, 客户端界面仍可能把这次放料撤回（表现为"放进槽里又弹回"、
-//     成交点不动）。**要稳定成交请走 `usePacketOffers=false`（真实交易表, BDS 结算）或容器 UI。**
-//   · 真实交易表（usePacketOffers=false）: 给载体装真实交易表 + BDS `openTrading`, 成交由 BDS 完成。
-//
-// 不开结算时本域不读任何点击; 开了结算只读"落在交易槽上的物品动作"与带自建配方 id 的
-// CraftRecipe 动作, 其余一律放行。要"点条目就有回调"的列表界面仍推荐虚拟容器（IContainerMenu）。
-//
-// 载体实体: 交易界面需要 EntityUniqueId, 打开菜单时会自动在玩家身后 5 格生成一个
-// **隐身、仅该玩家可见**的假村民, 关闭菜单即删除（对该玩家以外完全不可见, 不占实体系统）。
-// 载体是异步送达客户端的, 所以 UpdateTrade 会在几 tick 后才发（否则界面绑不上实体）。
-// ─────────────────────────────────────────────
+inline constexpr int kTradeTierNovice = 1;
+inline constexpr int kTradeTierMaster = 5;
 
-// 显示栏值（tier）的取值范围, 1 基
-inline constexpr int kTradeTierNovice = 1; // 新手
-inline constexpr int kTradeTierMaster = 5; // 大师（上限）
-
-// 一条交易的物品（付费或产出）
 struct TradeMenuItem {
-    std::string              type; // minecraft:xxx（空 = 无此物品, 例如没有第二付费项）
+    std::string              type;
     int                      count{1};
     int                      damage{0};
-    std::string              name;                   // 自定义名（空 = 无; 走 item NBT 的 tag.display.Name）
-    std::vector<std::string> lore;                   // 描述行（走 tag.display.Lore）
-    bool                     isBlock{false};         // 方块类物品需带 Block 复合（实测原生行为）
-    int                      blockVersion{18168865}; // 26.40 实测值
+    std::string              name;
+    std::vector<std::string> lore;
+    bool                     isBlock{false};
+    int                      blockVersion{18168865};
 };
 
 struct TradeMenuOffer {
-    TradeMenuItem buyA; // 付费物品 A（必填）
-    TradeMenuItem buyB; // 付费物品 B（type 空 = 无）
-    TradeMenuItem sell; // 产出物品
-    // 该条解锁的显示栏值, 1 基 (1=新手 … 5=大师); 高于 spec.tier 即显示为未解锁。
-    // 超出 [1,5] 会被夹紧。locked = true 时忽略本字段。
+    TradeMenuItem buyA;
+    TradeMenuItem buyB;
+    TradeMenuItem sell;
+
     int tier{kTradeTierNovice};
     int maxUses{16};
-    int traderExp{0}; // 本条给村民的经验
-    // true = 无论 spec.tier 多高, 这条都显示为未解锁（按 spec.tier 自动再抬一级实现）
+    int traderExp{0};
+
     bool locked{false};
 };
 
 struct TradeMenuSpec {
     std::string tradeType{"entity.villager.butcher"};
-    // 村民显示栏值, 1 基: 1=新手 2=学徒 3=老手 4=专家 5=大师（超出会被夹紧）
+
     int tier{kTradeTierNovice};
-    int experience{0}; // 经验条当前经验
-    // 非 0 = 直接用该实体（真实村民的 uniqueId）作为交易对象, 且**不发自建 offers**:
-    // 改为调用 BDS 自己的 Player::openTrading, 于是客户端看到的交易表就是服务端持有的那一份。
-    // 0 = 用自建载体 + 自建 offers（默认路径）。
-    // true（默认）= 纯协议层: 只发我们自己构造的 UpdateTrade。界面完全由这个包打开, 服务端不放
-    // 交易表 —— 天然只读（与参考实现 GMLIB ChestUI 同路）: 玩家往付费槽放东西的请求会被 BDS
-    // 拒掉、物品弹回, 界面也就停在"不可成交"。纯展示正合适。
-    // false = 给载体装真实交易表 + 走 BDS 自己的 openTrading —— 客户端与服务端持有同一份交易表,
-    // 玩家是**真的在交易**（物品真的消耗）。要"展示 + 真成交"就用它。
+    int experience{0};
+
     bool                        usePacketOffers{true};
     std::int64_t                carrierUniqueIdOverride{0};
     std::vector<TradeMenuOffer> offers;
-    // 载体实体类型(1.21.0 追加): "minecraft:villager_v2"(默认) 或
-    // "minecraft:wandering_trader"(流浪商人 —— 界面外观与生物头图随类型变化)。
-    // 两条路径都适用; 真实交易表路径下流浪商人同样持有 EconomyTradeableComponent, 装表方式相同。
-    // **追加在尾部**: 保持既有字段偏移不变。
+
     std::string carrierIdentifier{"minecraft:villager_v2"};
-    // **1.24.0 追加**: 纯协议层路径下的"真结算"（usePacketOffers 必须为 true 才有意义）。
-    //   false（默认）= 纯展示: 付费放不进交易槽、点了不成交;
-    //   true = 库接住客户端的付费放置/取回/成交请求并**自己结算** —— 真的从玩家背包扣付费、
-    //          真的把产物写进背包（不依赖服务端交易表）。结果走 TradeSettlementEvent 回传。
-    //   **已知限制**: 客户端要求服务端回带交易槽的槽位更正, 而该段的线格式在本协议版本与协议库
-    //   不一致（手写会把客户端打崩）, 所以客户端可能把放料撤回 —— 稳定成交请用
-    //   `usePacketOffers = false`（真实交易表, BDS 结算）或容器 UI。详见域注释。
-    //   开着的菜单也可用 ITradeMenu::setSettleLocally 随时切换。
+
     bool settleLocally{false};
 };
 
-// 真结算的回传（成功/失败各一条; 失败时 reason 给原因）
 struct TradeSettlementEvent {
     std::string playerName;
     int64_t     menuId{-1};
-    int         offerIndex{-1}; // 成交的是第几条（-1 = 定位不到）
-    bool        ok{false};      // true = 已真结算（付费已扣、产物已发）
-    std::string reason;         // ok=false: "not-owner" / "payment-missing" / "inventory-full" ...
+    int         offerIndex{-1};
+    bool        ok{false};
+    std::string reason;
 };
 
-// 结算回传的格式化（LSE 轮询条目, 与 containerPollClicks 同款: 一行可切分）
-//   "player=Steve menuId=3 offer=1 ok=1 reason="
-
+// 交易菜单
 class ITradeMenu {
 public:
     virtual ~ITradeMenu() = default;
 
-    // 打开交易菜单（同一玩家重复调用会先关掉旧菜单）; 返回 menuId, <0 = 失败（玩家不在线等）
     virtual int64_t open(std::string const& playerName, TradeMenuSpec const& spec) = 0;
     virtual bool    update(int64_t menuId, TradeMenuSpec const& spec)              = 0;
     virtual bool    close(int64_t menuId)                                          = 0;
@@ -1076,79 +709,38 @@ public:
     [[nodiscard]] virtual bool                 isOpen(int64_t menuId) const = 0;
     [[nodiscard]] virtual std::vector<int64_t> getAllIds() const            = 0;
 
-    // 追加一条交易并就地重发交易表（不必重开界面）; 返回 false = 菜单已不在
-    // （LSE 侧 tradeAddOffer 用的就是它）
     virtual bool addOffer(int64_t menuId, TradeMenuOffer const& offer) = 0;
-    // 改显示栏值 / 经验条（同样就地重发）
+
     virtual bool setTier(int64_t menuId, int tier, int experience) = 0;
 
-    // ── 1.24.0 追加: 纯协议层真结算 ──
-    // 结算开关（打开前用 TradeMenuSpec::settleLocally 定初值; 这里可随时切）
     virtual bool               setSettleLocally(int64_t menuId, bool on) = 0;
     [[nodiscard]] virtual bool isSettleLocally(int64_t menuId) const     = 0;
-    // 结算回传: C++ 监听器
+
     virtual uint64_t addSettlementListener(std::function<void(TradeSettlementEvent const&)> listener) = 0;
     virtual bool     removeSettlementListener(uint64_t token)                                         = 0;
-    // LSE 轮询: 取走并清空（条目 = 上面 formatSettlement 的一行格式）
+
     virtual std::vector<std::string> pollSettlements() = 0;
 };
 
-// ─────────────────────────────────────────────
-// NPC 对话框（minecraft:npc 的对话界面; 1.21.0）
-//
-// 协议: NpcDialoguePacket（下发: 场景名 + 正文 + NPC 名 + 按钮 JSON）+ NpcRequestPacket（回传:
-// 点的是第几个按钮 / 玩家关闭了对话）。字段与枚举取值取自 sculk 与 BDS 26.40 头文件。
-//   · 按钮表完全由服务端逐玩家生成 —— "按权限/tag/计分板/任务状态决定按钮是否出现"
-//     就是在调用本接口前自行算好 buttons 即可, 不需要任何客户端配合
-//   · 多层级对话 = 点击回传里带回 sceneName + buttonIndex, 调用方据此发送下一层对话
-//
-// 载体实体: 与交易菜单同理, 对话框需要 NPC 实体承载名字/头像/按钮。载体是**纯协议实体**
-// （合成 AddActor, 不进 BDS 实体系统）, 每玩家一个: 位置在世界下方 y=-66 —— 客户端看不到实体,
-// 但界面里的头像照常渲染（改用隐形标志位反而会让头像一起消失）; 只发给该玩家;
-// 点按钮 / 关闭 / 玩家离线时发 RemoveActor 删掉该客户端的实体。
-//
-// 关于按钮 JSON: 原版按钮结构无公开文档, 故 buttons 之外另给 rawActionJson —— 非空时
-// 原样作为 mActionJSON 下发, 便于在游戏内实测字段格式（探针 MeowTradeTest 即用它迭代）。
-// ─────────────────────────────────────────────
-
 struct NpcDialogButton {
-    std::string              label;    // 按钮文本
-    std::vector<std::string> commands; // 展示在按钮上的命令（合成 NPC 不由 BDS 代跑, 命令回传给调用方）
-    std::string              actionId; // 服务器侧标识, 点击回传里原样带回（对接对话树/任务用）
-    // 客户端动作类型（与参考实现 ActionType 一致）:
-    //   0 = 普通按钮 —— 点击后服务端收到 ExecuteAction(回传 buttonIndex)
-    //   1 = 关闭      —— 点击后服务端收到 ExecuteClosingCommands(closed = true)
-    //   2 = 打开
+    std::string              label;
+    std::vector<std::string> commands;
+    std::string              actionId;
+
     int mode{0};
 };
 
 struct NpcDialogSpec {
-    // 载体实体类型。必须是 NPC 家族（默认 minecraft:npc）—— 客户端的 NPC 对话界面与该
-    // 实体类型绑定, 换成村民等其他原版实体是不行的（实测要求）。可改仅用于排查对比。
+
     std::string carrierIdentifier{"minecraft:npc"};
-    std::string npcName{"NPC"};    // 对话框中显示的名字
-    std::string sceneName{"main"}; // 场景名（多层级对话靠它路由）
-    std::string dialogue;          // 正文
-    // 诊断用: 非 0 时用它作为对话框的目标 NPC uniqueId（跳过自建载体）。
-    // 用途: 验证"客户端是否会为真实 NPC 弹对话界面" —— 若真实 NPC 的 id 能弹、自建载体不能,
-    // 说明卡点在实体识别, 而不在包内容。
+    std::string npcName{"NPC"};
+    std::string sceneName{"main"};
+    std::string dialogue;
+
     std::int64_t                 npcUniqueIdOverride{0};
     std::vector<NpcDialogButton> buttons;
-    std::string                  rawActionJson; // 非空 = 原样作为 mActionJSON（实测字段格式用）
+    std::string                  rawActionJson;
 
-    // ── 26.40.8 追加（尾部）: 聊天框内显示的头像/模型的自定义 ──
-    // avatarSkinVariant: NPC **内置皮肤变体**（0..59, 即 NpcData.skin_list 里的 variant 值）——
-    //   写进载体 ActorData 的 `SkinId(104)` 项, 对话界面里的头像/模型就用这张内置皮肤;
-    //   -1（默认）= **不加这一项**（与旧行为逐字节一致; 离线对拍不回归）。
-    // avatarViewSpec: 在这只载体上**叠加一层 IViewOverride**（spec 语法同 viewEntity,
-    //   如 "type=minecraft:zombie"/"skin=<皮肤id>"/"name=§6酒保"/"always=1"）—— 载体生成时按视图
-    //   语义应用到载体自身: `type` 换载体类型、（测试矩阵: 僵尸 / 鸡）
-    //   `skin` 用 **playernpc 注册表里的皮肤**（MHR/MeowSkin 注册/采集的都在这张表）→ 载体改为
-    //   **玩家模型**（PlayerList(Add)+AddPlayer, 同名同 id; Tab 条目 1s 后摘掉）、`name` 换界面标题/
-    //   交互文字。**边界与 carrierIdentifier 相同**: `type` 换非 NPC 家族是否还能弹出对话界面
-    //   需要实机验证（界面与该实体类型绑定, 见 carrierIdentifier 注释）; 皮肤类对非玩家实体无效。
-    //   要"整只模型完全自定义"也可走既有 npcUniqueIdOverride 路线:
-    //   用视图域/自定义实体生成展示实体, 把对话挂在它的 id 上 —— 界面按该实体的客户端样子渲染。
     int         avatarSkinVariant{-1};
     std::string avatarViewSpec;
 };
@@ -1157,79 +749,42 @@ struct NpcDialogClickEvent {
     std::string playerName;
     int64_t     dialogId{-1};
     std::string sceneName;
-    int         buttonIndex{-1}; // 点了第几个按钮（-1 = 非按钮事件）
-    std::string actionId;        // 对应 NpcDialogButton::actionId（按 buttonIndex 回填）
-    bool        closed{false};   // true = 玩家关闭了对话
-    // 被点击按钮上挂的命令（按 buttonIndex 回填）。合成 NPC 服务端侧没有 BDS 实体代跑命令,
-    // 需要由调用方自行执行（例如 player.runCommand）。
+    int         buttonIndex{-1};
+    std::string actionId;
+    bool        closed{false};
+
     std::vector<std::string> commands;
 };
 
-// ─────────────────────────────────────────────
-// 虚拟容器（列表）界面（协议层; 1.21.0 追加）
-//
-// 方案与参考实现 GMLIB 的 ChestUI 同路（逐条复刻）:
-//   1. 客户端侧摆一个**箱子方块**（UpdateBlockPacket, 只发给该玩家, 服务端世界里没有它）
-//   2. 客户端侧摆该方块的**方块实体 NBT**（BlockActorDataPacket）: id=Chest / CustomName=标题 /
-//      x,y,z / Items=[...] —— 条目物品就走这份 NBT（不是逐格 InventorySlot）
-//   3. 等 10 tick, 发 ContainerOpen（ContainerType=Container(0), 位置=那个方块, 目标实体=-1）
-//   4. 玩家点击 → 客户端发 ItemStackRequest(147) → 槽位命中本容器 → 回调（附槽位号 = 条目下标）
-//   5. 关闭 → ContainerClosePacket → 恢复真方块 → 回调 closed
-//
-// 关键性质: **服务端根本没有这个容器** —— 物品只是"摆在那里", 玩家拿走/移动都不会真的改变任何
-// 东西（天然只读）。适合当任务列表、成就列表、商店预览这类"只展示 + 点击回调"的界面。
-//
-// 大小容器都在这里: rows=3 → 单箱子 27 格; rows=6 → **大箱子 54 格**
-// （大箱子 = 相邻两个箱子方块 + 方块实体的 pairx/pairz/pairlead 配对键, 前 27 格进 lead 那半,
-//  后 27 格进副半, 槽位号在各自 NBT 里是 0..26 —— 与 GMLIB 的 updateBlockActor 一致）。
-//
-// 载体位置: 玩家脚上方 5 格（GMLIB 同款; 超出世界高度则下移 4 格）, 并优先挑选空气位, 避免
-// 覆盖真实方块/方块实体。关闭时会用真方块的网络 id 把那一格改回来。
-//
-// 容器 id 用 101..199 显示区间, 与 BDS 真实容器（含交易）的 1..100 不冲突。
-// ─────────────────────────────────────────────
-
 struct ContainerMenuItem {
-    std::string              type; // minecraft:xxx（空 = 该槽留空）
+    std::string              type;
     int                      count{1};
     int                      damage{0};
-    std::string              name; // 自定义名（空 = 无）
+    std::string              name;
     std::vector<std::string> lore;
 };
 
 struct ContainerMenuSpec {
-    int                            rows{3}; // 容器行数（3 = 小箱子 27 格, 6 = 大箱子 54 格）
-    std::vector<ContainerMenuItem> items;   // 按槽位顺序; 下标即槽位号（大箱子时 0..53）
-    // false（默认）= GMLIB 方案: 客户端侧箱子方块 + 方块实体（实测客户端认这条）。
-    // true = 旧路径: 只发一只合成的箱子矿车实体 + ContainerOpen(MinecartChest) —— 实测客户端
-    // 不弹界面, 保留仅为对比排查。
+    int                            rows{3};
+    std::vector<ContainerMenuItem> items;
+
     bool useMinecart{false};
-    // 箱子界面标题（方块实体的 CustomName）。**追加在尾部**: 保持既有字段偏移不变,
-    // 已编译的消费方（未重编）不会因此错位读到别的字段。
+
     std::string title{"虚拟容器"};
-    // 摆好客户端侧方块+方块实体之后, 等多少 tick 再发 ContainerOpen。
-    // 为什么必须等: 客户端要先把这个方块与它的方块实体应用上去, ContainerOpen 才绑得住这个位置
-    // （背靠背发界面打不开）。参考实现 GMLIB 的 ChestUI 等的是 10 tick, 之后还要再等 4 tick 补格
-    // （共 ~700ms）; 本库的条目本来就放在方块实体 NBT 里, 不需要那 4 tick（默认 10 tick ≈ 500ms）。
-    // **实测(26.40 客户端): 7 能正常开界面, 6 不行** —— 默认 7(~350ms; GMLIB 等效 14 tick
-    // ≈700ms)。下限与客户端/机器有关, 换设备或负载高时可能要回调大, 所以留成可调。
-    // **追加在尾部**: 保持既有字段偏移不变。
+
     int openDelayTicks{7};
-    // **可交互模式**（1.23.0 追加）: true = 客户端在本容器**内部**拖动/交换物品时, 库自己接住这条
-    // 请求并回成功, 同时把改动记进条目表 —— 物品真的留在新格子（不会再被 BDS 打回）。
-    // 只接"整条请求都落在本容器"的动作（容器内移动/交换/拆分）; 涉及玩家背包的动作照旧放行给 BDS
-    // （服务端没有这个容器 → 客户端回滚, 与 false 时一致 —— 那是服务端背包真实性的固有边界）。
-    // **追加在尾部**: 保持既有字段偏移不变。
+
     bool interactive{false};
 };
 
 struct ContainerClickEvent {
     std::string playerName;
     int64_t     menuId{-1};
-    int         slot{-1};      // 被点击的槽位（= items 的下标）
-    bool        closed{false}; // true = 界面被关闭（此时 slot = -1）
+    int         slot{-1};
+    bool        closed{false};
 };
 
+// 虚拟容器菜单
 class IContainerMenu {
 public:
     virtual ~IContainerMenu() = default;
@@ -1241,42 +796,23 @@ public:
     [[nodiscard]] virtual bool                 isOpen(int64_t menuId) const = 0;
     [[nodiscard]] virtual std::vector<int64_t> getAllIds() const            = 0;
 
-    // 点击/关闭回传（多播）; 返回 token（0 = 失败）
     virtual uint64_t addClickListener(std::function<void(ContainerClickEvent const&)> listener) = 0;
     virtual bool     removeClickListener(uint64_t token)                                        = 0;
 
-    // ── 1.21.0 追加（冻结契约: 只在尾部追加）──
-    // 就地换内容（翻页/进子菜单/返回）: 复用同一个载体方块, **不拆界面、不重发方块、不等待** ——
-    // 只把新的方块实体 NBT（Items/标题）重发一次, 再把 ContainerOpen 重发一次。
-    // 对比 open(): open 会先关旧菜单（发 ContainerClose + 恢复真方块）再重新摆方块 + 等
-    // openDelayTicks, 所以"整体重开"每次都要付一次打开延迟; 翻页属于同一界面的内容变更, 用这个。
-    // 返回 false = 该菜单已不在（调用方应改用 open）。
     virtual bool update(int64_t menuId, ContainerMenuSpec const& spec) = 0;
 
-    // ── 按槽动态刷新（1.21.0 追加）──
-    // 只改一个格子: 发一条 InventorySlot（与真实箱子同步内容用的同一种包）, 客户端就地换掉那一格
-    // —— 不重发方块实体、不重发 ContainerOpen、不重开界面, 所以**没有延迟也没有闪烁**。
-    // 适合"任务完成打勾/数量变化/价格变化"这类单格改动; 换整页用 update()。
-    // item.type 为空 = 把该槽清空。返回 false = 该菜单已不在或槽位越界。
     virtual bool setItem(int64_t menuId, int slot, ContainerMenuItem const& item) = 0;
 
-    // ── 可交互模式开关（1.23.0 追加）──
-    // 打开后客户端在容器内部的拖动/交换会被库接住并生效（见 ContainerMenuSpec::interactive）;
-    // 关掉就回到"只回传点击、物品放不住"的默认行为。返回 false = 菜单已不在。
     virtual bool setInteractive(int64_t menuId, bool on) = 0;
 
-    // ── 26.51.6 追加: 假箱子的方块事件（BlockEventPacket）──
-    // 虚拟容器的箱子只存在于客户端，打开界面时它不会自己掀盖。发一条方块事件到那只箱子的坐标，
-    // 让客户端播开/合动画。b0/b1 是原版方块事件的参数（箱子盖：b0=1 开、b0=0 合，**未实测**）。
-    // 试别的方块事件（音符盒、门…）就传自定义 b0/b1。返回 false = 菜单已不在。
     virtual bool blockEvent(int64_t menuId, int b0, int b1) = 0;
 };
 
+// NPC 对话框
 class INpcDialogue {
 public:
     virtual ~INpcDialogue() = default;
 
-    // 打开对话（同一玩家重复调用会先关掉上一层的界面）; 返回 dialogId, <0 = 失败
     virtual int64_t open(std::string const& playerName, NpcDialogSpec const& spec) = 0;
     virtual bool    close(int64_t dialogId)                                        = 0;
     virtual void    closeAll()                                                     = 0;
@@ -1284,163 +820,89 @@ public:
     [[nodiscard]] virtual bool                 isOpen(int64_t dialogId) const = 0;
     [[nodiscard]] virtual std::vector<int64_t> getAllIds() const              = 0;
 
-    // 点击/关闭回传（多播）; 返回 token（0 = 失败）
     virtual uint64_t addClickListener(std::function<void(NpcDialogClickEvent const&)> listener) = 0;
     virtual bool     removeClickListener(uint64_t token)                                        = 0;
 
-    // ── 1.21.0 追加（冻结契约: 只在尾部追加）──
-    // 就地换内容（翻页 / 进子菜单 / 返回 / 命令后重推）: 复用同一个载体 NPC, 只重发一次
-    // NpcDialoguePacket(Open) —— 不删载体、不重建、不关界面, 所以无闪烁、无延迟。
-    // 在点击回调里调用它即表示"这次点击已由调用方接管": 库随后不会再拆掉这个对话
-    // （否则客户端收起界面后库会按玩家把对话与载体删掉, 就地换的内容会一起没）。
-    // 返回 false = 该对话已不在（调用方应改用 open）。
-    //
-    //  实测限制（26.40 客户端）: 原版 NPC 对话界面在**点击任意按钮时客户端就会自行收起**,
-    // 而本函数只重发 NpcDialoguePacket(Open) —— 客户端不会因此重新弹出界面。
-    // 所以"点按钮后就地换页"对 NPC 对话**不可行**; 要让客户端重新显示, 必须走 open()
-    // （open 会删旧载体 + 建新载体 + 发 Open, 客户端才会再弹一次界面）。
-    // 本函数适合的场景: 玩家界面仍开着时的内容微调（例如对话里某项状态变化, 不经点击触发）。
     virtual bool update(int64_t dialogId, NpcDialogSpec const& spec) = 0;
 };
 
-// ─────────────────────────────────────────────
-// 感知域(1.21.0): 客户端设备判断
-//
-// 数据源: PlayerAuthInputPacket(AuthInput) 的 InputMode 字段, 每个玩家每 tick 持续上报 ——
-// 库在协议层挂钩捕获, 消费方随时查询"这个玩家用的是什么设备"。
-// 取值来自 26.40 的 InputMode 枚举: 0=Undefined 1=Mouse(键鼠) 2=Touch 3=GamePad 4=MotionController
-//
-// 典型用途: 按设备路由 UI —— 触屏玩家给容器列表(实证触屏走不通纯协议层交易),
-// 键鼠/手柄给交易界面; 输入方式由客户端决定, 服务器只读。
-// ─────────────────────────────────────────────
 enum class ClientInputDevice {
-    Unknown = 0,      // 尚未收到该玩家的 AuthInput, 或客户端报 Undefined
-    KeyboardMouse,    // 键盘 + 鼠标
-    Touch,            // 触屏
-    Gamepad,          // 手柄
-    MotionController, // 体感(已弃用, 客户端仍可能报)
+    Unknown = 0,
+    KeyboardMouse,
+    Touch,
+    Gamepad,
+    MotionController,
 };
 
+// 客户端输入设备感知
 class IPlayerSensing {
 public:
     virtual ~IPlayerSensing() = default;
 
-    // 查询玩家当前输入设备（玩家不在线/尚未上报 = Unknown; 换设备后下一 AuthInput 即更新）
     [[nodiscard]] virtual ClientInputDevice inputDeviceOf(std::string const& playerName) const = 0;
-    // 便捷判断: 是否触屏
+
     [[nodiscard]] virtual bool isTouch(std::string const& playerName) const = 0;
 };
-
-// ─────────────────────────────────────────────
-// 背包虚容器（协议层伪造玩家背包内容; 1.23.0）
-//
-// 机制: 直接改写**客户端**看到的玩家背包 —— 一条 InventoryContentPacket
-// （ContainerId = Inventory(0)、FullContainerName = InventoryContainer(29)、Slots = 0..35 号槽位）
-// 把整份内容换成调用方给的那一份; 单格改动走 InventorySlotPacket。服务端背包一个字都不动,
-// 物品是"看起来有"。参考实现 GMLIB 的 ChestUI 填玩家物品栏用的就是同一条路（它逐格写
-// InventorySlot, 容器 id 同样是 Inventory(0) + InventoryContainer(29)）。
-//
-// 功能项与虚拟容器（IContainerMenu）一致: 玩家点自己背包里的伪造物品 → 回调报槽位号,
-// 物品不会真的被拿走 —— 客户端按伪造内容发出请求, 服务端真实槽位对不上 → BDS 判失败 →
-// 客户端把预测撤回（与虚拟容器同一套表现, 不需要库代答）; 库随后把那一格重发一次,
-// 让伪造内容不会被这次回滚冲掉。
-//
-// 与交易菜单 / 虚拟容器**共存**: 打开交易界面或箱子界面时 BDS 会重发玩家背包内容
-// （伪造内容被覆盖）, 所以本域默认按 refreshIntervalTicks 周期重发（默认 20 tick = 1s）,
-// 也可随时调 refresh() —— 界面上看到的背包区域因此始终是伪造内容, 点击照常回调。
-//
-// 边界（实测前先写清楚, 免得误用）:
-//   · 伪造只影响客户端显示。玩家"真正能用/能吃"的仍是服务端真实物品。
-//   · 若某格真实物品与伪造物品恰好一致, 那一次操作会被服务端当真执行 —— 想让某格纯展示,
-//     别把它伪造成与真实物品相同的东西。
-//   · 该格真实物品被别的原因改变（捡东西/用物品/别的插件）时, 周期重发会把伪造内容重新盖回去。
-//
-// 槽位编号与原生背包容器一致: 0..8 = 快捷栏, 9..35 = 主背包（共 36 格）。
-// 护甲(6)/副手(34)不在本域范围内 —— 它们各有独立的容器枚举, 需要的话后续再扩。
-// ─────────────────────────────────────────────
 
 inline constexpr int kFakeInventorySlots = 36;
 
 struct FakeInventorySpec {
-    std::vector<ContainerMenuItem> items; // 下标即槽位（0..35）; type 空 = 该格留空
-    // 周期重发间隔（tick）。0 = 不周期重发（只在下发、单格更新、显式 refresh 时发）。
-    // 为什么要周期重发: 任何一次真实背包变动都会让 BDS 重发受影响的槽位, 打开箱子/交易界面时
-    // 更是整包重发, 伪造内容会被覆盖; 周期重发把它盖回去。**追加在尾部**: 保持字段偏移不变。
+    std::vector<ContainerMenuItem> items;
+
     int refreshIntervalTicks{20};
 };
 
 struct FakeInventoryClickEvent {
     std::string playerName;
-    int         slot{-1}; // 被点击的伪造槽位（0..8 快捷栏, 9..35 主背包）
+    int         slot{-1};
 };
 
+// 伪造背包（整包替换客户端背包）
 class IFakeInventory {
 public:
     virtual ~IFakeInventory() = default;
 
-    // 下发整份伪造背包（覆盖该玩家此前的伪造内容）; 玩家不在线返回 false
     virtual bool apply(std::string const& playerName, FakeInventorySpec const& spec) = 0;
-    // 单格改动（一条 InventorySlot, 无延迟）; 该玩家尚未 apply 过则返回 false
+
     virtual bool setSlot(std::string const& playerName, int slot, ContainerMenuItem const& item) = 0;
-    // 立即重发当前伪造内容（打开界面后、或发现被覆盖时用）
+
     virtual bool refresh(std::string const& playerName) = 0;
-    // 撤销伪造: 停掉周期重发, 并把**真实**背包内容重发一遍（恢复真相）
+
     virtual bool clear(std::string const& playerName) = 0;
     virtual void clearAll()                           = 0;
 
     [[nodiscard]] virtual bool                     isActive(std::string const& playerName) const = 0;
     [[nodiscard]] virtual std::vector<std::string> getActivePlayers() const                      = 0;
 
-    // 点击回传（多播, 多个插件可同时注册）; 返回 token（0 = 失败）
     virtual uint64_t addClickListener(std::function<void(FakeInventoryClickEvent const&)> listener) = 0;
     virtual bool     removeClickListener(uint64_t token)                                            = 0;
 };
-
-// ─────────────────────────────────────────────
-// 硫磺立方体展示（1.23.0 追加）
-//
-// 第二种"把东西摆到世界上"的做法: 生成一只 `minecraft:sulfur_cube`（硫磺立方体）, 把要展示的方块/
-// 物品**装进它的主手** —— 行为包里立方体就是靠 `slot.weapon.mainhand` 拿着"吞下去"的方块, 客户端按
-// 装备渲染, 看起来就是方块被吞在它身上; 外观档位用 `minecraft:sulfur_cube_archetype` 属性同步
-// （ChangeMobProperty, 13 档: none/regular/bouncy/slow_bouncy/slow_flat/fast_flat/light/fast_sliding/
-// slow_sliding/sticky/high_resistance/explosive/hot）。
-//
-// **吞方块是本域的核心 API**: `SulfurDisplaySpec::block`（或 `setBlock`）就是"它吞下去的东西" ——
-// 任何物品都能放, 建议放方块类物品（观感即"方块被吞在它身上"）。
-// **隐身是一个参数, 而且默认就是开**: `SulfurDisplaySpec::invisible`（或 `setInvisible`）。
-// **实测（26.40 客户端）: 立方体隐身时, 主手里"吞下去的方块"照常渲染** —— 于是默认 true =
-// 只看到被吞的那个方块（这就是本域作为"第二种展示方式"的默认观感）; 想看立方体本体就设 false。
-// （对比: NPC 头像那次隐身会把头像一起抹掉, 所以那里的载体不能隐身 —— 两个实体不一样, 别套用。）
-//
-// **"吞生物"没有做**: 协议层实体没有 AI, 真正吞并/消化做不到; 试过让另一个实体骑在立方体上做近似
-// （骑乘位置/碰撞都调不出"被吞进去"的观感）, 已按实测结论整体移除 —— 本域只做方块与隐身。
-// ─────────────────────────────────────────────
 
 struct SulfurDisplaySpec {
     float x{0.0f};
     float y{64.0f};
     float z{0.0f};
     int   dim{0};
-    // **吞下去的方块**（走主手装备; 这是本域的核心参数）。type 空 = 空手
+
     ContainerMenuItem block;
-    // 外观档位（minecraft:sulfur_cube_archetype）; 空串 = 不下发, 保持客户端默认
+
     std::string              archetype{"regular"};
-    int                      variant{2};      // 1=小 / 2=中（中 = 含方块那一档）
-    bool                     invisible{true}; // 立方体隐身（**默认开**: 实测隐身时"吞下去的方块"照常渲染 → 只留内容）
+    int                      variant{2};
+    bool                     invisible{true};
     float                    scale{1.0f};
-    double                   viewDistance{0.0}; // <=0 = 不限
-    std::vector<std::string> visiblePlayers;    // 空 = 全员可见
+    double                   viewDistance{0.0};
+    std::vector<std::string> visiblePlayers;
 };
 
+// 硫磺立方体展示
 class ISulfurDisplay {
 public:
     virtual ~ISulfurDisplay() = default;
 
-    // 生成一只硫磺立方体展示; 返回展示 id（<0 = 失败）
     virtual int64_t create(SulfurDisplaySpec const& spec) = 0;
-    // 换"吞下去"的方块/物品（改主手装备, 会重建实体: 有一次 respawn）
+
     virtual bool setBlock(int64_t id, ContainerMenuItem const& item) = 0;
-    // 换外观档位（ChangeMobProperty; 不需要重建实体）
+
     virtual bool setArchetype(int64_t id, std::string const& archetype) = 0;
     virtual bool setInvisible(int64_t id, bool on)                      = 0;
     virtual bool setScale(int64_t id, float scale)                      = 0;
@@ -1449,41 +911,30 @@ public:
 
     [[nodiscard]] virtual bool                 exists(int64_t id) const = 0;
     [[nodiscard]] virtual std::vector<int64_t> getAllIds() const        = 0;
-    // 诊断: 背后的自定义实体 id（-1 = 不存在）
+
     [[nodiscard]] virtual int64_t entityIdOf(int64_t id) const = 0;
 };
 
-// ─────────────────────────────────────────────
-// ─────────────────────────────────────────────
-// 协议层掉落物（26.51.6 追加; AddItemActor / TakeItemActor / SetActorMotion）
-//
-// 客户端凭空出现一只**掉落物实体**：服务端没有它 —— 不参与拾取判定、不进存档、没有物理。
-// 用途：地上物品展示、掉落奖励、菜单里的 3D 图标。比 FMBE（狐狸实体套物品）那条路轻一档。
-//
-// 运动由客户端算：spawn 给初速度，之后随时可以 setMotion 改速度与方向
-// （SetActorMotion 是"设定当前速度"，客户端按它继续飞，不是一次性冲量）。
-// take() 只播"飞向玩家"的动画再把实体删掉，物品不会真的进背包。
-// ─────────────────────────────────────────────
 struct ItemActorSpec {
-    std::string itemId; // "minecraft:diamond"
+    std::string itemId;
     int         aux{0};
     int         count{1};
     float       x{0}, y{0}, z{0};
     int         dimension{0};
-    float       vx{0}, vy{0}, vz{0}; // 初速度（vy > 0 = 向上抛）
+    float       vx{0}, vy{0}, vz{0};
 };
 
+// 掉落物（虚拟）
 class IItemActor {
 public:
     virtual ~IItemActor() = default;
 
-    // 生成一只掉落物（发给该维度所有玩家）; 返回库内 id，<0 = 失败
     virtual int64_t spawn(ItemActorSpec const& spec) = 0;
-    // 中途改速度/方向（SetActorMotion）。掉头、悬停（0,0,0）、加速都用它。
+
     virtual bool setMotion(int64_t id, float vx, float vy, float vz) = 0;
-    // 直接挪位置（客户端瞬移）
+
     virtual bool moveTo(int64_t id, float x, float y, float z) = 0;
-    // 拾取动画：只给这名玩家播"飞过去"，然后把实体对所有玩家删掉
+
     virtual bool take(int64_t id, std::string const& playerName) = 0;
     virtual bool destroy(int64_t id)                             = 0;
     virtual void destroyAll()                                    = 0;
@@ -1492,39 +943,21 @@ public:
     [[nodiscard]] virtual std::vector<int64_t> getAllIds() const        = 0;
 };
 
-// ─────────────────────────────────────────────
-// 客户端表单控制（26.51.6 追加; ClientboundCloseForm）
-//
-// 库不生成表单 —— 表单还是 LSE / LeviLamina Form API / MeowMenu 那边的事。
-// 这里只提供"强制关掉"：玩家按 ESC 不走、界面被别的插件顶掉、过场需要收界面时用。
-// 发的是一条 ClientboundCloseForm，客户端把当前打开的表单收起来（不需要玩家操作）。
-// ─────────────────────────────────────────────
+// 强制关闭客户端表单
 class IFormControl {
 public:
     virtual ~IFormControl() = default;
 
-    // 关掉该玩家当前的客户端表单; 玩家不在线返回 false
     virtual bool closeForm(std::string const& playerName) = 0;
-    // 发给所有在线玩家; 返回发给了几个
+
     virtual int closeAllForms() = 0;
 };
 
-// ─────────────────────────────────────────────
-// 方位条（26.51.6 追加; LocatorBar）
-//
-// 1.26 客户端在快捷栏下方有一条方位指示（原版用于队友/世界标记）。
-// 本域按玩家维护一组航点：key 由调用方起名，同一个 key 再 set 就是更新位置。
-// 航点身份是 UUID，库按 key 稳定派生（同一 key 永远同一 UUID），remove/update 不需要保管 UUID。
-//
-// 边界：图标/颜色/贴图要不要资源包配合、只给位置能不能显示，都得实测。
-// ─────────────────────────────────────────────
+// 方位条航点
 class ILocatorBar {
 public:
     virtual ~ILocatorBar() = default;
 
-    // 新增或更新一个航点（key 相同 = 更新）。玩家不在线返回 false。
-    //   color: ARGB，-1 = 用客户端默认色
-    //   visible: false = 暂时隐藏（仍在表里，下次 set 可再显示）
     virtual bool setWaypoint(
         std::string const& playerName,
         std::string const& key,
@@ -1535,217 +968,96 @@ public:
         int                color   = -1,
         bool               visible = true) = 0;
 
-    // ── 26.51.6 追加: 把某个玩家从**其他人的客户端**上藏起来 ──
-    // 语义就是"隐身"：其他人的客户端不再收到这名玩家的出生包、移动、状态、皮肤与 Tab 条目
-    // （库在出站钩子上按"主体是该玩家、收件人不是他本人"丢弃；本人仍然看得到自己）。
-    // 内部走的是视图覆盖域那条已经验证过的隐藏通道（`EntityView::hidden` + "所有人的覆盖，
-    // 但本人不参与自己的实体"这条规则），所以撤销时不需要重新进服。
-    // 返回 false = 玩家不在线。
     virtual bool hideFromOthers(std::string const& playerName, bool hidden) = 0;
-    // 查询是否处于上面这个状态（库内记录；玩家下线自动清）
+
     [[nodiscard]] virtual bool isHiddenFromOthers(std::string const& playerName) const = 0;
 
-    // 删除一个航点; 没有这个 key 返回 false
     virtual bool removeWaypoint(std::string const& playerName, std::string const& key) = 0;
-    // 清掉该玩家的全部航点; 返回清掉了几个
+
     virtual int               clearWaypoints(std::string const& playerName)      = 0;
     [[nodiscard]] virtual int waypointCount(std::string const& playerName) const = 0;
 };
 
-// ─────────────────────────────────────────────
-// 隐身（26.51.6）
-//
-// 控制其他玩家的客户端是否接收某个玩家的数据包：出生、Tab、移动、状态、皮肤，或整体隐藏。
-// 与 IViewOverride 的区别：IViewOverride 按收件人配置显示内容，本接口按被隐藏的玩家配置发送内容。
-// ─────────────────────────────────────────────
 struct PlayerPacketMask {
-    bool spawn{false};  // AddPlayer / PlayerList(Add)：别人看不到他出生
-    bool tab{false};    // PlayerList：从 Tab 列表里消失
-    bool motion{false}; // MovePlayer / MoveActorAbsolute / MoveActorDelta / SetActorMotion
-    bool state{false};  // SetActorData / UpdateAttributes / MobEffect / Animate / ActorEvent
-    bool skin{false};   // PlayerSkin
+    bool spawn{false};
+    bool tab{false};
+    bool motion{false};
+    bool state{false};
+    bool skin{false};
 };
 
+// 玩家出站包屏蔽（出生/Tab/移动/状态/皮肤）
 class IPlayerVisibility {
 public:
     virtual ~IPlayerVisibility() = default;
 
-    // 设置掩码；alsoSelf = true 时该玩家自己也收不到这些包。玩家不在线返回 false。
-    // 全部为 false 表示清除掩码。
     virtual bool setMask(std::string const& playerName, PlayerPacketMask const& mask, bool alsoSelf = false) = 0;
 
-    // 整体隐身：出生/移动/状态/皮肤/Tab 一并屏蔽，本人仍可看到自己。
-    // 与 setMask 的区别：已出生的玩家会立即消失，而 setMask 只影响后续数据包。
     virtual bool setHidden(std::string const& playerName, bool hidden) = 0;
 
-    // 清除掩码与隐身，并立即重新发送出生包。
     virtual bool restore(std::string const& playerName) = 0;
 
     [[nodiscard]] virtual PlayerPacketMask maskOf(std::string const& playerName) const   = 0;
     [[nodiscard]] virtual bool             isHidden(std::string const& playerName) const = 0;
 };
 
-// 客户端视图覆盖（协议层拦截; 1.25.0 新增）
-//
-// 让服务端在**不改动真实世界**的前提下，改变**某个玩家客户端上看到的东西**：
-//   · 实体（含玩家）: 换成另一种生物来显示 / 换名字牌 / 对这名玩家隐藏
-//   · 方块: 把某坐标的方块显示成另一种方块
-//
-// 机制（两条纪律, 各司其职）:
-//   ① **只拦不发**: 出站钩子挂在 BDS 的按收件人发包汇合点（NetworkSystem::send / sendToMultiple）,
-//      它**只决定"这一包发给这名玩家吗"**（放行 / 丢弃）—— **从不修改引擎包对象里的字段**。
-//      需要"改"的地方一律: 丢掉原包 + 由库**自己手写协议包**补发（sculk 构造 → 回读校验 →
-//      原始字节发送, 见 src/view/ViewPackets.h）。
-//   ② **心跳**: 服务器每 tick 自查 —— 实体重新进入视野 / 玩家换区块时把覆盖重新推一遍。
-//      出生包拦漏时靠它恢复; 方块覆盖被区块重发冲掉也靠它。没用到时只是一次原子读。
-//
-// 数据来源**只有协议包**: 位置/朝向/输入位来自入站 PlayerAuthInput; 出生包类型/位置/名字来自
-// 出生包载荷; 动作来自 Animate / ActorEvent —— **不读服务端实体状态**（唯一例外是"认人":
-// 网络标识 → 玩家、AddPlayer 里反查 uniqueId）。
-//
-// 关键性质:
-//   · **逐玩家**: 覆盖只对指定玩家生效（playerName 传空串 = 所有玩家），其他玩家看到原样
-//   · **自己不看自己**: 覆盖目标是玩家时, **该玩家本人的客户端不参与覆盖** —— 不发/不吃关于
-//     他自己实体的包（RemoveActor / 同 runtimeId 的 AddActor / 位移打回本地玩家会让客户端
-//     状态错乱甚至卡死, 2026-10-09 实证）。**例外: 换肤类（`asPlayer`）含本人** ——
-//     PlayerList(Add) 发给本人是"自己看自己被换肤"的正路（同 IPlayerNpc::injectSkin 的约定）
-//   · **只改客户端视图**: 服务端世界 / 存档 / 碰撞 / 其他插件看到的都是真实内容
-//   · **可阻断**: hidden = true 时该实体的出生包与后续更新包不再发给这名玩家
-//   · 实体按 uniqueId 认（稳定 id）; 库自动记录它与运行时 id（runtimeId）的对应关系
-//   · **不认识 / 解析不出的包一律原样放行**（fail-safe: 宁可没效果，也不给客户端送可疑字节）
-//   · 覆盖只存在内存里（重启服务器即失效）; 按玩家名的覆盖在该玩家重进后仍然有效 ——
-//     实体重新出生时自动套用, 方块随区块送达自动补发
-//
-// 第一版的边界（写清楚免得误用）:
-//   · **换实体类型**: 非玩家生物直接换; **玩家实体走"替换"**（见下）; 换玩家皮肤用 asPlayer。
-//   · **非玩家实体换"我们的皮肤" = 同 id 替换**（1.27.0: `EntityView::skinId`）: 库吃掉它的出生包,
-//     用**同一个 runtimeId/uniqueId** 发 PlayerList(Add)+AddPlayer（玩家模型 + 已注册皮肤, 可带
-//     `scale`）—— 客户端看到我们的模型, 服务端那边还是那只生物, 攻击/瞄准/掉落全落在它身上。
-//     这是"给生物换自定义模型"的正路（PlayerNpc 载体那套要额外隐形真身 + 逐 tick 跟随, 这一条不用）。
-//   · **玩家变生物 = 替换（不是代理）**: 吃掉他的出生包, 用**同一个 runtimeId/uniqueId** 发一只
-//     该类型的实体; 他的 MovePlayer 对这名观看者也吃掉, 位置/朝向由库按他发来的输入包用
-//     MoveActorAbsolute 推。**因为 id 没变, 服务端那边仍然是那个真玩家 —— 打到它身上的攻击由
-//     服务端按真身结算**。撤销时把替代实体移走 **并把真身补发回该观看者**（RemoveActor → 用他
-//     自己身份的 PlayerList(Add) → AddPlayer, 位置/朝向取引擎当前值）—— 立刻恢复, 不用重进。
-//   · **逐玩家的 发光 / 隐身 做不成**: 26.40 的元数据表里没有 glowing / invisible 旗标
-//     （基岩版的隐身是效果, 走 MobEffectPacket）。这两项没有进本版 API。
-//   · **逐玩家的实体缩放** 26.40 元数据表里没有独立的 scale 项, 但 `Reserved38` 就是客户端
-//     实体缩放（库内玩家替身出生包一直在用）, `Reserved53/54` 是客户端碰撞箱 —— 1.29.0 起
-//     `EntityView::scale` 走这条（模型与碰撞箱等比, 越界 0.0625~10 整项忽略）, 与
-//     `skinId` 那档"玩家模型出生包里的 scale"不是同一条路。
-//   · **方块覆盖**在区块重发后会丢，库会自动补发（该玩家收到覆盖范围内的区块时）。
-//   · 撤销时离得太远（>64 格）或已经消失的实体不重建 —— 客户端上本来也没有它，等它下次出生即可。
-//   · `identifier` 换的是**原版**类型（客户端注册表里有的）; 要换成**自定义模型/贴图**用 `skinId`
-//     （皮肤走玩家皮肤通道, 客户端不需要资源包 —— 同 IPlayerNpc 的皮肤）。
-//   · 覆盖的是"包里本来要发给该玩家的内容": 若某实体/方块本来就不发给该玩家（例如视野外），
-//     覆盖不会凭空让客户端看见它。
-// ─────────────────────────────────────────────
-
-// 实体的客户端视图覆盖（空字段 / false = 该项不改）
 struct EntityView {
-    // 换成该实体类型（如 "minecraft:cow"）; 空 = 不改类型。
-    //   · 非玩家实体: 库移除客户端那只 + 用同一个 runtimeId/uniqueId 重发一只该类型的;
-    //   · **玩家实体**: 玩家模型渲染不了生物 → 库走**替换** —— 吃掉他的出生包, 用**同一个
-    //     runtimeId/uniqueId** 发一只该类型的实体, 位置/朝向按其输入包用 MoveActorAbsolute 推。
-    //     **因为 id 没变, 服务端那边仍是那个真玩家 —— 打到它身上的攻击由服务端按真身结算。**
-    //     撤销时把替代实体移走 + **把真身补发回该观看者**（RemoveActor → PlayerList(Add) 用他
-    //     自己的身份 → AddPlayer, 位置/朝向取引擎当前值）—— 该观看者立刻重新看到真身。
+
     std::string identifier;
-    // 换成**另一名在线玩家**的样子（皮肤取自那名玩家）; 空 = 不改。只对玩家实体有效。
-    //   机制与原版"皮肤更新"一致: 用该实体自己的 UUID 再发一条 PlayerList(Add) 就地更新,
-    //   且只发给这名观看者（撤销 = 用他自己的皮肤再发一次, 立刻恢复）。
+
     std::string asPlayer;
-    // 换成**已注册皮肤**（含自定义模型 / 自定义贴图; 注册表见 IPlayerNpc::registerSkin / captureSkin）。
-    //   只对**非玩家**实体有效（玩家实体换皮走 asPlayer / IPlayerNpc::injectSkin）。机制与"换类型"同源
-    //   —— **拦下的包 + 我们自己的包替换**: 库吃掉这只实体的出生包, 用**同一个 runtimeId / uniqueId**
-    //   发 PlayerList(Add)+AddPlayer（玩家模型 + 该皮肤）。
-    //   于是客户端看到的是我们的模型, 而 **id 没变** —— 服务端仍认它是那只生物:
-    //   点它 / 打它 / 瞄准它都还是它本人（伤害、掉落、其他插件看到的全是真身）。
-    //   移动: 引擎发给生物的 MoveActor* 对这些观看者被吃掉, 位置/朝向由库每 tick 用
-    //   MoveActorAbsolute 推（与 PlayerNpc 的 setPositionLight 同一条通道）。
-    //   撤销 = clearEntity（重发一次真实生物的出生包, 立刻恢复原样）。
+
     std::string skinId;
-    // 皮肤模型的缩放（配合皮肤的设计高度; 0 = 不缩放）。客户端碰撞箱（元数据 53/54）等比 ——
-    // 想让"手感"与原生物一致就传 生物高度/1.8。
+
     float scale{0.0f};
-    // 皮肤模型的垂直微调（方块; 正数 = 抬高）。**只在 skinId 生效时用**:
-    // 实体位置锚在"脚位", 而模型的几何原点不一定在脚底（导入来源五花八门）——
-    // 想整体抬/沉一点就在这儿给, 出生包与逐 tick 的位移推送会一起带上（不会一高一低）。
-    // ⚠ 本字段追加在结构体**末尾**: 构造 EntityView 的消费方需要**重新编译**
-    //   （旧布局的实例会让库读到界外; 库的 ABI 描述符自检就是为了拦这个）。
+
     float yOffset{0.0f};
-    // true = 对这名玩家隐藏这只实体（出生包与后续更新包都不再发; 已经在客户端上的会立刻移除）
+
     bool hidden{false};
-    // 名字牌: hasNametag = true 才动名字牌（用它区分"清空名字"与"不改"）
+
     bool        hasNametag{false};
     std::string nametag;
     bool        nametagAlwaysShow{false};
-    // ── 26.40.10 追加（冻结契约: 结构尾部追加）── 变成生物之后的"姿态等设置"
-    // 语义与同域的名字牌一致: `hasXxx = false` = 这一项不动（0 / 1.0 都是合法取值,
-    // 所以不能用"值为 0 就是没设"来区分）。协议项见 ActorDataIDs
-    // （PoseIndex 79 / Reserved38 = scale / Variant 2 / MarkVariant 43 / 53·54 = 碰撞箱）。
-    //
-    // 姿态: PoseIndex 0..13（0=Standing, 1..2 盔甲架, 3..13 坐/睡/跳舞等）—— 越界自动钳进范围。
-    //   ⚠ 客户端**只对盔甲架与玩家**按 PoseIndex 摆姿势; 给牛/僵尸这类生物设它, 多数原版模型
-    //   不会因此改姿势（要"生物做动作"得发 AnimateEntityPacket —— 那不是本项, 见
-    //   `IPlayerNpc::playAnimation` / `ICustomEntity::playAnimation` 与 README 的边界说明）。
+
     int  pose{0};
     bool hasPose{false};
-    // 元数据缩放: 客户端实体缩放 + 碰撞箱, 有效域 0.0625~10（越界整项忽略）。
-    //   ⚠ 字段名叫 metaScale 是为了与上面 `skinId` 那档的 `scale`（**模型缩放**, 走玩家模型出生包）
-    //     分开 —— 两者是两条路, 同名会撞（26.40.10 这批改动的编译错误就是这么来的）。
-    //   LSE spec 里两者分别是 `scale=`（本条）与 `skin=` 那档自带的模型缩放。
+
     float metaScale{1.0f};
     bool  hasMetaScale{false};
-    // 变种 / 二级变种（马的毛色、羊的颜色、猫的品种、村民职业等由 Variant / MarkVariant 决定的实体）
+
     int  variant{0};
     bool hasVariant{false};
     int  markVariant{0};
     bool hasMarkVariant{false};
-    // 颜色两项（ColorIndex 3 / Color2Index 82，协议上都是 **Byte**）—— 热带鱼这类"主色 + 花纹色"
-    //   决定的实体靠它们区分外观；河豚的"鼓起来"则是 variant（0=常态 1=半鼓 2=全鼓）。
-    //   ⚠ 两项都要 `hasXxx = true` 才发（0 = 白色是合法取值）; 越界（<0 或 >15）整项忽略。
+
     int  colorIndex{0};
     bool hasColorIndex{false};
     int  color2{0};
     bool hasColor2{false};
 };
 
-// 方块的客户端视图覆盖（type 空 = 不改）
 struct BlockView {
-    std::string type; // 换成该方块（如 "minecraft:diamond_block", 取默认状态）
+    std::string type;
 };
 
+// 客户端视图覆盖（换模型/换皮/隐藏）
 class IViewOverride {
 public:
     virtual ~IViewOverride() = default;
 
-    // 让 playerName（空串 = 所有玩家）在客户端把 entityUniqueId 这只实体看成 view 描述的样子。
-    // 实体还没出生（客户端还没见到它）也能先设 —— 库在它出生时套用。
-    // 返回 false = 玩家不在线。
     virtual bool overrideEntity(std::string const& playerName, std::int64_t entityUniqueId, EntityView const& view) = 0;
-    // 让 playerName（空串 = 所有玩家）在客户端把 (x,y,z) 看成 view.type 那种方块。
-    // 返回 false = 玩家不在线 / 类型名无效（不在注册表里）。
+
     virtual bool overrideBlock(std::string const& playerName, int x, int y, int z, BlockView const& view) = 0;
 
-    // 撤销单个实体的覆盖
     virtual bool clearEntity(std::string const& playerName, std::int64_t entityUniqueId) = 0;
-    // 撤销单个方块的覆盖（立刻把真实方块推给该玩家）
+
     virtual bool clearBlock(std::string const& playerName, int x, int y, int z) = 0;
-    // 撤销某玩家的全部覆盖（下线 / 切场景时调用; 空串 = 全部玩家）
+
     virtual void clearAll(std::string const& playerName) = 0;
 
-    // 诊断: 某玩家当前的覆盖条数摘要, 形如 "entities=2 blocks=5"
     [[nodiscard]] virtual std::string describeFor(std::string const& playerName) const = 0;
 };
 
-// ─────────────────────────────────────────────
-// 库入口单例
-// ─────────────────────────────────────────────
-// Boss 条 / HUD / 方位条扩展 / 实体表现事件（1.33.0）
-// ─────────────────────────────────────────────
-
-// Boss 条颜色（与协议 BossBarColor 一致）
 enum class BossBarColor : int {
     Pink          = 0,
     Blue          = 1,
@@ -1757,7 +1069,6 @@ enum class BossBarColor : int {
     White         = 7
 };
 
-// Boss 条样式（与协议 BossBarOverlay 一致）
 enum class BossBarOverlay : int {
     Progress  = 0,
     Notched6  = 1,
@@ -1766,7 +1077,6 @@ enum class BossBarOverlay : int {
     Notched20 = 4
 };
 
-// HUD 元素（与协议 HudElement 一致，共 13 项）
 enum class HudElement : int {
     PaperDoll     = 0,
     Armor         = 1,
@@ -1783,15 +1093,11 @@ enum class HudElement : int {
     ItemText      = 12
 };
 
-// Boss 条：按玩家维护。target 必须是客户端认识的真实实体，所以建条时库会自动在玩家所在维度的
-// 虚空里（y = -120）放一只无模型掉落物当锚点，删除时回收 —— 不需要调用方管实体。
-// 每条只发给创建时指定的那名玩家；给所有人看得每人各建一条。
+// Boss 血量条
 class IBossBar {
 public:
     virtual ~IBossBar() = default;
 
-    // 创建一条 Boss 条，返回 id；玩家不在线返回 -1。
-    // healthPercent 是 0.0~1.0 的比例（不是血量数值）。
     virtual int64_t add(
         std::string const& playerName,
         std::string const& title,
@@ -1807,50 +1113,35 @@ public:
     [[nodiscard]] virtual int count(std::string const& playerName) const                       = 0;
 };
 
-// HUD 元素显隐。
+// HUD 元素显隐
 class IHud {
 public:
     virtual ~IHud() = default;
 
-    // visible=false 隐藏该元素；true 恢复默认显示
     virtual bool setElement(std::string const& playerName, HudElement element, bool visible) = 0;
 
-    // 按位掩码一次改多个：bit0 = PaperDoll … bit12 = ItemText。
-    // 返回实际应用的元素个数（掩码里置位的都按 visible 设置）。
     virtual int setElements(std::string const& playerName, int mask, bool visible) = 0;
 
-    // 全部恢复默认显示
     virtual bool resetAll(std::string const& playerName) = 0;
 };
 
-// 方位条扩展：自定义图标贴图 / 图标大小 / 绑定实体 / 分组。
-// 注意：客户端不渲染服务端下发的航点（它只画玩家方位系统里注册过的玩家），
-// 这组接口目前只在协议层有意义；做标记点请用 Boss 条或侧边栏。
-// 与 ILocatorBar 用同一套 (playerName, key)；改完立刻重发该航点。
+// 方位条扩展（图标/尺寸/分组/挂实体）
 class ILocatorBarExt {
 public:
     virtual ~ILocatorBarExt() = default;
 
-    // 自定义图标贴图（资源包里的路径，例如 "textures/ui/icon_boss"）。
-    // 空字符串表示清除，回到客户端默认图标。
     virtual bool setIcon(std::string const& playerName, std::string const& key, std::string const& texturePath) = 0;
 
-    // 图标显示大小（像素）。<= 0 表示清除，回到客户端默认尺寸。
     virtual bool setIconSize(std::string const& playerName, std::string const& key, float width, float height) = 0;
 
-    // 绑定实体：航点跟随该实体（按 uniqueId）。绑定后位置由实体决定。
     virtual bool attachEntity(std::string const& playerName, std::string const& key, int64_t entityUniqueId) = 0;
 
-    // 解除绑定
     virtual bool clearAttach(std::string const& playerName, std::string const& key) = 0;
 
-    // 分组：同一 groupKey 的航点在客户端归为一组；空字符串 = 各自独立。
-    // 分组标识由库按 groupKey 稳定派生，跨调用一致。
     virtual bool setGroup(std::string const& playerName, std::string const& key, std::string const& groupKey) = 0;
 };
 
-// 实体表现事件：受伤 / 死亡动画，以及通用 ActorEvent。
-// 目标是我们用协议层显示的那些实体（自定义实体 / 假玩家 / 掉落物）的 runtimeId。
+// 实体表现事件（受伤/死亡/任意 ActorEvent）
 class IActorEffect {
 public:
     virtual ~IActorEffect() = default;
@@ -1859,21 +1150,14 @@ public:
     virtual bool playDeath(int64_t entityRuntimeId)        = 0;
     virtual bool playInstantDeath(int64_t entityRuntimeId) = 0;
 
-    // 通用：eventId 见协议 ActorEvent（HURT=2 / DEATH=3 / SHAKE=39 / EAT_GRASS=10 …）
     virtual bool play(int64_t entityRuntimeId, int eventId, int data = 0) = 0;
 };
 
-// ─────────────────────────────────────────────
-// 侧边栏计分板（1.33.0）
-//
-// 只发包，不动服务端记分板：给某名玩家显示一个只有他看得到的侧边栏。
-// 协议：SetDisplayObjective(107) + SetScore(108) + RemoveObjective(106)。
-// 行是 FakePlayer 条目，score 用作排序键（第 0 行在最上面）。
+// 侧边栏计分板
 class ISidebar {
 public:
     virtual ~ISidebar() = default;
 
-    // 显示或更新：title 是标题，lines 自上而下（空 = 移除）
     virtual bool set(std::string const& playerName, std::string const& title, std::vector<std::string> const& lines) = 0;
     virtual bool setTitle(std::string const& playerName, std::string const& title)                                   = 0;
     virtual bool setLine(std::string const& playerName, int index, std::string const& text)                          = 0;
@@ -1884,25 +1168,50 @@ public:
     [[nodiscard]] virtual int  lineCount(std::string const& playerName) const = 0;
 };
 
-// ─────────────────────────────────────────────
-// 玩家复活（1.34.0，只发包）
-//
-// 场景：给玩家放死亡动画（IActorEffect::playDeath）后，客户端进入死亡界面并向服务端发
-// PlayerAction(Respawn) 请求复活；但服务端认为玩家一直活着，于是**拒绝**发出复活。
-// 客户端就一直卡在死亡界面。这里由库直接补一个 RespawnPacket(ClientReadyToSpawn) 给客户端，
-// 把它拉回正常状态（服务端实体没有任何变化，不动血量/位置/维度）。
-//
-// 默认 state = 2（ClientReadyToSpawn，等价于"服务端已同意复活"）；
-// 若客户端仍停在死亡界面，可传 state = 1（ReadyToSpawn）再跟一次 2。
+// 死亡动画后的复活（补发 RespawnPacket）
 class IPlayerRespawn {
 public:
     virtual ~IPlayerRespawn() = default;
 
-    // 原地复活：用玩家当前位置发 RespawnPacket
     virtual bool respawn(std::string const& playerName, int state = 2) = 0;
-    // 指定坐标复活
+
     virtual bool respawnAt(std::string const& playerName, float x, float y, float z, int state = 2) = 0;
 };
+
+// 按坐标预览真实容器（只读）
+class IContainerPreview {
+public:
+    virtual ~IContainerPreview() = default;
+
+    virtual int64_t preview(
+        std::string const& playerName,
+        int                dim,
+        int                x,
+        int                y,
+        int                z,
+        std::string const& title = {}) = 0;
+};
+
+// 拦截受伤/死亡等表现事件
+class IActorEffectFilter {
+public:
+    virtual ~IActorEffectFilter() = default;
+
+    virtual void block(int eventId)                                           = 0;
+    virtual void unblock(int eventId)                                         = 0;
+    virtual void blockForPlayer(std::string const& playerName, int eventId)   = 0;
+    virtual void unblockForPlayer(std::string const& playerName, int eventId) = 0;
+    virtual void blockForEntity(int64_t runtimeId, int eventId)               = 0;
+    virtual void unblockForEntity(int64_t runtimeId, int eventId)             = 0;
+    virtual void clear()                                                      = 0;
+
+    virtual std::string stats() const = 0;
+};
+
+// 库入口：按域取接口；消费方在 enable 里比一次：库比消费方编译时旧就拒绝连接，避免调用不存在的尾部槽位
+inline bool abiCompatible(std::uint32_t runtimeVersion) {
+    return runtimeVersion >= HOLOGLIB_API_VERSION;
+}
 
 class IHologramLib {
 public:
@@ -1914,134 +1223,73 @@ public:
     virtual IHologramText& holograms()   = 0;
     virtual IItemDetail&   itemDetails() = 0;
 
-    // LSE 兼容层是否可用（LegacyRemoteCall 运行时检测成功）
     virtual bool isLseAvailable() = 0;
 
-    // 库版本（0x012500 = 1.31.0, 与 HOLOGLIB_API_VERSION 同值）
     virtual uint32_t version() = 0;
 
-    // ── 1.6.0 追加（冻结契约: 只在尾部追加）──
     virtual IItemDisplay& itemDisplays() = 0;
 
-    // 查找距 (x,y,z) 最近的可悬浮显示（dim 匹配; maxDist<=0 视为无限制）
-    // 返回 id, 无匹配返回 -1
     virtual int64_t findNearestItemDisplay(float x, float y, float z, int dim, double maxDist) = 0;
 
-    // ── 1.10.0 追加（冻结契约: 只在尾部追加）──
     virtual ICustomEntity& customEntities() = 0;
 
-    // ── 1.12.0 追加（冻结契约: 只在尾部追加）──
-    // ghost 交互监听（C++ 推送; 每次点击回调一次, 建议主线程处理）
     virtual void setGhostInteractListener(std::function<void(GhostInteractEvent const&)> listener) = 0;
     virtual void clearGhostInteractListener()                                                      = 0;
-    // LSE 轮询版: 取走并清空待处理交互队列（每条为可解析字符串, 格式见 API.md）
+
     virtual std::vector<std::string> pollGhostInteractions() = 0;
 
-    // ── 1.14.0 追加（冻结契约: 只在尾部追加）──
     virtual IParticleShape& particleShapes() = 0;
 
-    // ── 1.16.0 追加（冻结契约: 只在尾部追加）──
     virtual IPlayerNpc& playerNpcs() = 0;
 
-    // ── 1.19.1 追加（冻结契约: 只在尾部追加）──
-    // ghost 交互多播监听: 多个插件可同时注册, 互不覆盖（旧 set/clear 单槽接口保留兼容）。
-    // 返回 token（0=失败）; removeGhostInteractListener(token) 移除; 事件在主线程网络处理路径上回调。
     virtual uint64_t addGhostInteractListener(std::function<void(GhostInteractEvent const&)> listener) = 0;
     virtual bool     removeGhostInteractListener(uint64_t token)                                       = 0;
 
-    // ── 1.21.0 追加, 1.22.0 起为纯展示（冻结契约: 只在尾部追加）──
     virtual ITradeMenu& tradeMenus() = 0;
 
-    // ── 1.21.0 追加（冻结契约: 只在尾部追加）──
     virtual INpcDialogue& npcDialogs() = 0;
 
-    // 虚拟容器（列表）界面（1.21.0 追加, 尾部追加保持 ABI 兼容）
     virtual IContainerMenu& containerMenus() = 0;
 
-    // ── 感知域(1.21.0 追加): 客户端设备判断 ──
     virtual IPlayerSensing& playerSensing() = 0;
 
-    // ── 背包虚容器（1.23.0 追加, 尾部追加保持 ABI 兼容）──
     virtual IFakeInventory& fakeInventories() = 0;
 
-    // ── 硫磺立方体展示（1.23.0 追加, 尾部追加保持 ABI 兼容）──
     virtual ISulfurDisplay& sulfurDisplays() = 0;
 
-    // ── 客户端视图覆盖（1.25.0 追加, 尾部追加保持 ABI 兼容）──
-    // 拦截 BDS 发给玩家的原始包（只决定放行 / 丢弃）, 改变**该玩家客户端看到的内容**（实体类型/方块/元数据）。
     virtual IViewOverride& viewOverrides() = 0;
 
-    // ── 1.27.0 追加（冻结契约: **只在类尾部追加**）──
-    // 真实实体交互多播监听（玩家右键/攻击真实实体时回调; 复用库已有的收包钩子, 不新增 detour 层）。
-    // 返回 token（0 = 失败）; removeActorInteractListener(token) 移除; 事件在主线程回调。
-    //
-    // ⚠ 位置说明（写给自己与后来者）: 这两个函数**必须留在类的最尾部**。
-    //   第一版把它们插在了 ghost 段之后（中段）—— 结果后面所有槽位整体前移,
-    //   用旧头文件编译的消费方（MeowHolographicRenderer 等）在 `playerNpcs()` 上取到了错的槽,
-    //   直接 0xC0000005（实机复现）。冻结契约不是礼貌, 是 ABI。
     virtual uint64_t addActorInteractListener(std::function<void(ActorInteractEvent const&)> listener) = 0;
     virtual bool     removeActorInteractListener(uint64_t token)                                       = 0;
 
-    // ── 26.51.6 追加（仍然只在类尾部追加）──
-    // 协议层掉落物 / 客户端表单控制 / 方位条。
     virtual IItemActor&        itemActors()       = 0;
     virtual IFormControl&      formControl()      = 0;
     virtual ILocatorBar&       locatorBar()       = 0;
     virtual IPlayerVisibility& playerVisibility() = 0;
 
-    // 形状扩展（1.33.0）：四种新形状 + 最远渲染距离 + 挂载实体
     virtual IShapeDrawerExt& shapeExt() = 0;
 
-    // ── 1.33.0 ──
-    virtual IBossBar&       bossBars()      = 0; // Boss 条
-    virtual IHud&           hud()           = 0; // HUD 元素显隐
-    virtual ILocatorBarExt& locatorBarExt() = 0; // 方位条：图标 / 大小 / 绑定实体 / 分组
-    virtual IActorEffect&   actorEffects()  = 0; // 受伤 / 死亡动画
-    virtual ISidebar&       sidebar()       = 0; // 侧边栏计分板（只发包）
+    virtual IBossBar&       bossBars()      = 0;
+    virtual IHud&           hud()           = 0;
+    virtual ILocatorBarExt& locatorBarExt() = 0;
+    virtual IActorEffect&   actorEffects()  = 0;
+    virtual ISidebar&       sidebar()       = 0;
 
-    // ── 1.34.0 ──
-    virtual IPlayerRespawn& playerRespawn() = 0; // 死亡动画后的复活（只发包）
+    virtual IPlayerRespawn& playerRespawn() = 0;
+
+    virtual IContainerPreview&  containerPreview()  = 0;
+    virtual IActorEffectFilter& actorEffectFilter() = 0;
 };
 
-// ─────────────────────────────────────────────
-// 发包审计（测试用；不进接口虚表，因此不影响 ABI）
-//
-// 记录"真的交给 NetworkPeer 的包"：包名 / 包 id / 收件人 / 字节数 / 时间 / 序号。
-// 只有 wireTraceStart() 之后才记录，平时零开销。
-// trace 进行中若收件人退出，会自动把退出前的记录写成
-//   plugins/HologramLib/wire-trace-<player>-<epoch>.json
-// 并在日志里打一份按包名统计的摘要（测试到一半掉线时用它看"退出前发了哪些包"）。
-//
-// 典型用法（C++ 测试）：
-//   wireTraceStart("hltestcpp");
-//   ... 调接口 ...
-//   auto n = wireTraceCount();
-//   auto json = wireTraceDumpJson();
-//   wireTraceStop();
-// ─────────────────────────────────────────────
-HOLOGLIB_API bool        wireTraceStart(std::string const& tag);
-HOLOGLIB_API void        wireTraceStop();
-HOLOGLIB_API void        wireTraceClear();
-HOLOGLIB_API bool        wireTraceActive();
+HOLOGLIB_API bool wireTraceStart(std::string const& tag);
+HOLOGLIB_API void wireTraceStop();
+HOLOGLIB_API void wireTraceClear();
+HOLOGLIB_API bool wireTraceActive();
 HOLOGLIB_API std::size_t wireTraceCount();
 HOLOGLIB_API std::string wireTraceDumpJson();
 HOLOGLIB_API void        wireTraceMark(std::string const& tag);
 
 } // namespace hologramlib
 
-// ─────────────────────────────────────────────
-// 消费方自检 + 库侧"调用前检查消费方"
-// ─────────────────────────────────────────────
-// 双方各自**导出**自己的戳, 互相读对方的那份:
-//   · 消费方 enable 时读 DLL 导出的 hologramlib_abiStamp（函数）→ 不一致就**拒绝启用**;
-//   · 库在唯一入口 getInstance 处读**调用方模块**导出的 hologramlib_consumerAbiStamp（数据）
-//     → 不一致就记一笔, 可用 hologramlib_abiStatus 查。库侧**不在这里杀进程**: 该消费方可能
-//     压根没用到错位的槽; 真正的拒绝由消费方那一侧做（它能往日志里写重新编译/同批部署）。
-// 关于"自动": 试过用 MSVC 成员函数指针编码在编译期自动算槽位号, 实测拿到的是 thunk 地址而非
-//   槽位号, 不可靠, 已放弃。真正自动的做法是**构建期用脚本解析本头文件生成槽位表**（下一步）;
-//   在那之前这个戳靠人工维护 —— 规则: **任何动到虚表形状的改动（中段插入/删除/重排）都必须 +1**,
-//   仅**尾部追加**不用动它（追加不改变已有槽位）。
-// 覆盖不到: 没带这个导出的老构建（如 2026-10-10 崩溃里那版 MSkinventory）→ 库侧记为"未声明",
-//   消费方侧读不到库的戳时按"不同批构建"处理（拒绝启用）。
 inline constexpr char const*            HOLOGLIB_CONSUMER_STAMP_SYMBOL             = "hologramlib_consumerAbiStamp";
 extern "C" inline __declspec(dllexport) std::uint32_t hologramlib_consumerAbiStamp = HOLOGLIB_ABI_STAMP;

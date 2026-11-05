@@ -1,7 +1,6 @@
-// ParticleShapeManager.cpp - 通用协议层粒子形状系统实现
 #include "ParticleShapeManager.h"
 #include "core/PacketSink.h"
-#include "core/TickDriver.h" // 每 tick 驱动（全库唯一 Level::$tick hook）
+#include "core/TickDriver.h"
 
 #include <ll/api/memory/Hook.h>
 #include <ll/api/service/Bedrock.h>
@@ -32,9 +31,7 @@ std::uint64_t currentTick() {
     return level ? level->getCurrentTick().tickID : 0;
 }
 
-constexpr int TOTAL_CAP = 2048; // 单形状单次发射总点数上限
-
-// ── 局部点采样辅助（全部写入局部坐标, 锚点为原点）──
+constexpr int TOTAL_CAP = 2048;
 
 void sampleSegment(std::vector<float>& out, float ax, float ay, float az, float bx, float by, float bz, float step) {
     float dx = bx - ax, dy = by - ay, dz = bz - az;
@@ -50,28 +47,26 @@ void sampleSegment(std::vector<float>& out, float ax, float ay, float az, float 
     }
 }
 
-// 平面两轴 → 世界分量映射（axis: 0=XY 1=YZ 2=XZ; u/v 为平面内坐标, n 为法向分量）
 inline void axisToXYZ(int axis, float u, float v, float& x, float& y, float& z) {
     switch (axis) {
     case 0:
         x = u;
         y = v;
         z = 0;
-        break; // XY 平面
+        break;
     case 1:
         x = 0;
         y = v;
         z = u;
-        break; // YZ 平面（u 沿 Z）
+        break;
     default:
         x = u;
         y = 0;
         z = v;
-        break; // XZ 平面（v 沿 Z）
+        break;
     }
 }
 
-// 矩形四角（局部, 中心为原点）
 void rectCorners(int axis, float w, float h, float out[4][3]) {
     float hw = w / 2.0f, hh = h / 2.0f;
     float uv[4][2] = {{-hw, -hh}, {hw, -hh}, {hw, hh}, {-hw, hh}};
@@ -80,12 +75,11 @@ void rectCorners(int axis, float w, float h, float out[4][3]) {
     }
 }
 
-// ZYX 欧拉（度）→ 3×3 旋转矩阵（行主序）
 void eulerToMatrix(float rx, float ry, float rz, float m[9]) {
     float cx = std::cos(rx * 3.14159265358979f / 180.0f), sx = std::sin(rx * 3.14159265358979f / 180.0f);
     float cy = std::cos(ry * 3.14159265358979f / 180.0f), sy = std::sin(ry * 3.14159265358979f / 180.0f);
     float cz = std::cos(rz * 3.14159265358979f / 180.0f), sz = std::sin(rz * 3.14159265358979f / 180.0f);
-    // R = Rz · Ry · Rx
+
     m[0] = cz * cy;
     m[1] = cz * sy * sx - sz * cx;
     m[2] = cz * sy * cx + sz * sx;
@@ -103,7 +97,6 @@ inline void applyMatrix(float const m[9], float x, float y, float z, float& ox, 
     oz = m[6] * x + m[7] * y + m[8] * z;
 }
 
-// CSV 解析: "a,b,c;d,e,f" → 浮点三元组
 std::vector<std::vector<float>> parseTriples(std::string const& csv) {
     std::vector<std::vector<float>> out;
     std::stringstream               ss(csv);
@@ -153,8 +146,6 @@ int64_t ParticleShapeManager::insertShape(Shape&& s) {
     return id;
 }
 
-// ── 局部点采样（各形状几何 → localPts）──
-
 void ParticleShapeManager::sampleLocal(Shape& s) {
     s.localPts.clear();
     auto& pts = s.localPts;
@@ -186,7 +177,7 @@ void ParticleShapeManager::sampleLocal(Shape& s) {
         break;
     }
     case Kind::Box: {
-        // 12 条边: 顶/底面各 4 + 垂直 4
+
         float const corners[8][3] = {
             {-s.hx, -s.hy, -s.hz},
             {s.hx, -s.hy, -s.hz},
@@ -201,15 +192,15 @@ void ParticleShapeManager::sampleLocal(Shape& s) {
             {0, 1},
             {1, 2},
             {2, 3},
-            {3, 0}, // 底面
+            {3, 0},
             {4, 5},
             {5, 6},
             {6, 7},
-            {7, 4}, // 顶面
+            {7, 4},
             {0, 4},
             {1, 5},
             {2, 6},
-            {3, 7}, // 垂直
+            {3, 7},
         };
         for (auto const& e : edges) {
             sampleSegment(
@@ -221,9 +212,9 @@ void ParticleShapeManager::sampleLocal(Shape& s) {
         break;
     }
     case Kind::BoxFaces: {
-        // 6 面网格: 每面 = 环面填充（两轴展开, 法向轴固定 ±h）
+
         for (int face = 0; face < 6 && (int)pts.size() / 3 < TOTAL_CAP; face++) {
-            // face: 0/1 = X±, 2/3 = Y±, 4/5 = Z±
+
             for (float u = -1.0f; u <= 1.0f + 1e-3f && (int)pts.size() / 3 < TOTAL_CAP; u += s.step) {
                 for (float v = -1.0f; v <= 1.0f + 1e-3f && (int)pts.size() / 3 < TOTAL_CAP; v += s.step) {
                     float x, y, z;
@@ -284,8 +275,6 @@ void ParticleShapeManager::sampleLocal(Shape& s) {
     s.cacheValid = true;
 }
 
-// ── 创建 ──
-
 int64_t ParticleShapeManager::createPoint(
     std::string const& playerName, int dimId,
     float x, float y, float z,
@@ -312,7 +301,7 @@ int64_t ParticleShapeManager::createLine(
     s.kind       = Kind::Line;
     s.playerName = playerName;
     s.dimId      = dimId;
-    // 锚点 = 中点（旋转绕中点）, 局部端点 = 端点 - 中点
+
     s.px            = (x1 + x2) / 2.0f;
     s.py            = (y1 + y2) / 2.0f;
     s.pz            = (z1 + z2) / 2.0f;
@@ -420,7 +409,7 @@ int64_t ParticleShapeManager::createPoly(
     auto verts = parseTriples(vertsCsv);
     if (verts.size() < 2)
         return -1;
-    // 边: "i-j;i-j"
+
     std::vector<std::int32_t> edges;
     {
         std::stringstream ss(edgesCsv);
@@ -462,7 +451,7 @@ int64_t ParticleShapeManager::createPoly(
     s.kind       = Kind::Poly;
     s.playerName = playerName;
     s.dimId      = dimId;
-    // 锚点 = 顶点质心; 局部顶点 = 顶点 - 质心
+
     float mx = 0, my = 0, mz = 0;
     for (size_t i = 0; i < n; i++) {
         mx += verts[i * 3];
@@ -489,15 +478,13 @@ int64_t ParticleShapeManager::createPoly(
     return insertShape(std::move(s));
 }
 
-// ── 运行时控制 ──
-
 bool ParticleShapeManager::setPos(int64_t id, float x, float y, float z) {
     return mShapes.withObject(id, [&](Shape& s) {
         s.px = x;
         s.py = y;
         s.pz = z;
-        s.followUuidStr.clear(); // 手动设位 = 解除跟随
-        s.animActive = false;    // 手动设位 = 中断进行中的动画
+        s.followUuidStr.clear();
+        s.animActive = false;
     });
 }
 
@@ -512,7 +499,7 @@ bool ParticleShapeManager::moveBy(int64_t id, float dx, float dy, float dz) {
 bool ParticleShapeManager::moveTo(int64_t id, float x, float y, float z, int durationTicks) {
     return mShapes.withObject(id, [&](Shape& s) -> bool {
         if (durationTicks <= 0) {
-            // 零时长 = 立即到达（等价 setPos）
+
             s.px         = x;
             s.py         = y;
             s.pz         = z;
@@ -529,7 +516,7 @@ bool ParticleShapeManager::moveTo(int64_t id, float x, float y, float z, int dur
         s.animToZ           = z;
         s.animStartTick     = currentTick();
         s.animDurationTicks = durationTicks;
-        s.followUuidStr.clear(); // 显式移动 = 解除跟随
+        s.followUuidStr.clear();
         return true;
     });
 }
@@ -579,7 +566,7 @@ bool ParticleShapeManager::setEffect(int64_t id, std::string const& effect) {
         return false;
     return mShapes.withObject(id, [&](Shape& s) {
         s.effect      = effect;
-        s.framePosOff = static_cast<std::size_t>(-1); // 效果名变化 → 帧模板重建
+        s.framePosOff = static_cast<std::size_t>(-1);
     });
 }
 
@@ -589,7 +576,7 @@ bool ParticleShapeManager::setVisible(int64_t id, std::string const& playersCsv)
         std::stringstream ss(playersCsv);
         std::string       item;
         while (std::getline(ss, item, ',')) {
-            // trim
+
             auto b = item.find_first_not_of(" \t");
             auto e = item.find_last_not_of(" \t");
             if (b == std::string::npos)
@@ -684,10 +671,8 @@ std::string ParticleShapeManager::getInfo(int64_t id) const {
     return found ? out : "";
 }
 
-// ── tick 驱动 ──
-
 void ParticleShapeManager::tick() {
-    // HLIB_NO_PARTICLES=1 停发粒子（26.40）。
+
     static bool const kParticlesDisabled = [] {
         char const* v = std::getenv("HLIB_NO_PARTICLES");
         return v != nullptr && v[0] == '1';
@@ -702,13 +687,13 @@ void ParticleShapeManager::tick() {
             expired.push_back(id);
             return;
         }
-        // 自旋累积（每 tick, 与发射节奏解耦）
+
         if (s.spinX != 0.0f || s.spinY != 0.0f || s.spinZ != 0.0f) {
             s.rotX += s.spinX;
             s.rotY += s.spinY;
             s.rotZ += s.spinZ;
         }
-        // moveTo 平滑移动步进（easeOutCubic 插值锚点）
+
         if (s.animActive) {
             std::uint64_t elapsed = now - s.animStartTick;
             if (elapsed >= (std::uint64_t)s.animDurationTicks) {
@@ -718,7 +703,7 @@ void ParticleShapeManager::tick() {
                 s.animActive = false;
             } else {
                 float t = (float)elapsed / (float)s.animDurationTicks;
-                t       = 1.0f - (1.0f - t) * (1.0f - t) * (1.0f - t); // easeOutCubic
+                t       = 1.0f - (1.0f - t) * (1.0f - t) * (1.0f - t);
                 s.px    = s.animFromX + (s.animToX - s.animFromX) * t;
                 s.py    = s.animFromY + (s.animToY - s.animFromY) * t;
                 s.pz    = s.animFromZ + (s.animToZ - s.animFromZ) * t;
@@ -728,7 +713,6 @@ void ParticleShapeManager::tick() {
             due.push_back(id);
     });
 
-    // 到期的先摘掉（不在 forEach 里改表）
     for (auto const id : expired) {
         mShapes.erase(id);
     }
@@ -752,9 +736,6 @@ void ParticleShapeManager::tick() {
     }
 }
 
-// 预序列化帧模板: 一次完整序列化（marker 坐标）→ 扫描定位坐标偏移。
-// 此后每粒子只补丁 12 字节浮点坐标, 静态部分（维度/actorId/效果名/Molang）
-// 永不重复序列化。setEffect / 跟随跨维度时置 framePosOff=-1 失效重建。
 bool ParticleShapeManager::buildFrameTemplate(Shape& s) {
     auto packet = MinecraftPackets::createPacket(MinecraftPacketIds::SpawnParticleEffect);
     if (!packet)
@@ -764,7 +745,7 @@ bool ParticleShapeManager::buildFrameTemplate(Shape& s) {
     spe->mActorId            = ::ActorUniqueID{-1};
     spe->mEffectName         = s.effect;
     spe->mMolangVariables    = std::nullopt;
-    // marker 坐标: 三段特殊浮点位型, 效果名(ASCII)中不可能出现
+
     constexpr float mkX = -98765.5f, mkY = 87654.25f, mkZ = -76543.125f;
     spe->mPos = ::Vec3{mkX, mkY, mkZ};
 
@@ -776,28 +757,19 @@ bool ParticleShapeManager::buildFrameTemplate(Shape& s) {
     if (off == std::string::npos)
         return false;
 
-    // varuint 包头（pid | 发送者/接收者子客户端位全 0）
-    std::string   head;
-    std::uint32_t v = static_cast<std::uint32_t>(spe->getId());
-    while (v & ~0x7Fu) {
-        head.push_back((char)((v & 0x7F) | 0x80));
-        v >>= 7;
-    }
-    head.push_back((char)v);
+    auto const        id = static_cast<std::uint32_t>(spe->getId());
+    std::size_t const hl = wire::headerLength(id);
 
-    s.frameTpl.assign(head);
-    s.frameTpl += body.mBuffer;
-    s.framePosOff = head.size() + off;
+    s.frameTpl    = wire::withHeader(id, std::string{body.mBuffer});
+    s.framePosOff = hl + off;
     return true;
 }
 
-// now 目前只在调用方用, 保留参数给以后的时间戳补偿
 bool ParticleShapeManager::emitShape(Shape& s, [[maybe_unused]] std::uint64_t now) {
     auto level = ll::service::getLevel();
     if (!level)
-        return true; // level 未就绪: 保留待发
+        return true;
 
-    // ── 目标玩家（白名单或维度全员）──
     std::vector<Player*> targets;
     auto                 collectDim = [&](int dim) {
         level->forEachPlayer([&](Player& pl) -> bool {
@@ -815,24 +787,23 @@ bool ParticleShapeManager::emitShape(Shape& s, [[maybe_unused]] std::uint64_t no
                 targets.push_back(pl);
         }
     }
-    // 全员可见但无人在该维度 → 空转保留（等人来）; 白名单模式无有效目标 → 移除
+
     if (targets.empty())
         return s.visibleAll;
 
-    // ── 跟随: 玩家位置覆盖锚点（跟随目标不在目标列表也没关系, 锚点独立解析）──
     float anchorX = s.px, anchorY = s.py, anchorZ = s.pz;
     if (!s.followUuidStr.empty()) {
         auto* follower = level->getPlayer(s.followUuid);
         if (follower == nullptr)
-            return true; // 跟随目标离线: 空转保留
+            return true;
         auto const& fpos = follower->getPosition();
         anchorX          = (float)fpos.x + s.offX;
         anchorY          = (float)fpos.y + s.offY;
         anchorZ          = (float)fpos.z + s.offZ;
-        // 跟随时形状维度 = 跟随者维度（跨维度自动跟随）
+
         if (((int)follower->getDimensionId()) != s.dimId) {
             s.dimId       = ((int)follower->getDimensionId());
-            s.framePosOff = static_cast<std::size_t>(-1); // 维度字节变化 → 帧模板重建
+            s.framePosOff = static_cast<std::size_t>(-1);
             targets.clear();
             collectDim(s.dimId);
             if (s.visibleAll && targets.empty())
@@ -840,14 +811,12 @@ bool ParticleShapeManager::emitShape(Shape& s, [[maybe_unused]] std::uint64_t no
         }
     }
 
-    // ── 采样缓存 ──
     if (!s.cacheValid || s.localPts.empty())
         sampleLocal(s);
     auto const& pts = s.localPts;
     if (pts.empty())
         return true;
 
-    // ── 变换（欧拉 ZYX + 缩放 + 平移）──
     float m[9];
     eulerToMatrix(s.rotX, s.rotY, s.rotZ, m);
     std::vector<float> world(pts.size());
@@ -860,7 +829,6 @@ bool ParticleShapeManager::emitShape(Shape& s, [[maybe_unused]] std::uint64_t no
     }
     size_t const n = pts.size() / 3;
 
-    // 发送
     if (s.framePosOff == static_cast<std::size_t>(-1) && !buildFrameTemplate(s))
         return true;
 
@@ -868,25 +836,25 @@ bool ParticleShapeManager::emitShape(Shape& s, [[maybe_unused]] std::uint64_t no
     if (!networkSystem)
         return true;
 
-    static thread_local std::string frame; // 复用缓冲: 粒子间只改 12 字节
+    static thread_local std::string frame;
     frame             = s.frameTpl;
-    auto patchAndSend = [&](NetworkPeer* peer, size_t i, ::Player* pl) {
+    auto patchAndSend = [&](NetworkPeer& peer, size_t i, ::Player* pl) {
         std::memcpy(&frame[s.framePosOff], &world[i * 3], 4);
         std::memcpy(&frame[s.framePosOff + 4], &world[i * 3 + 1], 4);
         std::memcpy(&frame[s.framePosOff + 8], &world[i * 3 + 2], 4);
-        peer->sendPacket(frame, NetworkPeer::Reliability::Reliable, Compressibility::Compressible);
-        ::debugshape_export::wire::noteSent(
-            "SpawnParticleEffectPacket",
-            static_cast<std::uint32_t>(MinecraftPacketIds::SpawnParticleEffect),
+        ::debugshape_export::wire::sendRawToPeer(
+            peer,
             *pl,
-            frame.size()
-        );
+            frame,
+            ::debugshape_export::wire::Reliability::Reliable,
+            "SpawnParticleEffectPacket",
+            static_cast<std::uint32_t>(MinecraftPacketIds::SpawnParticleEffect));
     };
 
     for (auto* player : targets) {
         auto* peer = networkSystem->getPeerForUser(player->getNetworkIdentifier());
         if (peer == nullptr)
-            continue; // 连接失效: 跳过该玩家
+            continue;
         if (s.viewDistance > 0) {
             auto const&  ppos = player->getPosition();
             double const px = ppos.x, py = ppos.y, pz = ppos.z;
@@ -895,11 +863,11 @@ bool ParticleShapeManager::emitShape(Shape& s, [[maybe_unused]] std::uint64_t no
                 double dx = world[i * 3] - px, dy = world[i * 3 + 1] - py, dz = world[i * 3 + 2] - pz;
                 if (dx * dx + dy * dy + dz * dz > r2)
                     continue;
-                patchAndSend(peer, i, player);
+                patchAndSend(*peer, i, player);
             }
         } else {
             for (size_t i = 0; i < n; i++) {
-                patchAndSend(peer, i, player);
+                patchAndSend(*peer, i, player);
             }
         }
     }

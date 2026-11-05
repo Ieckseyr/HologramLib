@@ -1,16 +1,13 @@
-// ItemDisplayManager.cpp - FMBE 狐狸悬浮物显示实现
-//
-// 迁移自 ItemPhys FloatingDisplay（狐狸显示+发包技术）,
-// 主键改为 int64 id，去除持久化与命令层（由消费者负责）。
 #include "ItemDisplayManager.h"
 #include "../DiagFlags.h"
+#include "ItemDisplayRuntimeOps.h"
+#include "core/EventIds.h"
 
 #include "DiagLog.h"
 
 #include "core/PacketSink.h"
 
-#include "../EventIdCompat.h"
-#include "core/TickDriver.h" // 每 tick 驱动（全库唯一 Level::$tick hook）
+#include "core/TickDriver.h"
 
 #include <random>
 
@@ -26,12 +23,12 @@
 #include <mc/deps/core/utility/BinaryStream.h>
 #include <mc/deps/core/utility/ReadOnlyBinaryStream.h>
 #include <mc/deps/nbt/CompoundTag.h>
+#include <mc/deps/nbt/ShortTag.h>
 #include <mc/legacy/ActorRuntimeID.h>
 #include <mc/network/MinecraftPackets.h>
 #include <mc/network/NetworkSystem.h>
 #include <mc/network/packet/MobEquipmentPacket.h>
 #include <mc/world/actor/player/Player.h>
-#include <mc/deps/nbt/ShortTag.h>
 #include <mc/world/item/ItemStack.h>
 #include <mc/world/item/enchanting/Enchant.h>
 #include <mc/world/item/enchanting/EnchantmentInstance.h>
@@ -58,619 +55,17 @@
 #include <optional>
 
 namespace debugshape_export {
+using namespace ide_ops;
 
-namespace {
-
-// ── 动画调度队列（tick 延迟发送 AnimateEntityPacket）──
-
-struct AnimEntry {
-    mce::UUID        playerUuid;
-    std::uint64_t    runtimeId;
-    std::string      animation;
-    std::string      controller;
-    std::string      stopExpression;
-    bool             noAliveCheck{false};  // 一次性原语(emit)发的条目: 实体不在显示表里, 跳过活性检查
-    // 26.40.12: 延迟装备（等 sleeping/swelling/posrot 都落地后再把物品塞给狐狸）。
-    // 之前 Add 之后立刻发 MobEquipment: 物品会先以"默认嘴位/默认大小"渲染 2~4 tick,
-    // 然后被动画一下拽到配置位置/缩放 —— 表现就是生成瞬间的抽搐/移动/变大。
-    bool                       equip{false};
-    std::optional<::ItemStack> equipStack{};
-};
-
-std::multimap<std::uint64_t, AnimEntry>& animQueue() {
-    static std::multimap<std::uint64_t, AnimEntry> queue;
-    return queue;
-}
-
-std::uint64_t currentTick() {
-    auto level = ll::service::getLevel();
-    return level ? level->getCurrentTick().tickID : 0;
-}
-
-Player* findPlayerByUuid(mce::UUID const& uuid) {
-    auto level = ll::service::getLevel();
-    if (!level) return nullptr;
-    return level->getPlayer(uuid);
-}
-
-// ── 2D 方块物品判定 ──
-
-bool is2DBlockItemName(std::string const& rawName) {
-    auto name = std::string_view{rawName};
-    if (name.starts_with("minecraft:")) name.remove_prefix(10);
-
-    static constexpr std::string_view exactNames[] = {
-        "ladder",     "vine",          "weeping_vines", "twisting_vines", "glow_lichen", "sculk_vein", "lily_pad",
-        "tripwire",   "tripwire_hook", "redstone_wire", "deadbush",       "fern",        "large_fern", "short_grass",
-        "tall_grass", "seagrass",      "tall_seagrass", "kelp",           "cocoa",
-    };
-    for (auto exact : exactNames) {
-        if (name == exact) return true;
-    }
-
-    static constexpr std::string_view patterns[] = {
-        "flower", "sapling", "coral_fan", "torch", "rail", "button", "lever", "pressure_plate",
-        "carpet", "roots",   "sprouts",   "fungus", "mushroom", "bush",
-    };
-    return std::ranges::any_of(patterns, [&name](auto pattern) { return name.contains(pattern); });
-}
-
-// ── ItemStack 构造（按名称从注册表解析）──
-
-// 旧名 → 新名（1.16~1.20.3x 官方改名, 用户习惯兼容; 与 DropEnhancer 校验逻辑同步）
-std::unordered_map<std::string, std::string> const& legacyItemNames() {
-    static std::unordered_map<std::string, std::string> const map = {
-        {"grass",      "short_grass"}, // 1.20.30 起草丛改名
-        {"grass_path", "dirt_path"},   // 1.19.x
-        {"sign",       "oak_sign"},    // 1.16 拆分
-        {"skull",      "player_head"}, // 1.16 拆分
-    };
-    return map;
-}
-
-// 名称规范化: 短名补 minecraft: 前缀; 旧名映射到现行名
-std::string normalizeItemName(std::string const& raw) {
-    std::string_view shortName = raw;
-    if (shortName.starts_with("minecraft:")) shortName.remove_prefix(10);
-    if (auto it = legacyItemNames().find(std::string(shortName)); it != legacyItemNames().end()) {
-        return "minecraft:" + it->second;
-    }
-    if (raw.find(':') == std::string::npos) return "minecraft:" + raw;
-    return raw;
-}
-
-std::optional<::ItemStack> buildItemStack(std::string const& rawName, int aux, std::string const& nbt, bool glint) {
-    auto level = ll::service::getLevel();
-    if (!level) return std::nullopt;
-
-    // 先解析用户数据（自定义名称等）。
-    // 用 4 参构造器在构造时传入 —— BDS 原生路径, 构造内部完整处理 userData
-    // （比构造后 setUserData 更可靠, 组件状态/比较值同步初始化）。
-    std::unique_ptr<::CompoundTag> tag;
-    if (!nbt.empty()) {
-        auto parsed = ::CompoundTag::fromSnbt(nbt);
-        if (parsed) {
-            tag = std::make_unique<::CompoundTag>(std::move(*parsed));
-        } else {
-            HLIB_LOG_WARN(
-                "[ItemDisplay] itemNbt SNBT parse failed for '{}', ignored. 原文前 80 字节: [{}]",
-                rawName,
-                nbt.substr(0, 80)
-            );
-        }
-    }
-
-    // 附魔光效: 手写 NBT 注入（构造前写入 tag, 4 参构造器统一摄入, 零 BDS 附魔 API 跳转）。
-    // 1.8.0 手写失败根因已定位: CompoundTagVariant{1} 推导为 IntTag(SNBT "1"),
-    // 而原版附魔等级是 ShortTag(SNBT "1s")——组件 schema 严格类型校验,
-    // IntTag 被静默拒绝(isEnchanted=false → 无光效)。显式 ::ShortTag{1} 精确定类型。
-    if (glint) {
-        if (!tag) tag = std::make_unique<::CompoundTag>();
-        // 定位/新建 components 复合（已有则合并, 保留自定义名称等其余组件）
-        ::CompoundTag* comps = nullptr;
-        if (auto found = tag->mTags.find("components"); found != tag->mTags.end()) {
-            comps = std::get_if<::CompoundTag>(&found->second.mTagStorage);
-        }
-        if (!comps) { // 不存在（或非复合的损坏数据）→ 新建
-            (*tag)["components"] = ::CompoundTagVariant{::CompoundTag{}};
-            comps                = std::get_if<::CompoundTag>(&(*tag)["components"].mTagStorage);
-        }
-        if (comps) {
-            ::CompoundTag levels;
-            levels["minecraft:sharpness"]     = ::CompoundTagVariant{::ShortTag{1}};
-            ::CompoundTag ench;
-            ench["levels"]                    = std::move(levels);
-            (*comps)["minecraft:enchantments"] = std::move(ench);
-        }
-    }
-
-    auto tryGet = [&](std::string const& name) -> std::optional<::ItemStack> {
-        auto weak = level->getItemRegistry().getItem(::HashedString(name));
-        if (!weak) return std::nullopt;
-        // 26.32: ItemStack 无 4 参构造, 默认构造 + reinit + setUserData
-        ::ItemStack stack{};
-        stack.reinit(*weak, 1, aux);
-        if (tag) stack.setUserData(std::make_unique<::CompoundTag>(*tag));
-        return stack;
-    };
-    std::optional<::ItemStack> stack;
-    if (stack = tryGet(rawName)) { // 原名（含自定义命名空间）
-    } else {
-        stack = tryGet(normalizeItemName(rawName)); // 短名补全 / 旧名映射
-    }
-    if (!stack) return std::nullopt;
-
-    // 自写光效未生效（isEnchanted 仍为 false）时走原生路径兜底，保证光效必现;
-    // 同时打印原生 NBT，便于对照自写结构的偏差。
-    if (glint && !stack->isEnchanted()) {
-        auto                  ench = stack->constructItemEnchantsFromUserData();
-        ::EnchantmentInstance inst{};
-        inst.mEnchantType = ::Enchant::Type::Sharpness;
-        inst.mLevel       = 1;
-        // 26.32: ItemEnchants::addEnchant 已移除, 直接写入通用槽(slot -1 → 数组索引 0)
-        auto instances = ench.getEnchantInstances();
-        instances[0].push_back(inst);
-        ench.setEnchantInstances(std::move(instances));
-        stack->saveEnchantsToUserData(ench);
-        HLIB_LOG_WARN(
-            "[ItemDisplay] 光效自写未生效(isEnchanted=false), 已走原生兜底。自写: [{}] 原生格式: [{}]",
-            tag ? tag->toSnbt(::SnbtFormat::Minimize) : std::string("(null)"),
-            stack->mUserData ? stack->mUserData->toSnbt(::SnbtFormat::Minimize) : std::string("(null)")
-        );
-    }
-
-    // 诊断: NBT/光效应用结果（runtime 重建时触发, 频率低）
-    if (!nbt.empty() || glint) {
-        HLIB_LOG_INFO(
-            "[ItemDisplay] 物品构建 '{}': NBT {} 字节, glint={}, isEnchanted={}",
-            rawName,
-            nbt.size(),
-            glint,
-            stack->isEnchanted()
-        );
-    }
-    return stack;
-}
-
-// 解析实际渲染模式：auto 时按物品是否为 3D 方块决定
-int effectiveMode(ItemDisplayConfig const& data, ::ItemStack const& stack) {
-    if (data.mode != 0) return data.mode; // 1=item 2=block 手动指定
-    bool const isBlock = stack.mBlock != nullptr && !is2DBlockItemName(stack.getRawNameId());
-    return isBlock ? 2 : 1;
-}
-
-// ── 发包原语 ──
-
-using Runtime = ItemDisplayManager::Runtime;
-
-// ── 26.40.12: 动画预设 → Molang 表达式 ──
-// 时间基统一用 q.life_time（秒）; Molang 的 sin/cos 吃角度制, 所以 360/周期。
-std::string animNum(double v) { return std::format("{:.6g}", v); }
-std::string animParen(std::string const& s) { return "(" + s + ")"; }
-std::string animAdd(std::string const& a, std::string const& b) { return "(" + a + "+" + b + ")"; }
-std::string animMul(std::string const& a, std::string const& b) { return "(" + a + "*" + b + ")"; }
-std::string animSin(double w, std::string const& t) { return std::format("math.sin(({})*{})", animNum(w), t); }
-std::string animCos(double w, std::string const& t) { return std::format("math.cos(({})*{})", animNum(w), t); }
-
-void applyAnimToConfig(
-    ItemDisplayConfig&       d,
-    ItemDisplayAnim const&   a,
-    Runtime::AnimBase const& base,
-    bool                     itemMode
-) {
-    // 先把变换恢复到基准（避免上一次动画的表达式残留）
-    d.offsetX = base.ox;
-    d.offsetY = base.oy;
-    d.offsetZ = base.oz;
-    d.rotX    = base.rx;
-    d.rotY    = base.ry;
-    d.rotZ    = base.rz;
-    d.scale   = base.scale;
-
-    std::string const t  = std::format("(q.life_time+({}))", animNum(a.phase));
-    std::string       rx = animParen(base.rx);
-    std::string       ry = animParen(base.ry);
-    std::string       rz = animParen(base.rz);
-
-    // 1) 匀速自转: 该轴基准 + speed * t
-    if (a.spinSpeed != 0.0f) {
-        auto& axis = (a.spinAxis == 0) ? rx : ((a.spinAxis == 2) ? rz : ry);
-        axis       = animAdd(axis, animMul(animNum(a.spinSpeed), t));
-    }
-
-    // 2) 双轴翻滚: X 正向、Z 反向 0.7 倍（看起来是斜着滚）
-    if (a.tumbleSpeed != 0.0f) {
-        rx = animAdd(rx, animMul(animNum(a.tumbleSpeed), t));
-        rz = animAdd(rz, animMul(animNum(-0.7 * a.tumbleSpeed), t));
-    }
-
-    // 3) 面向相机（仅物品模式; 物品路径 builder 会自动 +205, 这里不要再加）
-    if (a.billboard && itemMode) {
-        ry = "q.rotation_to_camera(1)";
-        if (a.billboardPitch) rx = "q.rotation_to_camera(0)";
-    }
-
-    // 4) 钟摆（绕 Y）
-    if (a.pendulumAmplitude != 0.0f && a.pendulumPeriod > 0.01f) {
-        ry = animAdd(ry, animMul(animNum(a.pendulumAmplitude), animSin(360.0f / a.pendulumPeriod, t)));
-    }
-
-    // 5) 摇摆（X/Z 反相）
-    if (a.swayAmplitude != 0.0f && a.swayPeriod > 0.01f) {
-        double const w = 360.0 / a.swayPeriod;
-        rx = animAdd(rx, animMul(animNum(a.swayAmplitude), animSin(w, t)));
-        rz = animAdd(rz, animMul(animNum(a.swayAmplitude), animCos(w, t)));
-    }
-
-    // 6) 双正弦微晃（两个不谐振的频率, 看起来像噪声晃动）
-    if (a.wobbleAmplitude != 0.0f) {
-        double const w = 120.0 * (a.wobbleSpeed > 0.01f ? a.wobbleSpeed : 1.0f);
-        rx = animAdd(rx, animMul(animNum(a.wobbleAmplitude), animSin(w, t)));
-        rz = animAdd(
-            rz,
-            animMul(animNum(a.wobbleAmplitude), std::format("math.sin(({})*{}+1.1)", animNum(w * 1.37), t))
-        );
-    }
-
-    // 7) 上下浮动（orbit 若在同平面会叠加到同一条 offset 表达式上）
-    std::string oy = animParen(base.oy);
-    if (a.bobAmplitude != 0.0f && a.bobPeriod > 0.01f) {
-        oy = animAdd(oy, animMul(animNum(a.bobAmplitude), animSin(360.0f / a.bobPeriod, t)));
-    }
-    d.offsetY = oy;
-
-    // 8) 绕点画圈
-    if (a.orbitRadius != 0.0f && a.orbitPeriod > 0.01f) {
-        double const      w = 360.0 / a.orbitPeriod;
-        std::string const c = animMul(animNum(a.orbitRadius), animCos(w, t));
-        std::string const s = animMul(animNum(a.orbitRadius), animSin(w, t));
-        if (a.orbitPlane == 0) {
-            d.offsetX = animAdd(animParen(base.ox), c);
-            d.offsetY = animAdd(d.offsetY, s);
-        } else if (a.orbitPlane == 1) {
-            d.offsetZ = animAdd(animParen(base.oz), c);
-            d.offsetY = animAdd(d.offsetY, s);
-        } else {
-            d.offsetX = animAdd(animParen(base.ox), c);
-            d.offsetZ = animAdd(animParen(base.oz), s);
-        }
-    }
-
-    // 9) 缩放: pulse × heartbeat × LOD × 第一人称隐藏
-    std::string scale = animParen(base.scale);
-    if (a.pulseAmplitude != 0.0f && a.pulsePeriod > 0.01f) {
-        scale = animMul(scale, animAdd("1", animMul(animNum(a.pulseAmplitude), animSin(360.0f / a.pulsePeriod, t))));
-    }
-    if (a.heartbeatAmplitude != 0.0f && a.heartbeatPeriod > 0.01f) {
-        double const w    = 360.0 / a.heartbeatPeriod;
-        std::string  beat = std::format("math.pow((0.5+0.5*math.sin(({})*{})),4)", animNum(w), t);
-        scale             = animMul(scale, animAdd("1", animMul(animNum(a.heartbeatAmplitude), beat)));
-    }
-    if (a.lodNear > 0.0f && a.lodFar > 0.0f && a.lodMinScale > 0.0f) {
-        scale = animMul(
-            scale,
-            std::format(
-                "math.lerp(({}),1,q.camera_distance_range_lerp(({}),({})))",
-                animNum(a.lodMinScale),
-                animNum(a.lodFar),
-                animNum(a.lodNear)
-            )
-        );
-    }
-    if (a.hideInFirstPerson) {
-        scale = animMul(scale, "(1-q.is_first_person)");
-    }
-
-    d.rotX = rx;
-    d.rotY = ry;
-    d.rotZ = rz;
-    d.scale = scale;
-}
-
-void sendFoxActor(Player& player, ItemDisplayConfig const& data, Runtime const& rt) {
-    sculk::protocol::AddActorPacket pkt;
-    pkt.mActorUniqueId  = static_cast<std::int64_t>(rt.uniqueId);
-    pkt.mActorRuntimeId = rt.runtimeId;
-    pkt.mIdentifier     = "minecraft:fox";
-    pkt.mPosition       = {data.x, data.y, data.z};
-    pkt.mVelocity       = {0, 0, 0};
-    pkt.mRotation       = {0, 0};
-    pkt.mYHeadRotation  = 0;
-    pkt.mYBodyRotation  = 0;
-    pkt.mAttributes     = {
-        {"minecraft:health",              0,     20.f,  20.f         },
-        {"minecraft:movement",            0,     0.3f,  3.4028235e38f},
-        {"minecraft:underwater_movement", 0,     0.02f, 3.4028235e38f},
-        {"minecraft:lava_movement",       0,     0.02f, 3.4028235e38f},
-        {"minecraft:absorption",          0,     0,     16.f         },
-        {"minecraft:luck",                -1024, 0,     1024         },
-        // 抗击退满值: 玩家碰撞/攻击不再推动狐狸载体（载体位移 = 展示物抽搐）
-        {"minecraft:knockback_resistance", 1.f,  0.f,   1.f          },
-    };
-    pkt.mSynchedProperties = {};
-    pkt.mActorLinks        = {};
-    // ItemPhys 原版配方: flags=(1<<5)|(1<<30)|(1<<31) + R53/R54
-    // (FMBE 动画生效后狐狸本体被 swelling 变形隐藏, 只显示叼的物品)
-    // 1.17.0: R53/R54（包围盒 Width/Height）从展示配置读取（默认 0.0 = 无判定体积,
-    // 存量行为不变）; setHitbox 配置后 respawn/新观察者 spawn 自动按当前值发包
-    std::int64_t flags       = (std::int64_t(1) << 5) | (std::int64_t(1) << 30) | (std::int64_t(1) << 31);
-    pkt.mMetaData.mDataItems = {
-        {sculk::protocol::ActorDataIDs::Reserved0,  flags},
-        {sculk::protocol::ActorDataIDs::Reserved53, data.hitboxWidth},
-        {sculk::protocol::ActorDataIDs::Reserved54, data.hitboxHeight},
-    };
-    wire::send(player, pkt);
-}
-
-void sendEquipment(Player& player, std::uint64_t runtimeId, ::ItemStack const& stack) {
-    ::MobEquipmentPacket equipPkt{
-        ::ActorRuntimeID{runtimeId},
-        stack,
-        0, // slot
-        0, // selectedSlot
-        ContainerID::Inventory
-    };
-    equipPkt.sendTo(player);
-}
-
-void sendDataPacket(Player& player, std::uint64_t runtimeId, float hitboxWidth, float hitboxHeight) {
-    sculk::protocol::SetActorDataPacket pkt;
-    pkt.mActorRuntimeId    = runtimeId;
-    pkt.mSynchedProperties = {};
-    pkt.mTick              = 0;
-    // 与 AddActor 完全一致的 flags（ItemPhys 原版: 两包同配方, 避免 flags 抖动）
-    // 1.17.0: R53/R54 从展示配置读取（与 sendFoxActor 同源）
-    std::int64_t flags       = (std::int64_t(1) << 5) | (std::int64_t(1) << 30) | (std::int64_t(1) << 31);
-    pkt.mMetaData.mDataItems = {
-        {sculk::protocol::ActorDataIDs::Reserved0,  flags},
-        {sculk::protocol::ActorDataIDs::Reserved53, hitboxWidth},
-        {sculk::protocol::ActorDataIDs::Reserved54, hitboxHeight},
-    };
-    wire::send(player, pkt);
-}
-
-// 1.17.0: AABB 判定体积即时广播（轻量元数据更新, 无 respawn）
-// 与 sendDataPacket 同配方（flags + R53/R54）, 对已见玩家逐个发送
-void sendHitboxPacket(Player& player, std::uint64_t runtimeId, float width, float height) {
-    sculk::protocol::SetActorDataPacket pkt;
-    pkt.mActorRuntimeId    = runtimeId;
-    pkt.mSynchedProperties = {};
-    pkt.mTick              = 0;
-    std::int64_t flags       = (std::int64_t(1) << 5) | (std::int64_t(1) << 30) | (std::int64_t(1) << 31);
-    pkt.mMetaData.mDataItems = {
-        {sculk::protocol::ActorDataIDs::Reserved0,  flags},
-        {sculk::protocol::ActorDataIDs::Reserved53, width},
-        {sculk::protocol::ActorDataIDs::Reserved54, height},
-    };
-    wire::send(player, pkt);
-}
-
-// 1.17.0: 跟随位移包 —— MoveActorAbsolute 非 teleport 标志（客户端平滑插值, 与原版
-// 生物移动同路径）; 旋转恒 0（方块朝向保持轴对齐, 朝向由 Molang 动画独立控制）
-void sendFollowMove(Player& player, std::uint64_t runtimeId, float x, float y, float z) {
-    sculk::protocol::MoveActorAbsolutePacket pkt;
-    pkt.mActorRuntimeId = runtimeId;
-    pkt.mFlags          = {};    // 无 teleport: 客户端按原版移动插值（平滑跟随的关键）
-    pkt.mPosition       = {x, y, z};
-    pkt.mRotationX      = 0;
-    pkt.mRotationY      = 0;
-    pkt.mRotationYHead  = 0;
-    wire::send(player, pkt);
-}
-
-void sendRemove(Player& player, Runtime const& rt) {
-    sculk::protocol::RemoveActorPacket pkt;
-    pkt.mActorUniqueId = static_cast<std::int64_t>(rt.uniqueId);
-    wire::send(player, pkt);
-}
-
-// ── FMBE Molang 模板（参数化三轴旋转/函数平移/缩放）──
-
-std::string buildItemScaleExpr(
-    ItemDisplayConfig const& d,
-    std::string const&       stretchXZ,
-    std::string const&       stretchY
-) {
-    // 物品渲染：wiki.scale 路径（v.yrot 自动 +205 补偿狐狸头部朝向）
-    // 26.40.12: 插值一律加括号（用户表达式里的 ?: / , 不再改变整条语句的结合）;
-    //            sqrt 包 abs（负 scale 镜像时不再产生 NaN）; 增加 XZ / Y 两条拉伸通道。
-    return std::format(
-        "v.scale=({0});v.adscale=math.sqrt(math.abs(v.scale));v.adscaled=2.1385*v.adscale;"
-        "v.xbasepos=({1});v.ybasepos=({2});v.zbasepos=({3});"
-        "v.xpos=({4});v.ypos=({5});v.zpos=({6});"
-        "v.xrot=({7});v.yrot=(({8})+205);v.zrot=({9});"
-        "v.swelling_scale1=v.adscaled*({10});v.swelling_scale2=v.adscaled*({11});",
-        d.scale,
-        d.baseOffsetX,
-        d.baseOffsetY,
-        d.baseOffsetZ,
-        d.offsetX,
-        d.offsetY,
-        d.offsetZ,
-        d.rotX,
-        d.rotY,
-        d.rotZ,
-        stretchXZ,
-        stretchY
-    );
-}
-
-constexpr std::string_view kItemPosRotExpr =
-    // 物品渲染：wiki.posrot 路径（按 xrot→zrot→yrot 顺序旋转并平移）—— ItemPhys 原版表达式, 逐字保持
-    "v.adjust_xz=8*v.adscaled+v.zbasepos/v.adscaled;"
-    "v.adjust_y=(-5-v.ybasepos/v.adscaled/v.adscaled)*v.adscaled;"
-    "v.x=v.xbasepos/v.adscaled;v.y=v.adjust_y;v.z=v.adjust_xz;"
-    "v.ty=v.y*math.cos(v.xrot)-v.z*math.sin(v.xrot);"
-    "v.tz=v.y*math.sin(v.xrot)+v.z*math.cos(v.xrot);"
-    "v.y=v.ty;v.z=v.tz;"
-    "v.tx=-v.x*math.cos(v.zrot)+v.y*math.sin(v.zrot);"
-    "v.ty=v.x*math.sin(v.zrot)+v.y*math.cos(v.zrot);"
-    "v.x=v.tx;v.y=v.ty;"
-    "v.tx=v.x*math.cos(v.yrot)+v.z*math.sin(v.yrot);"
-    "v.tz=-v.x*math.sin(v.yrot)+v.z*math.cos(v.yrot);"
-    "v.x=v.tx;v.z=v.tz;"
-    "v.head_position_x=v.x+v.xpos/v.adscaled;"
-    "v.head_position_y=7.48/v.adscale+v.z+v.zpos/v.adscaled;"
-    "v.head_position_z=v.y-v.ypos/v.adscaled;"
-    "v.head_rotation_x=90+v.xrot;"
-    "v.head_rotation_y=v.zrot;"
-    "v.head_rotation_z=v.yrot;";
-
-std::string buildBlockMatrixExpr(ItemDisplayConfig const& d) {
-    // 3D 方块渲染：完整旋转矩阵路径（主三轴 + 二段扩展旋转）
-    // 方块模式默认值归一化: 配置出厂默认是物品模式值(offsetY=-4/scale=0.375),
-    // 方块下换用 ItemPhys 原版方块默认(ypos=0.125/scale=0.5); 用户设置过其他值则尊重用户值
-    char const* ypos  = (d.offsetY == "-4")    ? "0.125" : d.offsetY.c_str();
-    char const* scale = (d.scale == "0.375") ? "0.5"    : d.scale.c_str();
-    return std::format(
-        "v.xpos=({0});v.ypos=({1});v.zpos=({2});"
-        "v.xrot=({3});v.yrot=({4});v.zrot=({5});"
-        "v.scale=({6});v.extend_scale=({7});v.extend_xrot=({8});v.extend_yrot=({9});"
-        "v.xbasepos=({10});v.ybasepos=({11});v.zbasepos=({12});"
-        "v.F.r5=-math.sin(v.xrot);v.F.r2=-math.sin(v.yrot);v.F.r3=-math.sin(v.zrot);"
-        "v.F.r4=math.cos(v.zrot);v.F.r8=math.cos(v.yrot);"
-        "v.F.r0=-v.F.r5*v.F.r2*v.F.r3+v.F.r8*v.F.r4;"
-        "v.F.r1=-v.F.r5*v.F.r2*v.F.r4-v.F.r8*v.F.r3;"
-        "v.F.r6=-v.F.r5*v.F.r8*v.F.r3-v.F.r2*v.F.r4;"
-        "v.F.r7=-v.F.r5*v.F.r8*v.F.r4+v.F.r2*v.F.r3;"
-        "v.F.r2=v.F.r2*math.cos(v.xrot);v.F.r3=v.F.r3*math.cos(v.xrot);"
-        "v.F.r4=v.F.r4*math.cos(v.xrot);v.F.r8=v.F.r8*math.cos(v.xrot);"
-        "v.F.e0=math.cos(v.extend_yrot);v.F.e4=math.cos(v.extend_xrot);"
-        "v.F.e5=-math.sin(v.extend_xrot);v.F.e6=math.sin(v.extend_yrot);"
-        "v.F.e1=v.F.e5*v.F.e6;v.F.e2=-v.F.e4*v.F.e6;"
-        "v.F.e7=-v.F.e5*v.F.e0;v.F.e8=v.F.e4*v.F.e0;"
-        "v.F.p0=v.F.r0*v.F.e0+v.F.r2*v.F.e6;"
-        "v.F.p1=v.F.r0*v.F.e1+v.F.r1*v.F.e4+v.F.r2*v.F.e7;"
-        "v.F.p2=v.F.r0*v.F.e2+v.F.r1*v.F.e5+v.F.r2*v.F.e8;"
-        "v.F.p3=v.F.r3*v.F.e0+v.F.r5*v.F.e6;"
-        "v.F.p4=v.F.r3*v.F.e1+v.F.r4*v.F.e4+v.F.r5*v.F.e7;"
-        "v.F.p5=v.F.r3*v.F.e2+v.F.r4*v.F.e5+v.F.r5*v.F.e8;"
-        "v.F.p6=v.F.r6*v.F.e0+v.F.r8*v.F.e6;"
-        "v.F.p7=v.F.r6*v.F.e1+v.F.r7*v.F.e4+v.F.r8*v.F.e7;"
-        "v.F.p8=v.F.r6*v.F.e2+v.F.r7*v.F.e5+v.F.r8*v.F.e8;",
-        d.offsetX,
-        ypos,
-        d.offsetZ,
-        d.rotX,
-        d.rotY,
-        d.rotZ,
-        scale,
-        d.extendScale,
-        d.extendRotX,
-        d.extendRotY,
-        d.baseOffsetX,
-        d.baseOffsetY,
-        d.baseOffsetZ
-    );
-}
-
-std::string buildBlockSwellingExpr(std::string const& stretchXZ, std::string const& stretchY) {
-    // 3D 方块渲染：立方体缩放
-    // v.F.s 保持"未拉伸"的基准值（头骨定位表达式拿它做除数）; 拉伸只作用在两条 swelling 通道上。
-    return std::format(
-        "v.F.s=math.sqrt(32/7*v.scale);"
-        "v.swelling_scale1=v.F.s*({0});"
-        "v.swelling_scale2=v.extend_scale*({1})*v.F.s;",
-        stretchXZ,
-        stretchY
-    );
-}
-
-constexpr std::string_view kBlockHeadPosExpr =
-    // 3D 方块渲染：头骨定位（把方块放到狐狸头部位置）
-    "v.head_position_x=-16/v.F.s*((v.xpos-1)*v.F.p1+(v.ypos-1/"
-    "128)*v.F.p4+v.zpos*v.F.p7+(v.xbasepos*v.F.e1+(v.ybasepos+10/"
-    "7)*v.extend_scale*v.F.e4+(v.zbasepos-16/7)*v.F.e7)*v.scale);"
-    "v.head_position_y=16/v.F.s*(((v.xpos-1)*v.F.p2+(v.ypos-1/128)*v.F.p5+v.zpos*v.F.p8)/"
-    "v.extend_scale+(v.xbasepos*v.F.e2+(v.ybasepos+10/7)*v.extend_scale*v.F.e5+(v.zbasepos-16/"
-    "7)*v.F.e8)*v.scale);"
-    "v.head_position_z=16/v.F.s*((v.xpos-1)*v.F.p0+(v.ypos-1/"
-    "128)*v.F.p3+v.zpos*v.F.p6+(v.xbasepos*v.F.e0+(v.zbasepos-16/7)*v.F.e6)*v.scale);"
-    "v.head_rotation_x=v.F.e6?math.atan2(0,-v.F.e6):math.atan2(-v.F.e8,v.F.e5);"
-    "v.head_rotation_y=math.asin(-v.F.e0);"
-    "v.head_rotation_z=v.F.e6?math.atan2(-v.F.e2,-v.F.e1):0;";
-
-constexpr std::string_view kBlockBodyRotExpr =
-    // 3D 方块渲染：身体旋转
-    "v.body_x_rot=v.F.p5||v.F.p3?math.atan2(v.F.p5,-v.F.p3):math.atan2(-v.F.p0,-v.F.p2);"
-    "v.body_z_rot=v.F.p5||v.F.p3?math.atan2(-v.F.p1,v.F.p7):0;";
-
-constexpr std::string_view kBlockAttackRotExpr =
-    "v.attack_body_rot_y=math.asin(-v.F.p4);";
-
-// 调度完整 FMBE 动画序列（物品 3 包 / 方块 5 包）
-// ItemPhys 原版节奏: 依次 +2/+3/+4(物品) 或 +2..+6(方块), 一包一 tick —— 逐字保持, 勿改为同帧
-// 方块模式: sleeping(+2)携带完整旋转矩阵, swelling(+3)携带缩放表达式(v.F.s 基准) —— 两者不可错位,
-// 否则 v.F.s 未初始化会导致方块缩放异常/不可见
-//
-// 动画 controller 名唯一化（2026-08-23 串台修复, 2026-08-24 调整）:
-// wiki.* / fox.move 等名字在狐狸定义里不存在或被客户端按名字动态注册——多个展示共用同名
-// controller 时, 后创建实体的动画注册会污染先前端的状态（表现为"新展示显示旧展示的动效、
-// 旧展示回退修改前参数"）。每个展示的 controller 追加 ".<展示id>" 后缀完全隔离。
-// 2026-08-24: 后缀从 runtimeId 改为展示 id —— respawn 现在会更换新实体 ID（防客户端
-// runtimeId 重映射串台）, 若继续用 runtimeId 每次操作都会注册新名字导致客户端注册表泄漏;
-// 展示 id 稳定不变 → 同一展示多次 respawn 同名原地覆盖（旧实体已被 Remove）, 零累积。
-void scheduleAnims(
-    int64_t                  id,
-    ItemDisplayConfig const& data,
-    Runtime const&           rt,
-    Player&                  player,
-    int                      mode,
-    bool                     noAliveCheck = false
-) {
-    auto const uuid  = player.getUuid();
-    auto const base  = currentTick();
-    auto const block = (mode == 2);
-    auto const tag   = "." + std::to_string(id);
-
-    auto push = [&](std::uint64_t at, std::string anim, std::string ctrl, std::string stop) {
-        AnimEntry e{uuid, rt.runtimeId, std::move(anim), std::move(ctrl), std::move(stop)};
-        e.noAliveCheck = noAliveCheck;
-        animQueue().emplace(at, std::move(e));
-    };
-
-    // 三轮投递（spawn 后即刻 + 2s + 5s 重投）: 玩家上线首 tick 实体即 spawn,
-    // 但客户端多在加载屏, 一次性 AnimateEntityPacket 会被丢弃 → 方块停留最小状态。
-    // AnimateEntityPacket 幂等（controller 同名覆盖）, 重投无副作用; flush 前有活性验证兜底。
-    for (auto const pass : {std::uint64_t{0}, std::uint64_t{38}, std::uint64_t{98}}) {
-        if (block) {
-            push(base + pass + 2, "animation.player.sleeping", "controller.animation.fox.move" + tag, buildBlockMatrixExpr(data));
-            push(base + pass + 3, "animation.creeper.swelling", "wiki.fmbe.3d_blocks.anim1" + tag, buildBlockSwellingExpr(rt.stretchXZ, rt.stretchY));
-            push(base + pass + 4, "animation.ender_dragon.neck_head_movement", "wiki.fmbe.3d_blocks.anim2" + tag, std::string{kBlockHeadPosExpr});
-            push(base + pass + 5, "animation.warden.move", "wiki.fmbe.3d_blocks.anim3" + tag, std::string{kBlockBodyRotExpr});
-            push(base + pass + 6, "animation.player.attack.rotations", "wiki.fmbe.3d_blocks.anim4" + tag, std::string{kBlockAttackRotExpr});
-        } else {
-            push(base + pass + 2, "animation.player.sleeping", "controller.animation.fox.move" + tag, "");
-            push(base + pass + 3, "animation.creeper.swelling", "wiki.scale" + tag, buildItemScaleExpr(data, rt.stretchXZ, rt.stretchY));
-            push(base + pass + 4, "animation.ender_dragon.neck_head_movement", "wiki.posrot" + tag, std::string{kItemPosRotExpr});
-        }
-
-        // 26.40.12: 装备延到这一轮动画之后（物品 +5 / 方块 +7）再发 ——
-        // 狐狸是隐形的, 等姿态/缩放/位置都落地后物品才出现, 不会先以默认嘴位闪一下再被拽走。
-        // 每一轮重投都带一份（加载屏里的玩家第一轮收不到时, 2s/5s 那轮仍能把物品补上）。
-        if (rt.cachedStack) {
-            AnimEntry e{uuid, rt.runtimeId, {}, {}, {}};
-            e.noAliveCheck = noAliveCheck;
-            e.equip        = true;
-            e.equipStack   = *rt.cachedStack;
-            animQueue().emplace(base + pass + (block ? 7 : 5), std::move(e));
-        }
-    }
-}
-
-} // 关闭匿名命名空间: 下面的成员定义必须落在 debugshape_export 作用域（C2888）
-
-// 26.40.12: 单玩家的 FMBE 完整序列（live 更新用; 先清掉同展示的待发旧条目, 再整段重发）
 void ItemDisplayManager::enqueueFmbeAnimsLocked(
     int64_t                  id,
     ItemDisplayConfig const& data,
     Runtime const&           rt,
     mce::UUID const&         uuid,
     std::uint64_t            base,
-    bool                     block
-) {
-    auto const tag = "." + std::to_string(id);
-    auto push = [&](std::uint64_t at, std::string anim, std::string ctrl, std::string stop) {
+    bool                     block) {
+    auto const tag  = "." + std::to_string(id);
+    auto       push = [&](std::uint64_t at, std::string anim, std::string ctrl, std::string stop) {
         AnimEntry e{uuid, rt.runtimeId, std::move(anim), std::move(ctrl), std::move(stop)};
         animQueue().emplace(at, std::move(e));
     };
@@ -681,23 +76,20 @@ void ItemDisplayManager::enqueueFmbeAnimsLocked(
         push(base + 5, "animation.warden.move", "wiki.fmbe.3d_blocks.anim3" + tag, std::string{kBlockBodyRotExpr});
         push(base + 6, "animation.player.attack.rotations", "wiki.fmbe.3d_blocks.anim4" + tag, std::string{kBlockAttackRotExpr});
     } else {
-        // 物品：必须连载体 sleeping 包一起重发 —— 该包定义狐狸姿态/物品挂点;
-        // 只补 swelling/posrot 的话, 头骨缩放没有载体姿态可作用（表现为"物品拉不动"）。
+
         push(base + 2, "animation.player.sleeping", "controller.animation.fox.move" + tag, "");
         push(base + 3, "animation.creeper.swelling", "wiki.scale" + tag, buildItemScaleExpr(data, rt.stretchXZ, rt.stretchY));
         push(base + 4, "animation.ender_dragon.neck_head_movement", "wiki.posrot" + tag, std::string{kItemPosRotExpr});
     }
 }
 
-// 26.40.12: 原地重发（不 despawn / 不换 ID）; 调用方持锁
 bool ItemDisplayManager::resendFmbeLocked(int64_t id, ItemDisplayConfig const& data, Runtime& rt) {
-    if (rt.shownPlayers.empty()) return false;
-    // 关键: 先丢掉该展示所有尚在队列里的动画条目。
-    // spawn 的 +2s / +5s 三次投递是用**当时的**表达式构建的, 不丢的话它们会在 2s/5s 后
-    // 把新参数覆盖回去; 同一 tick 的旧条目也会先于新条目发出（multimap 同键按插入序）。
+    if (rt.shownPlayers.empty())
+        return false;
+
     auto& q = animQueue();
     for (auto it = q.begin(); it != q.end();) {
-        // 保留尚未发出的"延迟装备"条目: 它和动画不是一类东西, 丢了物品就永远不出现。
+
         if (it->second.runtimeId == rt.runtimeId && !it->second.equip) {
             it = q.erase(it);
         } else {
@@ -708,7 +100,8 @@ bool ItemDisplayManager::resendFmbeLocked(int64_t id, ItemDisplayConfig const& d
     if (data.mode == 2) {
         block = true;
     } else if (data.mode == 0) {
-        if (!rt.cachedStack) return false;
+        if (!rt.cachedStack)
+            return false;
         block = (effectiveMode(data, *rt.cachedStack) == 2);
     }
     auto const base = currentTick();
@@ -718,76 +111,6 @@ bool ItemDisplayManager::resendFmbeLocked(int64_t id, ItemDisplayConfig const& d
     return true;
 }
 
-namespace {
-
-// ── 生成/销毁完整序列 ──
-
-bool spawnForPlayer(int64_t id, ItemDisplayConfig const& data, Runtime& rt, Player& player) {
-    // Level 未就绪: 不缓存不告警, 下个 tick 重试
-    if (!ll::service::getLevel()) return false;
-
-    // 物品解析缓存（名称/附加值/NBT/光效变更时失效重解析; 失败只告警一次）
-    bool const changed = rt.cachedItemName != data.item || rt.cachedItemAux != data.itemAux
-                      || rt.cachedItemNbt != data.itemNbt || rt.cachedGlint != data.itemGlint;
-    bool const unresolved = !rt.cachedStack.has_value() && !rt.itemWarned;
-    if (changed || unresolved) {
-        if (changed) rt.itemWarned = false; // 换物品后重置告警
-        rt.cachedStack    = buildItemStack(data.item, data.itemAux, data.itemNbt, data.itemGlint);
-        rt.cachedItemName = data.item;
-        rt.cachedItemAux  = data.itemAux;
-        rt.cachedItemNbt  = data.itemNbt;
-        rt.cachedGlint    = data.itemGlint;
-        if (!rt.cachedStack) {
-            rt.itemWarned = true;
-            HLIB_LOG_WARN(
-                "[ItemDisplay] unknown item '{}' for display #{} (tried raw/short-name/alias)",
-                data.item,
-                id
-            );
-        }
-    }
-    if (!rt.cachedStack) return false;
-    auto const& stack = *rt.cachedStack;
-    int const    mode  = effectiveMode(data, stack);
-
-    sendFoxActor(player, data, rt);
-    // 26.40.12: 装备不再紧贴 AddActor 发 —— 延到动画序列之后（见 scheduleAnims 的 equip 条目）,
-    // 否则物品会先以默认嘴位/默认大小出现 2~4 tick 再被动画拽走, 表现为生成瞬间抽搐/变大。
-    sendDataPacket(player, rt.runtimeId, data.hitboxWidth, data.hitboxHeight);
-    scheduleAnims(id, data, rt, player, mode);
-    HLIB_LOG_DEBUG(
-        "[ItemDisplay] spawned #{} '{}' at ({:.1f},{:.1f},{:.1f}) dim={} mode={}",
-        id,
-        data.item,
-        data.x,
-        data.y,
-        data.z,
-        data.dimension,
-        mode
-    );
-    return true;
-}
-
-void despawnForPlayer(Runtime const& rt, Player& player) {
-    sendRemove(player, rt);
-    // 关键: 清理该实体全部待发动画条目（幽灵动画防护）。
-    // animQueue 按 tick 延迟调度(+2~+6), despawn 后残留的 AnimateEntityPacket
-    // 会在几 tick 后发向客户端已删除的 runtimeId —— 客户端实体 ID 回收重映射后
-    // 幽灵动画(携带旧 Molang 参数)会作用于错误实体, 表现为"修改一个展示另一个跟着变"。
-    auto& q = animQueue();
-    for (auto it = q.begin(); it != q.end();) {
-        if (it->second.runtimeId == rt.runtimeId) {
-            it = q.erase(it);
-        } else {
-            ++it;
-        }
-    }
-}
-
-} // namespace
-
-// ── Manager 公开实现 ──
-
 ItemDisplayManager& ItemDisplayManager::getInstance() {
     static ItemDisplayManager instance;
     return instance;
@@ -795,28 +118,27 @@ ItemDisplayManager& ItemDisplayManager::getInstance() {
 
 void ItemDisplayManager::init() {
     std::lock_guard lock(mMutex);
-    if (mJoinListener) return; // 已初始化
+    if (mJoinListener)
+        return;
 
-    mJoinListener = ll::event::EventBus::getInstance().emplaceListener<ll::event::PlayerJoinEvent>(
-        [this](ll::event::PlayerJoinEvent& ev) {
-            if (hlibDomainDisabled("HLIB_NO_DISPLAY")) return;
-            std::lock_guard lock(mMutex);
-            mInitializedPlayers.insert(ev.self().getUuid());
-            // 玩家就绪立即补发其可见信标（不等最多 1 秒的周期 sync——
-            // "进服自动显示所在领地边界"场景在信标先于玩家创建时可即时呈现）
-            syncVisibilityLocked();
-        }
-    );
-    mDisconnectListener = ll::event::EventBus::getInstance().emplaceListener<ll::event::PlayerDisconnectEvent>(
-        [this](ll::event::PlayerDisconnectEvent& ev) {
-            std::lock_guard lock(mMutex);
-            auto const& uuid = ev.self().getUuid();
-            mInitializedPlayers.erase(uuid);
-            mEntries.forEachLocked([&](int64_t, Entry& entry) {
-                entry.runtime.shownPlayers.erase(uuid);
-            });
-        }
-    );
+    mJoinListener       = debugshape_export::core::listen<ll::event::PlayerJoinEvent>(core::kPlayerJoinId,
+                                                                                      [this](ll::event::PlayerJoinEvent& ev) {
+                                                                                    if (hlibDomainDisabled("HLIB_NO_DISPLAY"))
+                                                                                        return;
+                                                                                    std::lock_guard lock(mMutex);
+                                                                                    mInitializedPlayers.insert(ev.self().getUuid());
+
+                                                                                    syncVisibilityLocked();
+                                                                                      });
+    mDisconnectListener = debugshape_export::core::listen<ll::event::PlayerDisconnectEvent>(core::kPlayerDisconnectId,
+                                                                                            [this](ll::event::PlayerDisconnectEvent& ev) {
+                                                                                                std::lock_guard lock(mMutex);
+                                                                                                auto const&     uuid = ev.self().getUuid();
+                                                                                                mInitializedPlayers.erase(uuid);
+                                                                                                mEntries.forEachLocked([&](int64_t, Entry& entry) {
+                                                                                                    entry.runtime.shownPlayers.erase(uuid);
+                                                                                                });
+                                                                                            });
 }
 
 void ItemDisplayManager::shutdown() {
@@ -839,19 +161,19 @@ void ItemDisplayManager::shutdown() {
 
 int64_t ItemDisplayManager::create(ItemDisplayConfig const& config) {
     std::lock_guard lock(mMutex);
-    // id 由 Registry 分配: 先占位, 再由 createLocked 填充
+
     int64_t const id = mEntries.insert(std::make_unique<Entry>());
     if (int64_t const created = createLocked(config, id); created < 0) {
-        mEntries.erase(id); // 皮肤/模型缺失或域被禁用: 别留空条目
+        mEntries.erase(id);
         return created;
     }
     return id;
 }
 
 int64_t ItemDisplayManager::createRandom(ItemDisplayConfig const& config) {
-    // 随机 ID 段 [0x10000000,0x7FFFFFFF): 与自增段(从 1 起)长期隔离, 不会撞车
+
     static std::mt19937_64 rng{std::random_device{}()};
-    std::lock_guard       lock(mMutex);
+    std::lock_guard        lock(mMutex);
     constexpr std::int64_t kBase = core::actorIds::randomIdBase, kSpan = core::actorIds::randomIdSpan;
     for (int tries = 0; tries < 128; ++tries) {
         auto const id = kBase + static_cast<std::int64_t>(rng() % static_cast<std::uint64_t>(kSpan));
@@ -863,7 +185,8 @@ int64_t ItemDisplayManager::createRandom(ItemDisplayConfig const& config) {
 }
 
 int64_t ItemDisplayManager::createWithId(ItemDisplayConfig const& config, int64_t desiredId) {
-    if (desiredId <= 0) return -2;
+    if (desiredId <= 0)
+        return -2;
     std::lock_guard lock(mMutex);
     if (configOf(desiredId) != nullptr)
         return -2;
@@ -872,23 +195,24 @@ int64_t ItemDisplayManager::createWithId(ItemDisplayConfig const& config, int64_
 
 int64_t ItemDisplayManager::createSeamless(
     ItemDisplayConfig const& config,
-    int                     mode,
-    double                  viewDistance,
-    std::string const&      visiblePlayer
-) {
+    int                      mode,
+    double                   viewDistance,
+    std::string const&       visiblePlayer) {
     std::lock_guard lock(mMutex);
-    if (hlibDomainDisabled("HLIB_NO_DISPLAY")) return -1;
+    if (hlibDomainDisabled("HLIB_NO_DISPLAY"))
+        return -1;
     ItemDisplayConfig cfg = config;
-    if (mode == 1 || mode == 2) cfg.mode = mode;
-    if (viewDistance >= 0) cfg.viewDistance = viewDistance;
+    if (mode == 1 || mode == 2)
+        cfg.mode = mode;
+    if (viewDistance >= 0)
+        cfg.viewDistance = viewDistance;
 
-    int64_t const id = mEntries.insert(std::make_unique<Entry>()); // 先占位拿 id
-    // 白名单在 createLocked 的首次 syncVisibility 之前写入:
-    // 首帧 spawn 只发给目标玩家, 名单外玩家从头到尾收不到任何包（无感创建）
+    int64_t const id = mEntries.insert(std::make_unique<Entry>());
+
     if (!visiblePlayer.empty()) {
         mVisibleFilter.emplace(id, std::unordered_set<std::string>{visiblePlayer});
     }
-    // mode/视距已定 → 消费者无需再调 setMode/setViewDistance → 不标脏 → 无 respawn
+
     if (int64_t const created = createLocked(cfg, id); created < 0) {
         mEntries.erase(id);
         mVisibleFilter.erase(id);
@@ -903,13 +227,13 @@ bool ItemDisplayManager::isIdUsed(int64_t id) const {
 }
 
 int64_t ItemDisplayManager::createLocked(ItemDisplayConfig const& config, int64_t id) {
-    if (hlibDomainDisabled("HLIB_NO_DISPLAY")) return -1;
-    // 生成本次运行的唯一 Actor ID（高位标记段, 与真实实体 ID 空间隔离）
+    if (hlibDomainDisabled("HLIB_NO_DISPLAY"))
+        return -1;
+
     Runtime rt{};
     rt.uniqueId  = allocUniqueIdLocked();
     rt.runtimeId = allocRuntimeIdLocked();
 
-    // 配置与运行时同时入表 —— 合并后不可能出现"只有一半"的状态
     if (auto* existing = mEntries.peek(id)) {
         existing->config  = config;
         existing->runtime = std::move(rt);
@@ -917,18 +241,22 @@ int64_t ItemDisplayManager::createLocked(ItemDisplayConfig const& config, int64_
         mEntries.insertWithId(id, std::make_unique<Entry>(Entry{config, std::move(rt)}));
     }
 
-    syncVisibilityLocked();
+    syncOneLocked(id);
     return id;
 }
 
-std::uint64_t ItemDisplayManager::allocUniqueIdLocked() { return mNextActorUniqueId++; }
+std::uint64_t ItemDisplayManager::allocUniqueIdLocked() {
+    return mNextActorUniqueId++;
+}
 
-std::uint64_t ItemDisplayManager::allocRuntimeIdLocked() { return mNextRuntimeId++; }
+std::uint64_t ItemDisplayManager::allocRuntimeIdLocked() {
+    return mNextRuntimeId++;
+}
 
 bool ItemDisplayManager::destroy(int64_t id) {
     std::lock_guard lock(mMutex);
 
-    mDirtyIds.erase(id); // 已删除的展示不再参与 tick 脏刷新
+    mDirtyIds.erase(id);
     auto* rit = runtimeOf(id);
     if (rit == nullptr)
         return false;
@@ -941,7 +269,7 @@ bool ItemDisplayManager::destroy(int64_t id) {
     }
     mEntries.erase(id);
     mVisibleFilter.erase(id);
-    mFollowers.erase(id); // 1.17.0: 跟随关系随展示一并清除
+    mFollowers.erase(id);
     return true;
 }
 
@@ -959,7 +287,7 @@ void ItemDisplayManager::destroyAll() {
     });
     mEntries.clear();
     mVisibleFilter.clear();
-    mFollowers.clear(); // 1.17.0
+    mFollowers.clear();
 }
 
 bool ItemDisplayManager::exists(int64_t id) const {
@@ -977,15 +305,14 @@ bool ItemDisplayManager::get(int64_t id, ItemDisplayConfig& out) const {
 }
 
 bool ItemDisplayManager::setItem(int64_t id, std::string const& item, int aux) {
-    return setItemWithNbt(id, item, aux, ""); // 换物品 = 清除附加数据
+    return setItemWithNbt(id, item, aux, "");
 }
 
 bool ItemDisplayManager::setItemWithNbt(
-    int64_t              id,
-    std::string const&   item,
-    int                  aux,
-    std::string const&   nbt
-) {
+    int64_t            id,
+    std::string const& item,
+    int                aux,
+    std::string const& nbt) {
     std::lock_guard lock(mMutex);
     auto*           it = configOf(id);
     if (it == nullptr)
@@ -993,7 +320,7 @@ bool ItemDisplayManager::setItemWithNbt(
     it->item    = item;
     it->itemAux = aux;
     it->itemNbt = nbt;
-    mDirtyIds.insert(id); // tick 内合并 respawn（防同 tick 多次 Remove+Add 串台）
+    mDirtyIds.insert(id);
     return true;
 }
 
@@ -1003,9 +330,9 @@ bool ItemDisplayManager::setGlint(int64_t id, bool on) {
     if (it == nullptr)
         return false;
     if (it->itemGlint == on)
-        return true; // 幂等: apply 高频调用不触发 respawn
+        return true;
     it->itemGlint = on;
-    mDirtyIds.insert(id); // tick 内合并 respawn（ItemStack 已变）
+    mDirtyIds.insert(id);
     return true;
 }
 
@@ -1014,14 +341,14 @@ bool ItemDisplayManager::setPosition(int64_t id, float x, float y, float z, int 
     auto*           it = configOf(id);
     if (it == nullptr)
         return false;
-    // 1.17.0: 手动设位 = 解除跟随（同粒子 Shape 的 setPos 语义; 跟随中手动摆位无意义）
+
     mFollowers.erase(id);
     it->x = x;
     it->y = y;
     it->z = z;
     if (dim >= 0)
         it->dimension = dim;
-    mDirtyIds.insert(id); // 位置/维度变化影响可见性, tick 脏刷新时统一重算
+    mDirtyIds.insert(id);
     return true;
 }
 
@@ -1089,7 +416,7 @@ bool ItemDisplayManager::setMode(int64_t id, int mode) {
     if (it == nullptr)
         return false;
     if (it->mode == mode)
-        return true; // 幂等: 同值不触发 respawn（防创建后闪换）
+        return true;
     it->mode = mode;
     mDirtyIds.insert(id);
     return true;
@@ -1101,7 +428,7 @@ bool ItemDisplayManager::setEnabled(int64_t id, bool enabled) {
     if (it == nullptr)
         return false;
     it->enabled = enabled;
-    mDirtyIds.insert(id); // 开关影响可见性, tick 脏刷新时统一重算
+    mDirtyIds.insert(id);
     return true;
 }
 
@@ -1111,9 +438,9 @@ bool ItemDisplayManager::setViewDistance(int64_t id, double dist) {
     if (it == nullptr)
         return false;
     if (it->viewDistance == dist)
-        return true; // 幂等: 同值不触发 respawn
+        return true;
     it->viewDistance = dist;
-    mDirtyIds.insert(id); // 视距影响可见性, tick 脏刷新时统一重算
+    mDirtyIds.insert(id);
     return true;
 }
 
@@ -1123,15 +450,13 @@ bool ItemDisplayManager::setVisiblePlayers(int64_t id, std::vector<std::string> 
         return false;
 
     if (playerNames.empty()) {
-        mVisibleFilter.erase(id); // 空列表 = 清除限制 = 全员可见
+        mVisibleFilter.erase(id);
     } else {
         std::unordered_set<std::string> names(playerNames.begin(), playerNames.end());
         mVisibleFilter.insert_or_assign(id, std::move(names));
     }
 
-    // 白名单变化只影响"给谁看", 不改变实体参数 —— 直接重算可见性
-    // （对名单外已见玩家 despawn, 名单内新玩家 spawn）
-    syncVisibilityLocked();
+    syncOneLocked(id);
     return true;
 }
 
@@ -1139,8 +464,9 @@ bool ItemDisplayManager::clearVisiblePlayers(int64_t id) {
     std::lock_guard lock(mMutex);
     if (configOf(id) == nullptr)
         return false;
-    if (mVisibleFilter.erase(id) == 0) return true; // 本就无限制, 视为成功
-    syncVisibilityLocked();
+    if (mVisibleFilter.erase(id) == 0)
+        return true;
+    syncOneLocked(id);
     return true;
 }
 
@@ -1151,8 +477,7 @@ bool ItemDisplayManager::setVisiblePlayer(int64_t id, std::string const& playerN
 
     mVisibleFilter.insert_or_assign(id, std::unordered_set<std::string>{playerName});
 
-    // 与 setVisiblePlayers 一致: 名单变化直接重算可见性（名单外 despawn, 名单内 spawn）
-    syncVisibilityLocked();
+    syncOneLocked(id);
     return true;
 }
 
@@ -1161,21 +486,17 @@ bool ItemDisplayManager::scaleTo(int64_t id, double targetScale) {
     auto*           it = configOf(id);
     if (it == nullptr)
         return false;
-    if (!std::isfinite(targetScale) || targetScale < 0.01) targetScale = 0.01;
+    if (!std::isfinite(targetScale) || targetScale < 0.01)
+        targetScale = 0.01;
 
     auto* rit = runtimeOf(id);
     if (rit == nullptr)
         return false;
 
-    // 新 scale 常量化入配置（respawn/查询保持一致）
     it->scale = std::format("{:.4f}", targetScale);
 
-    // 以新常量重发 FMBE 动画序列（controller 名带 ".<展示id>" 后缀 → 客户端同名原地覆盖,
-    // 不 Remove/Add、不换实体）。26.40.12 起物品模式也走这条（此前只支持方块）。
     return resendFmbeLocked(id, (*it), (*rit));
 }
-
-// ── 26.40.12: 非等比拉伸 + live 变换 ──
 
 bool ItemDisplayManager::setStretch(int64_t id, std::string const& xz, std::string const& y) {
     std::lock_guard lock(mMutex);
@@ -1186,7 +507,7 @@ bool ItemDisplayManager::setStretch(int64_t id, std::string const& xz, std::stri
         return false;
     rit->stretchXZ = xz;
     rit->stretchY  = y;
-    mDirtyIds.insert(id); // 持久化并 respawn（下一 tick 合并一次）
+    mDirtyIds.insert(id);
     return true;
 }
 
@@ -1204,8 +525,7 @@ bool ItemDisplayManager::setStretchLive(int64_t id, std::string const& xz, std::
 }
 
 bool ItemDisplayManager::setRotationLive(
-    int64_t id, std::string const& rx, std::string const& ry, std::string const& rz
-) {
+    int64_t id, std::string const& rx, std::string const& ry, std::string const& rz) {
     std::lock_guard lock(mMutex);
     auto*           it = configOf(id);
     if (it == nullptr)
@@ -1220,8 +540,7 @@ bool ItemDisplayManager::setRotationLive(
 }
 
 bool ItemDisplayManager::setOffsetLive(
-    int64_t id, std::string const& ox, std::string const& oy, std::string const& oz
-) {
+    int64_t id, std::string const& ox, std::string const& oy, std::string const& oz) {
     std::lock_guard lock(mMutex);
     auto*           it = configOf(id);
     if (it == nullptr)
@@ -1248,11 +567,10 @@ bool ItemDisplayManager::setScaleLive(int64_t id, std::string const& scale) {
 }
 
 bool ItemDisplayManager::setTransformLive(
-    int64_t id,
+    int64_t            id,
     std::string const& ox, std::string const& oy, std::string const& oz,
     std::string const& rx, std::string const& ry, std::string const& rz,
-    std::string const& scale
-) {
+    std::string const& scale) {
     std::lock_guard lock(mMutex);
     auto*           it = configOf(id);
     if (it == nullptr)
@@ -1267,10 +585,8 @@ bool ItemDisplayManager::setTransformLive(
     it->rotY    = ry;
     it->rotZ    = rz;
     it->scale   = scale;
-    return resendFmbeLocked(id, (*it), (*rit)); // 一次重发, 不叠加多次抖动
+    return resendFmbeLocked(id, (*it), (*rit));
 }
-
-// ── 26.40.12: 动画预设（库内逻辑）──
 
 bool ItemDisplayManager::setAnim(int64_t id, ItemDisplayAnim const& anim) {
     std::lock_guard lock(mMutex);
@@ -1282,7 +598,6 @@ bool ItemDisplayManager::setAnim(int64_t id, ItemDisplayAnim const& anim) {
         return false;
     auto& rt = *rit;
 
-    // 首次开动画时记录基准（之后重复 setAnim 只换参数, 不会把上一次的表达式当基准）
     if (!rt.animActive) {
         rt.animBase.ox    = it->offsetX;
         rt.animBase.oy    = it->offsetY;
@@ -1306,7 +621,6 @@ bool ItemDisplayManager::setAnim(int64_t id, ItemDisplayAnim const& anim) {
     return resendFmbeLocked(id, (*it), rt);
 }
 
-// 26.40.12: 单通道预设（只改这一路, 其余保持; 立即 live 重发）
 bool ItemDisplayManager::setAnimPreset(int64_t id, std::string const& preset, float a, float b, int c) {
     std::lock_guard lock(mMutex);
     auto*           rit = runtimeOf(id);
@@ -1350,7 +664,7 @@ bool ItemDisplayManager::setAnimPreset(int64_t id, std::string const& preset, fl
     } else if (preset == "firstperson") {
         anim.hideInFirstPerson = (a != 0.0f);
     } else if (preset == "clear") {
-        return clearAnim(id); // 递归锁, 安全
+        return clearAnim(id);
     } else {
         return false;
     }
@@ -1366,17 +680,18 @@ bool ItemDisplayManager::clearAnim(int64_t id) {
     if (rit == nullptr)
         return false;
     auto& rt = *rit;
-    if (!rt.animActive) return true; // 本来就没动画
+    if (!rt.animActive)
+        return true;
 
-    it->offsetX        = rt.animBase.ox;
-    it->offsetY        = rt.animBase.oy;
-    it->offsetZ        = rt.animBase.oz;
-    it->rotX           = rt.animBase.rx;
-    it->rotY           = rt.animBase.ry;
-    it->rotZ           = rt.animBase.rz;
-    it->scale          = rt.animBase.scale;
-    rt.animActive      = false;
-    rt.anim            = {};
+    it->offsetX   = rt.animBase.ox;
+    it->offsetY   = rt.animBase.oy;
+    it->offsetZ   = rt.animBase.oz;
+    it->rotX      = rt.animBase.rx;
+    it->rotY      = rt.animBase.ry;
+    it->rotZ      = rt.animBase.rz;
+    it->scale     = rt.animBase.scale;
+    rt.animActive = false;
+    rt.anim       = {};
     return resendFmbeLocked(id, (*it), rt);
 }
 
@@ -1390,11 +705,12 @@ std::string ItemDisplayManager::getDebugInfo(int64_t id) const {
     if (rit == nullptr)
         return "no_runtime";
 
-    auto fit = mVisibleFilter.find(id);
+    auto        fit = mVisibleFilter.find(id);
     std::string filterList;
     if (fit != mVisibleFilter.end()) {
         for (auto const& n : fit->second) {
-            if (!filterList.empty()) filterList += ",";
+            if (!filterList.empty())
+                filterList += ",";
             filterList += n;
         }
     }
@@ -1412,8 +728,7 @@ std::string ItemDisplayManager::getDebugInfo(int64_t id) const {
         d.item,
         d.viewDistance,
         filterList,
-        rt.shownPlayers.size()
-    );
+        rt.shownPlayers.size());
 }
 
 bool ItemDisplayManager::rotateY(int64_t id, float delta) {
@@ -1422,10 +737,9 @@ bool ItemDisplayManager::rotateY(int64_t id, float delta) {
     if (it == nullptr)
         return false;
 
-    // 尝试将现有 rotY（常量）叠加增量; 表达式时包一层加法
-    auto&  ry = it->rotY;
-    float  current{};
-    auto   parsed = std::from_chars(ry.data(), ry.data() + ry.size(), current);
+    auto& ry = it->rotY;
+    float current{};
+    auto  parsed = std::from_chars(ry.data(), ry.data() + ry.size(), current);
     if (parsed.ec == std::errc{} && parsed.ptr == ry.data() + ry.size()) {
         ry = std::format("{}", current + delta);
     } else {
@@ -1436,18 +750,19 @@ bool ItemDisplayManager::rotateY(int64_t id, float delta) {
 }
 
 bool ItemDisplayManager::scaleBy(int64_t id, double factor) {
-    if (factor <= 0) return false;
+    if (factor <= 0)
+        return false;
     std::lock_guard lock(mMutex);
     auto*           it = configOf(id);
     if (it == nullptr)
         return false;
 
-    // 尝试将现有 scale（常量）直接相乘; 表达式时包一层乘法
     auto& s = it->scale;
     float current{};
     auto  parsed = std::from_chars(s.data(), s.data() + s.size(), current);
     if (parsed.ec == std::errc{} && parsed.ptr == s.data() + s.size()) {
-        if (current * factor <= 0) return false; // 防归零（缩放 0 不可见）
+        if (current * factor <= 0)
+            return false;
         s = std::format("{}", current * factor);
     } else {
         s = std::format("({})*{}", s, factor);
@@ -1481,8 +796,8 @@ bool ItemDisplayManager::findByRuntimeId(std::uint64_t runtimeId, int64_t& outId
 
 int64_t ItemDisplayManager::findNearest(float x, float y, float z, int dim, double maxDist) const {
     std::lock_guard lock(mMutex);
-    int64_t best      = -1;
-    double  bestDist2 = (maxDist > 0) ? maxDist * maxDist : 1e300;
+    int64_t         best      = -1;
+    double          bestDist2 = (maxDist > 0) ? maxDist * maxDist : 1e300;
     mEntries.forEachLocked([&](int64_t id, Entry const& entry) {
         auto const& cfg = entry.config;
         if (cfg.dimension != dim)
@@ -1500,15 +815,7 @@ int64_t ItemDisplayManager::findNearest(float x, float y, float z, int dim, doub
 }
 
 void ItemDisplayManager::refreshLocked(int64_t id) {
-    // 参数变化后刷新所有已见玩家（despawn → respawn 原子替换）
-    //
-    // 串台修复(2026-08-24): respawn 必须更换全新 uniqueId/runtimeId。
-    // 旧实现复用同一对 ID, 客户端实体删除是延迟的（帧末销毁）—— 同帧/临近帧内
-    // RemoveActor(旧ID) + AddActor(同ID) 会让 Add 撞上"待删但未删"的实体,
-    // 触发客户端 runtimeId 重映射的未定义行为: 后续按 runtimeId 寻址的
-    // MobEquipment/AnimateEntity 包可能被路由到错误实体（其他悬浮物）,
-    // 表现为"操作一个悬浮物, 别的悬浮物在操作者视角内容改变但实际不变"。
-    // 换新 ID 后客户端看到的是纯粹的"删旧实体 + 建全新实体", 无任何 ID 复用。
+
     auto* it  = configOf(id);
     auto* rit = runtimeOf(id);
     if (it == nullptr || rit == nullptr)
@@ -1517,7 +824,6 @@ void ItemDisplayManager::refreshLocked(int64_t id) {
     auto& rt    = *rit;
     auto  uuids = std::vector<mce::UUID>{rt.shownPlayers.begin(), rt.shownPlayers.end()};
 
-    // 第一遍: 全部 despawn（Remove 按旧 uniqueId, 动画队列清理按旧 runtimeId）
     std::vector<Player*> toSpawn;
     bool                 replaced = false;
     for (auto const& uuid : uuids) {
@@ -1533,13 +839,11 @@ void ItemDisplayManager::refreshLocked(int64_t id) {
             toSpawn.push_back(player);
     }
 
-    // despawn 全部完成后再统一换新 ID（确保动画队列按旧 runtimeId 清理完毕）
     if (replaced) {
         rt.uniqueId  = allocUniqueIdLocked();
         rt.runtimeId = allocRuntimeIdLocked();
     }
 
-    // 第二遍: 用新 ID respawn
     for (auto* player : toSpawn) {
         if (spawnForPlayer(id, (*it), rt, *player)) {
             rt.shownPlayers.insert(player->getUuid());
@@ -1548,290 +852,18 @@ void ItemDisplayManager::refreshLocked(int64_t id) {
 }
 
 void ItemDisplayManager::processDirtyLocked() {
-    // tick 内合并处理脏展示。
-    // 旧实现每个 setter 立即 refreshLocked —— 消费者(MeowHolographicRenderer)的
-    // apply 一次连调 5 个 setter, 同一 tick 客户端会收到 4 组 Remove+Add 交错序列,
-    // 极易触发上述客户端 ID 重映射串台。改为 setter 只标脏, 本方法在 tick hook
-    // (主线程, 动画 flush 之前) 统一执行: 无论几次 setter 调用都只 respawn 一次。
-    if (mDirtyIds.empty()) return;
+
+    if (mDirtyIds.empty())
+        return;
     auto dirty = std::move(mDirtyIds);
     mDirtyIds.clear();
 
-    bool needVisibility = false;
     for (auto id : dirty) {
         if (configOf(id) == nullptr)
-            continue; // 中途被 destroy
-        // 位置/维度/开关变化影响可见性（refreshLocked 内部不重算, 统一在末尾重算一次）
-        needVisibility = true;
+            continue;
         refreshLocked(id);
-    }
-    if (needVisibility) syncVisibilityLocked();
-}
-
-// ── 1.17.0: 展示跟随 / AABB 判定体积 ──
-
-bool ItemDisplayManager::follow(int64_t id, std::string const& playerName, float offX, float offY, float offZ) {
-    std::lock_guard lock(mMutex);
-    if (configOf(id) == nullptr)
-        return false;
-    FollowState st{};
-    st.playerName = playerName;
-    st.offX       = offX;
-    st.offY       = offY;
-    st.offZ       = offZ;
-    st.synced     = false; // 首个 tick 吸附到跟随点（respawn 落位, 避免从旧位置长距离滑行）
-    mFollowers.insert_or_assign(id, std::move(st));
-    return true;
-}
-
-// ── 单发原语: FMBE 出生序列（用**给定 id**发, 无状态）──
-// 与"另起一只假狐狸"的区别: 这里用调用方给的 uniqueId/runtimeId, 于是客户端那只狐狸
-// 就是它本人 —— 位移/删除都由引擎的包驱动。库只负责发这一套包, 何时发/发给谁由调用方决定。
-int ItemDisplayManager::emitForEntity(std::string const& playerName, std::int64_t uniqueId, ItemDisplayConfig const& cfg) {
-    auto level = ll::service::getLevel();
-    if (!level) return -1;
-    Player* player = nullptr;
-    level->forEachPlayer([&](Player& p) {
-        if (p.getRealName() == playerName) { player = &p; return false; }
-        return true;
-    });
-    if (!player) return -1;
-    auto* ent = level->fetchEntity(ActorUniqueID(uniqueId), false);
-    if (!ent) return -1;
-    auto stack = buildItemStack(cfg.item, cfg.itemAux, cfg.itemNbt, cfg.itemGlint);
-    if (!stack) return -1;
-
-    auto const  runtimeId = static_cast<std::uint64_t>(ent->getRuntimeID().rawID);
-    auto const& pos       = ent->getPosition();
-    auto const& vel       = ent->getVelocity();
-    int const   mode      = effectiveMode(cfg, *stack);
-
-    ItemDisplayConfig data = cfg;
-    data.x = pos.x;
-    data.y = pos.y;
-    data.z = pos.z;
-    if (data.rotY == "0") { // 没显式给朝向 → 用速度方向（原版 ItemPhys 的做法）
-        data.rotY = std::format("{:.2f}", std::atan2(vel.x, -vel.z) * 57.2957795f + 90.0f);
-    }
-
-    // 先删掉客户端可能已有的那只（已有掉落物必须删, 否则同 id 的 AddActor 会被忽略）
-    {
-        sculk::protocol::RemoveActorPacket rm;
-        rm.mActorUniqueId = uniqueId;
-        wire::send(*player, rm);
-    }
-    // 一次性原语的临时 Runtime 也要带 cachedStack —— 装备走 scheduleAnims 的延迟条目,
-    // 否则这里不立即发装备、后面又没人补, 物品永远不出现。
-    Runtime tmpRt{};
-    tmpRt.uniqueId    = static_cast<std::uint64_t>(uniqueId);
-    tmpRt.runtimeId   = runtimeId;
-    tmpRt.cachedStack = *stack;
-    sendFoxActor(*player, data, tmpRt);
-    sendDataPacket(*player, runtimeId, data.hitboxWidth, data.hitboxHeight);
-    scheduleAnims(uniqueId, data, tmpRt, *player, mode, true);
-    return mode;
-}
-
-bool ItemDisplayManager::unfollow(int64_t id) {
-    std::lock_guard lock(mMutex);
-    mFollowers.erase(id); // 无跟随关系也返回 true（幂等; 方块保留在当前位置）
-    return true;
-}
-
-bool ItemDisplayManager::setHitbox(int64_t id, float width, float height) {
-    std::lock_guard lock(mMutex);
-    auto*           it = configOf(id);
-    if (it == nullptr)
-        return false;
-    it->hitboxWidth  = width > 0 ? width : 0.0f; // 0/负 = 恢复不可命中（历史行为）
-    it->hitboxHeight = height > 0 ? height : 0.0f;
-    // 即时广播 R53/R54（轻量元数据, 无 respawn）; respawn/新观察者 spawn 同源读配置
-    auto* rit = runtimeOf(id);
-    if (rit != nullptr) {
-        for (auto const& uuid : rit->shownPlayers) {
-            if (auto* player = findPlayerByUuid(uuid)) {
-                sendHitboxPacket(*player, rit->runtimeId, it->hitboxWidth, it->hitboxHeight);
-            }
-        }
-    }
-    return true;
-}
-
-void ItemDisplayManager::followTickLocked() {
-    if (mFollowers.empty()) return;
-    auto level = ll::service::getLevel();
-    if (!level) return;
-
-    for (auto it = mFollowers.begin(); it != mFollowers.end();) {
-        auto& fs = it->second;
-
-        // 目标玩家按名解析（Player::getRealName 即 LSE realName）
-        Player* target = nullptr;
-        level->forEachPlayer([&](Player& p) {
-            if (p.getRealName() == fs.playerName) {
-                target = &p;
-                return false;
-            }
-            return true;
-        });
-        auto* cit = configOf(it->first);
-        auto* rit = runtimeOf(it->first);
-        if (!target || cit == nullptr || rit == nullptr) {
-            it = mFollowers.erase(it); // 下线/改名/已销毁 = 解除跟随, 方块原地保留
-            continue;
-        }
-
-        auto&       cfg  = *cit;
-        auto const& tpos = target->getPosition();
-        float const nx = tpos.x + fs.offX;
-        float const ny = tpos.y + fs.offY;
-        float const nz = tpos.z + fs.offZ;
-
-        if (!fs.synced || target->getDimensionId() != DimensionType(cfg.dimension)) {
-            // 首帧或跨维度: 更新配置 + 标脏走 respawn（新维度观察者可见; 移动包跨维度无意义）
-            cfg.dimension = ((int)target->getDimensionId());
-            cfg.x         = nx;
-            cfg.y         = ny;
-            cfg.z         = nz;
-            mDirtyIds.insert(it->first);
-            fs.synced     = true;
-            ++it;
-            continue;
-        }
-
-        cfg.x = nx;
-        cfg.y = ny;
-        cfg.z = nz;
-        for (auto const& uuid : rit->shownPlayers) {
-            if (auto* player = findPlayerByUuid(uuid)) {
-                sendFollowMove(*player, rit->runtimeId, nx, ny, nz);
-            }
-        }
-        ++it;
+        syncOneLocked(id);
     }
 }
-
-void ItemDisplayManager::syncVisibilityLocked() {
-    auto level = ll::service::getLevel();
-    if (!level) return;
-
-    level->forEachPlayer([this](Player& player) {
-        auto const uuid = player.getUuid();
-        if (!mInitializedPlayers.contains(uuid)) return true;
-
-        auto const dimId = player.getDimensionId();
-        auto const& ppos = player.getPosition();
-
-        // 内层: 遍历合并后的条目（data / rt 用引用绑定, 循环体保持原样）
-        mEntries.forEachLocked([&](int64_t id, Entry& entry) {
-            auto& data = entry.config;
-            auto& rt   = entry.runtime;
-
-            // 可见玩家白名单: 有条目时仅名单内玩家可见（按 Player::getRealName, 即 LSE realName 匹配）
-            auto fit = mVisibleFilter.find(id);
-            bool const allowedByFilter =
-                fit == mVisibleFilter.end() || fit->second.contains(player.getRealName());
-
-            bool const visible =
-                data.enabled && allowedByFilter && dimId == DimensionType(data.dimension)
-                && (data.viewDistance <= 0
-                    || ((ppos.x - data.x) * (ppos.x - data.x) + (ppos.y - data.y) * (ppos.y - data.y)
-                        + (ppos.z - data.z) * (ppos.z - data.z))
-                           <= data.viewDistance * data.viewDistance);
-
-            if (visible && !rt.shownPlayers.contains(uuid)) {
-                if (spawnForPlayer(id, data, rt, player))
-                    rt.shownPlayers.insert(uuid);
-            } else if (!visible && rt.shownPlayers.contains(uuid)) {
-                despawnForPlayer(rt, player);
-                rt.shownPlayers.erase(uuid);
-            }
-        });
-        return true;
-    });
-}
-
-// ── Tick Hook：动画队列 flush + 周期同步 ──
-
-// Manager 私有访问桥（friend 声明于 Manager 头文件）
-struct ItemDisplayTickHookAccess {
-    static void sync(ItemDisplayManager& mgr) {
-        std::lock_guard lock(mgr.mMutex);
-        mgr.syncVisibilityLocked();
-    }
-    // tick 内合并处理脏展示（单次 respawn; 主线程统一发包）
-    static void processDirty(ItemDisplayManager& mgr) {
-        std::lock_guard lock(mgr.mMutex);
-        mgr.processDirtyLocked();
-    }
-    // 1.17.0: 跟随同步（更新配置坐标 + 发移动包 + 跨维度标脏）
-    static void followTick(ItemDisplayManager& mgr) {
-        std::lock_guard lock(mgr.mMutex);
-        mgr.followTickLocked();
-    }
-    // 幽灵动画防护: 该 runtimeId 的实体是否仍存活且对该玩家可见
-    static bool alive(ItemDisplayManager& mgr, std::uint64_t runtimeId, mce::UUID const& uuid) {
-        std::lock_guard lock(mgr.mMutex);
-        bool            aliveFlag = false;
-        mgr.mEntries.forEachLocked([&](int64_t, ItemDisplayManager::Entry const& entry) {
-            if (entry.runtime.runtimeId == runtimeId)
-                aliveFlag = entry.runtime.shownPlayers.contains(uuid);
-        });
-        return aliveFlag;
-    }
-};
-
-void itemDisplayTick() {
-    if (hlibDomainDisabled("HLIB_NO_DISPLAY")) return;
-
-    // 脏刷新优先于动画 flush：本 tick 内累积的 setter 变更在此合并为单次 respawn
-    // （新入队动画的 tick 均为 now+2 起步, 不会被本次 flush 发出）
-    ItemDisplayTickHookAccess::processDirty(ItemDisplayManager::getInstance());
-
-    // 1.17.0: 跟随同步 —— 脏刷新之后（respawn 换新 ID 前移动包作废的时序窗口在此收口）
-    ItemDisplayTickHookAccess::followTick(ItemDisplayManager::getInstance());
-
-    auto const now = currentTick();
-    auto&      q   = animQueue();
-    auto       it  = q.begin();
-    while (it != q.end() && it->first <= now) {
-        auto& entry = it->second;
-        if (auto* player = findPlayerByUuid(entry.playerUuid)) {
-            // 发送前活性验证: 实体已被 despawn 的动画条目直接丢弃
-            // （双保险——despawnForPlayer 已清理队列, 此处拦截一切残余时序窗口）
-            if (entry.noAliveCheck
-                || ItemDisplayTickHookAccess::alive(
-                    ItemDisplayManager::getInstance(),
-                    entry.runtimeId,
-                    entry.playerUuid
-                )) {
-                if (entry.equip) {
-                    // 延迟装备: 姿态/缩放/位置都发完之后再把物品塞给狐狸（只发装备, 不发动画）
-                    if (entry.equipStack) sendEquipment(*player, entry.runtimeId, *entry.equipStack);
-                } else {
-                    sculk::protocol::AnimateEntityPacket pkt;
-                    pkt.mAnimation                   = entry.animation;
-                    pkt.mNextState                   = "none";
-                    pkt.mStopExpression              = entry.stopExpression;
-                    pkt.mStopExpressionMolangVersion = sculk::protocol::MolangVersion::Initial;
-                    pkt.mController                  = entry.controller;
-                    pkt.mBlendOutTime                = 0;
-                    pkt.mRuntimeIds                  = {entry.runtimeId};
-                    wire::send(*player, pkt);
-                }
-            }
-        }
-        it = q.erase(it);
-    }
-
-    static std::uint64_t lastSyncTick = 0;
-    if (now - lastSyncTick >= 20) {
-        lastSyncTick = now;
-        ItemDisplayTickHookAccess::sync(ItemDisplayManager::getInstance());
-    }
-}
-
-// hook 生命周期（静态注册即可; 无显示时为空转 no-op）
-tick::AutoRegister gTickHookRegistrar{"itemdisplay", &itemDisplayTick, tick::Order::ItemDisplay};
 
 } // namespace debugshape_export

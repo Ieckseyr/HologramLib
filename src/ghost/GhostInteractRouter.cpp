@@ -1,12 +1,5 @@
-// GhostInteractRouter.cpp - ghost 交互事件路由实现
-//
-// hook 1: ServerNetworkHandler::$handle(NetworkIdentifier const&, InteractPacket const&)
-//         （协议 944 起 InteractPacket 仅承载 Invalid/StopRiding/InteractUpdate/NpcOpen/OpenInventory,
-//          实体右键/攻击已移出该包; 保留兜底）
-// hook 2: ItemUseOnActorInventoryTransaction::$handle(Player&, bool)
-//         （协议 944 实体交互/攻击的新载体, 经 InventoryTransactionPacket 内嵌到达）
-// 路由: 目标 runtimeId 命中 0x6D/0x6E/0x6F 段 → 反查库内 id → 派发监听器 + 入轮询队列
 #include "GhostInteractRouter.h"
+#include "core/HookRegistry.h"
 
 #include "customentity/CustomEntityManager.h"
 #include "itemdisplay/ItemDisplayManager.h"
@@ -28,8 +21,6 @@
 
 namespace debugshape_export {
 
-// 库内 Actor runtimeId 段: 唯一定义在 core/VirtualActorIds.h（与三 Manager 的分配起点同源）
-
 GhostInteractRouter& GhostInteractRouter::getInstance() {
     static GhostInteractRouter instance;
     return instance;
@@ -46,9 +37,10 @@ void GhostInteractRouter::clearListener() {
 }
 
 std::uint64_t GhostInteractRouter::addListener(std::function<void(hologramlib::GhostInteractEvent const&)> listener) {
-    if (!listener) return 0;
+    if (!listener)
+        return 0;
     std::lock_guard lock(mMutex);
-    auto const token = mNextToken++;
+    auto const      token = mNextToken++;
     mListeners.push_back({token, std::move(listener)});
     return token;
 }
@@ -65,7 +57,7 @@ bool GhostInteractRouter::removeListener(std::uint64_t token) {
 }
 
 std::vector<hologramlib::GhostInteractEvent> GhostInteractRouter::poll() {
-    std::lock_guard lock(mMutex);
+    std::lock_guard                              lock(mMutex);
     std::vector<hologramlib::GhostInteractEvent> out(mQueue.begin(), mQueue.end());
     mQueue.clear();
     return out;
@@ -76,9 +68,9 @@ void GhostInteractRouter::clearQueue() {
     mQueue.clear();
 }
 
-std::uint64_t GhostInteractRouter::addActorListener(std::function<void(hologramlib::ActorInteractEvent const&)> listener
-) {
-    if (!listener) return 0;
+std::uint64_t GhostInteractRouter::addActorListener(std::function<void(hologramlib::ActorInteractEvent const&)> listener) {
+    if (!listener)
+        return 0;
     std::lock_guard lock(mMutex);
     auto const      token = mNextToken++;
     mActorListeners.push_back({token, std::move(listener)});
@@ -96,40 +88,62 @@ bool GhostInteractRouter::removeActorListener(std::uint64_t token) {
     return false;
 }
 
+std::vector<hologramlib::ActorInteractEvent> GhostInteractRouter::pollActor() {
+    std::lock_guard                              lock(mMutex);
+    std::vector<hologramlib::ActorInteractEvent> out(mActorQueue.begin(), mActorQueue.end());
+    mActorQueue.clear();
+    return out;
+}
+
+void GhostInteractRouter::clearActorQueue() {
+    std::lock_guard lock(mMutex);
+    mActorQueue.clear();
+}
+
 void GhostInteractRouter::dispatchActor(hologramlib::ActorInteractEvent const& ev) {
-    // 快照后锁外回调（监听器里再注册/注销不会死锁）—— 与 dispatch 同套路
+
     std::vector<std::function<void(hologramlib::ActorInteractEvent const&)>> multicast;
     {
         std::lock_guard lock(mMutex);
+
+        constexpr std::size_t kMaxQueue = 256;
+        if (mActorQueue.size() >= kMaxQueue)
+            mActorQueue.pop_front();
+        mActorQueue.push_back(ev);
         multicast.reserve(mActorListeners.size());
-        for (auto const& l : mActorListeners) multicast.push_back(l.fn);
+        for (auto const& l : mActorListeners)
+            multicast.push_back(l.fn);
     }
     for (auto const& fn : multicast) {
         try {
             fn(ev);
         } catch (...) {
-            // 监听器抛异常不许穿回收包路径
+
             HLIB_LOG_ERROR("HologramLib: ActorInteract 监听器抛出异常（已忽略）");
         }
     }
 }
 
 void GhostInteractRouter::dispatch(hologramlib::GhostInteractEvent const& ev) {
-    // 快照后锁外回调, 避免监听器内再调 add/removeListener 造成死锁
-    std::function<void(hologramlib::GhostInteractEvent const&)> legacy;
+
+    std::function<void(hologramlib::GhostInteractEvent const&)>              legacy;
     std::vector<std::function<void(hologramlib::GhostInteractEvent const&)>> multicast;
     {
         std::lock_guard lock(mMutex);
-        // 队列有界（防无人轮询时无限膨胀; 满时丢最旧）
+
         constexpr std::size_t kMaxQueue = 256;
-        if (mQueue.size() >= kMaxQueue) mQueue.pop_front();
+        if (mQueue.size() >= kMaxQueue)
+            mQueue.pop_front();
         mQueue.push_back(ev);
         legacy = mListener;
         multicast.reserve(mListeners.size());
-        for (auto const& l : mListeners) multicast.push_back(l.fn);
+        for (auto const& l : mListeners)
+            multicast.push_back(l.fn);
     }
-    for (auto const& fn : multicast) fn(ev);
-    if (legacy) legacy(ev);
+    for (auto const& fn : multicast)
+        fn(ev);
+    if (legacy)
+        legacy(ev);
 }
 
 std::string GhostInteractRouter::formatEvent(hologramlib::GhostInteractEvent const& ev) {
@@ -138,8 +152,21 @@ std::string GhostInteractRouter::formatEvent(hologramlib::GhostInteractEvent con
         ev.playerName,
         ev.action,
         ev.domain,
-        ev.id
-    );
+        ev.id);
+    if (ev.hasPos) {
+        line += std::format(" pos=({:.2f},{:.2f},{:.2f})", ev.x, ev.y, ev.z);
+    }
+    return line;
+}
+
+std::string GhostInteractRouter::formatActorEvent(hologramlib::ActorInteractEvent const& ev) {
+    auto line = std::format(
+        "player={} action={} runtimeId={} uniqueId={} type={}",
+        ev.playerName,
+        ev.action,
+        ev.runtimeId,
+        ev.uniqueId,
+        ev.targetType);
     if (ev.hasPos) {
         line += std::format(" pos=({:.2f},{:.2f},{:.2f})", ev.x, ev.y, ev.z);
     }
@@ -149,22 +176,34 @@ std::string GhostInteractRouter::formatEvent(hologramlib::GhostInteractEvent con
 void GhostInteractRouter::exportLse() {
     static constexpr const char* NAMESPACE = "HologramLib";
 
-    // ghostPollInteractions() -> [s]（取走并清空待处理交互队列; 条目格式见 formatEvent）
     hologramlib::lse::exportAs(NAMESPACE, "ghostPollInteractions", []() -> std::vector<std::string> {
-        auto events = GhostInteractRouter::getInstance().poll();
+        auto                     events = GhostInteractRouter::getInstance().poll();
         std::vector<std::string> out;
         out.reserve(events.size());
-        for (auto const& ev : events) out.push_back(formatEvent(ev));
+        for (auto const& ev : events)
+            out.push_back(formatEvent(ev));
         return out;
     });
 
-    // ghostClearInteractions() -> void（丢弃队列中全部待处理事件）
     hologramlib::lse::exportAs(
-        NAMESPACE, "ghostClearInteractions", []() -> void { GhostInteractRouter::getInstance().clearQueue(); });
+        NAMESPACE, "ghostClearInteractions", []() -> void {
+            GhostInteractRouter::getInstance().clearQueue();
+        });
+
+    hologramlib::lse::exportAs(NAMESPACE, "actorPollInteractions", []() -> std::vector<std::string> {
+        auto                     events = GhostInteractRouter::getInstance().pollActor();
+        std::vector<std::string> out;
+        out.reserve(events.size());
+        for (auto const& ev : events)
+            out.push_back(formatActorEvent(ev));
+        return out;
+    });
+
+    hologramlib::lse::exportAs(NAMESPACE, "actorClearInteractions", []() -> void {
+        GhostInteractRouter::getInstance().clearActorQueue();
+    });
 }
 
-// ── 公共路由: 段过滤 + runtimeId 反查 + 派发 ──
-// action 语义与旧 InteractPacket 对齐（1=右键交互, 2=左键攻击）, 保证消费端契约不变
 static void routeGhostInteract(
     std::string const& playerName,
     int                action,
@@ -177,8 +216,7 @@ static void routeGhostInteract(
     bool const isEntity  = core::actorIds::customEntity.contains(runtimeId);
     bool const isNpc     = core::actorIds::playerNpc.contains(runtimeId);
     if (!isDisplay && !isEntity && !isNpc) {
-        // 真实实体（原版生物 / 自定义生物 / 玩家）: 派发给"实体交互"监听器（1.27.0）。
-        // 消费方因此不必自己挂钩子 —— 挂到 BDS 热路径上的 detour 层叠多了会毁掉 trampoline。
+
         hologramlib::ActorInteractEvent actor;
         actor.playerName = playerName;
         actor.action     = action;
@@ -197,8 +235,7 @@ static void routeGhostInteract(
         return;
     }
 
-    // runtimeId -> 库内 id 反查（找不到 = 实体已销毁, 忽略迟到的交互）
-    int64_t id = -1;
+    int64_t                         id = -1;
     hologramlib::GhostInteractEvent ev;
     ev.playerName = playerName;
     ev.action     = action;
@@ -217,14 +254,12 @@ static void routeGhostInteract(
         ev.domain = "npc";
         ev.id     = id;
     } else {
-        return; // 段内但已销毁
+        return;
     }
 
     GhostInteractRouter::getInstance().dispatch(ev);
 }
 
-// ── hook 1: InteractPacket（兜底; 协议 944 起该包不再承载实体点击/攻击）──
-// BDS 对未知 runtimeId 的交互包无动作 → 恒调 origin, 不改变原版行为
 LL_TYPE_INSTANCE_HOOK(
     GhostInteractHook,
     HookPriority::Normal,
@@ -232,11 +267,13 @@ LL_TYPE_INSTANCE_HOOK(
     &ServerNetworkHandler::$handle,
     void,
     NetworkIdentifier const& source,
-    InteractPacket const&    packet
-) {
+    InteractPacket const&    packet) {
+    if (!debugshape_export::core::live()) {
+        origin(source, packet);
+        return;
+    }
     origin(source, packet);
 
-    // 快速过滤: 目标不在库内 Actor ID 段（真实实体）→ 不产生事件
     auto const runtimeId = static_cast<std::uint64_t>(packet.mTargetId.get().rawID);
     bool const isDisplay = core::actorIds::itemDisplay.contains(runtimeId);
     bool const isEntity  = core::actorIds::customEntity.contains(runtimeId);
@@ -244,18 +281,18 @@ LL_TYPE_INSTANCE_HOOK(
     if (!isDisplay && !isEntity && !isNpc)
         return;
 
-    // 点击者解析（按 NetworkIdentifier 匹配在线玩家）
     Player* actor = nullptr;
     if (auto level = ll::service::getLevel()) {
         level->forEachPlayer([&](Player& p) {
             if (p.getNetworkIdentifier() == source) {
                 actor = &p;
-                return false; // 已找到, 终止遍历
+                return false;
             }
             return true;
         });
     }
-    if (!actor) return;
+    if (!actor)
+        return;
 
     if (auto const& pos = packet.mPos.get()) {
         routeGhostInteract(
@@ -265,16 +302,12 @@ LL_TYPE_INSTANCE_HOOK(
             true,
             static_cast<float>(pos->x),
             static_cast<float>(pos->y),
-            static_cast<float>(pos->z)
-        );
+            static_cast<float>(pos->z));
     } else {
         routeGhostInteract(actor->getRealName(), static_cast<int>(packet.mAction), runtimeId, false, 0, 0, 0);
     }
 }
 
-// ── hook 2: ItemUseOnActorInventoryTransaction（协议 944 实体交互/攻击主路径）──
-// 客户端点击/攻击实体改经 InventoryTransactionPacket 内嵌本事务到达;
-// BDS 对未知 runtimeId 的事务返回错误（不影响我们派发事件）→ 恒调 origin
 LL_TYPE_INSTANCE_HOOK(
     GhostItemUseOnActorHook,
     HookPriority::Normal,
@@ -282,12 +315,12 @@ LL_TYPE_INSTANCE_HOOK(
     &ItemUseOnActorInventoryTransaction::$handle,
     ::InventoryTransactionError,
     ::Player& player,
-    bool      isSenderAuthority
-) {
+    bool      isSenderAuthority) {
+    if (!debugshape_export::core::live()) {
+        return static_cast<::InventoryTransactionError>(origin(player, isSenderAuthority));
+    }
     auto const result = origin(player, isSenderAuthority);
 
-    // action 映射（保持旧 InteractPacket 语义: 1=右键交互, 2=左键攻击）
-    // ItemUseOnActor: Interact=0 / Attack=1 / ItemInteract=2（手持物品右键, 视作交互）
     int action = 1;
     switch (this->mActionType) {
     case ::ItemUseOnActorInventoryTransaction::ActionType::Attack:
@@ -308,12 +341,19 @@ LL_TYPE_INSTANCE_HOOK(
         true,
         static_cast<float>(hitPos.x),
         static_cast<float>(hitPos.y),
-        static_cast<float>(hitPos.z)
-    );
+        static_cast<float>(hitPos.z));
     return result;
 }
 
-// hook 生命周期（静态注册; 无监听且无人轮询时仅做段前缀判别, 近零开销）
 static ll::memory::HookRegistrar<GhostInteractHook, GhostItemUseOnActorHook> gGhostInteractHookRegistrar;
+static debugshape_export::core::HookRegistrar                                gHookReg_ghost_interact{
+    "ghost-interact",
+    [] {
+        decltype(gGhostInteractHookRegistrar)::hook();
+    },
+    [] {
+        decltype(gGhostInteractHookRegistrar)::unhook();
+    },
+};
 
 } // namespace debugshape_export

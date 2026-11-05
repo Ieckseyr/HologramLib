@@ -1,4 +1,3 @@
-// ItemActorExporter.cpp - 协议层掉落物 LSE 导出 + 公开接口适配
 #include "ItemActorExporter.h"
 #include "ItemActorManager.h"
 
@@ -15,8 +14,6 @@ static constexpr const char* NAMESPACE = "HologramLib";
 void ItemActorExporter::exportAll() {
     auto& mgr = ItemActorManager::getInstance();
 
-    // itemActorSpawn(itemId, aux, count, x, y, z, dim, vx, vy, vz) -> id
-    //   凭空造一只掉落物（服务端没有它）。vx/vy/vz 是初速度, vy>0 = 向上抛。
     hologramlib::lse::exportAs(
         NAMESPACE,
         "itemActorSpawn",
@@ -45,7 +42,6 @@ void ItemActorExporter::exportAll() {
             return mgr.spawn(spec);
         });
 
-    // itemActorSetMotion(id, vx, vy, vz) -> bool（飞行途中改速度与方向; 0,0,0 = 停住）
     hologramlib::lse::exportAs(
         NAMESPACE,
         "itemActorSetMotion",
@@ -53,42 +49,35 @@ void ItemActorExporter::exportAll() {
             return mgr.setMotion(id, vx, vy, vz);
         });
 
-    // itemActorMoveTo(id, x, y, z) -> bool（瞬移, 不发速度）
     hologramlib::lse::exportAs(
         NAMESPACE, "itemActorMoveTo", [&mgr](int64_t id, float x, float y, float z) -> bool {
             return mgr.moveTo(id, x, y, z);
         });
 
-    // itemActorTake(id, playerName) -> bool（播"飞向该玩家"的动画再删掉; 物品不进背包）
     hologramlib::lse::exportAs(
         NAMESPACE, "itemActorTake", [&mgr](int64_t id, std::string const& playerName) -> bool {
             return mgr.take(id, playerName);
         });
 
-    // itemActorDestroy(id) -> bool
     hologramlib::lse::exportAs(
         NAMESPACE, "itemActorDestroy", [&mgr](int64_t id) -> bool {
             return mgr.destroy(id);
         });
 
-    // itemActorDestroyAll() -> void
     hologramlib::lse::exportAs(NAMESPACE, "itemActorDestroyAll", [&mgr]() -> void {
         mgr.destroyAll();
     });
 
-    // itemActorExists(id) -> bool
     hologramlib::lse::exportAs(
         NAMESPACE, "itemActorExists", [&mgr](int64_t id) -> bool {
             return mgr.exists(id);
         });
 
-    // itemActorRuntimeId(id) -> int64（掉落物的 ActorRuntimeID；不存在 -1）
     hologramlib::lse::exportAs(NAMESPACE, "itemActorRuntimeId", [&mgr](int64_t id) -> int64_t {
         auto rid = mgr.runtimeIdOf(id);
         return rid == 0 ? -1 : static_cast<int64_t>(rid);
     });
 
-    // itemActorGetIds() -> [i]
     hologramlib::lse::exportAs(NAMESPACE, "itemActorGetIds", [&mgr]() -> std::vector<int64_t> {
         return mgr.getAllIds();
     });

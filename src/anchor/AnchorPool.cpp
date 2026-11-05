@@ -1,7 +1,6 @@
-// AnchorPool.cpp - 锚点实体池
 #include "AnchorPool.h"
 
-#include "hologramlib/HologramLib.h" // ItemActorSpec
+#include "hologramlib/HologramLib.h"
 #include "itemactor/ItemActorManager.h"
 #include "lse/LseBridge.h"
 
@@ -9,9 +8,8 @@ namespace debugshape_export {
 
 namespace {
 
-// 虚空位置：主世界底部在 y=-64 左右，-120 一定在世界之外，玩家不可能看到。
 constexpr float kAnchorY = -120.0f;
-// 一块没有模型的物品：structure_void
+
 constexpr char const* kAnchorItem = "minecraft:structure_void";
 
 } // namespace
@@ -25,7 +23,7 @@ std::int64_t AnchorPool::acquire(int dimension) {
     hologramlib::ItemActorSpec spec;
     spec.itemId = kAnchorItem;
     spec.count  = 1;
-    // x/z 用库内 id 区分，避免同一坐标叠在一起（坐标本身不重要）
+
     spec.x         = 0.0f;
     spec.y         = kAnchorY;
     spec.z         = 0.0f;
@@ -36,7 +34,6 @@ std::int64_t AnchorPool::acquire(int dimension) {
     if (itemId < 0)
         return -1;
 
-    // 定住：不要让它在客户端往下掉
     items.setMotion(itemId, 0.0f, 0.0f, 0.0f);
 
     auto const uniqueId = static_cast<std::int64_t>(items.uniqueIdOf(itemId));
@@ -87,8 +84,7 @@ bool AnchorPool::exists(std::int64_t uniqueId) const {
 }
 
 void AnchorPool::shutdown() {
-    std::lock_guard lock(mMutex);
-    mAnchors.clear();
+    releaseAll();
 }
 
 } // namespace debugshape_export

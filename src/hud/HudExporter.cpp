@@ -1,9 +1,9 @@
-// HudExporter.cpp - Boss 条 / HUD / 方位条扩展 / 实体表现事件
 #include "HudExporter.h"
 
 #include "../actor/ActorEffectManager.h"
 #include "../actor/PlayerRespawnManager.h"
 #include "../anchor/AnchorPool.h"
+#include "../effect/ActorEventFilter.h"
 #include "../scoreboard/SidebarManager.h"
 #include "../ui/LocatorBarManager.h"
 #include "BossBarManager.h"
@@ -20,8 +20,6 @@
 namespace debugshape_export {
 
 static constexpr const char* NAMESPACE = "HologramLib";
-
-// ── 适配器 ─────────────────────────────────────────────────────────────
 
 namespace {
 
@@ -108,6 +106,26 @@ public:
     }
 };
 
+class ActorEffectFilterAdapter final : public hologramlib::IActorEffectFilter {
+public:
+    void block(int eventId) override { effect::ActorEventFilter::getInstance().block(eventId); }
+    void unblock(int eventId) override { effect::ActorEventFilter::getInstance().unblock(eventId); }
+    void blockForPlayer(std::string const& playerName, int eventId) override {
+        effect::ActorEventFilter::getInstance().blockForPlayer(playerName, eventId);
+    }
+    void unblockForPlayer(std::string const& playerName, int eventId) override {
+        effect::ActorEventFilter::getInstance().unblockForPlayer(playerName, eventId);
+    }
+    void blockForEntity(int64_t runtimeId, int eventId) override {
+        effect::ActorEventFilter::getInstance().blockForEntity(runtimeId, eventId);
+    }
+    void unblockForEntity(int64_t runtimeId, int eventId) override {
+        effect::ActorEventFilter::getInstance().unblockForEntity(runtimeId, eventId);
+    }
+    void                      clear() override { effect::ActorEventFilter::getInstance().clear(); }
+    [[nodiscard]] std::string stats() const override { return effect::ActorEventFilter::getInstance().stats(); }
+};
+
 class PlayerRespawnAdapter final : public hologramlib::IPlayerRespawn {
 public:
     bool respawn(std::string const& playerName, int state) override {
@@ -157,17 +175,19 @@ hologramlib::ISidebar& sidebarAdapter() {
     return adapter;
 }
 
+hologramlib::IActorEffectFilter& actorEffectFilterAdapter() {
+    static ActorEffectFilterAdapter adapter;
+    return adapter;
+}
+
 hologramlib::IPlayerRespawn& playerRespawnAdapter() {
     static PlayerRespawnAdapter adapter;
     return adapter;
 }
 
-// ── LSE 导出 ───────────────────────────────────────────────────────────
-
 void BossBarExporter::exportAll() {
     auto& mgr = BossBarManager::getInstance();
 
-    // bossBarAdd(playerName, title, healthPercent, color, overlay) -> id
     hologramlib::lse::exportAs(
         NAMESPACE,
         "bossBarAdd",
@@ -185,17 +205,14 @@ void BossBarExporter::exportAll() {
                 static_cast<hologramlib::BossBarOverlay>(overlay));
         });
 
-    // bossBarSetTitle(id, title) -> bool
     hologramlib::lse::exportAs(NAMESPACE, "bossBarSetTitle", [&mgr](int64_t id, std::string const& title) -> bool {
         return mgr.setTitle(id, title);
     });
 
-    // bossBarSetHealth(id, healthPercent) -> bool
     hologramlib::lse::exportAs(NAMESPACE, "bossBarSetHealth", [&mgr](int64_t id, float percent) -> bool {
         return mgr.setHealth(id, percent);
     });
 
-    // bossBarSetStyle(id, color, overlay) -> bool
     hologramlib::lse::exportAs(NAMESPACE, "bossBarSetStyle", [&mgr](int64_t id, int color, int overlay) -> bool {
         return mgr.setStyle(
             id,
@@ -203,17 +220,14 @@ void BossBarExporter::exportAll() {
             static_cast<hologramlib::BossBarOverlay>(overlay));
     });
 
-    // bossBarRemove(id) -> bool
     hologramlib::lse::exportAs(NAMESPACE, "bossBarRemove", [&mgr](int64_t id) -> bool {
         return mgr.remove(id);
     });
 
-    // bossBarRemoveAll(playerName) -> null
     hologramlib::lse::exportAs(NAMESPACE, "bossBarRemoveAll", [&mgr](std::string const& playerName) {
         mgr.removeAll(playerName);
     });
 
-    // anchorAcquire(playerName) -> uniqueId（在玩家所在维度开一个虚空锚点实体）
     hologramlib::lse::exportAs(NAMESPACE, "anchorAcquire", [](std::string const& playerName) -> int64_t {
         auto level = ll::service::getLevel();
         if (!level)
@@ -224,13 +238,10 @@ void BossBarExporter::exportAll() {
         return AnchorPool::getInstance().acquire(static_cast<int>(player->getDimensionId()));
     });
 
-    // anchorRelease(uniqueId) -> bool
     hologramlib::lse::exportAs(NAMESPACE, "anchorRelease", [](int64_t uniqueId) -> bool {
         return AnchorPool::getInstance().release(uniqueId);
     });
 
-    // bossBarAddOn(playerName, targetId, title, percent, color, overlay) -> id
-    //   实验：targetId 用真实实体（例如玩家自己的 uniqueId），验证客户端是否要求 boss 对应实体
     hologramlib::lse::exportAs(
         NAMESPACE,
         "bossBarAddOn",
@@ -250,17 +261,14 @@ void BossBarExporter::exportAll() {
                 static_cast<hologramlib::BossBarOverlay>(overlay));
         });
 
-    // bossBarProbe() -> string（诊断：手写包体能否被 BDS 读回 + 十六进制）
     hologramlib::lse::exportAs(NAMESPACE, "bossBarProbe", [&mgr]() -> std::string {
         return mgr.probeWire();
     });
 
-    // bossBarGetInfo(id) -> string（诊断：看 target / pct / 颜色是否如预期）
     hologramlib::lse::exportAs(NAMESPACE, "bossBarGetInfo", [&mgr](int64_t id) -> std::string {
         return mgr.getDebugInfo(id);
     });
 
-    // bossBarCount(playerName) -> i
     hologramlib::lse::exportAs(NAMESPACE, "bossBarCount", [&mgr](std::string const& playerName) -> int {
         return mgr.count(playerName);
     });
@@ -269,7 +277,6 @@ void BossBarExporter::exportAll() {
 void HudExporter::exportAll() {
     auto& mgr = HudManager::getInstance();
 
-    // hudSetElement(playerName, element, visible) -> bool
     hologramlib::lse::exportAs(
         NAMESPACE,
         "hudSetElement",
@@ -277,22 +284,18 @@ void HudExporter::exportAll() {
             return mgr.setElement(playerName, static_cast<hologramlib::HudElement>(element), visible);
         });
 
-    // hudSetElements(playerName, mask, visible) -> i（bit0=纸娃娃 … bit12=物品名）
     hologramlib::lse::exportAs(NAMESPACE, "hudSetElements", [&mgr](std::string const& playerName, int mask, bool visible) -> int {
         return mgr.setElements(playerName, mask, visible);
     });
 
-    // hudSetRaw(playerName, mask, visibility) -> bool（实验：元素列表=掩码内，可见性照传）
     hologramlib::lse::exportAs(NAMESPACE, "hudSetRaw", [&mgr](std::string const& playerName, int mask, int visibility) -> bool {
         return mgr.setRaw(playerName, mask, visibility);
     });
 
-    // hudProbe() -> string（诊断：隐藏纸娃娃的包体校验 + 十六进制）
     hologramlib::lse::exportAs(NAMESPACE, "hudProbe", [&mgr]() -> std::string {
         return mgr.probeWire();
     });
 
-    // hudResetAll(playerName) -> bool
     hologramlib::lse::exportAs(NAMESPACE, "hudResetAll", [&mgr](std::string const& playerName) -> bool {
         return mgr.resetAll(playerName);
     });
@@ -301,8 +304,6 @@ void HudExporter::exportAll() {
 void LocatorBarExtExporter::exportAll() {
     auto& mgr = LocatorBarManager::getInstance();
 
-    // locatorBarSetEx(playerName, key, x,y,z, dim, color, visible, texturePath, iconW, iconH, authority) -> bool
-    //   一次性写全字段再发：首个包就是完整的 Add（带图标），排查"客户端不画"用
     hologramlib::lse::exportAs(
         NAMESPACE,
         "locatorBarSetEx",
@@ -334,7 +335,6 @@ void LocatorBarExtExporter::exportAll() {
                 authority);
         });
 
-    // locatorBarSetClientAuthority(playerName, key, enabled) -> bool
     hologramlib::lse::exportAs(
         NAMESPACE,
         "locatorBarSetClientAuthority",
@@ -342,7 +342,6 @@ void LocatorBarExtExporter::exportAll() {
             return mgr.setClientAuthority(playerName, key, enabled);
         });
 
-    // locatorBarSetIcon(playerName, key, texturePath) -> bool
     hologramlib::lse::exportAs(
         NAMESPACE,
         "locatorBarSetIcon",
@@ -350,7 +349,6 @@ void LocatorBarExtExporter::exportAll() {
             return mgr.setIcon(playerName, key, texturePath);
         });
 
-    // locatorBarSetIconSize(playerName, key, width, height) -> bool
     hologramlib::lse::exportAs(
         NAMESPACE,
         "locatorBarSetIconSize",
@@ -358,7 +356,6 @@ void LocatorBarExtExporter::exportAll() {
             return mgr.setIconSize(playerName, key, width, height);
         });
 
-    // locatorBarAttachEntity(playerName, key, entityUniqueId) -> bool
     hologramlib::lse::exportAs(
         NAMESPACE,
         "locatorBarAttachEntity",
@@ -366,7 +363,6 @@ void LocatorBarExtExporter::exportAll() {
             return mgr.attachEntity(playerName, key, entityUniqueId);
         });
 
-    // locatorBarClearAttach(playerName, key) -> bool
     hologramlib::lse::exportAs(
         NAMESPACE,
         "locatorBarClearAttach",
@@ -374,7 +370,6 @@ void LocatorBarExtExporter::exportAll() {
             return mgr.clearAttach(playerName, key);
         });
 
-    // locatorBarSetGroup(playerName, key, groupKey) -> bool
     hologramlib::lse::exportAs(
         NAMESPACE,
         "locatorBarSetGroup",
@@ -382,7 +377,6 @@ void LocatorBarExtExporter::exportAll() {
             return mgr.setGroup(playerName, key, groupKey);
         });
 
-    // locatorBarSyncGroup(playerName, groupKey) -> i（同组航点合成一条包发出去）
     hologramlib::lse::exportAs(
         NAMESPACE,
         "locatorBarSyncGroup",
@@ -394,7 +388,6 @@ void LocatorBarExtExporter::exportAll() {
 void SidebarExporter::exportAll() {
     auto& mgr = SidebarManager::getInstance();
 
-    // sidebarSet(playerName, title, [lines]) -> bool（空数组 = 移除）
     hologramlib::lse::exportAs(
         NAMESPACE,
         "sidebarSet",
@@ -402,12 +395,10 @@ void SidebarExporter::exportAll() {
             return mgr.set(playerName, title, lines);
         });
 
-    // sidebarSetTitle(playerName, title) -> bool
     hologramlib::lse::exportAs(NAMESPACE, "sidebarSetTitle", [&mgr](std::string const& playerName, std::string const& title) -> bool {
         return mgr.setTitle(playerName, title);
     });
 
-    // sidebarSetLine(playerName, index, text) -> bool
     hologramlib::lse::exportAs(
         NAMESPACE,
         "sidebarSetLine",
@@ -415,22 +406,18 @@ void SidebarExporter::exportAll() {
             return mgr.setLine(playerName, index, text);
         });
 
-    // sidebarRemove(playerName) -> bool
     hologramlib::lse::exportAs(NAMESPACE, "sidebarRemove", [&mgr](std::string const& playerName) -> bool {
         return mgr.remove(playerName);
     });
 
-    // sidebarRemoveAll() -> null
     hologramlib::lse::exportAs(NAMESPACE, "sidebarRemoveAll", [&mgr]() {
         mgr.removeAll();
     });
 
-    // sidebarIsShown(playerName) -> bool
     hologramlib::lse::exportAs(NAMESPACE, "sidebarIsShown", [&mgr](std::string const& playerName) -> bool {
         return mgr.isShown(playerName);
     });
 
-    // sidebarLineCount(playerName) -> i
     hologramlib::lse::exportAs(NAMESPACE, "sidebarLineCount", [&mgr](std::string const& playerName) -> int {
         return mgr.lineCount(playerName);
     });
@@ -439,22 +426,18 @@ void SidebarExporter::exportAll() {
 void ActorEffectExporter::exportAll() {
     auto& mgr = ActorEffectManager::getInstance();
 
-    // actorPlayHurt(runtimeId) -> bool
     hologramlib::lse::exportAs(NAMESPACE, "actorPlayHurt", [&mgr](int64_t runtimeId) -> bool {
         return mgr.playHurt(runtimeId);
     });
 
-    // actorPlayDeath(runtimeId) -> bool
     hologramlib::lse::exportAs(NAMESPACE, "actorPlayDeath", [&mgr](int64_t runtimeId) -> bool {
         return mgr.playDeath(runtimeId);
     });
 
-    // actorPlayInstantDeath(runtimeId) -> bool
     hologramlib::lse::exportAs(NAMESPACE, "actorPlayInstantDeath", [&mgr](int64_t runtimeId) -> bool {
         return mgr.playInstantDeath(runtimeId);
     });
 
-    // actorPlayEvent(runtimeId, eventId, data) -> bool（eventId 见协议 ActorEvent）
     hologramlib::lse::exportAs(
         NAMESPACE,
         "actorPlayEvent",
@@ -462,7 +445,6 @@ void ActorEffectExporter::exportAll() {
             return mgr.play(runtimeId, eventId, data);
         });
 
-    // actorRuntimeIdOfPlayer(playerName) -> int64（玩家实体的 runtimeId；不在线 -1）
     hologramlib::lse::exportAs(NAMESPACE, "actorRuntimeIdOfPlayer", [](std::string const& playerName) -> int64_t {
         auto level = ll::service::getLevel();
         if (!level)
@@ -473,7 +455,6 @@ void ActorEffectExporter::exportAll() {
         return static_cast<int64_t>(player->getRuntimeID().rawID);
     });
 
-    // actorRuntimeIdOfEntity(libId) -> int64（协议层实体的 runtimeId；没有 -1）
     hologramlib::lse::exportAs(NAMESPACE, "actorRuntimeIdOfEntity", [](int64_t libId) -> int64_t {
         std::uint64_t runtimeId = 0;
         std::uint64_t uniqueId  = 0;
@@ -482,21 +463,14 @@ void ActorEffectExporter::exportAll() {
         return static_cast<int64_t>(runtimeId);
     });
 
-    // playerRespawn(playerName) -> bool
-    //   死亡动画后把客户端从死亡界面拉回来（只发包；服务端实体不动）。
-    //   默认 state=2（ClientReadyToSpawn）。
     hologramlib::lse::exportAs(NAMESPACE, "playerRespawn", [](std::string const& playerName) -> bool {
         return PlayerRespawnManager::getInstance().respawn(playerName, 2);
     });
 
-    // playerRespawnState(playerName, state) -> bool
-    //   state: 0=SearchingForSpawn 1=ReadyToSpawn 2=ClientReadyToSpawn
-    //   客户端卡住时先 1 再 2（有些版本要看到 ReadyToSpawn 才继续）。
     hologramlib::lse::exportAs(NAMESPACE, "playerRespawnState", [](std::string const& playerName, int state) -> bool {
         return PlayerRespawnManager::getInstance().respawn(playerName, state);
     });
 
-    // playerRespawnAt(playerName, x, y, z) -> bool
     hologramlib::lse::exportAs(
         NAMESPACE,
         "playerRespawnAt",
@@ -504,7 +478,39 @@ void ActorEffectExporter::exportAll() {
             return PlayerRespawnManager::getInstance().respawnAt(playerName, x, y, z, 2);
         });
 
-    // actorPlayEventFor(playerName, runtimeId, eventId, data) -> bool
+    hologramlib::lse::exportAs(NAMESPACE, "actorBlockEvent", [](int eventId) {
+        effect::ActorEventFilter::getInstance().block(eventId);
+    });
+
+    hologramlib::lse::exportAs(NAMESPACE, "actorUnblockEvent", [](int eventId) {
+        effect::ActorEventFilter::getInstance().unblock(eventId);
+    });
+
+    hologramlib::lse::exportAs(NAMESPACE, "actorBlockEventFor", [](std::string const& playerName, int eventId) {
+        effect::ActorEventFilter::getInstance().blockForPlayer(playerName, eventId);
+    });
+
+    hologramlib::lse::exportAs(
+        NAMESPACE, "actorUnblockEventFor", [](std::string const& playerName, int eventId) {
+            effect::ActorEventFilter::getInstance().unblockForPlayer(playerName, eventId);
+        });
+
+    hologramlib::lse::exportAs(NAMESPACE, "actorBlockEventForEntity", [](int64_t runtimeId, int eventId) {
+        effect::ActorEventFilter::getInstance().blockForEntity(runtimeId, eventId);
+    });
+
+    hologramlib::lse::exportAs(NAMESPACE, "actorUnblockEventForEntity", [](int64_t runtimeId, int eventId) {
+        effect::ActorEventFilter::getInstance().unblockForEntity(runtimeId, eventId);
+    });
+
+    hologramlib::lse::exportAs(NAMESPACE, "actorBlockClear", []() {
+        effect::ActorEventFilter::getInstance().clear();
+    });
+
+    hologramlib::lse::exportAs(NAMESPACE, "actorBlockStats", []() -> std::string {
+        return effect::ActorEventFilter::getInstance().stats();
+    });
+
     hologramlib::lse::exportAs(
         NAMESPACE,
         "actorPlayEventFor",

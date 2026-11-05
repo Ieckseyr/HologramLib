@@ -106,10 +106,12 @@ HologramLib 的能力域按用途拆成 10 页。这一页管选型：先确定�
 | `0x012000` · 1.26.0 | 视图覆盖残骸清理；`IPlayerNpc` 追加五方法；悬浮字收缩与补全 |
 | `0x012100` · 1.27.0 | `EntityView::skinId`；真实实体交互监听；ABI 布局戳 |
 | `0x012300` · 1.29.0 | `AddItemActor` 纳入拦截；`EntityView` 补姿态 / 缩放 / 变种 / 颜色 |
-| `26.51.7` | 1.33.0 | `0x012700` | **形状扩展 + 五个新接口**：圆柱 / 金字塔 / 椭球 / 圆锥、最远渲染距离、挂载实体；Boss 条、HUD 显隐、方位条扩展、受伤与死亡动画。导出 339 → 387。 |
-| `26.51.6` | 1.32.0 | `0x012600` | **四个新域 + 两处尾部追加**：掉落物（`itemActor*`）、表单强制关闭（`form*`）、方位条（`locatorBar*`）、隐身（`playerHide*`）；假玩家表情、假箱子方块事件。导出 298 → 339。 |
-| `26.51.5` | 1.31.0 | `0x012500` | **26.51 线合并 26.40.12**：拉伸、live 变换、动画预设、停止配方、假玩家姿势/装备/骑乘、FMBE 抽搐修复、图片平面与透明图层、容器会话隔离、PlayerSkin trusted 与皮肤 Id 重建。 |
-| `26.51.4` | 1.30.0 | `0x012400` | **只加 3 个纯原语/通知，不含任何功能实现**：`viewPollSpawnEvents`（出生事件通知） · `itemDisplayCreateFull`（建展示即带 NBT/光效） · `itemDisplayEmitForEntity`（让某玩家把某只已有实体看成 FMBE 模型）。判定/状态/策略一律留在消费方（`ItemPhys`）。只加 LSE 导出，虚表未动 → `HOLOGLIB_ABI_STAMP` 不变。 |
+| `0x012900` · 1.35.0 | **容器预览 / 附魔条目 / 表现事件阻断 + 复活包**：`IContainerPreview`（只读真实容器）、`containerSetItemEnchanted`、`IActorEffectFilter`（受伤 / 死亡可拦）、`IPlayerRespawn`（补发 `RespawnPacket`）、假实体 runtimeId；LSE 导出面补齐（粒子查询/可见性、真实实体交互 `actor*`、`containerUpdate` / `tradeUpdate`） |
+| `0x012800` · 1.34.0 | **26.60 平台适配**：字段级编码重写、NPC 对话载体修正、发包审计 `wireTrace*`、假实体 runtimeId 查询 |
+| `0x012700` · 1.33.0 | **形状扩展 + 六个新接口**：圆柱 / 金字塔 / 椭球 / 圆锥、最远渲染距离、挂载实体；Boss 条、HUD 显隐、方位条扩展、受伤与死亡动画 |
+| `0x012600` · 1.32.0 | **四个新域 + 两处尾部追加**：掉落物（`itemActor*`）、表单强制关闭（`form*`）、方位条（`locatorBar*`）、隐身（`playerHide*`）；假玩家表情、假箱子方块事件 |
+| `0x012500` · 1.31.0 | **26.51 线合并 26.40.12**：拉伸、live 变换、动画预设、停止配方、假玩家姿势/装备/骑乘、FMBE 抽搐修复、图片平面与透明图层、容器会话隔离、PlayerSkin trusted 与皮肤 Id 重建 |
+| `0x012400` · 1.30.0 | **只加 3 个纯原语/通知，不含任何功能实现**：`viewPollSpawnEvents`（出生事件通知） · `itemDisplayCreateFull`（建展示即带 NBT/光效） · `itemDisplayEmitForEntity`（让某玩家把某只已有实体看成 FMBE 模型）。判定/状态/策略一律留在消费方（`ItemPhys`）；只加 LSE 导出，虚表未动 |
 
 注：`0x012200`（= API 1.28.0）没有出现在上表里，该编号被跳过、从未作为发布版本出现过。原因与说明见 [版本与 ABI 对照](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.md)。
 

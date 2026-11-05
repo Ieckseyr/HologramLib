@@ -156,7 +156,7 @@ When you upgrade BDS / the protocol version, the delta in these three places is 
 |---|---|
 | `.cache/schema-*/` | field additions and removals (fields like `lineGapHeight` that you "assume exist but do not") |
 | `bedrock_server_mod.exe` string scan | the field names and enums the engine actually uses |
-| `plugins/BedrockProtocol-main/sculk/protocol/codec` | the protocol library's read/write implementation |
+| `mods/BedrockProtocol-main/sculk/protocol/codec` | the protocol library's read/write implementation |
 
 Only agreement across all three counts as the truth — several conclusions inside the library (the text payload has no per-line fields, `SetActorData` carries `mTick`, dropped items go through `AddItemActor`) were all established by cross-checking at these three levels.
 

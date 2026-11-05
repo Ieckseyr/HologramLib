@@ -1,11 +1,11 @@
-// PlayerVisibilityManager.cpp - 按玩家屏蔽出站包
 #include "PlayerVisibilityManager.h"
 
+#include "core/EventIds.h"
 #include "view/ViewOverrideManager.h"
 
 #include <ll/api/service/Bedrock.h>
 
-#include <mc/network/Packet.h> // Packet + ll::PayloadPacket
+#include <mc/network/Packet.h>
 #include <mc/network/packet/ActorEventPacketPayload.h>
 #include <mc/network/packet/AddPlayerPacketPayload.h>
 #include <mc/network/packet/AnimatePacketPayload.h>
@@ -25,7 +25,6 @@ namespace debugshape_export {
 
 namespace {
 
-// TypedStorage 在小尺寸/对齐时可能退化成透明别名（没有 .get()），两种形态统一取值
 template <typename T>
 constexpr decltype(auto) unwrap(T const& value) {
     if constexpr (requires { value.get(); }) {
@@ -47,7 +46,6 @@ enum class Category { Unknown,
                       State,
                       Skin };
 
-// 按 runtimeId 认主体；认不出来的返回 0
 std::uint64_t runtimeIdOf(::Packet const& packet, Category& category) {
     switch (packet.getId()) {
     case ::MinecraftPacketIds::AddPlayer:
@@ -136,7 +134,7 @@ bool PlayerVisibilityManager::setMask(
     entry.mask            = mask;
     entry.alsoSelf        = alsoSelf;
     if (!entry.hidden && !mask.spawn && !mask.tab && !mask.motion && !mask.state && !mask.skin) {
-        mEntries.erase(playerName); // 全关 = 不占表
+        mEntries.erase(playerName);
     }
     return true;
 }
@@ -181,7 +179,6 @@ void PlayerVisibilityManager::forceRespawn(std::string const& playerName) {
 
     auto const uniqueId = static_cast<std::int64_t>(unwrap(player->getOrCreateUniqueID()).rawID);
 
-    // 通过视图覆盖的撤销流程重新发送出生包。
     hologramlib::EntityView view;
     view.hidden   = true;
     auto& manager = view::ViewOverrideManager::getInstance();
@@ -218,7 +215,7 @@ bool PlayerVisibilityManager::isHidden(std::string const& playerName) const {
 
 bool PlayerVisibilityManager::shouldDrop(::Player& recipient, ::Packet const& packet) {
     if (!anyActive())
-        return false; // 快路径: 没有任何屏蔽
+        return false;
 
     Category      category = Category::Unknown;
     std::string   subject;
@@ -236,7 +233,6 @@ bool PlayerVisibilityManager::shouldDrop(::Player& recipient, ::Packet const& pa
             if (entries.empty())
                 return false;
 
-            // 一个包可能包含多名玩家；仅当全部条目属于同一名玩家时才按个体判定
             std::string onlyName;
             bool        allAdd = true;
             for (auto const& entry : entries) {
@@ -256,7 +252,7 @@ bool PlayerVisibilityManager::shouldDrop(::Player& recipient, ::Packet const& pa
                 if (onlyName.empty())
                     onlyName = p->getRealName();
                 else if (onlyName != p->getRealName())
-                    return false; // 混着多个人 → 放行, 不冒险
+                    return false;
                 allAdd = allAdd && isAdd;
             }
             subject  = onlyName;
@@ -273,7 +269,7 @@ bool PlayerVisibilityManager::shouldDrop(::Player& recipient, ::Packet const& pa
             break;
         }
         default:
-            return false; // 认不出来 = 放行
+            return false;
         }
     }
 

@@ -1,36 +1,31 @@
-// HologramLibImpl.cpp - 对外 C++ 接口实现（委托各 Manager 单例）
-//
-// HOLOGLIB_EXPORTS 定义于 xmake（仅本 target）,
-// 编译时 IHologramLib::getInstance 以 dllexport 导出,
-// 消费插件经 HologramLib.lib 链接调用。
 #include "hologramlib/HologramLib.h"
 
-#include <intrin.h> // _ReturnAddress
+#include <intrin.h>
 
-// 库侧"调用前检查消费方"（实现在 AbiGuard.cpp）: 传入**调用方**的返回地址
 namespace debugshape_export::abi {
 void checkCaller(void const* returnAddress) noexcept;
 }
 
 #include "FloatingTextManager.h"
 #include "PacketDebugRenderer.h"
-#include "container/ContainerMenuManager.h" // containerMenuAdapter()
+#include "container/ContainerMenuExporter.h"
+#include "container/ContainerMenuManager.h"
 #include "customentity/CustomEntityManager.h"
-#include "fakeinv/FakeInventoryManager.h" // fakeInventoryAdapter()
-#include "ghost/GhostInteractRouter.h"    // 独立编译单元（xmake: add_files("src/**.cpp")）
-#include "hud/HudExporter.h"              // bossBarAdapter() / hudAdapter() / locatorBarExtAdapter() / actorEffectAdapter()
-#include "itemactor/ItemActorExporter.h"  // itemActorAdapter()
+#include "fakeinv/FakeInventoryManager.h"
+#include "ghost/GhostInteractRouter.h"
+#include "hud/HudExporter.h"
+#include "itemactor/ItemActorExporter.h"
 #include "itemdetail/ItemDetailManager.h"
 #include "itemdisplay/ItemDisplayManager.h"
 #include "lse/LseBridge.h"
-#include "npcdialog/NpcDialogueManager.h" // npcDialogueAdapter()
+#include "npcdialog/NpcDialogueManager.h"
 #include "particles/ParticleShapeManager.h"
-#include "playernpc/PlayerNpcExporter.h" // playerNpcAdapter()
+#include "playernpc/PlayerNpcExporter.h"
 #include "sensing/PlayerSensingManager.h"
-#include "sulfur/SulfurDisplayManager.h" // sulfurDisplayAdapter()
-#include "trade/TradeMenuManager.h"      // tradeMenuAdapter()
-#include "ui/ClientUiExporter.h"         // formControlAdapter() / locatorBarAdapter()
-#include "view/ViewOverrideManager.h"    // viewOverrideAdapter()
+#include "sulfur/SulfurDisplayManager.h"
+#include "trade/TradeMenuManager.h"
+#include "ui/ClientUiExporter.h"
+#include "view/ViewOverrideManager.h"
 
 #include <format>
 #include <utility>
@@ -235,14 +230,13 @@ public:
         return debugshape_export::FloatingTextManager::getInstance().setDimension(id, dimId);
     }
 
-    // ── 1.26.0 追加 ──
     bool setRotation(int64_t id, float pitch, float yaw, float roll) override {
         return debugshape_export::FloatingTextManager::getInstance().setRotation(id, pitch, yaw, roll);
     }
     bool clearRotation(int64_t id) override {
         return debugshape_export::FloatingTextManager::getInstance().clearRotation(id);
     }
-    // ── 1.26.0 追加: 动态行（重构自 Phantom, LGPL-3.0 —— 见 FloatingTextManager.h 文件头标注）──
+
     bool setLinePool(int64_t id, int lineIndex, std::vector<std::string> const& content, int intervalMs) override {
         return debugshape_export::FloatingTextManager::getInstance().setLinePool(id, lineIndex, content, intervalMs);
     }
@@ -337,7 +331,7 @@ public:
     bool setGlint(int64_t id, bool on) override {
         return debugshape_export::ItemDisplayManager::getInstance().setGlint(id, on);
     }
-    // 1.17.0: display follow / hitbox glue
+
     bool follow(int64_t id, std::string const& playerName, float offX, float offY, float offZ) override {
         return debugshape_export::ItemDisplayManager::getInstance().follow(id, playerName, offX, offY, offZ);
     }
@@ -347,7 +341,7 @@ public:
     bool setHitbox(int64_t id, float width, float height) override {
         return debugshape_export::ItemDisplayManager::getInstance().setHitbox(id, width, height);
     }
-    // 1.31.0: stretch + live transform
+
     bool setStretch(int64_t id, std::string const& xz, std::string const& y) override {
         return debugshape_export::ItemDisplayManager::getInstance().setStretch(id, xz, y);
     }
@@ -371,7 +365,7 @@ public:
         return debugshape_export::ItemDisplayManager::getInstance().setTransformLive(
             id, ox, oy, oz, rx, ry, rz, scale);
     }
-    // 26.40.12: 动画预设
+
     bool setAnim(int64_t id, ItemDisplayAnim const& anim) override {
         return debugshape_export::ItemDisplayManager::getInstance().setAnim(id, anim);
     }
@@ -499,7 +493,7 @@ public:
     void setEntitySpawnCallback(EntitySpawnCallback callback) override {
         debugshape_export::CustomEntityManager::getInstance().setEntitySpawnCallback(std::move(callback));
     }
-    // ── 1.20.0: 逐客户端朝向 ──
+
     bool setPlayerRotation(int64_t id, std::string const& playerName, float yaw, float pitch) override {
         return debugshape_export::CustomEntityManager::getInstance().setPlayerRotation(id, playerName, yaw, pitch);
     }
@@ -510,7 +504,6 @@ public:
         return debugshape_export::CustomEntityManager::getInstance().clearPlayerRotations(id);
     }
 
-    // ── 1.21.0 未发布线: 千人千面(按观看者覆盖外观) ──
     bool setPlayerNametag(int64_t id, std::string const& playerName, std::string const& text) override {
         return debugshape_export::CustomEntityManager::getInstance().setPlayerNametag(id, playerName, text);
     }
@@ -530,7 +523,7 @@ public:
     bool clearPlayerAppearance(int64_t id, std::string const& playerName) override {
         return debugshape_export::CustomEntityManager::getInstance().clearPlayerAppearance(id, playerName);
     }
-    // ── 26.40.12: 显式停止动画 ──
+
     bool stopAnimation(int64_t id) override {
         return debugshape_export::CustomEntityManager::getInstance().stopAnimation(id);
     }
@@ -645,7 +638,6 @@ public:
         return debugshape_export::ParticleShapeManager::getInstance().getInfo(id);
     }
 
-    // 1.15.0 追加（尾部）
     bool moveTo(int64_t id, float x, float y, float z, int durationTicks) override {
         return debugshape_export::ParticleShapeManager::getInstance().moveTo(id, x, y, z, durationTicks);
     }
@@ -657,21 +649,23 @@ public:
 
     IShapeDrawerExt& shapeExt() override { return mShapeExt; }
 
-    // ── 1.33.0 ──
     IBossBar&       bossBars() override { return debugshape_export::bossBarAdapter(); }
     IHud&           hud() override { return debugshape_export::hudAdapter(); }
     ILocatorBarExt& locatorBarExt() override { return debugshape_export::locatorBarExtAdapter(); }
     IActorEffect&   actorEffects() override { return debugshape_export::actorEffectAdapter(); }
     ISidebar&       sidebar() override { return debugshape_export::sidebarAdapter(); }
 
-    // ── 1.34.0 ──
     IPlayerRespawn& playerRespawn() override { return debugshape_export::playerRespawnAdapter(); }
-    IHologramText&  holograms() override { return mHolograms; }
-    IItemDetail&    itemDetails() override { return mItemDetails; }
+
+    IContainerPreview& containerPreview() override { return debugshape_export::containerPreviewAdapter(); }
+
+    IActorEffectFilter& actorEffectFilter() override { return debugshape_export::actorEffectFilterAdapter(); }
+    IHologramText&      holograms() override { return mHolograms; }
+    IItemDetail&        itemDetails() override { return mItemDetails; }
 
     bool isLseAvailable() override { return lse::isAttached(); }
 
-    uint32_t version() override { return HOLOGLIB_API_VERSION; } // 跟随宏, 永不再手写数值
+    uint32_t version() override { return HOLOGLIB_API_VERSION; }
 
     IItemDisplay& itemDisplays() override { return mItemDisplays; }
 
@@ -685,10 +679,8 @@ public:
 
     IPlayerNpc& playerNpcs() override { return debugshape_export::playerNpcAdapter(); }
 
-    // ── 1.21.0 ──
     ITradeMenu& tradeMenus() override { return debugshape_export::tradeMenuAdapter(); }
 
-    // ── 1.22.0 ──
     INpcDialogue&   npcDialogs() override { return debugshape_export::npcDialogueAdapter(); }
     IContainerMenu& containerMenus() override { return debugshape_export::containerMenuAdapter(); }
 
@@ -714,24 +706,19 @@ public:
         return out;
     }
 
-    // ── 感知域(1.21.0 未发布线): 客户端设备判断 ──
     IPlayerSensing& playerSensing() override { return debugshape_export::playerSensingAdapter(); }
 
-    // ── 26.51.6 ──
     IItemActor&        itemActors() override { return debugshape_export::itemActorAdapter(); }
     IFormControl&      formControl() override { return debugshape_export::formControlAdapter(); }
     ILocatorBar&       locatorBar() override { return debugshape_export::locatorBarAdapter(); }
     IPlayerVisibility& playerVisibility() override { return debugshape_export::playerVisibilityAdapter(); }
 
-    // ── 1.23.0 未发布线: 背包虚容器 ──
     IFakeInventory& fakeInventories() override { return debugshape_export::fakeInventoryAdapter(); }
 
-    // ── 1.23.0: 硫磺立方体展示 ──
     ISulfurDisplay& sulfurDisplays() override { return debugshape_export::sulfurDisplayAdapter(); }
 
-    // ── 1.25.0: 客户端视图覆盖（协议层拦截改写）──
     IViewOverride& viewOverrides() override { return debugshape_export::viewOverrideAdapter(); }
-    // ── 1.27.0 ──
+
     uint64_t addActorInteractListener(std::function<void(ActorInteractEvent const&)> listener) override {
         return debugshape_export::GhostInteractRouter::getInstance().addActorListener(std::move(listener));
     }
@@ -753,15 +740,11 @@ private:
 
 HOLOGLIB_API IHologramLib& IHologramLib::getInstance() {
     static HologramLibImpl instance;
-    // 调用前检查消费方: 解析调用方模块, 从缓存查找布局戳判定。
-    // _ReturnAddress() 必须在这里取: 它给的是**调用方**的返回地址（在 checkCaller 里取会拿到库内部的地址）。
+
     debugshape_export::abi::checkCaller(_ReturnAddress());
     return instance;
 }
 
-// 布局戳导出（纯 C, 消费方 GetProcAddress 自检用; 见头文件 HOLOGLIB_ABI_STAMP 的说明）。
-// 放在这里而不是接口里: 加虚函数槽会动虚表 —— 在"库与插件不是同批构建"时, 那个新槽本身
-// 也可能落到别的方法上; 纯 C 导出则取不到就是取不到（null）, 不会崩。
 extern "C" __declspec(dllexport) std::uint32_t __cdecl hologramlib_abiStamp() {
     return HOLOGLIB_ABI_STAMP;
 }

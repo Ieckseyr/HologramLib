@@ -1,5 +1,6 @@
-// ContainerMenuExporter.h - 虚拟容器（列表界面）LSE 导出声明
 #pragma once
+
+#include <hologramlib/HologramLib.h>
 
 namespace debugshape_export {
 
@@ -7,5 +8,7 @@ class ContainerMenuExporter {
 public:
     static void exportAll();
 };
+
+hologramlib::IContainerPreview& containerPreviewAdapter();
 
 } // namespace debugshape_export

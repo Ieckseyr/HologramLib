@@ -1,4 +1,3 @@
-// ClientUiExporter.cpp - 表单控制 / 方位条 LSE 导出 + 公开接口适配
 #include "ClientUiExporter.h"
 
 #include "../visibility/PlayerVisibilityManager.h"
@@ -18,13 +17,11 @@ static constexpr const char* NAMESPACE = "HologramLib";
 void FormControlExporter::exportAll() {
     auto& mgr = FormControlManager::getInstance();
 
-    // formClose(playerName) -> bool（强制关掉该玩家当前打开的客户端表单）
     hologramlib::lse::exportAs(
         NAMESPACE, "formClose", [&mgr](std::string const& playerName) -> bool {
             return mgr.closeForm(playerName);
         });
 
-    // formCloseAll() -> i（发给所有在线玩家, 返回发给了几个）
     hologramlib::lse::exportAs(NAMESPACE, "formCloseAll", [&mgr]() -> int {
         return mgr.closeAllForms();
     });
@@ -33,8 +30,6 @@ void FormControlExporter::exportAll() {
 void LocatorBarExporter::exportAll() {
     auto& mgr = LocatorBarManager::getInstance();
 
-    // locatorBarSet(playerName, key, x, y, z, dim, color, visible) -> bool
-    //   key 自己起名, 同一个 key 再调就是更新位置; color = ARGB, -1 = 客户端默认
     hologramlib::lse::exportAs(
         NAMESPACE,
         "locatorBarSet",
@@ -50,20 +45,16 @@ void LocatorBarExporter::exportAll() {
             return mgr.setWaypoint(playerName, key, x, y, z, dim, color, visible);
         });
 
-    // locatorBarRemove(playerName, key) -> bool
     hologramlib::lse::exportAs(
         NAMESPACE, "locatorBarRemove", [&mgr](std::string const& playerName, std::string const& key) -> bool {
             return mgr.removeWaypoint(playerName, key);
         });
 
-    // locatorBarClear(playerName) -> i（清掉该玩家全部航点, 返回清掉了几个）
     hologramlib::lse::exportAs(
         NAMESPACE, "locatorBarClear", [&mgr](std::string const& playerName) -> int {
             return mgr.clearWaypoints(playerName);
         });
 
-    // locatorBarHideFromOthers(playerName, hidden) -> bool
-    //   把该玩家从其他人的客户端上藏起来（本人照常看得到自己）
     hologramlib::lse::exportAs(
         NAMESPACE,
         "locatorBarHideFromOthers",
@@ -71,7 +62,6 @@ void LocatorBarExporter::exportAll() {
             return mgr.hideFromOthers(playerName, hidden);
         });
 
-    // locatorBarIsHiddenFromOthers(playerName) -> bool
     hologramlib::lse::exportAs(
         NAMESPACE,
         "locatorBarIsHiddenFromOthers",
@@ -79,7 +69,6 @@ void LocatorBarExporter::exportAll() {
             return mgr.isHiddenFromOthers(playerName);
         });
 
-    // locatorBarCount(playerName) -> i
     hologramlib::lse::exportAs(
         NAMESPACE, "locatorBarCount", [&mgr](std::string const& playerName) -> int {
             return mgr.waypointCount(playerName);
@@ -141,7 +130,6 @@ hologramlib::ILocatorBar& locatorBarAdapter() {
 void PlayerVisibilityExporter::exportAll() {
     auto& mgr = PlayerVisibilityManager::getInstance();
 
-    // playerHideSetMask(playerName, spawn, tab, motion, state, skin, alsoSelf) -> bool
     hologramlib::lse::exportAs(
         NAMESPACE,
         "playerHideSetMask",
@@ -162,7 +150,6 @@ void PlayerVisibilityExporter::exportAll() {
             return mgr.setMask(playerName, mask, alsoSelf);
         });
 
-    // playerHideGetMask(playerName) -> "spawn=0 tab=1 motion=0 state=0 skin=1 hidden=0"
     hologramlib::lse::exportAs(
         NAMESPACE, "playerHideGetMask", [&mgr](std::string const& playerName) -> std::string {
             auto const mask = mgr.maskOf(playerName);
@@ -176,19 +163,16 @@ void PlayerVisibilityExporter::exportAll() {
                 mgr.isHidden(playerName) ? 1 : 0);
         });
 
-    // playerHideSetHidden(playerName, hidden) -> bool（整体隐身; 已出生在别人屏幕上的也会消失）
     hologramlib::lse::exportAs(
         NAMESPACE, "playerHideSetHidden", [&mgr](std::string const& playerName, bool hidden) -> bool {
             return mgr.setHidden(playerName, hidden);
         });
 
-    // playerHideIsHidden(playerName) -> bool
     hologramlib::lse::exportAs(
         NAMESPACE, "playerHideIsHidden", [&mgr](std::string const& playerName) -> bool {
             return mgr.isHidden(playerName);
         });
 
-    // playerHideRestore(playerName) -> bool（清掩码 + 清隐身 + 立刻补发出生包）
     hologramlib::lse::exportAs(
         NAMESPACE, "playerHideRestore", [&mgr](std::string const& playerName) -> bool {
             return mgr.restore(playerName);

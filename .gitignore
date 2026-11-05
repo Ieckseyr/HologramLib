@@ -36,7 +36,8 @@ docs/internal/
 
 # 文档站构建产物（mkdocs build 的输出目录）
 site/
-# 本地文档站预览环境（pip install -r tools/requirements.txt）
+# 本地文档站预览环境（pip install -r tools/requirements.txt）
+
 tools/.venv/
 
 # ── 本地工作产物,永不入库(显式列出, 防止将来误放行)──
@@ -54,6 +55,7 @@ build/
 
 # tests 的产物
 tests/__pycache__/
+tools/__pycache__/
 tests/*.obj
 tests/*.exe
 tests/*.pdb

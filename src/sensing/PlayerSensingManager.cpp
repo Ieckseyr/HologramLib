@@ -1,5 +1,6 @@
-// PlayerSensingManager.cpp - 感知域实现
 #include "sensing/PlayerSensingManager.h"
+#include "core/EventIds.h"
+#include "core/HookRegistry.h"
 
 #include "DiagLog.h"
 
@@ -18,20 +19,25 @@ namespace debugshape_export {
 
 namespace {
 
-// 玩家名 -> 客户端 InputMode 枚举值(26.40: 0=Undefined 1=Mouse 2=Touch 3=GamePad 4=MotionController)
 hologramlib::ClientInputDevice mapDevice(int inputMode) {
     switch (inputMode) {
-        case 1: return hologramlib::ClientInputDevice::KeyboardMouse;
-        case 2: return hologramlib::ClientInputDevice::Touch;
-        case 3: return hologramlib::ClientInputDevice::Gamepad;
-        case 4: return hologramlib::ClientInputDevice::MotionController;
-        default: return hologramlib::ClientInputDevice::Unknown;
+    case 1:
+        return hologramlib::ClientInputDevice::KeyboardMouse;
+    case 2:
+        return hologramlib::ClientInputDevice::Touch;
+    case 3:
+        return hologramlib::ClientInputDevice::Gamepad;
+    case 4:
+        return hologramlib::ClientInputDevice::MotionController;
+    default:
+        return hologramlib::ClientInputDevice::Unknown;
     }
 }
 
 Player* findPlayerByNetworkId(NetworkIdentifier const& source) {
     auto level = ll::service::getLevel();
-    if (!level) return nullptr;
+    if (!level)
+        return nullptr;
     Player* found = nullptr;
     level->forEachPlayer([&](Player& p) -> bool {
         if (p.getNetworkIdentifier() == source) {
@@ -51,10 +57,11 @@ PlayerSensingManager& PlayerSensingManager::getInstance() {
 }
 
 void PlayerSensingManager::record(std::string const& playerName, int inputMode) {
-    auto const device = mapDevice(inputMode);
+    auto const      device = mapDevice(inputMode);
     std::lock_guard lock(mMutex);
-    // Unknown 不覆盖旧值: AuthInput 早段可能报 Undefined, 别把已知设备冲掉
-    if (device == hologramlib::ClientInputDevice::Unknown) return;
+
+    if (device == hologramlib::ClientInputDevice::Unknown)
+        return;
     mDevices[playerName] = device;
 }
 
@@ -78,9 +85,6 @@ void PlayerSensingManager::shutdown() {
     mDevices.clear();
 }
 
-// ── AuthInput 挂钩: 逐包捕获 InputMode ──
-// AuthInput 每玩家每 tick 一包, 这里只做一次 map 写入, 开销可忽略。
-// 只观察, 不拦。
 LL_TYPE_INSTANCE_HOOK(
     PlayerSensingHook,
     ll::memory::HookPriority::Normal,
@@ -88,8 +92,11 @@ LL_TYPE_INSTANCE_HOOK(
     &ServerNetworkHandler::$handle,
     void,
     NetworkIdentifier const&     source,
-    PlayerAuthInputPacket const& packet
-) {
+    PlayerAuthInputPacket const& packet) {
+    if (!debugshape_export::core::live()) {
+        origin(source, packet);
+        return;
+    }
     origin(source, packet);
 
     if (auto* player = findPlayerByNetworkId(source)) {
@@ -98,17 +105,24 @@ LL_TYPE_INSTANCE_HOOK(
 }
 
 static ll::memory::HookRegistrar<PlayerSensingHook> gPlayerSensingHookRegistrar;
+static debugshape_export::core::HookRegistrar       gHookReg_sensing_authinput{
+    "sensing-authinput",
+    [] {
+        decltype(gPlayerSensingHookRegistrar)::hook();
+    },
+    [] {
+        decltype(gPlayerSensingHookRegistrar)::unhook();
+    },
+};
 
-// 玩家离线: 清掉记录(重新上线后首个 AuthInput 会立刻补上)
 static ll::event::ListenerPtr gSensingDisconnectListener;
 
 struct SensingListenerInit {
     SensingListenerInit() {
-        gSensingDisconnectListener = ll::event::EventBus::getInstance().emplaceListener<ll::event::PlayerDisconnectEvent>(
-            [](ll::event::PlayerDisconnectEvent& ev) {
-                PlayerSensingManager::getInstance().forget(ev.self().getRealName());
-            }
-        );
+        gSensingDisconnectListener = debugshape_export::core::listen<ll::event::PlayerDisconnectEvent>(core::kPlayerDisconnectId, [](ll::event::PlayerDisconnectEvent& ev) {
+            PlayerSensingManager::getInstance().forget(ev.self().getRealName());
+        },
+                                                                                                       debugshape_export::core::ListenerScope::Process);
     }
 };
 static SensingListenerInit gSensingListenerInit;

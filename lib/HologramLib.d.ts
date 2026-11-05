@@ -1,4 +1,4 @@
-// HologramLib.d.ts —— 自动生成（tools/gen_lse_shim.py），API 1.34.0
+// HologramLib.d.ts —— 自动生成（tools/gen_lse_shim.py），API 1.35.0
 // 放到脚本旁边, 编辑器就能补全 HL.xxx 的参数名与类型。
 
 declare namespace HologramLib {
@@ -15,6 +15,18 @@ declare namespace HologramLib {
     bind(name: string): (...args: any[]) => any;
 
     /** 实现见 src/hud/HudExporter.cpp */
+    actorBlockClear(): any;
+    /** 实现见 src/hud/HudExporter.cpp */
+    actorBlockEvent(eventId: number): any;
+    /** 实现见 src/hud/HudExporter.cpp */
+    actorBlockEventFor(playerName: string, eventId: number): any;
+    /** 实现见 src/hud/HudExporter.cpp */
+    actorBlockEventForEntity(runtimeId: number, eventId: number): any;
+    /** 实现见 src/hud/HudExporter.cpp */
+    actorBlockStats(): string;
+    /** 实现见 src/ghost/GhostInteractRouter.cpp */
+    actorClearInteractions(): any;
+    /** 实现见 src/hud/HudExporter.cpp */
     actorPlayDeath(runtimeId: number): boolean;
     /** 实现见 src/hud/HudExporter.cpp */
     actorPlayEvent(runtimeId: number, eventId: number, data: number): boolean;
@@ -24,10 +36,18 @@ declare namespace HologramLib {
     actorPlayHurt(runtimeId: number): boolean;
     /** 实现见 src/hud/HudExporter.cpp */
     actorPlayInstantDeath(runtimeId: number): boolean;
+    /** 实现见 src/ghost/GhostInteractRouter.cpp */
+    actorPollInteractions(): string[];
     /** 实现见 src/hud/HudExporter.cpp */
     actorRuntimeIdOfEntity(libId: number): number;
     /** 实现见 src/hud/HudExporter.cpp */
     actorRuntimeIdOfPlayer(playerName: string): number;
+    /** 实现见 src/hud/HudExporter.cpp */
+    actorUnblockEvent(eventId: number): any;
+    /** 实现见 src/hud/HudExporter.cpp */
+    actorUnblockEventFor(playerName: string, eventId: number): any;
+    /** 实现见 src/hud/HudExporter.cpp */
+    actorUnblockEventForEntity(runtimeId: number, eventId: number): any;
     /** 实现见 src/hud/HudExporter.cpp */
     anchorAcquire(playerName: string): number;
     /** 实现见 src/hud/HudExporter.cpp */
@@ -61,19 +81,29 @@ declare namespace HologramLib {
     /** 实现见 src/container/ContainerMenuExporter.cpp */
     containerCloseAll(): any;
     /** 实现见 src/container/ContainerMenuExporter.cpp */
-    containerGetIds(): number;
+    containerDroppedClicks(): number;
+    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    containerGetIds(): number[];
     /** 实现见 src/container/ContainerMenuExporter.cpp */
     containerIsOpen(id: number): boolean;
     /** 实现见 src/container/ContainerMenuExporter.cpp */
     containerOpen(playerName: string, title: string, rows: number): number;
     /** 实现见 src/container/ContainerMenuExporter.cpp */
-    containerPollClicks(): string;
+    containerPollClicks(): string[];
+    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    containerPreview(playerName: string, dim: number, x: number, y: number, z: number): number;
+    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    containerPreviewTitled(playerName: string, dim: number, x: number, y: number, z: number, title: string): number;
     /** 实现见 src/container/ContainerMenuExporter.cpp */
     containerSetInteractive(id: number, on: boolean): boolean;
     /** 实现见 src/container/ContainerMenuExporter.cpp */
     containerSetItem(id: number, slot: number, type: string, count: number, damage: number, name: string, loreCsv: string): boolean;
     /** 实现见 src/container/ContainerMenuExporter.cpp */
+    containerSetItemEnchanted(id: number, slot: number, type: string, count: number, damage: number, name: string, loreCsv: string, enchCsv: string): boolean;
+    /** 实现见 src/container/ContainerMenuExporter.cpp */
     containerSetTitle(id: number, title: string): boolean;
+    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    containerUpdate(id: number, title: string): boolean;
     /** 实现见 src/customentity/CustomEntityExporter.cpp */
     entityClearMobProperties(id: number): boolean;
     /** 实现见 src/customentity/CustomEntityExporter.cpp */
@@ -105,7 +135,7 @@ declare namespace HologramLib {
     /** 实现见 src/customentity/CustomEntityExporter.cpp */
     entityFindNearest(x: number, y: number, z: number, dim: number, maxDist: number): number;
     /** 实现见 src/customentity/CustomEntityExporter.cpp */
-    entityGetAllIds(): number;
+    entityGetAllIds(): number[];
     /** 实现见 src/customentity/CustomEntityExporter.cpp */
     entityGetInfo(id: number): string;
     /** 实现见 src/customentity/CustomEntityExporter.cpp */
@@ -115,7 +145,7 @@ declare namespace HologramLib {
     /** 实现见 src/customentity/CustomEntityExporter.cpp */
     entityPlayAnimationTo(id: number, playerName: string, animation: string, stopExpression: string, durationTicks: number): boolean;
     /** 实现见 src/customentity/CustomEntityExporter.cpp */
-    entityPollSpawns(): string;
+    entityPollSpawns(): string[];
     /** 实现见 src/customentity/CustomEntityExporter.cpp */
     entityScaleBy(id: number, factor: number): boolean;
     /** 实现见 src/customentity/CustomEntityExporter.cpp */
@@ -163,7 +193,7 @@ declare namespace HologramLib {
     /** 实现见 src/customentity/CustomEntityExporter.cpp */
     entitySetVisiblePlayer(id: number, playerName: string): boolean;
     /** 实现见 src/customentity/CustomEntityExporter.cpp */
-    entitySetVisiblePlayers(id: number, playerNames: string): boolean;
+    entitySetVisiblePlayers(id: number, playerNames: string[]): boolean;
     /** 实现见 src/customentity/CustomEntityExporter.cpp */
     entityStopAnimation(id: number): boolean;
     /** 实现见 src/customentity/CustomEntityExporter.cpp */
@@ -177,11 +207,13 @@ declare namespace HologramLib {
     /** 实现见 src/fakeinv/FakeInventoryExporter.cpp */
     fakeInvClearClicks(): any;
     /** 实现见 src/fakeinv/FakeInventoryExporter.cpp */
-    fakeInvGetPlayers(): string;
+    fakeInvDroppedClicks(): number;
+    /** 实现见 src/fakeinv/FakeInventoryExporter.cpp */
+    fakeInvGetPlayers(): string[];
     /** 实现见 src/fakeinv/FakeInventoryExporter.cpp */
     fakeInvIsActive(playerName: string): boolean;
     /** 实现见 src/fakeinv/FakeInventoryExporter.cpp */
-    fakeInvPollClicks(): string;
+    fakeInvPollClicks(): string[];
     /** 实现见 src/fakeinv/FakeInventoryExporter.cpp */
     fakeInvRefresh(playerName: string): boolean;
     /** 实现见 src/fakeinv/FakeInventoryExporter.cpp */
@@ -193,7 +225,7 @@ declare namespace HologramLib {
     /** 实现见 src/ghost/GhostInteractRouter.cpp */
     ghostClearInteractions(): any;
     /** 实现见 src/ghost/GhostInteractRouter.cpp */
-    ghostPollInteractions(): string;
+    ghostPollInteractions(): string[];
     /** 实现见 src/GradientLineExporter.cpp */
     gradientCreate(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, segments: number): number;
     /** 实现见 src/GradientLineExporter.cpp */
@@ -263,7 +295,7 @@ declare namespace HologramLib {
     /** 实现见 src/FloatingTextExporter.cpp */
     holoSetLineParseVariables(id: number, lineIndex: number, enabled: boolean): boolean;
     /** 实现见 src/FloatingTextExporter.cpp */
-    holoSetLinePool(id: number, lineIndex: number, content: string, intervalMs: number): boolean;
+    holoSetLinePool(id: number, lineIndex: number, content: string[], intervalMs: number): boolean;
     /** 实现见 src/FloatingTextExporter.cpp */
     holoSetLineText(id: number, lineIndex: number, text: string): boolean;
     /** 实现见 src/FloatingTextExporter.cpp */
@@ -289,7 +321,7 @@ declare namespace HologramLib {
     /** 实现见 src/itemactor/ItemActorExporter.cpp */
     itemActorExists(id: number): boolean;
     /** 实现见 src/itemactor/ItemActorExporter.cpp */
-    itemActorGetIds(): number;
+    itemActorGetIds(): number[];
     /** 实现见 src/itemactor/ItemActorExporter.cpp */
     itemActorMoveTo(id: number, x: number, y: number, z: number): boolean;
     /** 实现见 src/itemactor/ItemActorExporter.cpp */
@@ -333,7 +365,7 @@ declare namespace HologramLib {
     /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayFollow(id: number, playerName: string, offX: number, offY: number, offZ: number): boolean;
     /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
-    itemDisplayGetAllIds(): number;
+    itemDisplayGetAllIds(): number[];
     /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayGetInfo(id: number): string;
     /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
@@ -391,7 +423,7 @@ declare namespace HologramLib {
     /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetVisiblePlayer(id: number, playerName: string): boolean;
     /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
-    itemDisplaySetVisiblePlayers(id: number, playerNames: string): boolean;
+    itemDisplaySetVisiblePlayers(id: number, playerNames: string[]): boolean;
     /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayUnfollow(id: number): boolean;
     /** 实现见 src/hud/HudExporter.cpp */
@@ -429,17 +461,21 @@ declare namespace HologramLib {
     /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
     npcDialogCloseAll(): any;
     /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
-    npcDialogGetIds(): number;
+    npcDialogDroppedClicks(): number;
+    /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
+    npcDialogGetIds(): number[];
     /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
     npcDialogIsOpen(id: number): boolean;
     /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
     npcDialogOpen(playerName: string, npcName: string, sceneName: string, dialogue: string, buttonsSpec: string, carrierIdentifier: string): number;
     /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
-    npcDialogPollClicks(): string;
+    npcDialogPollClicks(): string[];
     /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
     npcDialogSetAvatar(id: number, skinVariant: number, avatarViewSpec: string): boolean;
     /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
     npcDialogUpdate(id: number, dialogue: string, buttonsSpec: string): boolean;
+    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    particleClearVisiblePlayers(id: number): boolean;
     /** 实现见 src/particles/ParticleShapeExporter.cpp */
     particleCreateBox(playerName: string, dimId: number, cx: number, cy: number, cz: number, hx: number, hy: number, hz: number, step: number, effect: string, interval: number, lifetime: number): number;
     /** 实现见 src/particles/ParticleShapeExporter.cpp */
@@ -457,7 +493,13 @@ declare namespace HologramLib {
     /** 实现见 src/particles/ParticleShapeExporter.cpp */
     particleDestroy(id: number): boolean;
     /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    particleDestroyAll(): any;
+    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    particleExists(id: number): boolean;
+    /** 实现见 src/particles/ParticleShapeExporter.cpp */
     particleFollow(id: number, uuid: string, offX: number, offY: number, offZ: number): boolean;
+    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    particleGetAllIds(): number[];
     /** 实现见 src/particles/ParticleShapeExporter.cpp */
     particleGetInfo(id: number): string;
     /** 实现见 src/particles/ParticleShapeExporter.cpp */
@@ -480,6 +522,8 @@ declare namespace HologramLib {
     particleSetViewDistance(id: number, blocks: number): boolean;
     /** 实现见 src/particles/ParticleShapeExporter.cpp */
     particleSetVisible(id: number, playersCsv: string): boolean;
+    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    particleSetVisiblePlayers(id: number, playerUuids: string[]): boolean;
     /** 实现见 src/particles/ParticleShapeExporter.cpp */
     particleSpin(id: number, sx: number, sy: number, sz: number): boolean;
     /** 实现见 src/particles/ParticleShapeExporter.cpp */
@@ -521,13 +565,13 @@ declare namespace HologramLib {
     /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
     playerNpcExists(id: number): boolean;
     /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
-    playerNpcGetAllIds(): number;
+    playerNpcGetAllIds(): number[];
     /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
     playerNpcGetDebugInfo(id: number): string;
     /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
     playerNpcGetSkinBlobB64(skinId: string): string;
     /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
-    playerNpcGetSkinIds(): string;
+    playerNpcGetSkinIds(): string[];
     /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
     playerNpcHasSkin(skinId: string): boolean;
     /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
@@ -545,7 +589,7 @@ declare namespace HologramLib {
     /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
     playerNpcPlayEmote(id: number, pieceId: string, lengthTicks: number): boolean;
     /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
-    playerNpcPollSpawns(): string;
+    playerNpcPollSpawns(): string[];
     /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
     playerNpcRegisterImageSkin(pngPath: string, skinId: string, sizeBlocks: number, transparent: boolean): boolean;
     /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
@@ -593,7 +637,7 @@ declare namespace HologramLib {
     /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetVisiblePlayer(id: number, playerName: string): boolean;
     /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
-    playerNpcSetVisiblePlayers(id: number, playerNames: string): boolean;
+    playerNpcSetVisiblePlayers(id: number, playerNames: string[]): boolean;
     /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
     playerNpcStopAnimation(id: number): boolean;
     /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
@@ -645,11 +689,11 @@ declare namespace HologramLib {
     /** 实现见 src/RemoteCallExporter.cpp */
     shapeDestroyAll(): any;
     /** 实现见 src/RemoteCallExporter.cpp */
-    shapeDestroyBatch(ids: number): boolean;
+    shapeDestroyBatch(ids: number[]): boolean;
     /** 实现见 src/RemoteCallExporter.cpp */
     shapeDraw(id: number): boolean;
     /** 实现见 src/RemoteCallExporter.cpp */
-    shapeDrawBatch(ids: number): boolean;
+    shapeDrawBatch(ids: number[]): boolean;
     /** 实现见 src/RemoteCallExporter.cpp */
     shapeDrawToDimension(id: number, dimId: number): boolean;
     /** 实现见 src/RemoteCallExporter.cpp */
@@ -657,17 +701,17 @@ declare namespace HologramLib {
     /** 实现见 src/RemoteCallExporter.cpp */
     shapeExists(id: number): boolean;
     /** 实现见 src/RemoteCallExporter.cpp */
-    shapeFindTextByLocation(x: number, y: number, z: number, radius: number): number;
+    shapeFindTextByLocation(x: number, y: number, z: number, radius: number): number[];
     /** 实现见 src/RemoteCallExporter.cpp */
     shapeFindTextByLocationAndContent(x: number, y: number, z: number, radius: number, text: string): number;
     /** 实现见 src/RemoteCallExporter.cpp */
-    shapeGetAllShapeIds(): number;
+    shapeGetAllShapeIds(): number[];
     /** 实现见 src/RemoteCallExporter.cpp */
-    shapeGetColor(id: number): number;
+    shapeGetColor(id: number): any[];
     /** 实现见 src/RemoteCallExporter.cpp */
-    shapeGetLocation(id: number): number;
+    shapeGetLocation(id: number): any[];
     /** 实现见 src/RemoteCallExporter.cpp */
-    shapeGetRotation(id: number): number;
+    shapeGetRotation(id: number): any[];
     /** 实现见 src/RemoteCallExporter.cpp */
     shapeGetShapeType(id: number): number;
     /** 实现见 src/RemoteCallExporter.cpp */
@@ -713,7 +757,7 @@ declare namespace HologramLib {
     /** 实现见 src/hud/HudExporter.cpp */
     sidebarRemoveAll(): any;
     /** 实现见 src/hud/HudExporter.cpp */
-    sidebarSet(playerName: string, title: string, lines: string): boolean;
+    sidebarSet(playerName: string, title: string, lines: string[]): boolean;
     /** 实现见 src/hud/HudExporter.cpp */
     sidebarSetLine(playerName: string, index: number, text: string): boolean;
     /** 实现见 src/hud/HudExporter.cpp */
@@ -729,7 +773,7 @@ declare namespace HologramLib {
     /** 实现见 src/sulfur/SulfurDisplayExporter.cpp */
     sulfurGetEntityId(id: number): number;
     /** 实现见 src/sulfur/SulfurDisplayExporter.cpp */
-    sulfurGetIds(): number;
+    sulfurGetIds(): number[];
     /** 实现见 src/sulfur/SulfurDisplayExporter.cpp */
     sulfurSetArchetype(id: number, archetype: string): boolean;
     /** 实现见 src/sulfur/SulfurDisplayExporter.cpp */
@@ -745,7 +789,9 @@ declare namespace HologramLib {
     /** 实现见 src/trade/TradeMenuExporter.cpp */
     tradeCloseAll(): any;
     /** 实现见 src/trade/TradeMenuExporter.cpp */
-    tradeGetIds(): number;
+    tradeDroppedSettlements(): number;
+    /** 实现见 src/trade/TradeMenuExporter.cpp */
+    tradeGetIds(): number[];
     /** 实现见 src/trade/TradeMenuExporter.cpp */
     tradeIsOpen(id: number): boolean;
     /** 实现见 src/trade/TradeMenuExporter.cpp */
@@ -753,11 +799,13 @@ declare namespace HologramLib {
     /** 实现见 src/trade/TradeMenuExporter.cpp */
     tradeOpen(playerName: string, tradeType: string, tier: number, experience: number, realTrades: boolean, carrierIdentifier: string): number;
     /** 实现见 src/trade/TradeMenuExporter.cpp */
-    tradePollSettlements(): string;
+    tradePollSettlements(): string[];
     /** 实现见 src/trade/TradeMenuExporter.cpp */
     tradeSetSettle(id: number, on: boolean): boolean;
     /** 实现见 src/trade/TradeMenuExporter.cpp */
     tradeSetTier(id: number, tier: number, experience: number): boolean;
+    /** 实现见 src/trade/TradeMenuExporter.cpp */
+    tradeUpdate(id: number, tradeType: string, tier: number, experience: number): boolean;
     /** 实现见 src/view/ViewOverrideExporter.cpp */
     viewBlock(playerName: string, x: number, y: number, z: number, type: string): boolean;
     /** 实现见 src/view/ViewOverrideExporter.cpp */
@@ -779,7 +827,7 @@ declare namespace HologramLib {
     /** 实现见 src/view/ViewOverrideExporter.cpp */
     viewMetaProbe(spec: string): string;
     /** 实现见 src/view/ViewOverrideExporter.cpp */
-    viewPollSpawnEvents(): string;
+    viewPollSpawnEvents(): string[];
     /** 实现见 src/view/ViewOverrideExporter.cpp */
     viewSelf(playerName: string, spec: string): boolean;
     /** 实现见 src/view/ViewOverrideExporter.cpp */
@@ -817,18 +865,43 @@ declare namespace HologramLib {
   }
 
   // ── 按类分组（同 GMLIB-LegacyRemoteCallApi 的写法）──
+  interface ActorEffect {
+    blockClear(): any;
+    blockEvent(eventId: number): any;
+    blockEventFor(playerName: string, eventId: number): any;
+    blockEventForEntity(runtimeId: number, eventId: number): any;
+    blockStats(): string;
+    clearInteractions(): any;
+    playDeath(runtimeId: number): boolean;
+    playEvent(runtimeId: number, eventId: number, data: number): boolean;
+    playEventFor(playerName: string, runtimeId: number, eventId: number, data: number): boolean;
+    playHurt(runtimeId: number): boolean;
+    playInstantDeath(runtimeId: number): boolean;
+    pollInteractions(): string[];
+    runtimeIdOfEntity(libId: number): number;
+    runtimeIdOfPlayer(playerName: string): number;
+    unblockEvent(eventId: number): any;
+    unblockEventFor(playerName: string, eventId: number): any;
+    unblockEventForEntity(runtimeId: number, eventId: number): any;
+  }
+
   interface Container {
     blockEvent(menuId: number, b0: number, b1: number): boolean;
     clearClicks(): any;
     close(id: number): boolean;
     closeAll(): any;
-    getIds(): number;
+    droppedClicks(): number;
+    getIds(): number[];
     isOpen(id: number): boolean;
     open(playerName: string, title: string, rows: number): number;
-    pollClicks(): string;
+    pollClicks(): string[];
+    preview(playerName: string, dim: number, x: number, y: number, z: number): number;
+    previewTitled(playerName: string, dim: number, x: number, y: number, z: number, title: string): number;
     setInteractive(id: number, on: boolean): boolean;
     setItem(id: number, slot: number, type: string, count: number, damage: number, name: string, loreCsv: string): boolean;
+    setItemEnchanted(id: number, slot: number, type: string, count: number, damage: number, name: string, loreCsv: string, enchCsv: string): boolean;
     setTitle(id: number, title: string): boolean;
+    update(id: number, title: string): boolean;
   }
 
   interface Entity {
@@ -847,12 +920,12 @@ declare namespace HologramLib {
     destroyAll(): any;
     exists(id: number): boolean;
     findNearest(x: number, y: number, z: number, dim: number, maxDist: number): number;
-    getAllIds(): number;
+    getAllIds(): number[];
     getInfo(id: number): string;
     isIdUsed(id: number): boolean;
     playAnimation(id: number, animation: string, stopExpression: string, durationTicks: number): boolean;
     playAnimationTo(id: number, playerName: string, animation: string, stopExpression: string, durationTicks: number): boolean;
-    pollSpawns(): string;
+    pollSpawns(): string[];
     scaleBy(id: number, factor: number): boolean;
     setColorIndex(id: number, colorIndex: number): boolean;
     setEnabled(id: number, enabled: boolean): boolean;
@@ -876,7 +949,7 @@ declare namespace HologramLib {
     setVariant(id: number, variant: number): boolean;
     setViewDistance(id: number, dist: number): boolean;
     setVisiblePlayer(id: number, playerName: string): boolean;
-    setVisiblePlayers(id: number, playerNames: string): boolean;
+    setVisiblePlayers(id: number, playerNames: string[]): boolean;
     stopAnimation(id: number): boolean;
     stopAnimationTo(id: number, playerName: string): boolean;
   }
@@ -886,9 +959,10 @@ declare namespace HologramLib {
     clear(playerName: string): boolean;
     clearAll(): any;
     clearClicks(): any;
-    getPlayers(): string;
+    droppedClicks(): number;
+    getPlayers(): string[];
     isActive(playerName: string): boolean;
-    pollClicks(): string;
+    pollClicks(): string[];
     refresh(playerName: string): boolean;
     setSlot(playerName: string, slot: number, type: string, count: number, damage: number, name: string, loreCsv: string): boolean;
   }
@@ -900,7 +974,7 @@ declare namespace HologramLib {
 
   interface Ghost {
     clearInteractions(): any;
-    pollInteractions(): string;
+    pollInteractions(): string[];
   }
 
   interface GradientLine {
@@ -941,7 +1015,7 @@ declare namespace HologramLib {
     setDimension(id: number, dimId: number): boolean;
     setFollowPlayer(id: number, playerName: string, offsetY: number): boolean;
     setLineParseVariables(id: number, lineIndex: number, enabled: boolean): boolean;
-    setLinePool(id: number, lineIndex: number, content: string, intervalMs: number): boolean;
+    setLinePool(id: number, lineIndex: number, content: string[], intervalMs: number): boolean;
     setLineText(id: number, lineIndex: number, text: string): boolean;
     setLocation(id: number, x: number, y: number, z: number): boolean;
     setRotation(id: number, pitch: number, yaw: number, roll: number): boolean;
@@ -952,7 +1026,7 @@ declare namespace HologramLib {
     destroy(id: number): boolean;
     destroyAll(): any;
     exists(id: number): boolean;
-    getIds(): number;
+    getIds(): number[];
     moveTo(id: number, x: number, y: number, z: number): boolean;
     runtimeId(id: number): number;
     setMotion(id: number, vx: number, vy: number, vz: number): boolean;
@@ -980,7 +1054,7 @@ declare namespace HologramLib {
     exists(id: number): boolean;
     findNearest(x: number, y: number, z: number, dim: number, maxDist: number): number;
     follow(id: number, playerName: string, offX: number, offY: number, offZ: number): boolean;
-    getAllIds(): number;
+    getAllIds(): number[];
     getInfo(id: number): string;
     isIdUsed(id: number): boolean;
     rotateY(id: number, delta: number): boolean;
@@ -1009,7 +1083,7 @@ declare namespace HologramLib {
     setTransformLive(id: number, ox: string, oy: string, oz: string, rx: string, ry: string, rz: string, scale: string): boolean;
     setViewDistance(id: number, dist: number): boolean;
     setVisiblePlayer(id: number, playerName: string): boolean;
-    setVisiblePlayers(id: number, playerNames: string): boolean;
+    setVisiblePlayers(id: number, playerNames: string[]): boolean;
     unfollow(id: number): boolean;
   }
 
@@ -1031,13 +1105,6 @@ declare namespace HologramLib {
   }
 
   interface Misc {
-    actorPlayDeath(runtimeId: number): boolean;
-    actorPlayEvent(runtimeId: number, eventId: number, data: number): boolean;
-    actorPlayEventFor(playerName: string, runtimeId: number, eventId: number, data: number): boolean;
-    actorPlayHurt(runtimeId: number): boolean;
-    actorPlayInstantDeath(runtimeId: number): boolean;
-    actorRuntimeIdOfEntity(libId: number): number;
-    actorRuntimeIdOfPlayer(playerName: string): number;
     anchorAcquire(playerName: string): number;
     anchorRelease(uniqueId: number): boolean;
     bossBarAdd(playerName: string, title: string, healthPercent: number, color: number, overlay: number): number;
@@ -1055,12 +1122,11 @@ declare namespace HologramLib {
     hudSetElement(playerName: string, element: number, visible: boolean): boolean;
     hudSetElements(playerName: string, mask: number, visible: boolean): number;
     hudSetRaw(playerName: string, mask: number, visibility: number): boolean;
-    playerRespawn(playerName: string): boolean;
     sidebarIsShown(playerName: string): boolean;
     sidebarLineCount(playerName: string): number;
     sidebarRemove(playerName: string): boolean;
     sidebarRemoveAll(): any;
-    sidebarSet(playerName: string, title: string, lines: string): boolean;
+    sidebarSet(playerName: string, title: string, lines: string[]): boolean;
     sidebarSetLine(playerName: string, index: number, text: string): boolean;
     sidebarSetTitle(playerName: string, title: string): boolean;
     wireResetStats(): any;
@@ -1078,15 +1144,17 @@ declare namespace HologramLib {
     clearClicks(): any;
     close(id: number): boolean;
     closeAll(): any;
-    getIds(): number;
+    droppedClicks(): number;
+    getIds(): number[];
     isOpen(id: number): boolean;
     open(playerName: string, npcName: string, sceneName: string, dialogue: string, buttonsSpec: string, carrierIdentifier: string): number;
-    pollClicks(): string;
+    pollClicks(): string[];
     setAvatar(id: number, skinVariant: number, avatarViewSpec: string): boolean;
     update(id: number, dialogue: string, buttonsSpec: string): boolean;
   }
 
   interface Particle {
+    clearVisiblePlayers(id: number): boolean;
     createBox(playerName: string, dimId: number, cx: number, cy: number, cz: number, hx: number, hy: number, hz: number, step: number, effect: string, interval: number, lifetime: number): number;
     createBoxFaces(playerName: string, dimId: number, cx: number, cy: number, cz: number, hx: number, hy: number, hz: number, step: number, effect: string, interval: number, lifetime: number): number;
     createLine(playerName: string, dimId: number, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, step: number, effect: string, interval: number, lifetime: number): number;
@@ -1095,7 +1163,10 @@ declare namespace HologramLib {
     createPoly(playerName: string, dimId: number, verts: string, edges: string, step: number, effect: string, interval: number, lifetime: number): number;
     createRect(playerName: string, dimId: number, cx: number, cy: number, cz: number, w: number, h: number, axis: number, step: number, effect: string, interval: number, lifetime: number): number;
     destroy(id: number): boolean;
+    destroyAll(): any;
+    exists(id: number): boolean;
     follow(id: number, uuid: string, offX: number, offY: number, offZ: number): boolean;
+    getAllIds(): number[];
     getInfo(id: number): string;
     moveBy(id: number, dx: number, dy: number, dz: number): boolean;
     moveTo(id: number, x: number, y: number, z: number, durationTicks: number): boolean;
@@ -1107,6 +1178,7 @@ declare namespace HologramLib {
     setScale(id: number, s: number): boolean;
     setViewDistance(id: number, blocks: number): boolean;
     setVisible(id: number, playersCsv: string): boolean;
+    setVisiblePlayers(id: number, playerUuids: string[]): boolean;
     spin(id: number, sx: number, sy: number, sz: number): boolean;
     unfollow(id: number): boolean;
   }
@@ -1125,10 +1197,10 @@ declare namespace HologramLib {
     destroy(id: number): boolean;
     destroyAll(): any;
     exists(id: number): boolean;
-    getAllIds(): number;
+    getAllIds(): number[];
     getDebugInfo(id: number): string;
     getSkinBlobB64(skinId: string): string;
-    getSkinIds(): string;
+    getSkinIds(): string[];
     hasSkin(skinId: string): boolean;
     importSkins(dirPath: string): number;
     injectSkin(viewerName: string, targetName: string, skinId: string): boolean;
@@ -1137,7 +1209,7 @@ declare namespace HologramLib {
     playAnimation(id: number, animation: string, stopExpression: string, durationTicks: number): boolean;
     playAnimationTo(id: number, playerName: string, animation: string, stopExpression: string, durationTicks: number): boolean;
     playEmote(id: number, pieceId: string, lengthTicks: number): boolean;
-    pollSpawns(): string;
+    pollSpawns(): string[];
     registerImageSkin(pngPath: string, skinId: string, sizeBlocks: number, transparent: boolean): boolean;
     registerSkin(pngPath: string, skinId: string, geometry: string, armSize: string): boolean;
     registerSkinData(pngPath: string, skinId: string, armSize: string, geometryData: string): boolean;
@@ -1161,7 +1233,7 @@ declare namespace HologramLib {
     setSkin(id: number, skinId: string): boolean;
     setViewDistance(id: number, dist: number): boolean;
     setVisiblePlayer(id: number, playerName: string): boolean;
-    setVisiblePlayers(id: number, playerNames: string): boolean;
+    setVisiblePlayers(id: number, playerNames: string[]): boolean;
     stopAnimation(id: number): boolean;
     stopAnimationTo(id: number, playerName: string): boolean;
     unregisterSkin(skinId: string): boolean;
@@ -1169,6 +1241,7 @@ declare namespace HologramLib {
 
   interface PlayerRespawn {
     at(playerName: string, x: number, y: number, z: number): boolean;
+    respawn(playerName: string): boolean;
     state(playerName: string, state: number): boolean;
   }
 
@@ -1195,18 +1268,18 @@ declare namespace HologramLib {
     createText(x: number, y: number, z: number, text: string): number;
     destroy(id: number): boolean;
     destroyAll(): any;
-    destroyBatch(ids: number): boolean;
+    destroyBatch(ids: number[]): boolean;
     draw(id: number): boolean;
-    drawBatch(ids: number): boolean;
+    drawBatch(ids: number[]): boolean;
     drawToDimension(id: number, dimId: number): boolean;
     drawToPlayer(id: number, playerName: string): boolean;
     exists(id: number): boolean;
-    findTextByLocation(x: number, y: number, z: number, radius: number): number;
+    findTextByLocation(x: number, y: number, z: number, radius: number): number[];
     findTextByLocationAndContent(x: number, y: number, z: number, radius: number, text: string): number;
-    getAllShapeIds(): number;
-    getColor(id: number): number;
-    getLocation(id: number): number;
-    getRotation(id: number): number;
+    getAllShapeIds(): number[];
+    getColor(id: number): any[];
+    getLocation(id: number): any[];
+    getRotation(id: number): any[];
     getShapeType(id: number): number;
     getText(id: number): string;
     remove(id: number): boolean;
@@ -1233,7 +1306,7 @@ declare namespace HologramLib {
     destroyAll(): any;
     exists(id: number): boolean;
     getEntityId(id: number): number;
-    getIds(): number;
+    getIds(): number[];
     setArchetype(id: number, archetype: string): boolean;
     setBlock(id: number, type: string, count: number, damage: number, name: string): boolean;
     setInvisible(id: number, on: boolean): boolean;
@@ -1244,13 +1317,15 @@ declare namespace HologramLib {
     addOffer(id: number, buyAType: string, buyACount: number, buyBType: string, buyBCount: number, sellType: string, sellCount: number, sellName: string, tier: number, locked: boolean): boolean;
     close(id: number): boolean;
     closeAll(): any;
-    getIds(): number;
+    droppedSettlements(): number;
+    getIds(): number[];
     isOpen(id: number): boolean;
     isSettle(id: number): boolean;
     open(playerName: string, tradeType: string, tier: number, experience: number, realTrades: boolean, carrierIdentifier: string): number;
-    pollSettlements(): string;
+    pollSettlements(): string[];
     setSettle(id: number, on: boolean): boolean;
     setTier(id: number, tier: number, experience: number): boolean;
+    update(id: number, tradeType: string, tier: number, experience: number): boolean;
   }
 
   interface View {
@@ -1264,7 +1339,7 @@ declare namespace HologramLib {
     entity(playerName: string, uniqueId: number, spec: string): boolean;
     itemSpawnHooked(): boolean;
     metaProbe(spec: string): string;
-    pollSpawnEvents(): string;
+    pollSpawnEvents(): string[];
     self(playerName: string, spec: string): boolean;
     selfClear(playerName: string): boolean;
     selfHide(playerName: string, hidden: boolean): boolean;
@@ -1284,6 +1359,7 @@ declare namespace HologramLib {
   }
 
   interface Groups {
+    ActorEffect: ActorEffect;
     Container: Container;
     Entity: Entity;
     FakeInventory: FakeInventory;

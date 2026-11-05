@@ -14,7 +14,7 @@ Just using the library and not building it yourself? Skip ahead to [Deployment](
 | Visual Studio 2022 | MSVC x64 | Must include the "Desktop development with C++" workload |
 | [xmake](https://xmake.io) | latest | Build system |
 | LeviLamina | 26.40.0 | Pulled automatically by xmake |
-| [SculkCatalystMC/Protocol](https://github.com/SculkCatalystMC/Protocol) | **v2193** | You must build it with CMake and install it into `plugins/BedrockProtocol-main/install` |
+| [SculkCatalystMC/Protocol](https://github.com/SculkCatalystMC/Protocol) | **v2193** | You must build it with CMake and install it into `mods/BedrockProtocol-main/install` |
 | Python | 3.x | Only for the local offline regression checks under `tests/`; not part of the build |
 
 The `Protocol` static library is a hard dependency: shape rendering, view override, and the hand-written container and trade-menu packet bodies all call its sculk serialisation directly.
@@ -45,7 +45,7 @@ Release builds also emit PDBs. They are required for symbolicating crash stacks,
 ## 3. Deployment
 
 1. Stop the server.
-2. Extract the release archive `HologramLib.zip` and drop the resulting `HologramLib` folder into the server's `plugins/`, giving `plugins/HologramLib/` (containing `HologramLib.dll` and `manifest.json`).
+2. Extract the release archive `HologramLib.zip` and drop the resulting `HologramLib` folder into the server's `mods/`, giving `mods/HologramLib/` (containing `HologramLib.dll` and `manifest.json`).
 3. Start the server.
 
 Load order does not matter at all. The library checks for the LSE compatibility layer during `enable()` and, if it is not there yet, retries on the `ServerStartedEvent`. That double safety net means it does not matter whether HologramLib or LegacyRemoteCall (`lrca`) loads first.
@@ -158,7 +158,7 @@ There are two failure modes, both explicit and neither silent:
 | Function name does not exist (older library) | `ll.import` returns `null` |
 
 So "I got `null`" always means "you do not have this capability right now", never "it was called but did nothing".
-All 273 functions are listed by domain in the [LSE scripting API](lse/index.md).
+All 424 functions are listed by domain in the [LSE scripting API](lse/index.md).
 
 ---
 

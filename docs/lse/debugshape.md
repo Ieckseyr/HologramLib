@@ -1432,7 +1432,7 @@ gradientDraw(trail);                                            // 默认红 →
 
 - **参数要按签名给全**。LSE 侧没有默认值：少给或多给参数，调用会直接拿到失败值（`Boolean` 得 `false`、`Integer` 得 `0`、`String` 得空串），不会有异常提示。
 - **行级样式不存在**：多行共用一份颜色 / 缩放 / 背景框 / 穿墙 / 朝向。某一行要换颜色，就在那一行的文本里写 `§` 颜色代码（例如 `"§c红字 §a绿字"`）；整块放大用 `holoSetScale`。`26.40.8` 起 `holoSetLineScale`、`holoSetLineColor`、`holoSetLineGradient`、`holoSetLineRainbow`、`holoSetLineScroll`、`holoSetVerticalAnimation`、`holoSetLineSpacing`、`holoTick` 这 8 个行级函数已经移除，`ll.import` 会得到 `null`。
-- **变量**：文本里的 `{player}`、`{online}`、`{time}`、`{tps}`、`{dimension}`、`{x}`、`{y}`、`{z}` 会被替换（装了 MeowPAPI 时还支持它提供的外部占位符）。含变量、且显示目标不是单个玩家时，库会为每个观看者各维护一份文字：**形状数量会变成观看者数**，适合队长视角、任务追踪这类少数人场景，不要用在全服广播的高频刷新上。
+- **变量**：文本里的 `{player}`、`{online}`、`{time}`、`{tps}`、`{dimension}`、`{x}`、`{y}`、`{z}` 会被替换。含变量、且显示目标不是单个玩家时，库会为每个观看者各维护一份文字：**形状数量会变成观看者数**，适合队长视角、任务追踪这类少数人场景，不要用在全服广播的高频刷新上。
 - **动态行按时间轮播**：内容池用「当前时间 ÷ 间隔」取模选条目，所以多块悬浮字用同一个池、同一个间隔时天然同步；改池内容会立刻反映出来，刷新本身由库按 0.5 秒节流，内容没变就不会重发。
 - **跟随不会自己推进**：`holoSetFollowPlayer` 只在调用那一刻取一次玩家坐标，`holoDraw`、`holoRefresh` 也会各取一次。玩家走动时字不会跟着走，需要自己定时 `holoRefresh`（例如每 2 tick 一次）；玩家下线后字停在最后一次解析到的位置。
 - **切到单玩家目标会改变变量行为**：`holoDrawToPlayer` 之后只有那一名玩家收到文字，变量也按他一个人解析。
@@ -1449,7 +1449,7 @@ gradientDraw(trail);                                            // 默认红 →
 ### 四种形状
 
 ```js
-const { Shape } = require("plugins/HologramLib/lib/HologramLib.js");
+const { Shape } = require("mods/HologramLib/lib/HologramLib.js");
 
 // 圆柱（半径 X/Z、高度、圆周分段）
 Shape.createCylinder(0, 70, 0, 1.5, 1.5, 4, 16);

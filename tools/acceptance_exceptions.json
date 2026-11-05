@@ -1,0 +1,16 @@
+{
+  "exceptions": [
+    {
+      "rule": "AC-Q08",
+      "path": "include/hologramlib/HologramLib.h",
+      "max_lines": 1400,
+      "clause": "AC-Q08-EX1",
+      "reason": "ABI 单文件契约：槽位序/接口序/ABI 戳都建立在单头声明上，拆分会让消费方 include 与 abi_tool 解析面同时分裂，破坏槽位序可审计性"
+    },
+    {
+      "rule": "AC-E05",
+      "clause": "AC-E05-EX1",
+      "reason": "导出按「能力归属」分组，不按名字前缀猜：actorBlockEvent/actorBlockClear 归 ActorEffect（改的是实体表现事件），playerRespawn 归 PlayerRespawn（独立域）。verify_static.py 的期望表按前缀推断，因此恒报 FAIL；裁决见 docs/internal/验收证据-1.35.0/_findings/33-修复派工单.md"
+    }
+  ]
+}

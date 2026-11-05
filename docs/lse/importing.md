@@ -1,13 +1,13 @@
 # 脚本导入
 
-库里共有 339 个函数，脚本侧有两种导入方式。两种都用 `lrca`（LegacyRemoteCall）提供的全局 `ll`。
+库里共有 424 个函数，脚本侧有两种导入方式。两种都用 `lrca`（LegacyRemoteCall，可选安装）提供的全局 `ll`。
 
 ## 方式一：统一导入
 
-`plugins/HologramLib/lib/HologramLib.js` 随库一起发布，直接引用即可。
+`mods/HologramLib/lib/HologramLib.js` 随库一起发布，直接引用即可。
 
 ```js
-const { ItemActor, Visibility, LocatorBar } = require("plugins/HologramLib/lib/HologramLib.js");
+const { ItemActor, Visibility, LocatorBar } = require("mods/HologramLib/lib/HologramLib.js");
 
 ItemActor.spawn("minecraft:diamond", 0, 1, 100.5, 65, 100.5, 0, 0, 0.4, 0);
 ItemActor.setMotion(id, -0.3, 0.2, 0);
@@ -18,7 +18,7 @@ LocatorBar.set("Steve", "boss", x, y, z, 0, 0xFF0000, true);
 也可以按函数原名调用：
 
 ```js
-const HL = require("plugins/HologramLib/lib/HologramLib.js");
+const HL = require("mods/HologramLib/lib/HologramLib.js");
 
 HL.itemActorSpawn("minecraft:diamond", 0, 1, 100.5, 65, 100.5, 0, 0, 0.4, 0);
 HL.playerHideSetHidden("Steve", true);
@@ -132,7 +132,7 @@ bindAll(["itemActorSpawn", "itemActorSetMotion", "itemActorTake"]);
 ## 发布包内容
 
 ```
-plugins/HologramLib/
+mods/HologramLib/
   HologramLib.dll
   HologramLib.pdb
   manifest.json
@@ -145,7 +145,7 @@ plugins/HologramLib/
 
 ## 常见问题
 
-- `require` 的路径相对于当前脚本文件。引用库目录用 `plugins/HologramLib/lib/HologramLib.js`，把文件复制到自己目录则用 `./HologramLib.js`。不要写 `require("HologramLib")`。
+- `require` 的路径相对于当前脚本文件。引用库目录用 `mods/HologramLib/lib/HologramLib.js`，把文件复制到自己目录则用 `./HologramLib.js`。不要写 `require("HologramLib")`。
 - `ll` 由 `lrca` 提供。未安装 `lrca` 时 `ll` 可能不存在，直连写法需先判断。
 - 库在启用时探测 `lrca`，未探测到会在服务器启动完成后再试一次。脚本如果在模块顶层立即调用，建议把初始化放在 `mc.listen("onServerStarted", …)` 内。
 - 更新库后，直接引用库目录的写法无需修改；复制到自身目录的文件需要重新复制。

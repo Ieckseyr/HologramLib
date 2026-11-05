@@ -20,17 +20,22 @@ cd tests
 
 ## 不依赖 BDS 的测试
 
-两个纯标准库的单测，CI 里用 `g++` 直接跑（Windows 本地用 clang++ 或 g++ 都行）：
+四个纯标准库的单测，CI 里用 `g++` 直接跑（Windows 本地用 clang++ 或 g++ 都行）：
 
 ```powershell
-g++ -std=c++20 -pthread -O1 -I src tests/registry_test.cpp   -o registry_test   && ./registry_test
-g++ -std=c++20 -O1          -I src tests/click_event_test.cpp -o click_event_test && ./click_event_test
+g++ -std=c++20 -pthread -O1 -I src tests/registry_test.cpp        -o registry_test        && ./registry_test
+g++ -std=c++20 -O1          -I src tests/click_event_test.cpp     -o click_event_test     && ./click_event_test
+g++ -std=c++20 -O1          -I src tests/shape_id_map_test.cpp    -o shape_id_map_test    && ./shape_id_map_test
+g++ -std=c++20 -O1          -I src tests/visibility_logic_test.cpp -o visibility_logic_test && ./visibility_logic_test
 ```
 
 | 测试 | 钉住什么 |
 |---|---|
 | `registry_test.cpp` | `core::Registry` 的 id 分配、索引清理、脏集、快照遍历、锁策略、并发 |
 | `click_event_test.cpp` | 点击回传行的版式（`player=… menuId=… slot=… closed=…`）与解析往返。`menuId` 必须是打开容器时拿到的那个 id —— 26.51.6 漏回填时它恒为 0，就是这条断言能挡住的错 |
+| `shape_id_map_test.cpp` | 脚本形状编号 0..10 与协议编号的双向映射（6 是历史空洞），两套编号不许混 |
+| `visibility_logic_test.cpp` | `core::decideVisibility` 的语义：`R` 内生成、`R..R+4` 迟滞带保持、`R+4` 外移除；禁用/换维度/白名单外立刻移除不受迟滞；`hysteresis==0` 无迟滞带；`viewDistance<=0` 同维度全可见；生成预算不透支 |
+
 
 ## 需要
 

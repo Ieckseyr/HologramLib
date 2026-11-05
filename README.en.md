@@ -11,11 +11,11 @@ The same capabilities are reachable two ways: **C++ plugins** (frozen pure-virtu
 
 | | |
 |---|---|
-| Plugin release | `26.51.6` |
-| API version | `1.30.0` (`HOLOGLIB_API_VERSION 0x012400`) |
-| Platform | LeviLamina 26.51 · BDS 1.26.51 (protocol 2193) |
-| Public surface | One public header, `include/hologramlib/HologramLib.h`, plus the LSE namespace `HologramLib` (273 exports) |
-| Script prerequisite | `lrca` (LegacyRemoteCall); when absent every export call is a safe no-op and the C++ interface is unaffected |
+| Plugin release | `26.60.1` |
+| API version | `1.35.0` (`HOLOGLIB_API_VERSION 0x012900`) |
+| Platform | LeviLamina 26.60 · BDS 1.26.60 (protocol 2225) |
+| Public surface | One public header, `include/hologramlib/HologramLib.h` (28 interfaces / 405 slots), plus the LSE namespace `HologramLib` (424 exports) |
+| Script prerequisite | `lrca` (LegacyRemoteCall, **optional**); when absent every export call is a safe no-op and the C++ interface is unaffected |
 | License | MIT (the floating-text "dynamic lines" feature is derived from Phantom, LGPL-3.0) |
 
 This is a **prerequisite library, not a feature plugin**: it provides rendering primitives, protocol wrappers and timing notifications only. Commands, forms, permissions, placeholders and persistence belong to the consumer.
@@ -93,7 +93,7 @@ if (sensingIsTouch("Steve")) {
 ## Installation
 
 1. Stop the server.
-2. Extract the release archive `HologramLib.zip` and drop the resulting `HologramLib` folder into the server's `plugins/`, giving `plugins/HologramLib/` (containing `HologramLib.dll` and `manifest.json`).
+2. Extract the release archive `HologramLib.zip` and drop the resulting `HologramLib` folder into the server's `mods/`, giving `mods/HologramLib/` (containing `HologramLib.dll` and `manifest.json`).
 3. Start the server. Load order does not matter: the library checks for the LSE compatibility layer during `enable()` and retries on `ServerStarted`.
 
 Consumers only need `getInstance()` in `enable()`; there is no declared dependency to add.
@@ -105,9 +105,9 @@ Release builds are completely silent: all diagnostic logging is disabled at comp
 
 | Number | Where | Purpose |
 |---|---|---|
-| Plugin release | `version` in `manifest.json` | For deployment; matches the git tag (e.g. `26.51.6`) |
-| API version | `1.30.0` above | Human-readable capability version |
-| `HOLOGLIB_API_VERSION` | `include/hologramlib/HologramLib.h` | The only version source in code, `0x012400` |
+| Plugin release | `version` in `manifest.json` | For deployment; matches the git tag (e.g. `26.60.1`) |
+| API version | `1.35.0` above | Human-readable capability version |
+| `HOLOGLIB_API_VERSION` | `include/hologramlib/HologramLib.h` | The only version source in code, `0x012900` |
 
 The full mapping, the encoding rule, and the reasons behind the two documented API shrinks are in the [version & ABI matrix](docs/versions/api-version-matrix.en.md).
 

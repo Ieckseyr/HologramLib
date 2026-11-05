@@ -1,7 +1,7 @@
-// BossBarManager.cpp - Boss 条
 #include "BossBarManager.h"
 
 #include "../anchor/AnchorPool.h"
+#include "core/EventIds.h"
 #include "core/PacketSink.h"
 #include "core/VirtualActorIds.h"
 
@@ -31,32 +31,23 @@ BossBarManager& BossBarManager::getInstance() {
 }
 
 std::int64_t BossBarManager::nextTargetId() {
-    // 虚拟号段里自增（不参与 ghost 路由，服务端没有对应实体）
+
     static std::atomic<std::uint64_t> counter{core::actorIds::bossBar.first};
     return static_cast<std::int64_t>(counter.fetch_add(1, std::memory_order_relaxed));
 }
 
-bool BossBarManager::send(::Player& player, Bar const& bar, int eventType, std::int64_t /*playerId*/) {
-    // 手写线格式（26.51 BDS 的 BossEventPacketPayload）:
-    //   varint64 bossId | byte eventType | string name | string filteredName | float percent | byte color | byte overlay
-    // 规矩：本库**一律手写线格式**，不构造 BDS 的 Packet 对象（项目约定）。
-    // 不用 sculk 的 BossEventPacket 的原因: 它按老格式多写一个 varint64 playerID，
-    // 26.51 的 payload 里没有这个字段 → 字节错位，客户端不认。
-    ::BinaryStream stream;
-    stream.writeVarInt64(bar.targetId, nullptr, nullptr);
-    stream.writeByte(static_cast<uchar>(eventType), nullptr, nullptr);
-    stream.writeString(bar.title, nullptr, nullptr);
-    stream.writeString(bar.title, nullptr, nullptr); // filtered name：没有过滤就用同一份
-    stream.writeFloat(bar.percent, nullptr, nullptr);
-    stream.writeByte(static_cast<uchar>(static_cast<int>(bar.color)), nullptr, nullptr);
-    stream.writeByte(static_cast<uchar>(static_cast<int>(bar.overlay)), nullptr, nullptr);
+bool BossBarManager::send(::Player& player, Bar const& bar, int eventType, std::int64_t) {
 
-    // 补包头（与 wire::encodeChecked 同一套：包 id | 标志位）
-    ::BinaryStream sendStream;
-    sendStream.writeUnsignedVarInt((74 & 0x3FF) | ((0 & 3) << 10) | ((0 & 3) << 12), nullptr, nullptr);
-    sendStream.mBuffer.append(stream.mBuffer.data(), stream.mBuffer.size());
+    sculk::protocol::BossEventPacket packet;
+    packet.mTargetActorID = bar.targetId;
+    packet.mType          = static_cast<sculk::protocol::BossEventPacket::EventType>(eventType);
+    packet.mName          = bar.title;
+    packet.mFilteredName  = bar.title;
+    packet.mPercentage    = bar.percent;
+    packet.mColor         = static_cast<std::uint32_t>(static_cast<int>(bar.color));
+    packet.mOverlay       = static_cast<std::uint32_t>(static_cast<int>(bar.overlay));
 
-    return wire::sendRaw(player, sendStream.mBuffer);
+    return wire::send(player, packet);
 }
 
 int64_t BossBarManager::add(
@@ -69,8 +60,6 @@ int64_t BossBarManager::add(
     if (player == nullptr)
         return -1;
 
-    // 锚点实体：客户端认的 boss 条要对应一个它知道的实体，
-    // 所以在虚空里放一只"没有模型的掉落物"当锚点（和 NPC 对话菜单的载体同一思路）。
     std::int64_t const anchor = AnchorPool::getInstance().acquire(static_cast<int>(player->getDimensionId()));
     if (anchor < 0)
         return -1;
@@ -83,18 +72,14 @@ int64_t BossBarManager::add(
     bar.color      = color;
     bar.overlay    = overlay;
 
-    auto const playerUid = static_cast<std::int64_t>(player->getOrCreateUniqueID().rawID);
-
-    // 原版是两步：Add 建条（发给所有人），PlayerAdded 把某名玩家加进这条（发给他）。
-    // 只发 Add 时客户端可能不建条 —— 实测没显示就是这个原因。
     if (!send(*player, bar, static_cast<int>(sculk::protocol::BossEventPacket::EventType::Add), 0)) {
         return -1;
     }
-    // 原版流程: Add 建条 → PlayerAdded 把收件人加进这条。少第二步时客户端可能不显示。
+
     send(*player, bar, static_cast<int>(sculk::protocol::BossEventPacket::EventType::PlayerAdded), 0);
 
     std::lock_guard lock(mMutex);
-    bar.id = static_cast<int64_t>(bar.targetId); // 对外 id 直接用虚拟 actor id，简且唯一
+    bar.id = static_cast<int64_t>(bar.targetId);
     mBars.emplace(bar.id, bar);
     return bar.id;
 }
@@ -189,9 +174,8 @@ bool BossBarManager::remove(int64_t id) {
     }
     ::Player* player = findPlayer(copy.playerName);
     if (player == nullptr)
-        return true; // 人已下线，客户端那边早没了
+        return true;
 
-    // 锚点实体跟着这条 Boss 条一起回收
     AnchorPool::getInstance().release(copy.targetId);
     send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::PlayerRemoved), 0);
     send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::Remove), 0);
@@ -233,19 +217,19 @@ std::string BossBarManager::probeWire() const {
     auto build = [](bool optionalFiltered) {
         ::BinaryStream body;
         body.writeVarInt64(0x71000001, nullptr, nullptr);
-        body.writeByte(static_cast<uchar>(0), nullptr, nullptr); // Add
+        body.writeByte(static_cast<uchar>(0), nullptr, nullptr);
         body.writeString("Probe", nullptr, nullptr);
         if (optionalFiltered) {
-            // 布局 B: Name 是 RedactableString → string + optional<string>
+
             body.writeBool(true, nullptr, nullptr);
             body.writeString("Probe", nullptr, nullptr);
         } else {
-            // 布局 A: Name + FilteredName 两个平铺字符串（协议文档的写法）
+
             body.writeString("Probe", nullptr, nullptr);
         }
         body.writeFloat(0.5f, nullptr, nullptr);
-        body.writeByte(static_cast<uchar>(5), nullptr, nullptr); // Purple
-        body.writeByte(static_cast<uchar>(0), nullptr, nullptr); // Progress
+        body.writeByte(static_cast<uchar>(5), nullptr, nullptr);
+        body.writeByte(static_cast<uchar>(0), nullptr, nullptr);
         return body.mBuffer;
     };
 

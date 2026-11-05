@@ -1,10 +1,14 @@
 #include "core/TickDriver.h"
+#include "core/EventIds.h"
+#include "core/HookRegistry.h"
+
+#include <ll/api/mod/NativeMod.h>
+
+#include <atomic>
 
 #include "DiagLog.h"
 
-#include <ll/api/memory/Hook.h>
-
-#include <mc/world/level/Level.h>
+#include <ll/api/event/world/ServerLevelTickEvent.h>
 
 #include <cstring>
 
@@ -16,7 +20,8 @@ TickDriver& TickDriver::getInstance() noexcept {
 }
 
 bool TickDriver::add(char const* name, Callback cb, Order order) {
-    if (name == nullptr || cb == nullptr) return false;
+    if (name == nullptr || cb == nullptr)
+        return false;
     if (mCount >= kMax) {
         HLIB_LOG_ERROR("[tick] registry full, drop '{}'", name);
         return false;
@@ -27,7 +32,7 @@ bool TickDriver::add(char const* name, Callback cb, Order order) {
             return false;
         }
     }
-    // 插入排序: 注册是一次性的, 数量 <= kMax, 图的是 run() 里顺序天然正确
+
     std::size_t pos = mCount;
     while (pos > 0 && mEntries[pos - 1].order > static_cast<int>(order)) {
         mEntries[pos] = mEntries[pos - 1];
@@ -40,20 +45,23 @@ bool TickDriver::add(char const* name, Callback cb, Order order) {
 }
 
 void TickDriver::run() {
-    // 热路径: 一次原子读, 无锁
+
     std::size_t const n = mPublished.load(std::memory_order_acquire);
     for (std::size_t i = 0; i < n; ++i) {
         mEntries[i].cb();
     }
 }
 
-std::size_t TickDriver::size() const noexcept { return mPublished.load(std::memory_order_acquire); }
+std::size_t TickDriver::size() const noexcept {
+    return mPublished.load(std::memory_order_acquire);
+}
 
 std::string TickDriver::describe() const {
-    std::string out;
+    std::string       out;
     std::size_t const n = mPublished.load(std::memory_order_acquire);
     for (std::size_t i = 0; i < n; ++i) {
-        if (!out.empty()) out += " -> ";
+        if (!out.empty())
+            out += " -> ";
         out += mEntries[i].name;
         out += '(';
         out += std::to_string(mEntries[i].order);
@@ -64,16 +72,20 @@ std::string TickDriver::describe() const {
 
 } // namespace debugshape_export::tick
 
-namespace debugshape_export {
+namespace debugshape_export::tick {
 
-// ── 全库唯一的 Level::tick hook ────────────────────────────────────────────────
-// origin() 在这里调用**一次**，各域的回调只做自己的事（原 4 个 hook 各自 origin() 的那份
-// 已合并到这里）。注册表为空时只剩这一次转发, 成本与一个空 detour 相同。
-LL_TYPE_INSTANCE_HOOK(LevelTickDriverHook, HookPriority::Normal, Level, &Level::$tick, void) {
-    origin();
-    tick::TickDriver::getInstance().run();
+void installDriver() {
+    static bool installed = false;
+    if (installed) {
+        return;
+    }
+    installed = true;
+    core::listen<ll::event::ServerLevelTickEvent>(
+        core::kServerLevelTickId,
+        [](ll::event::ServerLevelTickEvent const&) {
+            TickDriver::getInstance().run();
+        },
+        core::ListenerScope::Process);
 }
 
-static ll::memory::HookRegistrar<LevelTickDriverHook> gLevelTickDriverHookRegistrar;
-
-} // namespace debugshape_export
+} // namespace debugshape_export::tick

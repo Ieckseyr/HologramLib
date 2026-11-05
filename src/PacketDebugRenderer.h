@@ -1,9 +1,8 @@
-﻿// PacketDebugRenderer.h - 基于 BedrockProtocol v2168 的形状渲染器
-//
-// 直接持有 v2168 PrimitiveShapes，通过 PrimitiveShapesPacket + NetworkPeer::sendPacket 发送。
+﻿
+
 #pragma once
 
-#include "core/Registry.h" // 内核层: 对象表 / id 分配 / 快照遍历
+#include "core/Registry.h"
 
 #include <atomic>
 #include <cstdint>
@@ -18,20 +17,18 @@
 
 namespace debugshape_export {
 
-// 形状数据 - 直接持有 v944 DebugShape
 struct ShapeData {
-    int64_t      id;    // 插件层ID
-    LSEShapeType type;  // 形状类型（LSE 兼容）
-    ProtoShape   proto; // v944 协议层数据
+    int64_t      id;
+    LSEShapeType type;
+    ProtoShape   proto;
     bool         visible{false};
 
-    // 绘制目标（进服重发时按此过滤接收者）
     enum class Target : uint8_t { None,
                                   All,
                                   Dimension,
                                   Player };
     Target      target{Target::None};
-    std::string targetPlayer; // Target::Player 时的目标玩家名
+    std::string targetPlayer;
 };
 
 class PacketDebugRenderer {
@@ -41,7 +38,6 @@ public:
     PacketDebugRenderer(const PacketDebugRenderer&)            = delete;
     PacketDebugRenderer& operator=(const PacketDebugRenderer&) = delete;
 
-    // 创建形状（返回插件层ID）
     int64_t createText(float x, float y, float z, const std::string& text);
     int64_t createLine(float x1, float y1, float z1, float x2, float y2, float z2);
     int64_t createBox(float x1, float y1, float z1, float x2, float y2, float z2);
@@ -49,13 +45,11 @@ public:
     int64_t createSphere(float x, float y, float z, float scale);
     int64_t createArrow(float x1, float y1, float z1, float x2, float y2, float z2);
 
-    // 1.33.0: 协议层本就支持、之前没暴露的四种形状
     int64_t createCylinder(float x, float y, float z, float radiusX, float radiusZ, float height, int segments);
     int64_t createPyramid(float x, float y, float z, float width, float height, float depth);
     int64_t createEllipsoid(float x, float y, float z, float radiusX, float radiusY, float radiusZ, int segmentsPerAxis);
     int64_t createCone(float x, float y, float z, float radiusX, float radiusZ, float height, int segments);
 
-    // 属性设置
     bool setText(int64_t id, const std::string& text);
     bool setLocation(int64_t id, float x, float y, float z);
     bool setColor(int64_t id, float r, float g, float b, float a);
@@ -65,27 +59,20 @@ public:
     bool setRotation(int64_t id, float pitch, float yaw, float roll);
     bool clearRotation(int64_t id);
 
-    // 1.33.0: 两个通用属性（对所有形状生效）
-    //   maxRenderDistance: 超出该距离客户端不再绘制（0 或负数 = 不限制）
-    //   attachedEntity:    形状跟随该实体，省掉每 tick 手动 setLocation
     bool setMaxRenderDistance(int64_t id, float distance);
     bool setAttachedEntity(int64_t id, int64_t entityUniqueId);
     bool clearAttachedEntity(int64_t id);
 
-    // 文本形状专属（其它类型返回 false）:
-    //   背景框颜色（RGBA 0~1; 与 mColor 同打包）/ 清除（回客户端默认色）/ 穿墙开关
     bool setBackgroundColor(int64_t id, float r, float g, float b, float a);
     bool clearBackgroundColor(int64_t id);
     bool setDepthTest(int64_t id, bool enabled);
 
-    // 属性获取
     std::string        getText(int64_t id);
     std::vector<float> getLocation(int64_t id);
     std::vector<float> getColor(int64_t id);
     int                getShapeType(int64_t id);
     std::vector<float> getRotation(int64_t id);
 
-    // 显示控制
     bool draw(int64_t id);
     bool drawToPlayer(int64_t id, const std::string& playerName);
     bool drawToDimension(int64_t id, int dimId);
@@ -99,26 +86,21 @@ public:
     bool updateToPlayer(int64_t id, const std::string& playerName);
     bool updateToDimension(int64_t id, int dimId);
 
-    // 查询
     std::vector<int64_t> findTextByLocation(float x, float y, float z, float radius);
     int64_t              findTextByLocationAndContent(float x, float y, float z, float radius, const std::string& text);
     std::vector<int64_t> getAllShapeIds();
     bool                 exists(int64_t id);
 
-    // 生命周期
     bool destroy(int64_t id);
     bool destroyBatch(const std::vector<int64_t>& ids);
     void destroyAll();
 
-    // 获取形状的 networkId（供高级管理器使用）
     uint64_t getNetworkId(int64_t id);
 
-    // 生命周期：注册/注销玩家进服重发监听（幂等）
     void init();
     void shutdown();
 
 private:
-    // 周期兜底重发（tick 驱动, 每 15s 全量静默补发）
     void tickResend(float deltaTime);
 
 private:
@@ -127,19 +109,15 @@ private:
 
     uint64_t generateNetworkId();
 
-    // 将所有可见形状按绘制目标过滤后重发给指定玩家（进服/重连恢复）
     void resendVisibleToPlayer(::Player& player, bool log = true);
 
-    // 只存形状: id 分配 / 锁 / 遍历都在 core::Registry 里
     core::Registry<ShapeData> mShapes;
-    // v2168 起 NetworkId 是 uint64 varint; 种子用 UINT64_MAX 会写成 9 个字节(ff*8 01),
-    // 客户端按协议上限只读 5 字节 → 其后所有字段错位 → 客户端判定包体非法并断线(实测 1.26.40)。
-    // 取一个 4 字节量级的起始值, 往下递减同样不会与客户端自用的小 id 冲突。
+
     std::atomic<uint64_t> mNextNetworkId{0x00FFFFFF};
 
     ll::event::ListenerPtr mJoinListener{nullptr};
-    ll::event::ListenerPtr mTickListener{nullptr}; // 周期兜底重发
-    float                  mResendTimer{0};        // 距下次全量兜底重发的秒数
+    ll::event::ListenerPtr mTickListener{nullptr};
+    float                  mResendTimer{0};
 };
 
 } // namespace debugshape_export

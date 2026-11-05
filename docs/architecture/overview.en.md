@@ -176,9 +176,9 @@ The reasons and migration paths for both shrinks are in the [version & ABI matri
 
 ## The LSE compatibility layer: mounted at runtime, never a hard dependency
 
-HologramLib does not depend on LegacyRemoteCall (`lrca`) or MeowPAPI: it links against none of their symbols and declares nothing in its manifest.
+HologramLib does not depend on LegacyRemoteCall (`lrca`): it links against none of its symbols and declares nothing in its manifest, and `tooth.json` no longer installs it forcibly.
 
-Instead it resolves seven C++ functions exported by `lrca` at runtime via `GetModuleHandle` + `GetProcAddress` (MSVC-mangled names, character-identical to the export table):
+Instead it resolves six C++ functions exported by `lrca` at runtime via `GetModuleHandle` + `GetProcAddress` (MSVC-mangled names, character-identical to the export table):
 
 | Situation | Behaviour |
 |---|---|

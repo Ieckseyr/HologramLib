@@ -1,10 +1,3 @@
-// ProtocolPackets.cpp - 形状列表（PrimitiveShapesPacket）的编码与投递
-//
-// 收敛说明（PR1）: 本文件原来自带一份 peer 解析 + 两个 forEachPlayer 循环，
-// 与 SculkPacketSend.h、ItemDisplayManager.cpp 两份实现重复。现在:
-//   · 编码走 wire::encodeUnchecked（writeWithHeader, 热路径不做回读 —— 与收敛前逐字一致）
-//   · 投递走 wire::sendRaw / sendRawToAll / sendRawToDimension（peer 解析全库只此一份）
-// 对外 API 与行为不变（含"没有在线玩家也返回 true"的口径），PacketDebugRenderer 无需改动。
 #include "ProtocolPackets.h"
 #include "DiagFlags.h"
 
@@ -12,20 +5,17 @@
 
 namespace debugshape_export {
 
-// 形状/悬浮字发包（26.40）；HLIB_NO_SHAPE=1 可关。
 static bool shapePacketsEnabled() {
     return !hlibDomainDisabled("HLIB_NO_SHAPE");
 }
 
 std::string ProtocolPacketWriter::buildDebugDrawerPacket(std::vector<DebugShape> const& shapes) {
-    // 用协议库的编码器（与协议文档逐字段一致，含圆柱的两个 Vec2 半径）。
-    // 曾手写过一版"单 Vec2 圆柱"，那是错的：协议文档写的是 Radius X + Radius Z 两个 Vec2，
-    // 删掉其中一个会让整包错位。这里恢复成协议库。
+
     using sculk::protocol::PrimitiveShapesPacket;
 
     PrimitiveShapesPacket packet;
     packet.mShapes = shapes;
-    return wire::encodeUnchecked(packet);
+    return wire::encode(packet, false);
 }
 
 bool ProtocolPacketWriter::sendToPlayer(::Player& player, std::vector<DebugShape> const& shapes) {

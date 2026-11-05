@@ -30,6 +30,10 @@ jobs:
       - name: 导出清单（重名 + 文档总数）
         run: python tools/check_exports.py --check-docs
 
+      # docs/internal/LSE导出清单.md 的「分组清单」是生成物，别让它再抄落后
+      - name: 内部分组清单（生成物是否最新）
+        run: python tools/gen_export_list.py --check
+
       # 文档站上不出现「未实测」这类免责声明；维护者备注写进 docs/internal/（不上站）
       - name: 文档措辞
         run: python tools/check_docs_wording.py
@@ -61,11 +65,17 @@ jobs:
           g++ -std=c++20 -O1 -I src tests/shape_id_map_test.cpp -o /tmp/shape_id_map_test
           /tmp/shape_id_map_test
 
+      # 可见性判定：R 内生成、R..R+4 迟滞带保持、R+4 外移除；禁用/换维度/白名单外不受迟滞
+      - name: 可见性判定契约（不依赖 BDS）
+        run: |
+          g++ -std=c++20 -O1 -I src tests/visibility_logic_test.cpp -o /tmp/visibility_logic_test
+          /tmp/visibility_logic_test
+
       # 编译那一关需要 HOLO_PROTOCOL_URL，没配就整关跳过。内核层这几个头是纯标准库，
       # 单独做一次语法检查，保证它们永远编得过。
       - name: 内核头文件语法检查
         run: |
-          for h in Registry.h ClickEvent.h VirtualActorIds.h; do
+          for h in Registry.h ClickEvent.h VirtualActorIds.h VisibilityLogic.h; do
             echo "#include \"$h\"" > /tmp/tu.cpp
             g++ -std=c++20 -fsyntax-only -I src/core /tmp/tu.cpp || exit 1
             echo "ok  src/core/$h"

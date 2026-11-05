@@ -7,12 +7,114 @@ must recompile. The full release ↔ API mapping is in the [version & ABI matrix
 
 | Release | API | Line | Contents | New exports | C++ consumers |
 |---|---|---|---|---|---|
+| `26.60.1` | 1.35.0 | 26.60 | Respawn after the death animation `IPlayerRespawn`, container preview `containerPreview`, enchanted entries `containerSetItemEnchanted`, effect blocking `actorBlock*`, fake-entity runtime IDs; **LSE surface completed** (particle queries/visibility, real-actor interactions `actor*`, `containerUpdate` / `tradeUpdate`); internal refactor and audit fixes | 27 | **Recompile needed** (3 new interfaces, tail appends, `HOLOGLIB_ABI_STAMP` still 1) |
+| `26.60.0` | 1.34.0 | 26.60 | 26.60 platform adaptation: field-level packet encoding rewritten, NPC-dialogue carrier fix, `wireTrace*` packet audit, fake-entity runtime IDs | 10 | **Recompile needed** (1 new interface; tail appends, `HOLOGLIB_ABI_STAMP` still 1) |
+| `26.51.7` | 1.33.0 | 26.51 | Shape extensions (cylinder / pyramid / ellipsoid / cone, max render distance, attached entity), boss bar, HUD toggles, locator-bar extensions, hurt/death animation, sidebar scoreboard | 48 | **Recompile needed** (6 new interfaces; tail appends, `HOLOGLIB_ABI_STAMP` still 1) |
 | `26.51.6` | 1.32.0 | 26.51 | Internal refactor (packet / tick / lifecycle), ABI contract tooling, payment planning fix, four new domains (dropped items / form close / locator bar / packet control) | 16 | **Recompile needed** (tail appends: 4 new interfaces + methods on `IContainerMenu` / `IPlayerNpc`) |
 | `26.51.5` / `26.40.12` | 1.31.0 | 26.51 · 26.40 | Stretch / live transforms / animation presets / stop recipe / NPC pose-equipment-ride / FMBE spawn-twitch fix / image plane with transparency / container session isolation | several | Recompile recommended (tail appends) |
 | `26.40.11` / `26.51.4` | 1.30.0 | 26.40 · 26.51 | Three protocol primitives and one timing notification | 3 | No recompile (vtable unchanged) |
 | `26.40.10` / `26.51.3` | 1.29.0 | 26.40 · 26.51 | `AddItemActor` interception, pose/scale/variant/colour, metadata tick fix | 1 (`viewItemSpawnHooked`) | Recompile (`EntityView` grew) |
 | `26.40.9` | 1.27.0 | 26.40 | `EntityView::skinId` (same-id model swap), real-actor interaction events, ABI stamp | class methods | Recompile (vtable appended) |
 | `26.40.8` | 1.26.0 | 26.40 | Per-viewer overrides, four UI domains | several | Recompile |
+
+## 26.60.1 — API 1.35.0 (container preview / effect blocking / respawn packet / export surface completed)
+
+### Respawn after the death animation (`IPlayerRespawn` / `playerRespawn*`)
+
+After playing the death animation the client enters the death screen and sends `PlayerAction(Respawn)`. The death animation is only an `ActorEvent::DEATH` sent to the client — the server-side entity never died, so the server sees no reason to respawn and never sends `RespawnPacket`. The client stays stuck on the death screen.
+
+`IPlayerRespawn` sends that one missing packet:
+
+| Function | Behaviour |
+|---|---|
+| `playerRespawn(playerName)` | Respawn in place (`state = 2`, ClientReadyToSpawn) |
+| `playerRespawnState(playerName, state)` | Explicit state: `0` / `1` ReadyToSpawn / `2` ClientReadyToSpawn |
+| `playerRespawnAt(playerName, x, y, z)` | Respawn at the given coordinates |
+
+Health / position / dimension / inventory of the server-side entity are unchanged, and no death or respawn event fires.
+Packet: `RespawnPacket`(45) = `Position`(Vec3) + `State`(uint8) + `PlayerRuntimeId`(uvarint64).
+
+### New interfaces
+
+| Interface | What it adds |
+|---|---|
+| `IContainerPreview` | `containerPreview` / `containerPreviewTitled`: show a **real** block container at given coordinates to one player as a read-only menu. The client cannot take anything out, and the server-side container is never modified. |
+| `containerSetItemEnchanted` | Refresh a single container slot together with its enchantments (the plain `setItem` path drops them). |
+| `IActorEffectFilter` | `actorBlockEvent` / `actorBlockEventFor` / `actorBlockEventForEntity` / `actorBlockClear` / `actorBlockStats` / `actorUnblockEvent` / `actorUnblockEventFor` / `actorUnblockEventForEntity`: suppress the hurt / death / generic actor-event packet for one entity or one viewer. Nothing is sent, so the client plays no red flash and no death animation. |
+
+### LSE surface completed
+
+The last nine methods that existed in C++ but had no script entry are now exported: `particleExists`, `particleGetAllIds`, `particleDestroyAll`, `particleSetVisiblePlayers`, `particleClearVisiblePlayers`, `containerUpdate`, `tradeUpdate`, `actorPollInteractions`, `actorClearInteractions`.
+
+`actorPollInteractions` is the counterpart of `ghostPollInteractions`: interactions that hit a real entity (vanilla mob, player, your own mod entity) land in `actor*`, interactions that hit a library protocol entity (custom entity / item display / fake player) land in `ghost*`; the two queues never receive the same event. Both are capped at 256 entries, oldest dropped first.
+
+Already-added queue counters are exported too: `containerDroppedClicks`, `npcDialogDroppedClicks`, `fakeInvDroppedClicks`, `tradeDroppedSettlements`.
+
+What still has **no** script entry: getters with out-parameters (`ICustomEntity::get`, `IPlayerNpc::get`, `IItemDisplay::get` — the equivalent information is available through the `*GetInfo` JSON/summary strings), callbacks (`add*Listener`, `setEntitySpawnCallback` — scripts poll the same events instead), and the seven deprecated `holoSetLine*` / `holoTick` stubs.
+
+### C++ consumers
+
+Compared with 26.51.7, the 26.60 line adds 3 interfaces in total (`IPlayerRespawn`, `IContainerPreview`, `IActorEffectFilter`), all appended at the tail. `HOLOGLIB_API_VERSION` moves from `0x012800` to `0x012900`; `HOLOGLIB_ABI_STAMP` stays 1 and the baseline is `abi/v1.35.0.json`. Consumers built against an older header **must recompile**.
+Exports 397 → 424.
+
+### What was fixed
+
+This batch is the code-review follow-up: internal only, no new interfaces, no ABI change.
+
+- Swapping a mob's skin could freeze the server.
+- Picking up a dropped item could crash the server.
+- Virtual containers stopped opening after enough of them had been used.
+- Shutting down or reloading lost the items held in a trade.
+- The trade settlement queue only grew and never emptied.
+- Inventory merging could stack more than the item's own limit.
+- The ledger treated different items as the same one and miscounted the amounts.
+- After respawn, view overrides had the wrong offset and lost part of their state.
+- Some packet rewrites for global overrides did not take effect.
+- In some cases a player vanished from other clients' view.
+
+### Packaging: `lrca` is now optional
+
+- **`tooth.json` no longer hard-depends on `lrca`**: the `github.com/LiteLDev/LegacyRemoteCall: 0.22.*` entry is gone, so `lip install` no longer pulls LegacyRemoteCall (which used to install 0.22 while the server actually ran 0.23). `optionalDependencies` in `manifest.json` stays for LeviLamina load order; scripts still need `lrca` for the exports, and every call is a safe no-op without it.
+
+## 26.60.0 — API 1.34.0 (26.60 platform adaptation)
+
+Adapted to LeviLamina 26.60 / BDS 1.26.60 (protocol 2225): `AddActor`, `AddPlayer`, `PlayerList`, `PlayerSkin`, `BossEvent` and `SetScore` were rewritten against the 26.60 schema; the NPC dialogue's carrier no longer bypasses the shared send path (it was missing the new optional fields, so the client misparsed the packet and disconnected), and the container and trade paths were folded into the same exit. Added the `wireTrace*` packet audit and the fake-entity runtime IDs (`playerNpcRuntimeId` / `itemDisplayRuntimeId` / `itemActorRuntimeId`).
+
+### C++ consumers
+
+One new interface (`IPlayerRespawn`) is appended at the tail, `HOLOGLIB_ABI_STAMP` stays 1, baseline `abi/v1.34.0.json`; consumers **must recompile**.
+Exports 387 → 397.
+
+> `abi/v1.34.0.json` and this release's build already contain `IPlayerRespawn`; its usage is documented under 26.60.1, "Respawn after the death animation".
+
+## 26.51.7 — API 1.33.0 (shape extensions, boss bar, HUD, actor effects, sidebar)
+
+### Shapes (`IShapeDrawerExt` / `shape*`)
+
+The protocol layer always supported ten shapes; this release adds the four that were missing and opens two unused fields:
+
+| New | Behaviour |
+|---|---|
+| `shapeCreateCylinder(x, y, z, radiusX, radiusZ, height, segments)` | Cylinder; the radii are a Vec2 (`Radius X` / `Radius Z`) |
+| `shapeCreatePyramid(x, y, z, width, height, depth)` | Pyramid with a `width × depth` base |
+| `shapeCreateEllipsoid(x, y, z, radiusX, radiusY, radiusZ, segmentsPerAxis)` | Ellipsoid with independent radii |
+| `shapeCreateCone(x, y, z, radiusX, radiusZ, height, segments)` | Cone, optionally with an elliptical base |
+| `shapeSetMaxRenderDistance(id, distance)` | The client stops drawing beyond the distance; `<= 0` removes the limit |
+| `shapeAttachEntity(id, entityUniqueId)` / `shapeClearAttachedEntity(id)` | Attach the shape to an entity so it follows client-side without a per-tick position update |
+
+Script-side shape ids: `0..5` keep their old values, `6` is a historical gap, and the new ones start at `7` (`7` cylinder / `8` pyramid / `9` ellipsoid / `10` cone); the protocol side uses `6..9`. The mapping lives in one place (`src/shape/ShapeIdMap.h`) and has an offline test.
+
+### Boss bar, HUD, locator bar, actor effects, sidebar
+
+- `IBossBar` (`bossBar*`): per-player `BossEventPacket` health bars — no entity required, the virtual id is the target.
+- `IHud` (`hud*`): shows or hides 13 HUD elements through `SetHudPacket`.
+- `ILocatorBarExt` (`locatorBar*`): custom icon texture, icon size, attached entity and groups for the locator bar. The interface works and the packet passes the read-back check, but the client does not draw server-sent waypoints, so use the boss bar or sidebar for markers.
+- `IActorEffect` (`actor*`): hurt / death / generic `ActorEvent`, sent to one player or broadcast.
+- `ISidebar` (`sidebar*`): scoreboard sidebar driven purely by packets; the objective name is derived per player and the rows are fake-player entries whose score is only a sort key.
+
+### C++ consumers
+
+Six new interfaces, all appended at the tail; `HOLOGLIB_ABI_STAMP` stays 1 and the baseline is `abi/v1.33.0.json`. Consumers built against an older header **must recompile**. Exports 339 → 387.
 
 ## 26.51.6 — API 1.31.0 (internal refactor and fixes, no API change)
 

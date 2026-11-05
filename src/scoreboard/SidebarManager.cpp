@@ -1,6 +1,6 @@
-// SidebarManager.cpp - 侧边栏计分板
 #include "SidebarManager.h"
 
+#include "core/EventIds.h"
 #include "core/PacketSink.h"
 
 #include <ll/api/service/Bedrock.h>
@@ -50,12 +50,12 @@ SidebarManager& SidebarManager::getInstance() {
 }
 
 std::string SidebarManager::objectiveOf(std::string const& playerName) {
-    // 16 进制半宽，objective 名只留安全字符
+
     return std::format("hlib_sb_{:08x}", static_cast<std::uint32_t>(fnv1a(playerName, 1469598103934665603ULL)));
 }
 
 std::int64_t SidebarManager::idBaseOf(std::string const& playerName) {
-    // 不同玩家错开 4096 个：每名玩家的行数远小于这个数
+
     auto const slot = fnv1a(playerName, 1099511628211ULL) % 4096ULL;
     return 100000LL + static_cast<std::int64_t>(slot) * 4096LL;
 }
@@ -66,10 +66,10 @@ bool SidebarManager::sendDisplay(::Player& player, std::string const& objective,
     packet.mObjectiveName        = objective;
     packet.mObjectiveDisplayName = title;
     packet.mCriteriaName         = kCriteria;
-    // 升序 + score 递增 → 第 0 行排最上面
+
     packet.mSortOrder = sculk::protocol::SetDisplayObjectivePacket::ObjectiveSortOrder::Ascending;
 
-    auto bytes = wire::encodeChecked(packet);
+    auto bytes = wire::encode(packet);
     if (bytes.empty())
         return false;
     wire::sendRaw(player, bytes);
@@ -81,9 +81,7 @@ bool SidebarManager::sendScores(
     std::string const&              objective,
     std::vector<std::string> const& lines,
     std::int64_t                    idBase) {
-    // 26.60 的 SetScore 线格式（用 BDS 自己的包类序列化，避免 sculk 2168 的旧格式）：
-    //   count(varuint) + 每条目 [variant(varuint) + tag(string) + scoreboardId(varint64)
-    //                            + objective(string) + score(int32) + fakePlayerName(string)]
+
     ::SetScorePacketPayload payload;
     payload.mScoreInfo->reserve(lines.size());
     for (std::size_t i = 0; i < lines.size(); ++i) {
@@ -98,12 +96,12 @@ bool SidebarManager::sendScores(
     ::SetScorePacket packet{payload};
     ::BinaryStream   stream;
     packet.write(stream);
-    return wire::sendBodyChecked(
+    return wire::sendBody(
         player,
         static_cast<std::uint32_t>(::MinecraftPacketIds::SetScore),
-        stream.mBuffer,
-        "SetScorePacket"
-    );
+        std::move(stream.mBuffer),
+        wire::Reliability::Reliable,
+        "SetScorePacket");
 }
 
 bool SidebarManager::sendRemoveScores(
@@ -114,7 +112,6 @@ bool SidebarManager::sendRemoveScores(
     if (count <= 0)
         return true;
 
-    // Remove 条目：variant(0) + tag("remove") + scoreboardId + bool(hasObjective) + objective
     ::SetScorePacketPayload payload;
     payload.mScoreInfo->reserve(static_cast<std::size_t>(count));
     for (int i = 0; i < count; ++i) {
@@ -127,19 +124,19 @@ bool SidebarManager::sendRemoveScores(
     ::SetScorePacket packet{payload};
     ::BinaryStream   stream;
     packet.write(stream);
-    return wire::sendBodyChecked(
+    return wire::sendBody(
         player,
         static_cast<std::uint32_t>(::MinecraftPacketIds::SetScore),
-        stream.mBuffer,
-        "SetScorePacket(remove)"
-    );
+        std::move(stream.mBuffer),
+        wire::Reliability::Reliable,
+        "SetScorePacket(remove)");
 }
 
 bool SidebarManager::sendRemoveObjective(::Player& player, std::string const& objective) {
     sculk::protocol::RemoveObjectivePacket packet;
     packet.mObjectiveName = objective;
 
-    auto bytes = wire::encodeChecked(packet);
+    auto bytes = wire::encode(packet);
     if (bytes.empty())
         return false;
     wire::sendRaw(player, bytes);
@@ -172,7 +169,6 @@ bool SidebarManager::set(
         mBars[playerName] = Bar{title, lines};
     }
 
-    // 先清掉旧行（行数变少时否则会残留），再按需重发标题，最后写新行
     if (had)
         sendRemoveScores(*player, objective, static_cast<int>(previous.lines.size()), idBase);
     bool const titleChanged = !had || previous.title != title;
@@ -232,7 +228,7 @@ bool SidebarManager::remove(std::string const& playerName) {
 
     ::Player* player = findPlayer(playerName);
     if (player == nullptr)
-        return true; // 人已下线，客户端那边早没了
+        return true;
 
     auto const objective = objectiveOf(playerName);
     auto const idBase    = idBaseOf(playerName);

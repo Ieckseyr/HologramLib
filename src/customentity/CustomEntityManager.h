@@ -1,20 +1,8 @@
-// CustomEntityManager.h - 自定义实体协议层生成管理器
-//
-// 通用协议层实体生成（1.10.0 新能力域）:
-//   AddActorPacket(任意 identifier)   在客户端生成纯视觉实体（不占服务端实体系统）
-//   RemoveActorPacket                 客户端实体删除
-//   metadata: flags/名字/变种/标记变种/颜色索引
-//   attributes: health + minecraft:scale 缩放（0.0625~10 客户端钳制）
-//
-// 与 ItemDisplay 域的区别: 不做物品/动画编排, 面向"任意类型实体"的轻量生成
-// （NPC 壳、装饰生物、盔甲架布景等）; Actor ID 用 0x6E 段与 0x6D 物品域隔离。
-//
-// 防串台策略与 ItemDisplay 同源: setter 只标脏, tick 内合并单次 respawn;
-// respawn 必换新 uniqueId/runtimeId（防客户端同帧 Remove+Add 同 ID 重映射串台）。
 #pragma once
 
-#include "core/Registry.h" // 内核层: 对象表（NoLock：临界区由本域的 mMutex 持有） // runtimeId 号段（唯一出处）
+#include "core/Registry.h"
 #include "core/VirtualActorIds.h"
+#include "core/VisibilitySync.h"
 
 #include <array>
 #include <cstdint>
@@ -31,116 +19,102 @@
 
 #include <ll/api/event/Listener.h>
 
-#include "hologramlib/HologramLib.h" // hologramlib::CustomEntityConfig（公开头单一定义）
+#include "hologramlib/HologramLib.h"
 
 #include "mc/platform/UUID.h"
 
-class Player; // ::Player
+class Player;
 
 namespace debugshape_export {
 
 using CustomEntityConfig = hologramlib::CustomEntityConfig;
 
+// 自定义实体
 class CustomEntityManager {
 public:
     static CustomEntityManager& getInstance();
 
-    // 生命周期（事件监听; 由 ModEntry 调用）
     void init();
     void shutdown();
 
-    // 管理接口（id 驱动; 创建失败返回 < 0）
     int64_t create(CustomEntityConfig const& config);
-    // 随机 ID 段 [0x10000000,0x7FFFFFFF) 自动生成不重复 ID; 失败返回 < 0
+
     int64_t createRandom(CustomEntityConfig const& config);
-    // 指定 ID 创建（持久化恢复用）; desiredId<=0 或占用返回 -2
+
     int64_t createWithId(CustomEntityConfig const& config, int64_t desiredId);
-    // 查询 ID 是否在用
+
     bool isIdUsed(int64_t id) const;
-    bool    destroy(int64_t id);
-    void    destroyAll();
-    bool    exists(int64_t id) const;
-    bool    get(int64_t id, CustomEntityConfig& out) const; // 拷贝输出当前配置
+    bool destroy(int64_t id);
+    void destroyAll();
+    bool exists(int64_t id) const;
+    bool get(int64_t id, CustomEntityConfig& out) const;
 
     bool setIdentifier(int64_t id, std::string const& identifier);
     bool setPosition(int64_t id, float x, float y, float z, int dim);
     bool setRotation(int64_t id, float yaw, float pitch);
-    bool setNametag(int64_t id, std::string const& text); // 空串清除
-    bool setScale(int64_t id, float scale);               // 客户端有效域 0.0625~10
+    bool setNametag(int64_t id, std::string const& text);
+    bool setScale(int64_t id, float scale);
     bool setVariant(int64_t id, int variant);
     bool setMarkVariant(int64_t id, int markVariant);
     bool setColorIndex(int64_t id, int colorIndex);
-    bool setFlags(int64_t id, int64_t flags);   // 原始 flags 位掩码（0x20=隐身 等）
-    bool setInvisible(int64_t id, bool on);     // 便捷开关（与 flags 独立, 发包时合成）
+    bool setFlags(int64_t id, int64_t flags);
+    bool setInvisible(int64_t id, bool on);
     bool setEnabled(int64_t id, bool enabled);
     bool setViewDistance(int64_t id, double dist);
-    bool setPose(int64_t id, int pose);         // PoseIndex 0..13（盔甲架坐姿/睡姿/跳舞等）
-    // 装备槽位: 0=mainhand 1=offhand 2=head 3=chest 4=legs 5=feet；name 空清空
+    bool setPose(int64_t id, int pose);
+
     bool setEquipmentSlot(int64_t id, int slot, std::string const& name, int aux, std::string const& nbt);
-    // 实体属性同步（1.23.0; ChangeMobProperty）: 按属性名下发字符串取值
+
     bool setMobProperty(int64_t id, std::string const& name, std::string const& value);
     bool clearMobProperties(int64_t id);
 
-    // ── 1.12.0 追加 ──
-    bool scaleBy(int64_t id, double factor);    // 相对缩放（结果钳制 0.0625~10）
-    // 可见玩家白名单（按 Player::getRealName 匹配; 空列表 = 清除 = 全员可见）
-    bool setVisiblePlayers(int64_t id, std::vector<std::string> const& playerNames);
-    bool clearVisiblePlayers(int64_t id);
-    bool setVisiblePlayer(int64_t id, std::string const& playerName);
-    std::string getDebugInfo(int64_t id) const; // 诊断探针（找不到返回 "not_found"）
-    // 骑乘链接（SetActorLinkPacket; 变更经 respawn 重放; 两者互斥, 后设者生效）
-    bool setRidePlayer(int64_t id, std::string const& playerName); // 骑到指定玩家头上（须在线）
-    bool setRideEntity(int64_t id, int64_t vehicleEntityId);      // 骑到另一自定义实体上
+    bool scaleBy(int64_t id, double factor);
+
+    bool        setVisiblePlayers(int64_t id, std::vector<std::string> const& playerNames);
+    bool        clearVisiblePlayers(int64_t id);
+    bool        setVisiblePlayer(int64_t id, std::string const& playerName);
+    std::string getDebugInfo(int64_t id) const;
+
+    bool setRidePlayer(int64_t id, std::string const& playerName);
+    bool setRideEntity(int64_t id, int64_t vehicleEntityId);
     bool clearRide(int64_t id);
-    // 播放原版动画（AnimateEntityPacket; controller 名按实体 id 自动唯一化）
-    // stopExpression 空串 = 常驻; durationTicks>0 时到期自动停止; 一次性发包不持久化
+
     bool playAnimation(
-        int64_t id, std::string const& animation, std::string const& stopExpression, int durationTicks
-    );
-    // 对指定玩家单发该实体的动画包（消费方在 spawn 回调里补发用）
+        int64_t id, std::string const& animation, std::string const& stopExpression, int durationTicks);
+
     bool playAnimationTo(
         int64_t id, std::string const& playerName,
-        std::string const& animation, std::string const& stopExpression, int durationTicks
-    );
-    // ── 26.40.12: 显式停止（同 controller 换播空动作 + stopExpression=1 的取消配方）──
+        std::string const& animation, std::string const& stopExpression, int durationTicks);
+
     bool stopAnimation(int64_t id);
     bool stopAnimationTo(int64_t id, std::string const& playerName);
-    // spawn 时机通知回调（实体对玩家 spawn/respawn 完成后调用; 传 nullptr 清除）
+
     using EntitySpawnCallback = std::function<void(int64_t id, std::string const& playerName)>;
     void setEntitySpawnCallback(EntitySpawnCallback callback);
-    // LSE 侧取走出生事件（每条 "player=<名字> id=<entityId>"），取走即清空
+    void drainSpawnCallbacks();
+
     std::vector<std::string> pollSpawns();
     void                     clearSpawns();
 
     std::vector<int64_t> getAllIds() const;
 
-    // 查找距 (x,y,z) 最近的实体（dim 匹配; maxDist<=0 无限制; 无匹配返回 -1）
     int64_t findNearest(float x, float y, float z, int dim, double maxDist) const;
 
-    // runtimeId -> 库内 id 反查（ghost 交互路由用; 无匹配返回 false）
     bool findByRuntimeId(std::uint64_t runtimeId, int64_t& outId) const;
-    // 取 (uniqueId, runtimeId) —— 交易菜单/NPC 对话载体发包要用（1.21.0）
+
     bool getIdPair(int64_t id, std::uint64_t& outUniqueId, std::uint64_t& outRuntimeId) const;
 
-    // ── 1.20.0 追加: 逐客户端朝向（每个观察者看到不同朝向）──
-    // 覆盖指定玩家收到的 yaw/pitch（出生包 AddActor 与后续增量包都按覆盖值下发）;
-    // 未覆盖的玩家仍用 config 朝向; 变更走轻脏增量, 下一 tick 生效
     bool setPlayerRotation(int64_t id, std::string const& playerName, float yaw, float pitch);
     bool clearPlayerRotation(int64_t id, std::string const& playerName);
     bool clearPlayerRotations(int64_t id);
 
-    // ── 1.21.0 未发布线: 千人千面(按观看者覆盖外观字段)──
-    // 机制与逐客户端朝向一致: 覆盖值按玩家 uuid 保存, 出生包与增量包都按覆盖值下发;
-    // 未覆盖玩家用 config 值。装备变更即时单发(不 respawn, 无闪烁)。
-    // 名字覆盖(text 空 = 清除该玩家的覆盖, 回 config 名字牌)
     bool setPlayerNametag(int64_t id, std::string const& playerName, std::string const& text);
-    // 缩放覆盖(<=0 = 清除覆盖; 有效域 0.0625~10)
+
     bool setPlayerScale(int64_t id, std::string const& playerName, float scale);
-    // 装备槽覆盖(slot 0..5; name 空 = 该槽回退 config; 即时单发)
+
     bool setPlayerEquipmentSlot(
-        int64_t id, std::string const& playerName, int slot, std::string const& name, int aux, std::string const& nbt
-    );
-    // 清除该玩家的全部外观覆盖(名字/缩放/装备; 朝向单独由 clearPlayerRotation 管理)
+        int64_t id, std::string const& playerName, int slot, std::string const& name, int aux, std::string const& nbt);
+
     bool clearPlayerAppearance(int64_t id, std::string const& playerName);
 
 private:
@@ -148,43 +122,43 @@ private:
     ~CustomEntityManager() = default;
 
 public:
-    // 运行时状态（发包原语需要访问）
     struct Runtime {
-        std::uint64_t                 uniqueId{};   // ActorUniqueID
-        std::uint64_t                 runtimeId{};  // ActorRuntimeID
-        std::unordered_set<mce::UUID> shownPlayers; // 已向其发送实体的玩家
-        // 逐客户端朝向覆盖（玩家 uuid → 朝向; 缺省 = 用 config 的 yaw/pitch）
-        // 玩家 uuid 不随 respawn 变化, 覆盖自动跨 respawn 保留
+        std::uint64_t                 uniqueId{};
+        std::uint64_t                 runtimeId{};
+        std::unordered_set<mce::UUID> shownPlayers;
+
         std::unordered_map<mce::UUID, hologramlib::PerPlayerRotation> playerRot;
-        // ── 千人千面: 按观看者覆盖外观字段（条目存在 = 覆盖对应 config 字段）──
-        std::unordered_map<mce::UUID, std::string> playerNameTag; // 覆盖名字牌
-        std::unordered_map<mce::UUID, float>       playerScale;   // 覆盖缩放
-        // 覆盖装备: 逐槽合并 —— 覆盖条目里 name 非空的槽生效, 空槽回退 config
+
+        std::unordered_map<mce::UUID, std::string> playerNameTag;
+        std::unordered_map<mce::UUID, float>       playerScale;
+
         std::unordered_map<mce::UUID, std::array<hologramlib::CustomEntityEquipment, 6>> playerEquip;
     };
 
 private:
-    // 内部: 持锁状态下刷新可见性 / 变更后刷新
     void refreshLocked(int64_t id);
-    // spawn 完成通知（shownPlayers.insert 之后调用; 锁内直调, mMutex 可重入）
+
     void notifySpawnLocked(int64_t id, Player& player);
-    void refreshLightLocked(int64_t id); // 轻脏增量刷新（不换ID, 零闪烁, 动画驱动）
+    void refreshLightLocked(int64_t id);
     void syncVisibilityLocked();
-    // tick 内合并处理脏实体（同一 tick 的多次 setter 调用合并为单次 respawn）
+    void syncOneLocked(int64_t id);
+    bool spawnOneLocked(int64_t id, CustomEntityConfig const& data, Runtime& rt, Player& player);
+
+    [[nodiscard]] std::unordered_set<std::string> const* filterOf(int64_t id) const;
+
     void processDirtyLocked();
-    // 持锁状态下的创建主体（id 已查重）; 失败返回 < 0
+
     int64_t createLocked(CustomEntityConfig const& config, int64_t id);
-    // 实体 ID 分配（respawn 换新 ID, 防客户端"同帧 Remove+Add 同 ID"重映射串台）
+
     [[nodiscard]] std::uint64_t allocUniqueIdLocked();
     [[nodiscard]] std::uint64_t allocRuntimeIdLocked();
-    // 骑乘链接载具 uniqueId 解析（持锁; 玩家须在线 / 载具实体须存在; 无链接返回 nullopt）
+
     [[nodiscard]] std::optional<std::uint64_t> resolveVehicleUniqueIdLocked(CustomEntityConfig const& data);
-    // 持锁状态下的动画队列 flush（到期条目发送 + 失效条目丢弃）
+
     void flushAnimsLocked();
 
     friend struct CustomEntityTickHookAccess;
 
-    // 动画延迟发送队列（AnimateEntityPacket; playAnimation 入队, tick hook 经 processDirtyLocked flush）
     struct EntityAnimEntry {
         mce::UUID     playerUuid;
         std::uint64_t runtimeId;
@@ -194,14 +168,15 @@ private:
         std::string   stopExpression;
     };
 
-    mutable std::recursive_mutex                     mMutex;
-    // ── 合并后的条目: 原本是 mConfigs / mRuntimes 两张 id 同键的并行表 ──
+    mutable std::recursive_mutex mMutex;
+    core::PlayerGrid             mGrid;
+    std::vector<mce::UUID>       mSeenScratch;
+
     struct Entry {
         CustomEntityConfig config;
         Runtime            runtime;
     };
 
-    // 持锁状态下的访问器（调用方必须已持有 mMutex）: NoLock 表的 peek 不加锁
     [[nodiscard]] CustomEntityConfig* configOf(int64_t id) noexcept {
         auto* entry = mEntries.peek(id);
         return entry == nullptr ? nullptr : &entry->config;
@@ -220,23 +195,23 @@ private:
     }
 
     core::Registry<Entry, core::NoLock> mEntries;
-    // 重脏: 需 respawn 重建(identifier/pose/equipment/flags/variant/color/markVariant/viewDistance/enabled)
-    std::unordered_set<int64_t>                      mDirtyIds;
-    // 轻脏: 增量包刷新即可(setPosition/setRotation/setScale/setNametag/setInvisible)
-    // —— 不换 uniqueId/runtimeId, 客户端无闪烁; 动画每 tick 驱动只走此路径
-    std::unordered_set<int64_t>                      mLightDirtyIds;
-    // 可见玩家白名单（id -> 玩家名集合; 无条目 = 全员可见, 兼容默认行为）
+
+    std::unordered_set<int64_t> mDirtyIds;
+
+    std::unordered_set<int64_t> mLightDirtyIds;
+
     std::unordered_map<int64_t, std::unordered_set<std::string>> mVisibleFilter;
-    std::multimap<std::uint64_t, EntityAnimEntry>    mAnimQueue;
-    EntitySpawnCallback                                          mSpawnCallback; // 消费方补发钩子（无库内状态）
-    // LSE 接不了回调 → 出生事件也进队列, 由 entityPollSpawns 取走。上限防无消费方时涨内存。
-    std::deque<std::pair<int64_t, std::string>> mSpawnQueue;
-    // Actor ID 段: 0x6E 前缀（与 ItemDisplay 的 0x6D 段隔离, 客户端 ID 空间全局不撞）
-    std::uint64_t                                    mNextActorUniqueId{0x6E00000000000001ULL};
-    std::uint64_t                                    mNextRuntimeId{core::actorIds::customEntity.first};
-    std::unordered_set<mce::UUID>                    mInitializedPlayers;
-    ll::event::ListenerPtr                           mJoinListener;
-    ll::event::ListenerPtr                           mDisconnectListener;
+    std::multimap<std::uint64_t, EntityAnimEntry>                mAnimQueue;
+    EntitySpawnCallback                                          mSpawnCallback;
+
+    std::deque<std::pair<int64_t, std::string>>  mSpawnQueue;
+    std::vector<std::pair<int64_t, std::string>> mPendingSpawnCallbacks;
+
+    std::uint64_t                 mNextActorUniqueId{0x6E00000000000001ULL};
+    std::uint64_t                 mNextRuntimeId{core::actorIds::customEntity.first};
+    std::unordered_set<mce::UUID> mInitializedPlayers;
+    ll::event::ListenerPtr        mJoinListener;
+    ll::event::ListenerPtr        mDisconnectListener;
 };
 
 } // namespace debugshape_export

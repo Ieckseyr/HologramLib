@@ -5,7 +5,7 @@
 目标是实体的 **runtimeId**（`entityGetInfo`、`playerNpc*` 一类接口返回的那个），不是插件层 id。
 
 ```js
-const { ActorEffect } = require("plugins/HologramLib/lib/HologramLib.js");
+const { ActorEffect } = require("mods/HologramLib/lib/HologramLib.js");
 
 ActorEffect.playHurt(runtimeId);     // 受伤闪红
 ActorEffect.playDeath(runtimeId);    // 死亡动画
@@ -25,6 +25,34 @@ ActorEffect.playInstantDeath(runtimeId); // 立即消失（不掉落、不播完
 常用事件值：`2` 受伤 · `3` 死亡 · `10` 吃草 · `21` 爱心 · `22` 村民生气 · `39` 抖动 · `61` 立即死亡。
 
 播完死亡动画后实体仍在客户端，需要消失再调对应的 destroy 接口。
+
+## 阻断表现事件（受伤 / 死亡不播）
+
+在出站口拦 `ActorEventPacket`：被拦的包不会到达客户端，动画就不播。
+**只拦表现包**，服务端状态完全不变（血量、掉落、死亡事件照常）。
+
+| 函数 | 说明 |
+|---|---|
+| `actorBlockEvent(eventId)` | 全局拦截；`2` 受伤 / `3` 死亡 / `61` 立即死亡 / `-1` 全部 |
+| `actorUnblockEvent(eventId)` | 解除全局拦截（`-1` = 全部解除） |
+| `actorBlockEventFor(playerName, eventId)` | 只让该玩家看不到 |
+| `actorUnblockEventFor(playerName, eventId)` | 解除该玩家的拦截 |
+| `actorBlockEventForEntity(runtimeId, eventId)` | 只拦这个实体 |
+| `actorUnblockEventForEntity(runtimeId, eventId)` | 解除该实体的拦截 |
+| `actorBlockClear()` | 清空全部规则 |
+| `actorBlockStats()` | `"blocked=N passed=N rules=gX/pY/eZ"` |
+
+```js
+ActorEffect.blockEvent(2);                 // 全服都看不到受伤闪红
+ActorEffect.blockEventFor("Steve", 3);     // 只有 Steve 看不到死亡动画
+ActorEffect.blockEventForEntity(rid, 2);   // 只有这只实体不闪红
+ActorEffect.blockStats();                  // 看命中数
+```
+
+三档可叠加，命中任一即拦。用来做"无伤感的 BOSS 演出"、"死亡不播但要正常掉落"这类效果。
+
+> 注意：`actorBlockEvent(-1)` 会把**所有** ActorEvent 都拦掉（吃东西、爱心、抖动、表情全没），
+> 演出结束后记得 `actorBlockClear()`。
 
 ## 对虚假实体用（自定义实体 / 假玩家 / 物品展示 / 掉落物）
 

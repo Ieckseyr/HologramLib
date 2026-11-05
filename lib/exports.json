@@ -1,8 +1,79 @@
 {
   "namespace": "HologramLib",
-  "apiVersion": "1.34.0",
-  "count": 400,
+  "apiVersion": "1.35.0",
+  "count": 424,
   "exports": [
+    {
+      "name": "actorBlockClear",
+      "params": [],
+      "returns": "any",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "ActorEffect",
+      "method": "blockClear"
+    },
+    {
+      "name": "actorBlockEvent",
+      "params": [
+        [
+          "eventId",
+          "number"
+        ]
+      ],
+      "returns": "any",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "ActorEffect",
+      "method": "blockEvent"
+    },
+    {
+      "name": "actorBlockEventFor",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "eventId",
+          "number"
+        ]
+      ],
+      "returns": "any",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "ActorEffect",
+      "method": "blockEventFor"
+    },
+    {
+      "name": "actorBlockEventForEntity",
+      "params": [
+        [
+          "runtimeId",
+          "number"
+        ],
+        [
+          "eventId",
+          "number"
+        ]
+      ],
+      "returns": "any",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "ActorEffect",
+      "method": "blockEventForEntity"
+    },
+    {
+      "name": "actorBlockStats",
+      "params": [],
+      "returns": "string",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "ActorEffect",
+      "method": "blockStats"
+    },
+    {
+      "name": "actorClearInteractions",
+      "params": [],
+      "returns": "any",
+      "file": "src/ghost/GhostInteractRouter.cpp",
+      "group": "ActorEffect",
+      "method": "clearInteractions"
+    },
     {
       "name": "actorPlayDeath",
       "params": [
@@ -13,8 +84,8 @@
       ],
       "returns": "boolean",
       "file": "src/hud/HudExporter.cpp",
-      "group": "Misc",
-      "method": "actorPlayDeath"
+      "group": "ActorEffect",
+      "method": "playDeath"
     },
     {
       "name": "actorPlayEvent",
@@ -34,8 +105,8 @@
       ],
       "returns": "boolean",
       "file": "src/hud/HudExporter.cpp",
-      "group": "Misc",
-      "method": "actorPlayEvent"
+      "group": "ActorEffect",
+      "method": "playEvent"
     },
     {
       "name": "actorPlayEventFor",
@@ -59,8 +130,8 @@
       ],
       "returns": "boolean",
       "file": "src/hud/HudExporter.cpp",
-      "group": "Misc",
-      "method": "actorPlayEventFor"
+      "group": "ActorEffect",
+      "method": "playEventFor"
     },
     {
       "name": "actorPlayHurt",
@@ -72,8 +143,8 @@
       ],
       "returns": "boolean",
       "file": "src/hud/HudExporter.cpp",
-      "group": "Misc",
-      "method": "actorPlayHurt"
+      "group": "ActorEffect",
+      "method": "playHurt"
     },
     {
       "name": "actorPlayInstantDeath",
@@ -85,8 +156,16 @@
       ],
       "returns": "boolean",
       "file": "src/hud/HudExporter.cpp",
-      "group": "Misc",
-      "method": "actorPlayInstantDeath"
+      "group": "ActorEffect",
+      "method": "playInstantDeath"
+    },
+    {
+      "name": "actorPollInteractions",
+      "params": [],
+      "returns": "string[]",
+      "file": "src/ghost/GhostInteractRouter.cpp",
+      "group": "ActorEffect",
+      "method": "pollInteractions"
     },
     {
       "name": "actorRuntimeIdOfEntity",
@@ -98,8 +177,8 @@
       ],
       "returns": "number",
       "file": "src/hud/HudExporter.cpp",
-      "group": "Misc",
-      "method": "actorRuntimeIdOfEntity"
+      "group": "ActorEffect",
+      "method": "runtimeIdOfEntity"
     },
     {
       "name": "actorRuntimeIdOfPlayer",
@@ -111,8 +190,55 @@
       ],
       "returns": "number",
       "file": "src/hud/HudExporter.cpp",
-      "group": "Misc",
-      "method": "actorRuntimeIdOfPlayer"
+      "group": "ActorEffect",
+      "method": "runtimeIdOfPlayer"
+    },
+    {
+      "name": "actorUnblockEvent",
+      "params": [
+        [
+          "eventId",
+          "number"
+        ]
+      ],
+      "returns": "any",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "ActorEffect",
+      "method": "unblockEvent"
+    },
+    {
+      "name": "actorUnblockEventFor",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "eventId",
+          "number"
+        ]
+      ],
+      "returns": "any",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "ActorEffect",
+      "method": "unblockEventFor"
+    },
+    {
+      "name": "actorUnblockEventForEntity",
+      "params": [
+        [
+          "runtimeId",
+          "number"
+        ],
+        [
+          "eventId",
+          "number"
+        ]
+      ],
+      "returns": "any",
+      "file": "src/hud/HudExporter.cpp",
+      "group": "ActorEffect",
+      "method": "unblockEventForEntity"
     },
     {
       "name": "anchorAcquire",
@@ -368,9 +494,17 @@
       "method": "closeAll"
     },
     {
-      "name": "containerGetIds",
+      "name": "containerDroppedClicks",
       "params": [],
       "returns": "number",
+      "file": "src/container/ContainerMenuExporter.cpp",
+      "group": "Container",
+      "method": "droppedClicks"
+    },
+    {
+      "name": "containerGetIds",
+      "params": [],
+      "returns": "number[]",
       "file": "src/container/ContainerMenuExporter.cpp",
       "group": "Container",
       "method": "getIds"
@@ -412,10 +546,72 @@
     {
       "name": "containerPollClicks",
       "params": [],
-      "returns": "string",
+      "returns": "string[]",
       "file": "src/container/ContainerMenuExporter.cpp",
       "group": "Container",
       "method": "pollClicks"
+    },
+    {
+      "name": "containerPreview",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/container/ContainerMenuExporter.cpp",
+      "group": "Container",
+      "method": "preview"
+    },
+    {
+      "name": "containerPreviewTitled",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "title",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "src/container/ContainerMenuExporter.cpp",
+      "group": "Container",
+      "method": "previewTitled"
     },
     {
       "name": "containerSetInteractive",
@@ -472,6 +668,47 @@
       "method": "setItem"
     },
     {
+      "name": "containerSetItemEnchanted",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "slot",
+          "number"
+        ],
+        [
+          "type",
+          "string"
+        ],
+        [
+          "count",
+          "number"
+        ],
+        [
+          "damage",
+          "number"
+        ],
+        [
+          "name",
+          "string"
+        ],
+        [
+          "loreCsv",
+          "string"
+        ],
+        [
+          "enchCsv",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/container/ContainerMenuExporter.cpp",
+      "group": "Container",
+      "method": "setItemEnchanted"
+    },
+    {
       "name": "containerSetTitle",
       "params": [
         [
@@ -487,6 +724,23 @@
       "file": "src/container/ContainerMenuExporter.cpp",
       "group": "Container",
       "method": "setTitle"
+    },
+    {
+      "name": "containerUpdate",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "title",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/container/ContainerMenuExporter.cpp",
+      "group": "Container",
+      "method": "update"
     },
     {
       "name": "entityClearMobProperties",
@@ -784,7 +1038,7 @@
     {
       "name": "entityGetAllIds",
       "params": [],
-      "returns": "number",
+      "returns": "number[]",
       "file": "src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "getAllIds"
@@ -872,7 +1126,7 @@
     {
       "name": "entityPollSpawns",
       "params": [],
-      "returns": "string",
+      "returns": "string[]",
       "file": "src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "pollSpawns"
@@ -1341,7 +1595,7 @@
         ],
         [
           "playerNames",
-          "string"
+          "string[]"
         ]
       ],
       "returns": "boolean",
@@ -1430,9 +1684,17 @@
       "method": "clearClicks"
     },
     {
+      "name": "fakeInvDroppedClicks",
+      "params": [],
+      "returns": "number",
+      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "group": "FakeInventory",
+      "method": "droppedClicks"
+    },
+    {
       "name": "fakeInvGetPlayers",
       "params": [],
-      "returns": "string",
+      "returns": "string[]",
       "file": "src/fakeinv/FakeInventoryExporter.cpp",
       "group": "FakeInventory",
       "method": "getPlayers"
@@ -1453,7 +1715,7 @@
     {
       "name": "fakeInvPollClicks",
       "params": [],
-      "returns": "string",
+      "returns": "string[]",
       "file": "src/fakeinv/FakeInventoryExporter.cpp",
       "group": "FakeInventory",
       "method": "pollClicks"
@@ -1540,7 +1802,7 @@
     {
       "name": "ghostPollInteractions",
       "params": [],
-      "returns": "string",
+      "returns": "string[]",
       "file": "src/ghost/GhostInteractRouter.cpp",
       "group": "Ghost",
       "method": "pollInteractions"
@@ -2156,7 +2418,7 @@
         ],
         [
           "content",
-          "string"
+          "string[]"
         ],
         [
           "intervalMs",
@@ -2377,7 +2639,7 @@
     {
       "name": "itemActorGetIds",
       "params": [],
-      "returns": "number",
+      "returns": "number[]",
       "file": "src/itemactor/ItemActorExporter.cpp",
       "group": "ItemActor",
       "method": "getIds"
@@ -3045,7 +3307,7 @@
     {
       "name": "itemDisplayGetAllIds",
       "params": [],
-      "returns": "number",
+      "returns": "number[]",
       "file": "src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "getAllIds"
@@ -3679,7 +3941,7 @@
         ],
         [
           "playerNames",
-          "string"
+          "string[]"
         ]
       ],
       "returns": "boolean",
@@ -4044,9 +4306,17 @@
       "method": "closeAll"
     },
     {
-      "name": "npcDialogGetIds",
+      "name": "npcDialogDroppedClicks",
       "params": [],
       "returns": "number",
+      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "group": "NpcDialog",
+      "method": "droppedClicks"
+    },
+    {
+      "name": "npcDialogGetIds",
+      "params": [],
+      "returns": "number[]",
       "file": "src/npcdialog/NpcDialogueExporter.cpp",
       "group": "NpcDialog",
       "method": "getIds"
@@ -4100,7 +4370,7 @@
     {
       "name": "npcDialogPollClicks",
       "params": [],
-      "returns": "string",
+      "returns": "string[]",
       "file": "src/npcdialog/NpcDialogueExporter.cpp",
       "group": "NpcDialog",
       "method": "pollClicks"
@@ -4146,6 +4416,19 @@
       "file": "src/npcdialog/NpcDialogueExporter.cpp",
       "group": "NpcDialog",
       "method": "update"
+    },
+    {
+      "name": "particleClearVisiblePlayers",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "clearVisiblePlayers"
     },
     {
       "name": "particleCreateBox",
@@ -4528,6 +4811,27 @@
       "method": "destroy"
     },
     {
+      "name": "particleDestroyAll",
+      "params": [],
+      "returns": "any",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "destroyAll"
+    },
+    {
+      "name": "particleExists",
+      "params": [
+        [
+          "id",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "exists"
+    },
+    {
       "name": "particleFollow",
       "params": [
         [
@@ -4555,6 +4859,14 @@
       "file": "src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "follow"
+    },
+    {
+      "name": "particleGetAllIds",
+      "params": [],
+      "returns": "number[]",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "getAllIds"
     },
     {
       "name": "particleGetInfo",
@@ -4774,6 +5086,23 @@
       "file": "src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "setVisible"
+    },
+    {
+      "name": "particleSetVisiblePlayers",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "playerUuids",
+          "string[]"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/particles/ParticleShapeExporter.cpp",
+      "group": "Particle",
+      "method": "setVisiblePlayers"
     },
     {
       "name": "particleSpin",
@@ -5168,7 +5497,7 @@
     {
       "name": "playerNpcGetAllIds",
       "params": [],
-      "returns": "number",
+      "returns": "number[]",
       "file": "src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "getAllIds"
@@ -5202,7 +5531,7 @@
     {
       "name": "playerNpcGetSkinIds",
       "params": [],
-      "returns": "string",
+      "returns": "string[]",
       "file": "src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "getSkinIds"
@@ -5362,7 +5691,7 @@
     {
       "name": "playerNpcPollSpawns",
       "params": [],
-      "returns": "string",
+      "returns": "string[]",
       "file": "src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "pollSpawns"
@@ -5827,7 +6156,7 @@
         ],
         [
           "playerNames",
-          "string"
+          "string[]"
         ]
       ],
       "returns": "boolean",
@@ -5888,8 +6217,8 @@
       ],
       "returns": "boolean",
       "file": "src/hud/HudExporter.cpp",
-      "group": "Misc",
-      "method": "playerRespawn"
+      "group": "PlayerRespawn",
+      "method": "respawn"
     },
     {
       "name": "playerRespawnAt",
@@ -6372,7 +6701,7 @@
       "params": [
         [
           "ids",
-          "number"
+          "number[]"
         ]
       ],
       "returns": "boolean",
@@ -6398,7 +6727,7 @@
       "params": [
         [
           "ids",
-          "number"
+          "number[]"
         ]
       ],
       "returns": "boolean",
@@ -6473,7 +6802,7 @@
           "number"
         ]
       ],
-      "returns": "number",
+      "returns": "number[]",
       "file": "src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "findTextByLocation"
@@ -6510,7 +6839,7 @@
     {
       "name": "shapeGetAllShapeIds",
       "params": [],
-      "returns": "number",
+      "returns": "number[]",
       "file": "src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "getAllShapeIds"
@@ -6523,7 +6852,7 @@
           "number"
         ]
       ],
-      "returns": "number",
+      "returns": "any[]",
       "file": "src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "getColor"
@@ -6536,7 +6865,7 @@
           "number"
         ]
       ],
-      "returns": "number",
+      "returns": "any[]",
       "file": "src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "getLocation"
@@ -6549,7 +6878,7 @@
           "number"
         ]
       ],
-      "returns": "number",
+      "returns": "any[]",
       "file": "src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "getRotation"
@@ -6944,7 +7273,7 @@
         ],
         [
           "lines",
-          "string"
+          "string[]"
         ]
       ],
       "returns": "boolean",
@@ -7089,7 +7418,7 @@
     {
       "name": "sulfurGetIds",
       "params": [],
-      "returns": "number",
+      "returns": "number[]",
       "file": "src/sulfur/SulfurDisplayExporter.cpp",
       "group": "Sulfur",
       "method": "getIds"
@@ -7245,9 +7574,17 @@
       "method": "closeAll"
     },
     {
-      "name": "tradeGetIds",
+      "name": "tradeDroppedSettlements",
       "params": [],
       "returns": "number",
+      "file": "src/trade/TradeMenuExporter.cpp",
+      "group": "Trade",
+      "method": "droppedSettlements"
+    },
+    {
+      "name": "tradeGetIds",
+      "params": [],
+      "returns": "number[]",
       "file": "src/trade/TradeMenuExporter.cpp",
       "group": "Trade",
       "method": "getIds"
@@ -7314,7 +7651,7 @@
     {
       "name": "tradePollSettlements",
       "params": [],
-      "returns": "string",
+      "returns": "string[]",
       "file": "src/trade/TradeMenuExporter.cpp",
       "group": "Trade",
       "method": "pollSettlements"
@@ -7356,6 +7693,31 @@
       "file": "src/trade/TradeMenuExporter.cpp",
       "group": "Trade",
       "method": "setTier"
+    },
+    {
+      "name": "tradeUpdate",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "tradeType",
+          "string"
+        ],
+        [
+          "tier",
+          "number"
+        ],
+        [
+          "experience",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "src/trade/TradeMenuExporter.cpp",
+      "group": "Trade",
+      "method": "update"
     },
     {
       "name": "viewBlock",
@@ -7525,7 +7887,7 @@
     {
       "name": "viewPollSpawnEvents",
       "params": [],
-      "returns": "string",
+      "returns": "string[]",
       "file": "src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "pollSpawnEvents"

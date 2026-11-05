@@ -5,7 +5,7 @@
 ## Boss 条（bossBar*）
 
 ```js
-const { BossBar } = require("plugins/HologramLib/lib/HologramLib.js");
+const { BossBar } = require("mods/HologramLib/lib/HologramLib.js");
 
 // 给 Steve 建一条 Boss 条（血量 65%，紫色，普通进度条）
 const id = BossBar.add("Steve", "深渊守卫者", 0.65, 5, 0);
@@ -40,7 +40,7 @@ Boss 条的 target 必须是一个客户端认识的真实实体，所以建条�
 ## HUD 显隐（hud*）
 
 ```js
-const { Hud } = require("plugins/HologramLib/lib/HologramLib.js");
+const { Hud } = require("mods/HologramLib/lib/HologramLib.js");
 
 Hud.setElement("Steve", 4, false);   // 藏准星
 Hud.setElement("Steve", 5, false);   // 藏快捷栏

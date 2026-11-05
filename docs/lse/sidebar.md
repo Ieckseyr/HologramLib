@@ -3,7 +3,7 @@
 给一名玩家显示只有他看得到的侧边栏。**只发包，不动服务端记分板** —— 不读也不改 BDS 自己的计分板。
 
 ```js
-const { Sidebar } = require("plugins/HologramLib/lib/HologramLib.js");
+const { Sidebar } = require("mods/HologramLib/lib/HologramLib.js");
 
 // 显示（行自上而下）
 Sidebar.set("Steve", "§6深渊竞技场", [

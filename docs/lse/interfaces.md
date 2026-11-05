@@ -99,6 +99,27 @@ setInterval(() => {                                  // 也可以挂在 mc.liste
     tradeSetTier(id, 3, 120);   // 抬到 3 级、经验条给 120
     ```
 
+### 换交易类型并整表重发
+
+`tradeUpdate(id, tradeType, tier, experience)`
+
+- 参数：
+  - `id` : `Integer`<br>菜单 id
+  - `tradeType` : `String`<br>新的交易类型（如 `"entity.villager.priest"`）；**空串 = 保留原类型**
+  - `tier` : `Integer`<br>新的显示栏值（1 基）；**小于 1 = 保留原值**
+  - `experience` : `Integer`<br>新的经验条当前经验；**小于 0 = 保留原值**
+- 返回值：`true` = 已重发；`false` = 菜单已不在或玩家离线
+- 返回值类型：`Boolean`
+- 说明：`tradeAddOffer` 只追加一条并重发，`tradeSetTier` 只改栏值/经验；这个函数是**改「哪张交易表」**的入口（内部即 C++ 的 `ITradeMenu::update`），已追加的 offers 全部保留。
+  载体（村民 / 流浪商人）在打开时就绑定了，`tradeUpdate` **换不了载体** —— 要换载体只能关掉重开
+- 示例：
+
+    ```js
+    const tradeUpdate = ll.import("HologramLib", "tradeUpdate");
+    tradeUpdate(id, "entity.villager.priest", 0, -1);   // 只换表，栏值/经验都不动
+    tradeUpdate(id, "", 5, 300);                        // 只抬到 5 级、经验 300
+    ```
+
 ### 切换纯协议层真结算
 
 `tradeSetSettle(id, on)`

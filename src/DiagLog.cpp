@@ -1,4 +1,3 @@
-// DiagLog.cpp - 诊断日志器的定义（条目见 DiagLog.h）
 #include "DiagLog.h"
 
 #include <ll/api/io/LoggerRegistry.h>

@@ -314,7 +314,7 @@ HologramLib/
 
 ## LSE 兼容层：运行时挂载，不是硬依赖
 
-HologramLib 不以 LegacyRemoteCall（`lrca`）/ MeowPAPI 为前置依赖：无链接时符号、无 manifest 声明。
+HologramLib 不以 LegacyRemoteCall（`lrca`）为前置依赖：无链接时符号、无 manifest 声明；`tooth.json` 也不再强制安装它。
 
 它在运行时通过 `GetModuleHandle` + `GetProcAddress` 解析 `lrca` 导出的 **6 个** C++ 函数（`exportFunc` / `importFunc` / `hasFunc` / `removeFunc` / `removeNameSpace` / `onCallError`）。
 解析分两级：先按精确的 MSVC mangled 符号取，取不到再按导出表前缀模糊匹配（跨 lrca 编译版本的 STL mangling 有差异）；`exportFunc` + `importFunc` 两个取到即算挂载成功。

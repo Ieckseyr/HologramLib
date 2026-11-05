@@ -1,4 +1,3 @@
-// FormControlManager.cpp - 客户端表单控制
 #include "FormControlManager.h"
 
 #include <ll/api/service/Bedrock.h>
@@ -6,6 +5,8 @@
 #include <mc/network/packet/ClientboundCloseFormPacket.h>
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/level/Level.h>
+
+#include "core/PacketSink.h"
 
 namespace debugshape_export {
 
@@ -22,9 +23,10 @@ bool FormControlManager::closeForm(std::string const& playerName) {
     if (player == nullptr)
         return false;
 
-    ::ClientboundCloseFormPacket packet;
-    player->sendNetworkPacket(packet);
-    return true;
+    // 走库统一发包口：该包无负载，只需包头
+    auto const id = static_cast<std::uint32_t>(::MinecraftPacketIds::ClientboundCloseScreen);
+    return wire::sendRaw(*player, wire::withHeader(id, std::string{}), wire::Reliability::Reliable,
+                         "ClientboundCloseScreen", id);
 }
 
 int FormControlManager::closeAllForms() {
@@ -34,9 +36,10 @@ int FormControlManager::closeAllForms() {
 
     int count = 0;
     level->forEachPlayer([&](::Player& player) -> bool {
-        ::ClientboundCloseFormPacket packet;
-        player.sendNetworkPacket(packet);
-        ++count;
+        auto const id = static_cast<std::uint32_t>(::MinecraftPacketIds::ClientboundCloseScreen);
+        if (wire::sendRaw(player, wire::withHeader(id, std::string{}), wire::Reliability::Reliable,
+                          "ClientboundCloseScreen", id))
+            ++count;
         return true;
     });
     return count;

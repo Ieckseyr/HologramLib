@@ -1,4 +1,3 @@
-// ClientUiExporter.h - 表单控制 / 方位条 的 LSE 导出 + 公开接口适配
 #pragma once
 
 #include "hologramlib/HologramLib.h"
@@ -22,6 +21,6 @@ public:
 
 hologramlib::IFormControl&      formControlAdapter();
 hologramlib::IPlayerVisibility& playerVisibilityAdapter();
-hologramlib::ILocatorBar&  locatorBarAdapter();
+hologramlib::ILocatorBar&       locatorBarAdapter();
 
 } // namespace debugshape_export

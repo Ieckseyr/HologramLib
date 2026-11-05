@@ -67,20 +67,62 @@ void testRuntimeIdIndex() {
 }
 
 void testDimensionIndex() {
-    std::printf("[3] 维度索引: 分桶 / 迁移 / 删除\n");
+    std::printf("[3] 维度索引: 0=主世界(不是哨兵) / 分桶 / 迁移 / 删除\n");
     core::Registry<Item> reg;
-    auto const           a = reg.insert(std::make_unique<Item>(Item{1, "a"}), 0, 1);
-    auto const           b = reg.insert(std::make_unique<Item>(Item{2, "b"}), 0, 2);
-    check(reg.snapshotByDimension(1).size() == 1, "维度 1 只有 1 个");
-    check(reg.snapshotByDimension(1)[0] == a, "维度 1 里是 a");
 
-    reg.setDimension(a, 2);
-    check(reg.snapshotByDimension(1).empty(), "迁移后原维度清空");
-    check(reg.snapshotByDimension(2).size() == 2, "迁移后新维度有 2 个");
+    auto const overworld = reg.insert(std::make_unique<Item>(Item{1, "a"}), 0, 0); // 主世界
+    auto const nether    = reg.insert(std::make_unique<Item>(Item{2, "b"}), 0, 1); // 下界
+    auto const end       = reg.insert(std::make_unique<Item>(Item{3, "c"}), 0, 2); // 末地
+    auto const nowhere   = reg.insert(std::make_unique<Item>(Item{4, "d"}));       // 未指定维度
 
-    reg.erase(b);
+    check(reg.snapshotByDimension(0).size() == 1 && reg.snapshotByDimension(0)[0] == overworld,
+          "维度 0（主世界）能进索引 —— 曾把 0 当哨兵，主世界整个漏掉");
+    check(reg.snapshotByDimension(1).size() == 1 && reg.snapshotByDimension(1)[0] == nether, "维度 1 = 下界");
+    check(reg.snapshotByDimension(2).size() == 1 && reg.snapshotByDimension(2)[0] == end, "维度 2 = 末地");
+    check(reg.snapshotByDimension(9).empty(), "没登记过的维度返回空");
+
+    reg.setDimension(overworld, 2);
+    check(reg.snapshotByDimension(0).empty(), "从 0 迁出后主世界桶清空");
+    check(reg.snapshotByDimension(2).size() == 2, "迁移后末地有 2 个");
+
+    reg.setDimension(nowhere, 0);
+    check(reg.snapshotByDimension(0).size() == 1 && reg.snapshotByDimension(0)[0] == nowhere,
+          "未指定维度的对象 setDimension 到 0 也能进主世界桶");
+
+    reg.erase(end);
     auto const inDim2 = reg.snapshotByDimension(2);
-    check(inDim2.size() == 1 && inDim2[0] == a, "erase 后新维度索引也清除（不留悬空 id）");
+    check(inDim2.size() == 1 && inDim2[0] == overworld, "erase 后维度索引也清除（不留悬空 id）");
+}
+
+void testDimensionIndexUniqueness() {
+    std::printf("[3b] 维度索引唯一性: 同一 id 不得在同一桶里出现两次\n");
+    core::Registry<Item> reg;
+
+    auto const id = reg.insert(std::make_unique<Item>(Item{0, "a"}), 0, 1);
+
+    check(!reg.insertWithId(id, std::make_unique<Item>(Item{0, "dup"}), 0, 1),
+          "insertWithId 重复 id 被拒（不会走到 push_back，因此不产生重复桶项）");
+    check(reg.snapshotByDimension(1).size() == 1, "被拒的重插没有往桶里加第二份");
+
+    reg.setDimension(id, 1);
+    check(reg.snapshotByDimension(1).size() == 1, "setDimension 到原维度：桶内仍是 1 份");
+    reg.setDimension(id, 1);
+    check(reg.snapshotByDimension(1).size() == 1, "再设一次同维度：桶内仍是 1 份（不累加）");
+
+    reg.setDimension(id, 2);
+    check(reg.snapshotByDimension(1).empty() && reg.snapshotByDimension(2).size() == 1,
+          "跨维度迁移：旧桶清空、新桶 1 份");
+
+    reg.setDimension(id, 0);
+    check(reg.snapshotByDimension(0).size() == 1 && reg.snapshotByDimension(2).empty(),
+          "迁回 0（主世界）：新桶 1 份、旧桶清空");
+
+    for (int round = 0; round < 5; ++round) {
+        reg.setDimension(id, round % 3);
+    }
+    auto const total = reg.snapshotByDimension(0).size() + reg.snapshotByDimension(1).size() +
+                       reg.snapshotByDimension(2).size();
+    check(total == 1, "反复迁移 5 次后，三个维度的总条目数仍是 1（没有越迁越多）");
 }
 
 void testDirtySet() {
@@ -210,6 +252,7 @@ int main() {
     testIdAllocation();
     testRuntimeIdIndex();
     testDimensionIndex();
+    testDimensionIndexUniqueness();
     testDirtySet();
     testSnapshotAndForEach();
     testLockPolicies();

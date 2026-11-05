@@ -1,15 +1,8 @@
-// ItemActorManager.h - 协议层掉落物（26.51.6）
-//
-// 客户端凭空出现一只掉落物实体：服务端没有它 —— 不参与拾取判定、不进存档、没有物理。
-// 三件事: AddItemActor（生成）、SetActorMotion（随时改速度与方向）、TakeItemActor（播放拾取）。
-//
-// 为什么用 BDS 的包类而不是手写: AddItemActor 里带 NetworkItemStackDescriptor，物品的 NBT 方言
-// 和 sculk 那套不同（见 fakeinv/FakeInventoryPackets.h 的说明），手写必错。其余包用 sculk 的。
 #pragma once
 
 #include "core/Registry.h"
-#include "core/VirtualActorIds.h"    // actorIds::itemActor 号段
-#include "hologramlib/HologramLib.h" // ItemActorSpec / IItemActor
+#include "core/VirtualActorIds.h"
+#include "hologramlib/HologramLib.h"
 
 #include <cstdint>
 #include <mutex>
@@ -18,6 +11,7 @@
 
 namespace debugshape_export {
 
+// 虚拟掉落物
 class ItemActorManager {
 public:
     static ItemActorManager& getInstance();
@@ -30,14 +24,12 @@ public:
     void    destroyAll();
 
     [[nodiscard]] bool exists(int64_t id) const;
-    // 该掉落物的 ActorUniqueID（作 Boss 条 / 方位点的锚点实体用）；0 = 不存在
+
     [[nodiscard]] std::uint64_t        uniqueIdOf(int64_t id) const;
     [[nodiscard]] std::vector<int64_t> getAllIds() const;
 
-    // 该掉落物的 ActorRuntimeID（0 = 不存在）
     std::uint64_t runtimeIdOf(int64_t id) const;
 
-    // 玩家离开/换维度时不需要特别处理: 掉落物按维度发, 客户端走远了自然清。
     void shutdown();
 
 private:
@@ -53,7 +45,6 @@ private:
         int           dimension{0};
     };
 
-    // 发给某维度的全部玩家（掉落物只在该维度可见）
     static void sendToDimension(int dimension, std::string const& bytes);
 
     mutable std::mutex                  mMutex;

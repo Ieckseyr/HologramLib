@@ -704,7 +704,7 @@ const pid = particleCreateBox("demo", 0, 100.5, 64.5, 100.5, 1.5, 1.5, 1.5, 1, "
 `ghost*` 只有两个函数，但用法和其他域不一样，先看这三条：
 
 1. **事件进队列，没有回调。** 玩家点击库内协议实体（自定义实体 / 物品悬浮 / 假玩家 NPC）时，库把这次交互放进一个待处理队列，你必须自己按 tick 或定时器调 `ghostPollInteractions()` 取走；不取就一直堆在队列里。
-2. **事件来源于客户端交互包。** 库在收包路径上挂了一层钩子，把客户端发来的交互包按目标反查回**库内 id**，再格式化成字符串入队。只有点到**库内协议实体**的交互会进这个队列 —— 打到服务端真实实体（原版生物、玩家）的点击不会出现在这里。
+2. **事件来源于客户端交互包。** 库在收包路径上挂了一层钩子，把客户端发来的交互包按目标反查回**库内 id**，再格式化成字符串入队。只有点到**库内协议实体**的交互会进这个队列 —— 打到服务端真实实体（原版生物、玩家）的点击**不进这里**，走下一节的 `actorPollInteractions`。
 3. **队列有上限。** 最多存 256 条，满了以后新事件会把最旧的挤掉；不轮询 = 丢事件。
 
 ### 取走并清空交互事件
@@ -748,6 +748,53 @@ const pid = particleCreateBox("demo", 0, 100.5, 64.5, 100.5, 1.5, 1.5, 1.5, 1, "
     ghostClearInteractions();
     ```
 
+## 真实实体交互事件（actor*）
+
+上一节只收「打到库内协议实体」的交互。**打到服务端真实实体**（原版生物、其他玩家的实体、你的模组实体）的交互是另一条队列，`actor*` 两个函数：
+
+两条队列互补、不会重复入队：目标在库协议实体表里（自定义实体 / 物品悬浮 / 假玩家 NPC）→ `ghost*`；否则 → `actor*`。
+
+### 取走并清空真实实体交互事件
+
+`actorPollInteractions()`
+
+- 返回值：每条是一个事件字符串，队列空时是空数组
+- 返回值类型：`Array<String>`
+
+  格式：`player=<玩家名> action=<1|2> runtimeId=<实体运行时 id> uniqueId=<实体唯一 id> type=<实体类型名>`，客户端带了坐标时末尾再追加 `pos=(x,y,z)`。
+
+  - `action`：`1` = 右键 / 使用 / 交互，`2` = 左键攻击（来自 `InteractPacket` 与 `ItemUseOnActorInventoryTransaction`；后者的 `Attack` 记为 2，其余记为 1）。
+  - `runtimeId` 是**服务端当前**的运行时 id —— 重启后会变，别持久化；`uniqueId` 在同一存档里稳定，要存档就用它。
+  - `type` 是实体类型名（如 `minecraft:zombie`）；服务端查不到这个实体时为空串。
+- 说明：队列上限同样 256 条，满了丢最旧的；一次调用取走并清空。
+- 事件来源与 C++ 的 `addActorInteractListener` **完全一致**（服务端实体物品事务 `ItemUseOnActorInventoryTransaction` 这条路径）—— 脚本侧不会比 C++ 多收，也不会少收；不产生物品事务的交互（例如空手直接点到）未必有事件，别把它当成交互的完整审计。
+- 示例：
+
+    ```js
+    const actorPollInteractions = ll.import("HologramLib", "actorPollInteractions");
+    setInterval(() => {
+      for (const line of actorPollInteractions()) {
+        const m = line.match(/player=(\S+) action=(\d+) runtimeId=(\d+) uniqueId=(-?\d+) type=(\S*)/);
+        if (!m) continue;
+        const [, who, action, , uniqueId, type] = m;
+        if (action === "2" && type === "minecraft:zombie") logger.info(`${who} 打了僵尸 ${uniqueId}`);
+      }
+    }, 100);
+    ```
+
+### 丢弃真实实体交互事件
+
+`actorClearInteractions()`
+
+- 返回值：没有返回值
+- 返回值类型：`Null`
+- 示例：
+
+    ```js
+    const actorClearInteractions = ll.import("HologramLib", "actorClearInteractions");
+    actorClearInteractions();
+    ```
+
 ## 逐玩家覆盖、单播动画与属性
 
 这一组是 26.51.6 补上的：C++ 接口一直有，脚本侧之前没导出。
@@ -784,12 +831,12 @@ setInterval(() => {
 ## 注意事项
 
 1. **`ghost*` 必须轮询。** 交互事件不进回调，只在队列里；不调 `ghostPollInteractions()` 就永远收不到。队列上限 256 条，满了丢最旧的。
-2. **只有点到库内协议实体的交互会入队。** 自定义实体、物品悬浮、假玩家 NPC 的点击会带 `domain` 与库内 `id`；打到服务端真实实体（原版生物、玩家）的点击不会出现在 `ghostPollInteractions()` 的返回值里。
+2. **`ghost*` 只管库内协议实体。** 自定义实体、物品悬浮、假玩家 NPC 的点击会带 `domain` 与库内 `id`；打到服务端真实实体（原版生物、玩家）的点击不会出现在 `ghostPollInteractions()` 的返回值里 —— 那些走 `actorPollInteractions()`（同样要自己轮询，上限同样 256 条）。
 3. **自定义实体不是"创建即出现"。** 谁能看到由库定期重算，所以新建的实体最迟约 1 秒内出现在客户端；改一次属性会顺带触发一次重算，通常更快。
 4. **协议实体不参与服务端逻辑。** 它没有 AI、没有碰撞、不落存档：打它不会掉血，走过去不会撞到，重启后全部消失 —— 需要持久化就自己存 id，再用 `entityCreateWithId` 恢复。
 5. **可见性是四个条件的交集。** 维度 + 视距 + 白名单 + `entitySetEnabled` 开关都满足的玩家才看得到；白名单不是"追加"，`entitySetVisiblePlayer` 会替换整份名单。
 6. **名字牌默认只在准星对准时显示。** LSE 侧没有切换"常显"的函数；要和全息字一样始终可见，用 `holo*` 域另挂一行字。
-7. **逐客户端朝向没有 LSE 导出。** "每个玩家看到不同朝向"（`setPlayerRotation` 一族）只有 C++ 接口，本页的逐客户端函数只覆盖名字牌、缩放和装备。
+7. **逐客户端朝向有 LSE 导出（26.51.6 起）。** `entitySetPlayerRotation` / `entityClearPlayerRotation` / `entityClearPlayerRotations` 就是 C++ `setPlayerRotation` 一族的脚本版；名字牌、缩放、装备的逐客户端函数各有自己的导出（见上面「自定义实体 · 逐客户端外观」）。
 8. **`entityPlayAnimation` 只发一次包、不持久化。** 玩家后来才看到这只实体时不会自动补发动画；`entitySetEnabled` 关掉时调用会直接返回 `false`。
 9. **粒子形状没有"销毁全部"和"列出全部 id"的导出。** 脚本要自己保存创建时返回的 id，收尾时逐个 `particleDestroy`。
 10. **粒子白名单按 uuid，并且和维度叠加。** 白名单里一个有效玩家都不在形状所在维度时，这个形状会被自动移除（不会留着等人）；形状所在维度为空只是空转保留。

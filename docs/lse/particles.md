@@ -397,6 +397,40 @@
     particleSetVisible(pid, "");                 // 恢复维度全员可见
     ```
 
+### 限定粒子可见玩家 · 数组写法
+
+`particleSetVisiblePlayers(id, playerUuids)`
+
+- 参数：
+  - `id` : `Integer`<br>形状 id
+  - `playerUuids` : `Array<String>`<br>玩家 uuid 数组，如 `[player.uuid, other.uuid]`；解析不出 uuid 的项会被丢掉。**传空数组等于恢复维度全员可见**（和 `particleSetVisible(id, "")` 同义）
+- 返回值：`true` 成功；id 不存在 `false`
+- 返回值类型：`Boolean`
+- 说明：与 `particleSetVisible` 同一份内部状态，只是入参从「逗号分隔串」换成数组 —— 玩家 uuid 本身可能含逗号以外字符时更省心，也不用自己拼串
+- 示例：
+
+    ```js
+    const particleSetVisiblePlayers = ll.import("HologramLib", "particleSetVisiblePlayers");
+    particleSetVisiblePlayers(pid, [player.uuid]);                  // 只有这个玩家看得到
+    particleSetVisiblePlayers(pid, [player.uuid, other.uuid]);       // 两个玩家
+    ```
+
+### 取消可见玩家限定
+
+`particleClearVisiblePlayers(id)`
+
+- 参数：
+  - `id` : `Integer`<br>形状 id
+- 返回值：`true` 成功；id 不存在 `false`
+- 返回值类型：`Boolean`
+- 说明：把白名单清空并恢复 `visibleAll`，等价于 `particleSetVisible(id, "")` / `particleSetVisiblePlayers(id, [])`；单独给一个函数是为了语义清楚
+- 示例：
+
+    ```js
+    const particleClearVisiblePlayers = ll.import("HologramLib", "particleClearVisiblePlayers");
+    particleClearVisiblePlayers(pid);   // 回到维度内全员可见
+    ```
+
 ### 改粒子重发间隔
 
 `particleSetInterval(id, ticks)`
@@ -479,3 +513,51 @@
     const particleGetInfo = ll.import("HologramLib", "particleGetInfo");
     logger.info(particleGetInfo(pid));   // 例：particle shape #1: kind=box owner=demo dim=0 anchor=(100.50,64.50,100.50) ...
     ```
+
+### 这个 id 还在吗
+
+`particleExists(id)`
+
+- 参数：
+  - `id` : `Integer`<br>形状 id
+- 返回值：形状还在 `true`；id 不存在（没建过 / 已销毁 / 已到存活时长）`false`
+- 返回值类型：`Boolean`
+- 说明：`particleSetLifetime(id, 0)` 改成永久的形状不会自己消失；用寿命创建的形状到点后 `particleExists` 立刻变 `false` —— 定时器里拿它判活，比 `particleGetInfo(id) === ""` 便宜
+- 示例：
+
+    ```js
+    const particleExists = ll.import("HologramLib", "particleExists");
+    if (!particleExists(pid)) {
+      pid = particleCreatePoint(...);   // 寿命到了，重摆一个
+    }
+    ```
+
+### 列出全部粒子形状 id
+
+`particleGetAllIds()`
+
+- 参数：无
+- 返回值：当前活着的形状 id 数组（升序）；没有活了就是空数组 `[]`
+- 返回值类型：`Array<Integer>`
+- 示例：
+
+    ```js
+    const particleGetAllIds = ll.import("HologramLib", "particleGetAllIds");
+    for (const id of particleGetAllIds()) logger.info(particleGetInfo(id));
+    ```
+
+### 一次销毁全部粒子形状
+
+`particleDestroyAll()`
+
+- 参数：无
+- 返回值：无（`null`）
+- 返回值类型：`Void`
+- 说明：**没有归属区分** —— 库里的粒子形状是全局的，它会把**所有**形状一起销毁，包括其他脚本建的。多脚本共用时建议自己记 id、逐个 `particleDestroy`，只在插件卸载 / 清场时用这个
+- 示例：
+
+    ```js
+    const particleDestroyAll = ll.import("HologramLib", "particleDestroyAll");
+    particleDestroyAll();   // 清场
+    ```
+

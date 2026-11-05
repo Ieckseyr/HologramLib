@@ -1,4 +1,3 @@
-// ActorEffectManager.cpp - 实体表现事件
 #include "ActorEffectManager.h"
 
 #include "core/PacketSink.h"
@@ -26,7 +25,7 @@ bool sendTo(::Player& player, int64_t runtimeId, int eventId, int data) {
     packet.mEventId   = static_cast<sculk::protocol::ActorEvent>(eventId);
     packet.mData      = data;
 
-    auto bytes = wire::encodeChecked(packet);
+    auto bytes = wire::encode(packet);
     if (bytes.empty())
         return false;
 
@@ -52,7 +51,6 @@ bool ActorEffectManager::dispatch(std::string const& playerName, int64_t runtime
         return sendTo(*player, runtimeId, eventId, data);
     }
 
-    // 不指定玩家：发给同维度的所有玩家（实体所在维度由调用方负责，这里按全部玩家发）
     auto level = ::ll::service::getLevel();
     if (!level)
         return false;

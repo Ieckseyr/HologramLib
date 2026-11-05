@@ -1,4 +1,3 @@
-// PlayerRespawnManager.cpp - 死亡动画后的复活（只发包）
 #include "actor/PlayerRespawnManager.h"
 
 #include "compat/Wire26.h"
@@ -47,17 +46,15 @@ bool PlayerRespawnManager::respawnAt(std::string const& playerName, float x, flo
     sculk::protocol::RespawnPacket packet;
     packet.mPosition = sculk::protocol::Vec3{x, y, z};
     packet.mState    = static_cast<sculk::protocol::RespawnPacket::PlayerRespawnState>(
-        std::clamp(state, 0, 2)
-    );
+        std::clamp(state, 0, 2));
     packet.mActorRuntimeId = player->getRuntimeID().rawID;
 
-    // 走统一出口：26.60 编码 + BDS 回读校验 + 发包审计（trace）
-    return wire::sendBodyChecked(
+    return wire::sendBody(
         *player,
         static_cast<std::uint32_t>(packet.getId()),
         wire26::body26(packet),
-        "RespawnPacket"
-    );
+        wire::Reliability::Reliable,
+        "RespawnPacket");
 }
 
 } // namespace debugshape_export

@@ -13,7 +13,7 @@
 | Visual Studio 2022 | MSVC x64 | 必须带 C++ 桌面开发工作负载 |
 | [xmake](https://xmake.io) | 最新 | 构建系统 |
 | LeviLamina | 26.40.0 | xmake 会自动拉取 |
-| [SculkCatalystMC/Protocol](https://github.com/SculkCatalystMC/Protocol) | v2193 | 需要自行 CMake 构建并安装到 `plugins/BedrockProtocol-main/install` |
+| [SculkCatalystMC/Protocol](https://github.com/SculkCatalystMC/Protocol) | v2193 | 需要自行 CMake 构建并安装到 `mods/BedrockProtocol-main/install` |
 | Python | 3.x | 仅本地离线回归检查用（`tests/`），不参与构建 |
 
 `Protocol` 静态库是硬依赖：形状渲染、视图覆盖、容器与交易菜单的手写包体都直接调它的 sculk 序列化。
@@ -53,7 +53,7 @@ lip install github.com/Ieckseyr/HologramLib
 手动部署：
 
 1. 关服；
-2. 解压发布包 `HologramLib.zip`，把得到的 `HologramLib` 文件夹整个放进服务端 `plugins/`，最终为 `plugins/HologramLib/`（内含 `HologramLib.dll`、`manifest.json`、`tooth.json` 与脚本导入层 `lib/`）；
+2. 解压发布包 `HologramLib.zip`，把得到的 `HologramLib` 文件夹整个放进服务端 `mods/`，最终为 `mods/HologramLib/`（内含 `HologramLib.dll`、`manifest.json`、`tooth.json` 与脚本导入层 `lib/`）；
 3. 开服。
 
 启动顺序没有任何要求。库在 `enable()` 期检测 LSE 兼容层，没检测到就在 `ServerStartedEvent` 兜底重试，双保险意味着它和 LegacyRemoteCall（`lrca`）谁先加载都可以。
@@ -166,7 +166,7 @@ if (ll.hasExported("HologramLib", "containerPollClicks")) {
 | 函数名不存在（旧版库） | `ll.import` 得 `null` |
 
 所以「拿到的函数是 `null`」永远意味着「这个能力你现在没有」，而不是「调用了但没生效」。
-完整的 339 个函数按域分页，见 [LSE 脚本接口](lse/index.md)。
+完整的 424 个函数按域分页，见 [LSE 脚本接口](lse/index.md)。
 
 ---
 

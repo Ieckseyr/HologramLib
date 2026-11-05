@@ -1,27 +1,20 @@
 #include "../DiagFlags.h"
-// ContainerMenuManager.cpp - 虚拟容器（列表）界面实现
-//
-// 方案逐条复刻参考实现 GMLIB 的 ChestUI（src-shared/gmlib/gm/ui/ChestUI.cpp）:
-//   updateBlock      → UpdateBlockPacket(mRuntimeId = 箱子方块的 Block::mNetworkId, flag = 3)
-//   updateBlockActor → BlockActorDataPacket(id=Chest / CustomName / x,y,z / pair* / Items)
-//   ContainerOpen    → 容器类型 0(Container) + 方块坐标 + 目标实体 -1（GMLIB 写死 114 号容器 id）
-//   close            → 把真方块改回去 + ContainerClose
-// 差别: GMLIB 走 BDS 的 updateClientBlock/updateClientBlockActor（内部就是这两个包）, 这里直接
-// 手写包; 块信息从 BDS 只读查询（方块的网络 id / 该位置的真实方块）, 不调用任何发送型 API。
+
 #include "container/ContainerMenuManager.h"
 #include "item/MenuItemStack.h"
 
-#include "core/PacketSink.h"
 #include "DiagLog.h"
+#include "core/EventIds.h"
+#include "core/PacketSink.h"
 
-#include "container/ContainerPackets.h" // 三个包 + 箱子方块实体 NBT（与离线 fixture 共用同一份）
-#include "core/ClickEvent.h"            // 点击回传行版式（与 tests/click_event_test.cpp 同一份实现）
+#include "container/ContainerPackets.h"
+#include "core/ClickEvent.h"
 #include "customentity/CustomEntityManager.h"
 #include <mc/network/packet/BlockEventPacket.h>
 #include <mc/network/packet/BlockEventPacketPayload.h>
 
-#include <ll/api/io/LoggerRegistry.h>
 #include <ll/api/chrono/GameChrono.h>
+#include <ll/api/io/LoggerRegistry.h>
 #include <ll/api/service/Bedrock.h>
 #include <ll/api/thread/ServerThreadExecutor.h>
 
@@ -33,9 +26,9 @@
 #include <mc/network/packet/InventorySlotPacketPayload.h>
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/item/ItemStack.h>
-#include <mc/world/level/Level.h>
 #include <mc/world/level/BlockPos.h>
 #include <mc/world/level/BlockSource.h>
+#include <mc/world/level/Level.h>
 #include <mc/world/level/block/Block.h>
 #include <mc/world/level/block/VanillaBlockTypeIds.h>
 #include <mc/world/level/block/registry/BlockTypeRegistry.h>
@@ -69,7 +62,8 @@ namespace {
 
 Player* findPlayerByName(std::string const& name) {
     auto level = ll::service::getLevel();
-    if (!level) return nullptr;
+    if (!level)
+        return nullptr;
     Player* found = nullptr;
     level->forEachPlayer([&](Player& p) -> bool {
         if (p.getRealName() == name) {
@@ -81,31 +75,29 @@ Player* findPlayerByName(std::string const& name) {
     return found;
 }
 
-// 与交易域同款: 自己拼字节 + 经 NetworkPeer 发, 不做 BDS 回读硬校验
 template <typename PacketT>
 bool sendPacket(Player& player, PacketT const& packet) {
-if (hlibDomainDisabled("HLIB_NO_CONTAINER")) return false;
-    // 26.60: 统一走 wire26 编码（AddActor/AddPlayer/BossEvent/PlayerList/PlayerSkin 有字段级变更），
-    // 这些合成包不做 BDS 回读校验（合成的 JSON / NBT 会被读后校验拒绝，但客户端能吃）。
-    return wire::sendBodyUnchecked(
+    if (hlibDomainDisabled("HLIB_NO_CONTAINER"))
+        return false;
+
+    return wire::sendBody(
         player,
         static_cast<std::uint32_t>(packet.getId()),
         wire26::body26(packet),
-        packet.getName()
-    );
+        wire::Reliability::Reliable,
+        packet.getName(),
+        false);
 }
 
-// 箱子方块的**网络 id**（UpdateBlockPacket 要的是它, 不是方块名）
 std::uint32_t chestBlockNetworkId() {
     static std::uint32_t const cached = [] {
-        auto&        registry = BlockTypeRegistry::mBlockTypeRegistry().mValue;
-        ::Block const& chest  = registry.getDefaultBlockState(VanillaBlockTypeIds::Chest(), true);
+        auto&          registry = BlockTypeRegistry::mBlockTypeRegistry().mValue;
+        ::Block const& chest    = registry.getDefaultBlockState(VanillaBlockTypeIds::Chest(), true);
         return static_cast<std::uint32_t>(chest.mNetworkId);
     }();
     return cached;
 }
 
-// 该位置真实方块的网络 id（关闭时用来把客户端那一格改回去）
 std::uint32_t realBlockNetworkId(Player& player, int x, int y, int z) {
     auto const& block = player.getDimensionBlockSource().getBlock(::BlockPos{x, y, z});
     return static_cast<std::uint32_t>(block.mNetworkId);
@@ -115,37 +107,37 @@ bool isAirAt(Player& player, int x, int y, int z) {
     return player.getDimensionBlockSource().getBlock(::BlockPos{x, y, z}).isAir();
 }
 
-// 客户端侧方块位置: GMLIB 用"脚上方 5 格"（超出世界高度则下移 4 格）; 这里再优先挑空气位,
-// 免得把真实方块/方块实体盖掉（合成箱子只是给客户端看的, 位置本身无所谓）。
 void pickCarrierPos(Player& player, int& x, int& y, int& z) {
     auto const feet = player.getFeetBlockPos();
     x               = feet.x;
     z               = feet.z;
 
-    // 世界高度范围（GMLIB 也是这么取的: TypedStorage 对 DimensionHeightRange 走 operator->）
-    auto const&  range = player.getDimension().mHeightRange;
-    short const  maxY  = static_cast<short>(range->mMax);
-    short const  minY  = static_cast<short>(range->mMin);
-    int const preferred = (feet.y + 5 > static_cast<int>(maxY) - 1) ? feet.y - 4 : feet.y + 5;
+    auto const& range     = player.getDimension().mHeightRange;
+    short const maxY      = static_cast<short>(range->mMax);
+    short const minY      = static_cast<short>(range->mMin);
+    int const   preferred = (feet.y + 5 > static_cast<int>(maxY) - 1) ? feet.y - 4 : feet.y + 5;
 
     int const candidates[] = {preferred, preferred + 1, preferred - 1, preferred + 2, preferred - 2};
     for (int const candidate : candidates) {
-        if (candidate < static_cast<int>(minY) + 1 || candidate > static_cast<int>(maxY) - 1) continue;
+        if (candidate < static_cast<int>(minY) + 1 || candidate > static_cast<int>(maxY) - 1)
+            continue;
         if (isAirAt(player, x, candidate, z)) {
             y = candidate;
             return;
         }
     }
-    y = preferred; // 全是实体方块: 仍然开在 GMLIB 的位置上
+    y = preferred;
 }
 
-// SNBT 字符串转义（只转义引号与反斜杠）。反斜杠用字符码 92 写, 源码里不出现转义层。
-// ── 旧路径（useMinecart=true）专用: 合成一只只发给该玩家的箱子矿车 ──
 std::atomic<std::int64_t>  gNextCarrierUid{-860000000000LL};
 std::atomic<std::uint64_t> gNextCarrierRid{0x6E300000ULL};
 
-std::uint64_t nextCarrierUniqueId() { return static_cast<std::uint64_t>(gNextCarrierUid.fetch_sub(1)); }
-std::uint64_t nextCarrierRuntimeId() { return gNextCarrierRid.fetch_add(1); }
+std::uint64_t nextCarrierUniqueId() {
+    return static_cast<std::uint64_t>(gNextCarrierUid.fetch_sub(1));
+}
+std::uint64_t nextCarrierRuntimeId() {
+    return gNextCarrierRid.fetch_add(1);
+}
 
 } // namespace
 
@@ -161,28 +153,30 @@ static std::uint64_t containerNowTick() {
 
 int ContainerMenuManager::allocateContainerId() {
     auto const now = containerNowTick();
-    // 26.40：释放后 200 tick 内不复用。
+
     for (auto it = mIdFreedTick.begin(); it != mIdFreedTick.end();) {
-        if (now - it->second > 200) it = mIdFreedTick.erase(it);
-        else ++it;
+        if (now - it->second > 200)
+            it = mIdFreedTick.erase(it);
+        else
+            ++it;
     }
-    // 显示区间 101..199 循环; 同时占用则顺延, 全占则失败
+
     for (int i = 0; i < 99; ++i) {
         int const candidate = mNextContainerId;
         mNextContainerId    = (mNextContainerId >= 199) ? 101 : (mNextContainerId + 1);
-        bool used = mIdFreedTick.contains(candidate);
+        bool used           = mIdFreedTick.contains(candidate);
         if (!used) {
             mMenus.forEachLocked([&](int64_t, Menu const& menu) {
                 if (menu.containerId == candidate)
                     used = true;
             });
         }
-        if (!used) return candidate;
+        if (!used)
+            return candidate;
     }
     return 0;
 }
 
-// ── 步骤 1+2: 客户端侧箱子方块 + 方块实体 ──
 void ContainerMenuManager::sendChestBlocks(Player& player, Menu const& menu) {
     auto const runtimeId = chestBlockNetworkId();
 
@@ -194,30 +188,27 @@ void ContainerMenuManager::sendChestBlocks(Player& player, Menu const& menu) {
                 x,
                 y,
                 z,
-                container::buildChestNbt(x, y, z, secondHalf, menu.spec.title, menu.spec.rows, menu.spec.items)
-            )
-        );
+                container::buildChestNbt(x, y, z, secondHalf, menu.spec.title, menu.spec.rows, menu.spec.items, menu.enchantsBySlot)));
     };
 
     sendOne(menu.posX, menu.posY, menu.posZ, false);
-    if (menu.isBig()) sendOne(menu.posX + 1, menu.posY, menu.posZ, true);
+    if (menu.isBig())
+        sendOne(menu.posX + 1, menu.posY, menu.posZ, true);
 }
 
-// ── 步骤 3: ContainerOpen（类型 0 = Container, 绑方块坐标, 目标实体 -1）──
 void ContainerMenuManager::sendContainerOpen(Player& player, Menu const& menu) {
     sendPacket(player, container::makeContainerOpen(menu.containerId, menu.posX, menu.posY, menu.posZ));
 }
 
-// ── 关闭: 把那一格（大箱子是两格）改回真方块 ──
 void ContainerMenuManager::restoreRealBlocks(Player& player, Menu const& menu) {
     auto sendOne = [&](int x, int y, int z) {
         sendPacket(player, container::makeUpdateBlock(x, y, z, realBlockNetworkId(player, x, y, z)));
     };
     sendOne(menu.posX, menu.posY, menu.posZ);
-    if (menu.isBig()) sendOne(menu.posX + 1, menu.posY, menu.posZ);
+    if (menu.isBig())
+        sendOne(menu.posX + 1, menu.posY, menu.posZ);
 }
 
-// ── 旧路径: 合成箱子矿车 + ContainerOpen(MinecartChest) ──
 void ContainerMenuManager::sendMinecartCarrier(Player& player, Menu const& menu) {
     auto const uid = menu.carrierUniqueId;
     auto const rid = menu.carrierRuntimeId;
@@ -229,13 +220,12 @@ void ContainerMenuManager::sendMinecartCarrier(Player& player, Menu const& menu)
     spawn.mPosition       = sculk::protocol::Vec3{
         static_cast<float>(menu.posX),
         static_cast<float>(menu.posY),
-        static_cast<float>(menu.posZ)
-    };
-    spawn.mVelocity       = sculk::protocol::Vec3{0.0f, 0.0f, 0.0f};
-    spawn.mRotation       = sculk::protocol::Vec2{0.0f, 0.0f};
-    spawn.mYHeadRotation  = 0.0f;
-    spawn.mYBodyRotation  = 0.0f;
-    auto& meta = spawn.mMetaData.mDataItems;
+        static_cast<float>(menu.posZ)};
+    spawn.mVelocity      = sculk::protocol::Vec3{0.0f, 0.0f, 0.0f};
+    spawn.mRotation      = sculk::protocol::Vec2{0.0f, 0.0f};
+    spawn.mYHeadRotation = 0.0f;
+    spawn.mYBodyRotation = 0.0f;
+    auto& meta           = spawn.mMetaData.mDataItems;
     meta.push_back({sculk::protocol::ActorDataIDs::Name, std::string(menu.spec.title)});
     meta.push_back({sculk::protocol::ActorDataIDs::Reserved0, static_cast<std::int64_t>(1) << 5});
     sendPacket(player, spawn);
@@ -263,19 +253,25 @@ bool ContainerMenuManager::isCurrentEpoch(Menu const& menu) const {
 
 void ContainerMenuManager::laterSendBlocks(std::string playerName, int64_t menuId) {
     auto* player = findPlayerByName(playerName);
-    if (player == nullptr) return;
+    if (player == nullptr)
+        return;
     Menu copy;
-    if (!snapshotMenu(menuId, copy)) return; // 已关闭
-    if (!isCurrentEpoch(copy)) return;       // 玩家已退出/重开, 旧任务作废
+    if (!snapshotMenu(menuId, copy))
+        return;
+    if (!isCurrentEpoch(copy))
+        return;
     sendChestBlocks(*player, copy);
 }
 
 void ContainerMenuManager::laterSendOpen(std::string playerName, int64_t menuId) {
     auto* player = findPlayerByName(playerName);
-    if (player == nullptr) return;
+    if (player == nullptr)
+        return;
     Menu copy;
-    if (!snapshotMenu(menuId, copy)) return;
-    if (!isCurrentEpoch(copy)) return; // 旧会话的延迟 open 不再发
+    if (!snapshotMenu(menuId, copy))
+        return;
+    if (!isCurrentEpoch(copy))
+        return;
     sendContainerOpen(*player, copy);
     std::lock_guard lock(mMutex);
     mMenus.withObject(menuId, [&](Menu& menu) {
@@ -285,10 +281,13 @@ void ContainerMenuManager::laterSendOpen(std::string playerName, int64_t menuId)
 
 void ContainerMenuManager::laterMinecartOpen(std::string playerName, int64_t menuId) {
     auto* player = findPlayerByName(playerName);
-    if (player == nullptr) return;
+    if (player == nullptr)
+        return;
     Menu copy;
-    if (!snapshotMenu(menuId, copy)) return;
-    if (!isCurrentEpoch(copy)) return;
+    if (!snapshotMenu(menuId, copy))
+        return;
+    if (!isCurrentEpoch(copy))
+        return;
     sendMinecartCarrier(*player, copy);
     std::lock_guard lock(mMutex);
     mMenus.withObject(menuId, [&](Menu& menu) {
@@ -297,7 +296,8 @@ void ContainerMenuManager::laterMinecartOpen(std::string playerName, int64_t men
 }
 
 int64_t ContainerMenuManager::open(std::string const& playerName, hologramlib::ContainerMenuSpec const& spec) {
-    if (hlibDomainDisabled("HLIB_NO_CONTAINER")) return -1;
+    if (hlibDomainDisabled("HLIB_NO_CONTAINER"))
+        return -1;
     auto* player = findPlayerByName(playerName);
     if (player == nullptr) {
         HLIB_LOG_WARN("[ContainerMenu] 打开失败: 玩家 {} 不在线", playerName);
@@ -307,17 +307,19 @@ int64_t ContainerMenuManager::open(std::string const& playerName, hologramlib::C
     int64_t previous = -1;
     {
         std::lock_guard lock(mMutex);
-        if (auto it = mByPlayer.find(playerName); it != mByPlayer.end()) previous = it->second;
+        if (auto it = mByPlayer.find(playerName); it != mByPlayer.end())
+            previous = it->second;
     }
-    if (previous >= 0) close(previous);
+    if (previous >= 0)
+        close(previous);
 
     Menu menu;
     menu.playerName = playerName;
     menu.spec       = spec;
     pickCarrierPos(*player, menu.posX, menu.posY, menu.posZ);
     if (spec.useMinecart) {
-        menu.posY            = static_cast<int>(player->getPosition().y) + 5;
-        menu.carrierUniqueId = nextCarrierUniqueId();
+        menu.posY             = static_cast<int>(player->getPosition().y) + 5;
+        menu.carrierUniqueId  = nextCarrierUniqueId();
         menu.carrierRuntimeId = nextCarrierRuntimeId();
     }
     {
@@ -328,18 +330,15 @@ int64_t ContainerMenuManager::open(std::string const& playerName, hologramlib::C
             HLIB_LOG_WARN("[ContainerMenu] 容器 id 用尽（玩家 {}）", playerName);
             return -1;
         }
-        int64_t const menuId  = mMenus.insert(std::make_unique<Menu>(menu));
-        menu.menuId           = menuId;
-        // 表里那份 Menu 也要带上自己的 id —— 点击回传的 menuId 取的就是它。
-        // （漏了这一步 → 回传恒为 0，调用方按 id 匹配就全对不上）
+        int64_t const menuId = mMenus.insert(std::make_unique<Menu>(menu));
+        menu.menuId          = menuId;
+
         mMenus.withObject(menuId, [&](Menu& stored) {
             stored.menuId = menuId;
         });
         mByPlayer[playerName] = menuId;
     }
 
-    // 节奏与参考实现一致: ① 先摆方块 + 方块实体（客户端要先知道有这个容器）→ ② 等 10 tick
-    // 再发 ContainerOpen。背靠背一次发完客户端会打不开界面。
     std::string const playerNameCopy = playerName;
     int64_t const     menuIdCopy     = menu.menuId;
     auto&             executor       = ll::thread::ServerThreadExecutor::getDefault();
@@ -355,8 +354,7 @@ int64_t ContainerMenuManager::open(std::string const& playerName, hologramlib::C
             [playerNameCopy, menuIdCopy]() {
                 ContainerMenuManager::getInstance().laterSendOpen(playerNameCopy, menuIdCopy);
             },
-            ll::chrono::game::ticks(std::max(1, spec.openDelayTicks))
-        );
+            ll::chrono::game::ticks(std::max(1, spec.openDelayTicks)));
     }
     HLIB_LOG_INFO(
         "[ContainerMenu] 已打开: player={} menuId={} containerId={} 行数={} 条目={} 方块=({},{},{}) 路径={}",
@@ -368,15 +366,10 @@ int64_t ContainerMenuManager::open(std::string const& playerName, hologramlib::C
         menu.posX,
         menu.posY,
         menu.posZ,
-        spec.useMinecart ? "矿车(旧)" : "方块(GMLIB)"
-    );
+        spec.useMinecart ? "矿车(旧)" : "方块(GMLIB)");
     return menu.menuId;
 }
 
-// ── 就地换内容: 不拆界面 ──
-// 翻页/进子菜单/返回都走这条: 载体方块还在客户端那边, 所以只把新的方块实体 NBT 重发一次
-// （Items/标题就在里面）, 再把 ContainerOpen 重发一次让客户端重新读这个容器。
-// 中间**不等待**: 没有"先摆方块再等它生效"这一步。
 void ContainerMenuManager::resendBlockActor(Player& player, Menu const& menu) {
     auto const title = menu.spec.title;
     sendPacket(
@@ -385,9 +378,7 @@ void ContainerMenuManager::resendBlockActor(Player& player, Menu const& menu) {
             menu.posX,
             menu.posY,
             menu.posZ,
-            container::buildChestNbt(menu.posX, menu.posY, menu.posZ, false, title, menu.spec.rows, menu.spec.items)
-        )
-    );
+            container::buildChestNbt(menu.posX, menu.posY, menu.posZ, false, title, menu.spec.rows, menu.spec.items, menu.enchantsBySlot)));
     if (menu.isBig()) {
         sendPacket(
             player,
@@ -395,15 +386,21 @@ void ContainerMenuManager::resendBlockActor(Player& player, Menu const& menu) {
                 menu.posX + 1,
                 menu.posY,
                 menu.posZ,
-                container::buildChestNbt(menu.posX + 1, menu.posY, menu.posZ, true, title, menu.spec.rows, menu.spec.items)
-            )
-        );
+                container::buildChestNbt(menu.posX + 1, menu.posY, menu.posZ, true, title, menu.spec.rows, menu.spec.items, menu.enchantsBySlot)));
     }
 }
 
+bool ContainerMenuManager::getSpec(int64_t menuId, hologramlib::ContainerMenuSpec& out) const {
+    std::lock_guard lock(mMutex);
+    return mMenus.withObject(menuId, [&](Menu const& menu) {
+        out = menu.spec;
+    });
+}
+
 bool ContainerMenuManager::update(int64_t menuId, hologramlib::ContainerMenuSpec const& spec) {
-    if (hlibDomainDisabled("HLIB_NO_CONTAINER")) return false;
-    Menu  copy;
+    if (hlibDomainDisabled("HLIB_NO_CONTAINER"))
+        return false;
+    Menu copy;
     {
         std::lock_guard lock(mMutex);
         if (!mMenus.withObject(menuId, [&](Menu& menu) {
@@ -414,45 +411,57 @@ bool ContainerMenuManager::update(int64_t menuId, hologramlib::ContainerMenuSpec
         }
     }
     auto* player = findPlayerByName(copy.playerName);
-    if (player == nullptr) return false;
-    if (!isCurrentEpoch(copy)) return false; // 旧会话的刷新句柄作废
+    if (player == nullptr)
+        return false;
+    if (!isCurrentEpoch(copy))
+        return false;
 
-    // 26.40：只发给 UI 开着的玩家。
-    if (!copy.uiOpen) return true;
+    if (!copy.uiOpen)
+        return true;
 
     resendBlockActor(*player, copy);
-    // 不重发 ContainerOpen，逐槽 InventorySlot。
+
     int const slots = std::min<int>(copy.slotCount(), static_cast<int>(copy.spec.items.size()));
     for (int slot = 0; slot < slots; ++slot) {
-        auto stack = item::makeMenuItemStack(copy.spec.items[slot]);
+        auto                  stack = item::makeMenuItemStack(copy.spec.items[slot]);
         ::InventorySlotPacket packet{::InventorySlotPacketPayload(
             static_cast<::ContainerID>(copy.containerId),
             static_cast<uint>(slot),
-            stack
-        )};
-        player->sendNetworkPacket(packet);
+            stack)};
+        (void)wire::send(*player, packet);
     }
     HLIB_LOG_INFO(
         "[ContainerMenu] 就地换内容(仅开着的UI): player={} menuId={} 条目={} rows={}",
         copy.playerName,
         menuId,
         spec.items.size(),
-        spec.rows
-    );
+        spec.rows);
     return true;
 }
 
-// 按槽刷新: 一条 InventorySlot 换掉一格（真实箱子同步内容用的就是这种包）——无延迟、无闪烁
 bool ContainerMenuManager::setItem(int64_t menuId, int slot, hologramlib::ContainerMenuItem const& item) {
-    if (hlibDomainDisabled("HLIB_NO_CONTAINER")) return false;
-    Menu  copy;
+    return setItemEnchanted(menuId, slot, item, {});
+}
+
+bool ContainerMenuManager::setItemEnchanted(
+    int64_t                                 menuId,
+    int                                     slot,
+    hologramlib::ContainerMenuItem const&   item,
+    std::vector<std::pair<int, int>> const& enchants) {
+    if (hlibDomainDisabled("HLIB_NO_CONTAINER"))
+        return false;
+    Menu copy;
     {
         std::lock_guard lock(mMutex);
         bool const      patched = mMenus.withObject(menuId, [&](Menu& menu) -> bool {
-            if (slot < 0 || slot >= menu.slotCount())
+            if (slot < 0 || slot >= static_cast<int>(menu.spec.items.size()))
                 return false;
             if (slot < static_cast<int>(menu.spec.items.size()))
                 menu.spec.items[slot] = item;
+            if (enchants.empty())
+                menu.enchantsBySlot.erase(slot);
+            else
+                menu.enchantsBySlot[slot] = enchants;
             copy = menu;
             return true;
         });
@@ -460,25 +469,27 @@ bool ContainerMenuManager::setItem(int64_t menuId, int slot, hologramlib::Contai
             return false;
     }
     auto* player = findPlayerByName(copy.playerName);
-    if (player == nullptr) return false;
-    if (!isCurrentEpoch(copy)) return true;
-    // 26.40：只发给 UI 开着的玩家。
-    if (!copy.uiOpen) return true;
+    if (player == nullptr)
+        return false;
+    if (!isCurrentEpoch(copy))
+        return true;
 
-    auto stack = item::makeMenuItemStack(item);
+    if (!copy.uiOpen)
+        return true;
+
+    auto                  stack = item::makeMenuItemStack(item, enchants);
     ::InventorySlotPacket packet{::InventorySlotPacketPayload(
         static_cast<::ContainerID>(copy.containerId),
         static_cast<uint>(slot),
-        stack
-    )};
-    player->sendNetworkPacket(packet); // native 包: BDS 自己的物品描述符序列化
+        stack)};
+    (void)wire::send(*player, packet);
     HLIB_LOG_INFO("[ContainerMenu] 按槽刷新(UI开着): player={} menuId={} slot={} 物品={}", copy.playerName, menuId, slot, item.type);
     return true;
 }
 
 bool ContainerMenuManager::setTitle(int64_t menuId, std::string const& title) {
     hologramlib::ContainerMenuSpec spec;
-    std::string                  playerName;
+    std::string                    playerName;
     {
         std::lock_guard lock(mMutex);
         if (!mMenus.withObject(menuId, [&](Menu& menu) {
@@ -490,8 +501,9 @@ bool ContainerMenuManager::setTitle(int64_t menuId, std::string const& title) {
         }
     }
     auto* player = findPlayerByName(playerName);
-    if (player == nullptr) return false;
-    // 复用 update(): 重发方块实体 NBT（新标题 + 现有条目）+ ContainerOpen 让客户端重读
+    if (player == nullptr)
+        return false;
+
     return update(menuId, spec);
 }
 
@@ -502,73 +514,72 @@ bool ContainerMenuManager::setInteractive(int64_t menuId, bool on) {
     });
 }
 
-// 可交互模式: 一条请求的槽位序列 → 条目表。
-// 语义按"动作顺序推演"来: 每个槽位要么是"取走"(take), 要么是"放入"(place) ——
-// 客户端在容器内部拖动/交换/拆分时发的就是这些转移动作, 我们只要维护
-//   items[slot] 与 cursor(光标/手持那份)
-// 两个状态, 让它和客户端的预测一致（之后 update()/refresh 重发才不会跳回去）。
 void ContainerMenuManager::applyInteractiveSlots(
-    Menu&                            menu,
-    std::vector<RequestSlot> const&  slots,
-    int                              amount
-) {
-    auto isEmpty = [](hologramlib::ContainerMenuItem const& item) { return item.type.empty(); };
-    int  move    = amount < 1 ? 1 : amount;
+    Menu&                           menu,
+    std::vector<RequestSlot> const& slots,
+    int                             amount) {
+    auto isEmpty = [](hologramlib::ContainerMenuItem const& item) {
+        return item.type.empty();
+    };
+    int move = amount < 1 ? 1 : amount;
 
     for (std::size_t i = 0; i < slots.size(); ++i) {
         auto const& ref = slots[i];
-        if (ref.slot < 0 || ref.slot >= menu.slotCount()) continue;
+        if (ref.slot < 0 || ref.slot >= static_cast<int>(menu.spec.items.size()))
+            continue;
         auto& slotItem = menu.spec.items[static_cast<std::size_t>(ref.slot)];
 
-        // 偶数下标 = 取走的源, 奇数下标 = 放入的目标（请求里动作成对出现）
         bool const isSource = (i % 2 == 0);
         if (isSource) {
-            if (isEmpty(slotItem)) continue;
-            int const taken = std::min(move, slotItem.count < 1 ? 1 : slotItem.count);
-            menu.cursor     = slotItem;
+            if (isEmpty(slotItem))
+                continue;
+            int const taken   = std::min(move, slotItem.count < 1 ? 1 : slotItem.count);
+            menu.cursor       = slotItem;
             menu.cursor.count = taken;
             slotItem.count -= taken;
-            if (slotItem.count <= 0) slotItem = hologramlib::ContainerMenuItem{};
+            if (slotItem.count <= 0)
+                slotItem = hologramlib::ContainerMenuItem{};
         } else {
-            if (isEmpty(menu.cursor)) continue;
+            if (isEmpty(menu.cursor))
+                continue;
             if (isEmpty(slotItem) || slotItem.type == menu.cursor.type) {
-                // 空格或同类: 叠加（不追求与客户端逐分不差, 数量以光标那份为准）
+
                 int const putCount = std::min(move, menu.cursor.count < 1 ? 1 : menu.cursor.count);
                 if (isEmpty(slotItem)) {
-                    slotItem = menu.cursor;
+                    slotItem       = menu.cursor;
                     slotItem.count = putCount;
                 } else {
                     slotItem.count += putCount;
                 }
                 menu.cursor.count -= putCount;
-                if (menu.cursor.count <= 0) menu.cursor = hologramlib::ContainerMenuItem{};
+                if (menu.cursor.count <= 0)
+                    menu.cursor = hologramlib::ContainerMenuItem{};
             } else {
-                // 异类: 交换
+
                 std::swap(slotItem, menu.cursor);
             }
         }
     }
 }
 
-// 可交互请求: 认下 ⇒ 应用到条目表 + 回传点击（返回 true 由调用方回成功应答并拦下）
 bool ContainerMenuManager::handleInteractiveRequest(
     std::string const&              playerName,
     std::vector<RequestSlot> const& slots,
-    int                             amount
-) {
-    if (slots.empty()) return false;
+    int                             amount) {
+    if (slots.empty())
+        return false;
 
     std::vector<hologramlib::ContainerClickEvent> events;
     {
         std::lock_guard lock(mMutex);
         auto            byPlayer = mByPlayer.find(playerName);
-        if (byPlayer == mByPlayer.end()) return false;
+        if (byPlayer == mByPlayer.end())
+            return false;
         bool const handled = mMenus.withObject(byPlayer->second, [&](Menu& menu) -> bool {
             if (!menu.spec.interactive)
-                return false; // 默认只回传, 不接
+                return false;
 
-            // 每个槽位都必须落在本容器内（外部槽位 = 玩家背包/光标等, 一律不接）
-            int const slotCount = menu.slotCount();
+            int const slotCount = static_cast<int>(menu.spec.items.size());
             for (auto const& ref : slots) {
                 bool const inContainer = (ref.container == static_cast<int>(ContainerEnumName::LevelEntityContainer)) || (ref.containerId >= 101 && ref.containerId <= 199);
                 if (!inContainer)
@@ -591,13 +602,13 @@ bool ContainerMenuManager::handleInteractiveRequest(
         if (!handled)
             return false;
     }
-    for (auto const& event : events) dispatch(event);
+    for (auto const& event : events)
+        dispatch(event);
     HLIB_LOG_INFO(
         "[ContainerMenu] 可交互模式接住请求: player={} 槽位数={} amount={}",
         playerName,
         slots.size(),
-        amount
-    );
+        amount);
     return true;
 }
 
@@ -610,7 +621,7 @@ bool ContainerMenuManager::close(int64_t menuId) {
             }))
             return false;
         mMenus.erase(menuId);
-        mIdFreedTick[copy.containerId] = containerNowTick(); // 200 tick 内不复用
+        mIdFreedTick[copy.containerId] = containerNowTick();
         if (auto byPlayer = mByPlayer.find(copy.playerName);
             byPlayer != mByPlayer.end() && byPlayer->second == menuId) {
             mByPlayer.erase(byPlayer);
@@ -619,12 +630,12 @@ bool ContainerMenuManager::close(int64_t menuId) {
     if (auto* player = findPlayerByName(copy.playerName)) {
         sendPacket(*player, container::makeContainerClose(copy.containerId));
         if (copy.spec.useMinecart) {
-            // 协议层合成实体: 关界面即让客户端删掉它
+
             sculk::protocol::RemoveActorPacket remove;
             remove.mActorUniqueId = static_cast<std::int64_t>(copy.carrierUniqueId);
             sendPacket(*player, remove);
         } else {
-            restoreRealBlocks(*player, copy); // 把客户端那一格改回真实方块
+            restoreRealBlocks(*player, copy);
         }
     }
     HLIB_LOG_INFO("[ContainerMenu] 已关闭: player={} menuId={}", copy.playerName, menuId);
@@ -632,8 +643,14 @@ bool ContainerMenuManager::close(int64_t menuId) {
 }
 
 void ContainerMenuManager::closeAll() {
-    for (auto const id : mMenus.snapshotAll())
+    std::vector<int64_t> ids;
+    {
+        std::lock_guard lock(mMutex);
+        ids = mMenus.snapshotAll();
+    }
+    for (auto const id : ids) {
         close(id);
+    }
 }
 
 bool ContainerMenuManager::blockEvent(int64_t menuId, int b0, int b1) {
@@ -653,27 +670,28 @@ bool ContainerMenuManager::blockEvent(int64_t menuId, int b0, int b1) {
     if (player == nullptr)
         return false;
 
-    // 这个包的 payload 没有方便的转发构造, 默认构造后逐字段赋值即可
     ::BlockEventPacket packet;
     packet.mPos = ::BlockPos{copy.posX, copy.posY, copy.posZ};
     packet.mB0  = b0;
     packet.mB1  = b1;
-    player->sendNetworkPacket(packet);
+    (void)wire::send(*player, packet);
     return true;
 }
 
 bool ContainerMenuManager::isOpen(int64_t menuId) const {
+    std::lock_guard lock(mMutex);
     return mMenus.exists(menuId);
 }
 
 std::vector<int64_t> ContainerMenuManager::getAllIds() const {
+    std::lock_guard lock(mMutex);
     return mMenus.snapshotAll();
 }
 
 uint64_t ContainerMenuManager::addClickListener(
-    std::function<void(hologramlib::ContainerClickEvent const&)> listener
-) {
-    if (!listener) return 0;
+    std::function<void(hologramlib::ContainerClickEvent const&)> listener) {
+    if (!listener)
+        return 0;
     std::lock_guard lock(mMutex);
     auto const      token = mNextListenerToken++;
     mListeners.emplace(token, std::move(listener));
@@ -689,13 +707,19 @@ void ContainerMenuManager::dispatch(hologramlib::ContainerClickEvent const& even
     std::vector<std::function<void(hologramlib::ContainerClickEvent const&)>> snapshot;
     {
         std::lock_guard lock(mMutex);
-        // LSE 侧拿不到 C++ 监听器 → 同一份事件也进轮询队列（containerPollClicks 取走并清空）
+
+        if (mClickQueue.size() >= kClickQueueCap) {
+            mClickQueue.pop_front();
+            mDroppedClicks.fetch_add(1, std::memory_order_relaxed);
+        }
         mClickQueue.push_back(event);
         snapshot.reserve(mListeners.size());
-        for (auto const& [token, fn] : mListeners) snapshot.push_back(fn);
+        for (auto const& [token, fn] : mListeners)
+            snapshot.push_back(fn);
     }
     for (auto& fn : snapshot) {
-        if (fn) fn(event);
+        if (fn)
+            fn(event);
     }
 }
 
@@ -715,10 +739,8 @@ void ContainerMenuManager::clearClicks() {
     mClickQueue.clear();
 }
 
-// LSE 轮询条目格式（脚本按空格切即可）:
-//   "player=Steve menuId=2 slot=31 closed=0"
 std::string ContainerMenuManager::formatClick(hologramlib::ContainerClickEvent const& event) {
-    // 版式实现在 core/ClickEvent.h（只依赖标准库）: tests/click_event_test.cpp 对着它做往返对拍
+
     core::ClickEventLine line;
     line.player = event.playerName;
     line.menuId = event.menuId;
@@ -742,25 +764,20 @@ bool ContainerMenuManager::handleSlotAction(
     std::string const& playerName,
     int                containerEnum,
     int                containerId,
-    int                slot
-) {
-    // 命中判定（宽松优先; 参考实现 GMLIB 干脆完全不筛 —— 只看"这个玩家有没有开着的箱子"）:
-    //   ① 容器枚举是 LevelEntityContainer(7) → 箱子式界面的槽位就在这个枚举下; 或
-    //   ② 动态容器 id 落在本域的显示区间 101..199 —— 该区间是刻意避开的（真实容器与 BDS
-    //      交易走 1..100）, 所以命中 101..199 必然是我们这个容器。
-    // 为什么不硬性要求 id 等于本菜单的 id: 客户端对"块容器"可能报 0 或别的值, 硬要求会让
-    // 点击**全部漏掉**（实测症状: 箱子界面开着, 点条目什么回调都没有）。槽位号仍要落在本容器
-    // 容量内, 用来挡住误命中。
-    if (containerEnum != 7 && !(containerId >= 101 && containerId <= 199)) return false;
+    int                slot) {
+
+    if (containerEnum != 7 && !(containerId >= 101 && containerId <= 199))
+        return false;
 
     hologramlib::ContainerClickEvent event;
     {
         std::lock_guard lock(mMutex);
         auto            byPlayer = mByPlayer.find(playerName);
-        if (byPlayer == mByPlayer.end()) return false;
+        if (byPlayer == mByPlayer.end())
+            return false;
         bool const hit = mMenus.withObject(byPlayer->second, [&](Menu const& menu) -> bool {
-            if (slot < 0 || slot >= menu.slotCount())
-                return false; // 越界（不是本容器的格子）
+            if (slot < 0 || slot >= static_cast<int>(menu.spec.items.size()))
+                return false;
 
             event.playerName = playerName;
             event.menuId     = menu.menuId;
@@ -780,26 +797,25 @@ bool ContainerMenuManager::handleContainerClose(std::string const& playerName, i
     {
         std::lock_guard lock(mMutex);
         auto            byPlayer = mByPlayer.find(playerName);
-        if (byPlayer == mByPlayer.end()) return false;
+        if (byPlayer == mByPlayer.end())
+            return false;
         bool const hit = mMenus.withObject(byPlayer->second, [&](Menu const& menu) -> bool {
             if (menu.containerId != containerId)
-                return false; // 不是本域的容器
+                return false;
             copy = menu;
             return true;
         });
         if (!hit)
             return false;
-        event.playerName = playerName;
-        event.menuId     = copy.menuId;
-        event.closed     = true;
+        event.playerName               = playerName;
+        event.menuId                   = copy.menuId;
+        event.closed                   = true;
         mIdFreedTick[copy.containerId] = containerNowTick();
         mMenus.erase(byPlayer->second);
         mByPlayer.erase(byPlayer);
     }
     dispatch(event);
-    // 客户端已经自己关掉了界面, 但客户端侧那个假箱子方块**还在**（是我们发的 UpdateBlock）。
-    // 这里不能走 close()（记录已摘掉）, 所以单独收拾客户端那边:
-    //   方块路径 → 把真方块改回去; 矿车路径 → 让客户端删掉合成实体。
+
     if (auto* player = findPlayerByName(playerName)) {
         if (copy.spec.useMinecart) {
             sculk::protocol::RemoveActorPacket remove;
@@ -816,10 +832,16 @@ void ContainerMenuManager::onPlayerLeave(std::string const& playerName) {
     int64_t menuId = -1;
     {
         std::lock_guard lock(mMutex);
-        ++mPlayerEpoch[playerName]; // 旧会话的延迟任务/刷新句柄全部作废
-        if (auto it = mByPlayer.find(playerName); it != mByPlayer.end()) menuId = it->second;
+        ++mPlayerEpoch[playerName];
+        if (auto it = mByPlayer.find(playerName); it != mByPlayer.end())
+            menuId = it->second;
     }
-    if (menuId >= 0) close(menuId);
+    if (menuId >= 0)
+        close(menuId);
+}
+
+std::uint64_t ContainerMenuManager::droppedClicks() const {
+    return mDroppedClicks.load(std::memory_order_relaxed);
 }
 
 void ContainerMenuManager::shutdown() {
@@ -848,7 +870,7 @@ public:
     bool blockEvent(int64_t menuId, int b0, int b1) override {
         return ContainerMenuManager::getInstance().blockEvent(menuId, b0, b1);
     }
-    void closeAll() override { ContainerMenuManager::getInstance().closeAll(); }
+    void               closeAll() override { ContainerMenuManager::getInstance().closeAll(); }
     [[nodiscard]] bool isOpen(int64_t menuId) const override {
         return ContainerMenuManager::getInstance().isOpen(menuId);
     }

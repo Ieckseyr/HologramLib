@@ -1,7 +1,3 @@
-// TradeMenuExporter.cpp - 村民交易菜单（纯展示）LSE 导出实现
-//
-// 域契约: 打开界面 + 摆出交易表, **不做任何点击事件监听**（见 HologramLib.h 的域注释）。
-// 所以本域没有轮询/回调类导出 —— 要"点了有反应"的列表界面用 container* 域。
 #include "TradeMenuExporter.h"
 #include "TradeMenuManager.h"
 
@@ -16,12 +12,6 @@ static constexpr const char* NAMESPACE = "HologramLib";
 void TradeMenuExporter::exportAll() {
     auto& mgr = TradeMenuManager::getInstance();
 
-    // tradeOpen(playerName, tradeType, tier, experience, realTrades, carrierIdentifier) -> id
-    //   tradeType: "entity.villager.butcher" / "entity.villager.priest" / 任意自定义串
-    //   tier:      1 基显示栏值 1=新手 … 5=大师
-    //   realTrades: false（推荐）= 纯协议层展示（服务端没有交易表, 天然只读）;
-    //               true = 给载体装真实交易表并走 BDS openTrading（玩家真的能成交、物品真的消耗）
-    //   carrierIdentifier: "" = 默认 minecraft:villager_v2; 也可 "minecraft:wandering_trader"
     hologramlib::lse::exportAs(
         NAMESPACE,
         "tradeOpen",
@@ -31,19 +21,17 @@ void TradeMenuExporter::exportAll() {
             int                tier,
             int                experience,
             bool               realTrades,
-            std::string const& carrierIdentifier
-        ) -> int64_t {
+            std::string const& carrierIdentifier) -> int64_t {
             hologramlib::TradeMenuSpec spec;
             spec.tradeType       = tradeType;
             spec.tier            = tier;
             spec.experience      = experience;
             spec.usePacketOffers = !realTrades;
-            if (!carrierIdentifier.empty()) spec.carrierIdentifier = carrierIdentifier;
+            if (!carrierIdentifier.empty())
+                spec.carrierIdentifier = carrierIdentifier;
             return mgr.open(playerName, spec);
         });
 
-    // tradeAddOffer(id, buyAType, buyACount, buyBType, buyBCount, sellType, sellCount, sellName, tier, locked) -> bool
-    //   追加一条交易并就地重发交易表（不重开界面）; buyBType 空 = 没有第二付费项
     hologramlib::lse::exportAs(
         NAMESPACE,
         "tradeAddOffer",
@@ -57,8 +45,7 @@ void TradeMenuExporter::exportAll() {
             int                sellCount,
             std::string const& sellName,
             int                tier,
-            bool               locked
-        ) -> bool {
+            bool               locked) -> bool {
             hologramlib::TradeMenuOffer offer;
             offer.buyA.type  = buyAType;
             offer.buyA.count = buyACount < 1 ? 1 : buyACount;
@@ -74,41 +61,64 @@ void TradeMenuExporter::exportAll() {
             return mgr.addOffer(id, offer);
         });
 
-    // tradeSetTier(id, tier, experience) -> bool（改显示栏值 / 经验条, 就地重发）
     hologramlib::lse::exportAs(
         NAMESPACE,
         "tradeSetTier",
-        [&mgr](int64_t id, int tier, int experience) -> bool { return mgr.setTier(id, tier, experience); });
+        [&mgr](int64_t id, int tier, int experience) -> bool {
+            return mgr.setTier(id, tier, experience);
+        });
 
-    // tradeClose(id) -> bool
-    hologramlib::lse::exportAs(NAMESPACE, "tradeClose", [&mgr](int64_t id) -> bool { return mgr.close(id); });
+    hologramlib::lse::exportAs(NAMESPACE, "tradeClose", [&mgr](int64_t id) -> bool {
+        return mgr.close(id);
+    });
 
-    // tradeCloseAll() -> void（关掉全部交易菜单, 删除全部载体实体）
-    hologramlib::lse::exportAs(NAMESPACE, "tradeCloseAll", [&mgr]() -> void { mgr.closeAll(); });
+    hologramlib::lse::exportAs(NAMESPACE, "tradeCloseAll", [&mgr]() -> void {
+        mgr.closeAll();
+    });
 
-    // tradeIsOpen(id) -> bool
-    hologramlib::lse::exportAs(NAMESPACE, "tradeIsOpen", [&mgr](int64_t id) -> bool { return mgr.isOpen(id); });
+    hologramlib::lse::exportAs(NAMESPACE, "tradeIsOpen", [&mgr](int64_t id) -> bool {
+        return mgr.isOpen(id);
+    });
 
-    // tradeGetIds() -> [i]
     hologramlib::lse::exportAs(
-        NAMESPACE, "tradeGetIds", [&mgr]() -> std::vector<int64_t> { return mgr.getAllIds(); });
+        NAMESPACE, "tradeGetIds", [&mgr]() -> std::vector<int64_t> {
+            return mgr.getAllIds();
+        });
 
-    // ── 1.24.0: 纯协议层真结算 ──
-    // tradeSetSettle(id, on) -> bool
-    //   打开后随时切换: true = 库接住付费放置/取回/成交并**真的**动背包（只有纯协议层路径有效;
-    //   真实交易表路径归 BDS 结算）。也可以打开前用 TradeMenuSpec::settleLocally 定初值。
     hologramlib::lse::exportAs(
-        NAMESPACE, "tradeSetSettle", [&mgr](int64_t id, bool on) -> bool { return mgr.setSettleLocally(id, on); });
+        NAMESPACE, "tradeSetSettle", [&mgr](int64_t id, bool on) -> bool {
+            return mgr.setSettleLocally(id, on);
+        });
 
-    // tradeIsSettle(id) -> bool
     hologramlib::lse::exportAs(
-        NAMESPACE, "tradeIsSettle", [&mgr](int64_t id) -> bool { return mgr.isSettleLocally(id); });
+        NAMESPACE, "tradeIsSettle", [&mgr](int64_t id) -> bool {
+            return mgr.isSettleLocally(id);
+        });
 
-    // tradePollSettlements() -> [s]（取走并清空; 条目格式 "player=Steve menuId=3 offer=1 ok=1 reason="）
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "tradeUpdate",
+        [&mgr](int64_t id, std::string const& tradeType, int tier, int experience) -> bool {
+            hologramlib::TradeMenuSpec spec;
+            if (!mgr.getSpec(id, spec))
+                return false;
+            if (!tradeType.empty())
+                spec.tradeType = tradeType;
+            if (tier > 0)
+                spec.tier = tier;
+            if (experience >= 0)
+                spec.experience = experience;
+            return mgr.update(id, spec);
+        });
+
     hologramlib::lse::exportAs(
         NAMESPACE, "tradePollSettlements", []() -> std::vector<std::string> {
             return TradeMenuManager::getInstance().pollSettlements();
         });
+
+    hologramlib::lse::exportAs(NAMESPACE, "tradeDroppedSettlements", []() -> int64_t {
+        return static_cast<int64_t>(TradeMenuManager::getInstance().droppedSettlements());
+    });
 }
 
 } // namespace debugshape_export

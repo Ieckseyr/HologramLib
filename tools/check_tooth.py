@@ -15,7 +15,7 @@ Lip 按 tooth.json 下载发布包并解压到目标目录。这几处一旦对�
   1. format_version / format_uuid 与官方 schema 的 const 一致
   2. 版本号与 manifest.json 一致
   3. 发布包文件名与 tools/pack_release.py 的产物一致
-  4. 解压后的根目录、目标目录与实际布局一致（HologramLib/ → plugins/HologramLib）
+  4. 解压后的根目录、目标目录与实际布局一致（HologramLib/ → mods/HologramLib）
 
 用法：
   python tools/check_tooth.py
@@ -49,7 +49,7 @@ EXPECTED = {
     "tooth": "github.com/Ieckseyr/HologramLib",
     "zip_name": "HologramLib.zip",
     "zip_root": "HologramLib/",
-    "dest": "plugins/HologramLib",
+    "dest": "mods/HologramLib",
     "platform": "win-x64",
 }
 

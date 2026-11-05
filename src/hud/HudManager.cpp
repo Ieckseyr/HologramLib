@@ -1,4 +1,3 @@
-// HudManager.cpp - HUD 元素显隐
 #include "HudManager.h"
 
 #include "core/PacketSink.h"
@@ -21,27 +20,20 @@ namespace {
     return level ? level->getPlayer(name) : nullptr;
 }
 
-// 协议: 0 = Hide, 1 = Reset（Reset 即"恢复默认显示"）
 using ProtoElement    = sculk::protocol::SetHudPacket::HudElement;
 using ProtoVisibility = sculk::protocol::SetHudPacket::HudVisibility;
 
-// 编码照官方 Primitives 文档：数组长度 uvarint32（普通）、每个元素 varint32（**ZigZag**）、
-// 可见性 varint32（ZigZag）。协议库的 writeVarInt 正好是 ZigZag，所以这里直接用协议库编码。
 bool send(::Player& player, std::vector<ProtoElement> const& elements, ProtoVisibility visibility) {
     sculk::protocol::SetHudPacket packet;
     packet.mHudElements   = elements;
     packet.mHudVisibility = visibility;
 
-    auto bytes = wire::encodeChecked(packet);
+    auto bytes = wire::encode(packet);
     if (bytes.empty())
         return false;
 
     wire::sendRaw(player, bytes);
     return true;
-}
-
-ProtoVisibility visibilityOf(bool visible) {
-    return visible ? ProtoVisibility::Reset : ProtoVisibility::Hide;
 }
 
 } // namespace
@@ -60,10 +52,6 @@ bool HudManager::setElement(std::string const& playerName, hologramlib::HudEleme
     if (value < 0 || value > 12)
         return false;
 
-    // 语义（与 BDS 的 ServerPlayer::hideAllExcept 一致）:
-    //   Hide 时，包里的元素列表是"**要保留**"的那些，其余全隐藏；
-    //   Reset 时列表被忽略（一律恢复默认）。
-    // 所以"只藏纸娃娃"= Hide + [除纸娃娃外的 12 项]，而不是 Hide + [纸娃娃]。
     if (visible) {
         std::vector<ProtoElement> all;
         for (int bit = 0; bit <= 12; ++bit)
@@ -94,7 +82,6 @@ int HudManager::setElements(std::string const& playerName, int mask, bool visibl
         return static_cast<int>(all.size());
     }
 
-    // mask 里的元素**要保留**，其余隐藏（同 setElement 的语义）
     std::vector<ProtoElement> keep;
     for (int bit = 0; bit <= 12; ++bit) {
         if ((mask & (1 << bit)) != 0)
@@ -102,7 +89,7 @@ int HudManager::setElements(std::string const& playerName, int mask, bool visibl
     }
     if (!send(*player, keep, ProtoVisibility::Hide))
         return 0;
-    return 13 - static_cast<int>(keep.size()); // 返回被隐藏的个数
+    return 13 - static_cast<int>(keep.size());
 }
 
 bool HudManager::setRaw(std::string const& playerName, int mask, int visibility) {
@@ -119,7 +106,7 @@ bool HudManager::setRaw(std::string const& playerName, int mask, int visibility)
 }
 
 std::string HudManager::probeWire() const {
-    // 与 send(隐藏) 同一套：Hide + "除纸娃娃外全部保留"，普通 varint
+
     ::BinaryStream   body;
     std::vector<int> keep;
     for (int bit = 1; bit <= 12; ++bit)
@@ -127,7 +114,7 @@ std::string HudManager::probeWire() const {
     body.writeUnsignedVarInt(static_cast<uint>(keep.size()), nullptr, nullptr);
     for (int value : keep)
         body.writeUnsignedVarInt(static_cast<uint>(value), nullptr, nullptr);
-    body.writeUnsignedVarInt(0, nullptr, nullptr); // Hide
+    body.writeUnsignedVarInt(0, nullptr, nullptr);
 
     std::string const bytes = body.mBuffer;
     std::string       hex;

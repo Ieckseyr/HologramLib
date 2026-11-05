@@ -1,4 +1,4 @@
-# ABI 槽位表（0x012800 / ABI 戳 1）
+# ABI 槽位表（0x012900 / ABI 戳 1）
 
 > 本文件由 `python tools/abi_tool.py extract --md-out abi/slots.md` 生成，不要手改。
 > 虚函数声明顺序 = 虚表槽位号。**只能在尾部追加**。
@@ -484,6 +484,27 @@
 | 1 | pure | `bool respawn(std::string const&, int state = 2)` |
 | 2 | pure | `bool respawnAt(std::string const&, float, float, float, int state = 2)` |
 
+## IContainerPreview
+
+| # | 种类 | 签名 |
+|---|---|---|
+| 0 | default | `~IContainerPreview()` |
+| 1 | pure | `int64_t preview(std::string const&, int, int, int, int, std::string const& title = {})` |
+
+## IActorEffectFilter
+
+| # | 种类 | 签名 |
+|---|---|---|
+| 0 | default | `~IActorEffectFilter()` |
+| 1 | pure | `void block(int)` |
+| 2 | pure | `void unblock(int)` |
+| 3 | pure | `void blockForPlayer(std::string const&, int)` |
+| 4 | pure | `void unblockForPlayer(std::string const&, int)` |
+| 5 | pure | `void blockForEntity(int64_t, int)` |
+| 6 | pure | `void unblockForEntity(int64_t, int)` |
+| 7 | pure | `void clear()` |
+| 8 | pure | `std::string stats()` |
+
 ## IHologramLib
 
 | # | 种类 | 签名 |
@@ -524,6 +545,8 @@
 | 33 | pure | `IActorEffect& actorEffects()` |
 | 34 | pure | `ISidebar& sidebar()` |
 | 35 | pure | `IPlayerRespawn& playerRespawn()` |
+| 36 | pure | `IContainerPreview& containerPreview()` |
+| 37 | pure | `IActorEffectFilter& actorEffectFilter()` |
 
 ## 结构体布局
 

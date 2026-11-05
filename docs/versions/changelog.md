@@ -7,7 +7,8 @@
 
 | 发布版本 | API | 协议线 | 主要内容 | 新增导出 | C++ 消费方 |
 |---|---|---|---|---|---|
-| `26.60.0` | 1.34.0 | 26.60 | 死亡动画后的复活（`IPlayerRespawn` / `playerRespawn*`）+ 虚假实体 runtimeId 查询 | 6 | **需重新编译**（新增 1 个接口；尾部追加，`HOLOGLIB_ABI_STAMP` 仍为 1） |
+| `26.60.1` | 1.35.0 | 26.60 | 死亡动画后的复活 `IPlayerRespawn`（补发 `RespawnPacket`）、容器预览 `containerPreview`、附魔条目 `containerSetItemEnchanted`、表现事件阻断 `actorBlock*`、假实体 runtimeId 查询；**LSE 导出面补全**（particle 查询/可见性 5 个、真实实体交互事件 `actor*` 2 个、`containerUpdate` / `tradeUpdate`）；内部重构（PlayerIndex、统一发包出口、全库注释清零）。 | 27 | **需重新编译**（新增 3 个接口，尾部追加，`HOLOGLIB_ABI_STAMP` 仍为 1） |
+| `26.60.0` | 1.34.0 | 26.60 | 26.60 平台适配：字段级编码重写、NPC 对话载体修正、发包审计 `wireTrace*`、虚假实体 runtimeId 查询 | 10 | **需重新编译**（新增 1 个接口；尾部追加，`HOLOGLIB_ABI_STAMP` 仍为 1） |
 | `26.51.7` | 1.33.0 | 26.51 | 形状扩展（圆柱/金字塔/椭球/圆锥、最远渲染距离、挂载实体）+ Boss 条 + HUD 显隐 + 方位条扩展 + 受伤死亡动画 + 侧边栏计分板 | 48 | **需重新编译**（新增 6 个接口；尾部追加，`HOLOGLIB_ABI_STAMP` 仍为 1） |
 | `26.51.6` | 1.32.0 | 26.51 | 内部重构（发包 / tick / 生命周期收敛）、ABI 契约工具、支付规划修复、三个新域（掉落物 / 表单关闭 / 方位条） | 16 | **需重新编译**（虚表尾部追加：3 个新接口 + `IContainerMenu` / `IPlayerNpc` 各加方法） |
 | `26.51.5` / `26.40.12` | 1.31.0 | 26.51 · 26.40 | 拉伸 / live 变换 / 动画预设扩展 / 停止配方 / 假玩家姿势装备骑乘 / FMBE 抽搐修复 / 图片平面与透明图层 / 容器会话隔离 | 若干 | 建议重新编译（虚表尾部追加） |
@@ -16,13 +17,11 @@
 | `26.40.9` | 1.27.0 | 26.40 | `EntityView::skinId`（同 id 换模型）、真实实体交互事件、ABI 布局戳 | 类方法 | 需重新编译（虚表追加） |
 | `26.40.8` | 1.26.0 | 26.40 | 逐观看者覆盖、四个界面域 | 若干 | 需重新编译 |
 
-## 26.60.0 — API 1.34.0（死亡动画后的复活）
+## 26.60.1 — API 1.35.0（容器预览 / 表现事件阻断 / 复活包 / 导出面补全）
 
-### 复活（`IPlayerRespawn` / `playerRespawn*`）
+### 死亡动画后的复活（`IPlayerRespawn` / `playerRespawn*`）
 
-给玩家播死亡动画之后，客户端会进入死亡界面并向服务端发 `PlayerAction(Respawn)`；
-但死亡动画只是发给客户端的 `ActorEvent::DEATH`，服务端实体从未死亡，于是服务端认为不需要复活、
-**不发出 `RespawnPacket`** —— 客户端一直卡在死亡界面。
+给玩家播死亡动画之后，客户端会进入死亡界面并向服务端发 `PlayerAction(Respawn)`；但死亡动画只是发给客户端的 `ActorEvent::DEATH`，服务端实体从未死亡，于是服务端认为不需要复活、**不发出 `RespawnPacket`** —— 客户端一直卡在死亡界面。
 
 新增 `IPlayerRespawn` 补这一个包：
 
@@ -35,11 +34,61 @@
 服务端实体的血量 / 位置 / 维度 / 背包都不变，也不会触发死亡或重生事件。
 协议：`RespawnPacket`(45) = `Position`(Vec3) + `State`(uint8) + `PlayerRuntimeId`(uvarint64)。
 
+### LSE 导出补全（本版新增的最后 9 个导出）
+
+把「C++ 有、脚本没有」的剩余缺口补齐。补完这一版，公开头文件里**所有能被脚本表达的方法**和**所有 9 类事件**在 LSE 侧都有入口：
+
+| 新增 | 说明 |
+|---|---|
+| `particleExists(id)` | 粒子形状是否还活着（寿命到点会立刻变 `false`） |
+| `particleGetAllIds()` | 活着的粒子形状 id 数组 |
+| `particleDestroyAll()` | 销毁全部粒子形状（全局，无归属区分） |
+| `particleSetVisiblePlayers(id, uuids)` | `particleSetVisible` 的数组写法；注意粒子域白名单是**玩家 uuid**，不是名字 |
+| `particleClearVisiblePlayers(id)` | 取消白名单，恢复维度全员可见 |
+| `containerUpdate(menuId, title)` | 按当前 spec 整菜单重发；`title` 空串 = 保留原标题（`containerSetTitle` 少了「不知道原标题也想重发」这种用法） |
+| `tradeUpdate(menuId, tradeType, tier, experience)` | 就地换贸易类型并整表重发；空串 / `<= 0` / `< 0` 分别表示保留该字段 |
+| `actorPollInteractions()` | **新事件**：玩家右键/攻击**真实实体**（非库协议实体）的交互队列，`player=… action=… runtimeId=… uniqueId=… type=… pos=(…)` |
+| `actorClearInteractions()` | 清空上面的队列（与 `ghostClearInteractions` 对称） |
+
+两点边界说明：
+
+- `actorPollInteractions` 与 `ghostPollInteractions` **互补**：命中库协议实体（自定义实体 / 物品展示 / 假人 NPC）的交互进 `ghost*`，命中真实实体（原版生物 / 玩家）的进 `actor*`，两者不会重复入队。队列上限同为 256，满了丢最旧的。
+- 仍然**没有**脚本入口的只剩三类：`ICustomEntity::get` / `IPlayerNpc::get` / `IItemDisplay::get` 这种**出参结构体**（等价信息走 `*GetInfo` 的 JSON/摘要串），`add*Listener` / `setEntitySpawnCallback` 这类**回调**（脚本侧统一改成轮询队列），以及 10 个 `holoSetLine*` / `holoTick` 里已废弃的 7 个空实现。
+
 ### C++ 消费方
 
-新增 1 个接口（`IPlayerRespawn`），追加在头文件尾部、访问器追加在 `IHologramLib` 尾部，
-`HOLOGLIB_ABI_STAMP` 仍为 `1`，但**需要重新编译**（旧头文件里没有这个访问器）。
-ABI 基线 `abi/v1.34.0.json`。导出 394 → 400（含 `playerNpcRuntimeId` / `itemDisplayRuntimeId` / `itemActorRuntimeId`）。
+本版相比 26.51.7，26.60 这条线一共新增 3 个接口（`IPlayerRespawn` / `IContainerPreview` / `IActorEffectFilter`），全部在末尾追加；`HOLOGLIB_API_VERSION` 从 `0x012800` 抬到 `0x012900`，`HOLOGLIB_ABI_STAMP` 仍为 1，ABI 基线 `abi/v1.35.0.json`。带旧头文件的消费方**需要重新编译**。
+导出 397 → 424。
+
+### 修了哪些问题
+
+这批都是审查时翻出来的毛病，只动内部实现，没加接口、没动 ABI：
+
+- 换肤（给实体设皮肤）会把服务端卡死。
+- 掉落物被捡走以后可能崩服。
+- 虚拟容器开得多了，之后所有箱子都打不开。
+- 关服或重载时，交易里的东西会丢。
+- 交易结算队列只进不出，越堆越多。
+- 背包合并会超过物品本身的堆叠上限。
+- 账本把不同的物品当成同一种，数量还算错。
+- 玩家重生后视图偏移不对，覆盖状态也会被误清。
+- 全局覆盖有几条改包不生效。
+- 个别情况下玩家会在别人客户端上凭空消失。
+
+### 打包：`lrca` 改为可选
+
+- **`tooth.json` 不再硬依赖 `lrca`**：删掉 `github.com/LiteLDev/LegacyRemoteCall: 0.22.*`，`lip install` 不会再顺带装 LegacyRemoteCall（原来还会装成与服务端实装不一致的 0.22）。`manifest.json` 的 `optionalDependencies` 保留，供 LeviLamina 记录加载顺序；脚本侧仍需 `lrca` 才能用导出，缺它时是安全空操作。
+
+## 26.60.0 — API 1.34.0（26.60 平台适配）
+
+适配 LeviLamina 26.60 / BDS 1.26.60（协议 2225）：`AddActor` / `AddPlayer` / `PlayerList` / `PlayerSkin` / `BossEvent` / `SetScore` 按 26.60 的 schema 重写；NPC 对话的合成载体不再绕过统一发包出口（之前少发 26.60 新增的可选字段，客户端解析错位会直接掉线），容器和交易两条路径也一起收敛到同一个出口。新增发包审计 `wireTrace*`，以及假实体 runtimeId 查询（`playerNpcRuntimeId` / `itemDisplayRuntimeId` / `itemActorRuntimeId`）。
+
+### C++ 消费方
+
+新增 1 个接口（`IPlayerRespawn`），追加在头文件尾部、访问器追加在 `IHologramLib` 尾部，`HOLOGLIB_ABI_STAMP` 仍为 `1`，但**需要重新编译**。ABI 基线 `abi/v1.34.0.json`。
+导出 387 → 397。
+
+> `abi/v1.34.0.json` 和这一版的构建产物里已经有 `IPlayerRespawn`；它的用法说明统一写在 26.60.1 的「死亡动画后的复活」一节。
 
 ## 26.51.7 — API 1.33.0（形状扩展、Boss 条、HUD、实体表现事件、侧边栏）
 
@@ -152,7 +201,7 @@ LSE 导出 298 → **339**。
 #### 脚本导入层
 
 发布包内新增 `lib/HologramLib.js`、`lib/HologramLib.d.ts`、`lib/exports.json`。
-脚本可用 `require("plugins/HologramLib/lib/HologramLib.js")` 后按分组或按函数名调用，
+脚本可用 `require("mods/HologramLib/lib/HologramLib.js")` 后按分组或按函数名调用，
 也可继续使用 `ll.import`。函数首次使用时才与库绑定；缺少 `lrca` 或函数不存在时调用被忽略并记录警告。
 
 另有 `holoInfo()` / `holoApiVersion()` 两个版本信息导出。

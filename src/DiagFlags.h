@@ -1,6 +1,5 @@
 #pragma once
 
-// 诊断开关，默认关（26.40）。
 #include <cstdlib>
 
 namespace debugshape_export {

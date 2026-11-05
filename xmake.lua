@@ -184,7 +184,9 @@ target("HologramLib")
     -- 不加 /EHa, 与 set_exceptions 冲突
     add_cxflags("/utf-8", "/W4")
     if has_config("holo_werror") then
-        add_cxflags("/WX")
+        -- deprecated 的 6 处是 MCAPI 收紧后的登记入口（见验收标准「已登记豁免」），
+        -- 严格模式只把它们降级，其余告警依旧 -Werror
+        add_cxflags("/WX", "-Wno-deprecated-declarations")
     end
     if has_config("holo_asan") then
         add_cxflags("/fsanitize=address")
@@ -214,7 +216,9 @@ target("HologramLib")
     if not os.isdir(path.join(protocol_install, "include")) then
         raise(format("找不到 BedrockProtocol: %s\n用 HOLO_PROTOCOL_DIR 指向 install/ 目录", protocol_install))
     end
-    add_includedirs(path.join(protocol_install, "include"))
+    -- 三方头走 -isystem：clang 不会对系统头里的属性/弃用告警发噪音
+    -- （sculk 的 ValueTag/TagVariant/MetaData 用 [[no_unique_address]]，clang 22 会报 unknown-attributes）
+    add_sysincludedirs(path.join(protocol_install, "include"))
     add_linkdirs(path.join(protocol_install, "lib"))
     add_links("Protocol")
 

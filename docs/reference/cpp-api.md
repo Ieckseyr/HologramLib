@@ -134,12 +134,10 @@ enum class ShapeType : int { Text=0, Line=1, Box=2, Circle=3, Sphere=4, Arrow=5 
 > **动态行（1.26.0；重构自 [Phantom](https://github.com/GroupMountain/Phantom)，LGPL-3.0，已按其许可标注来源）**：`setLinePool` = 内容池按 `intervalMs` **时间取模轮播**
 > （无状态，多个浮字同池同相）；`setLineParseVariables` = 行级变量开关（默认开）。轮播/变量刷新由库内
 > **0.5s 节流**驱动、**内容变了才重发**（区别于本版移除的自驱"偏移"——那时每拍都在动、但驱出来的东西
-> 没有消费方）。变量集：`{player}` `{online}` `{time}` `{tps}` `{dimension}` `{x}` `{y}` `{z}` +
-> 经 MeowPAPI 的外部占位符。**含 `{var}` 的文本按观看者各一份形状**（逐玩家解析），其刷新会逐玩家
+> 没有消费方）。变量集：`{player}` `{online}` `{time}` `{tps}` `{dimension}` `{x}` `{y}` `{z}`。**含 `{var}` 的文本按观看者各一份形状**（逐玩家解析），其刷新会逐玩家
 > 原地重发（同 networkId，无闪烁）。
 
-内置变量（PAPI 翻译后兜底解析）：`{time}` `{online}` `{tps}` `{player}`。
-外部占位符 `%name%` / `{name}` 经 LseBridge 调 `MeowPAPI::translateString(WithPlayer)`（可选，缺席原样保留）。
+内置变量：`{time}` `{online}` `{tps}` `{player}` `{dimension}` `{x}` `{y}` `{z}`，全部在库内解析。
 
 ## 1.4 IItemDetail（物品详情）
 
@@ -259,7 +257,7 @@ struct CustomEntityConfig {
 | 缩放 | scaleBy | `(int64_t, double factor) -> bool` | 相对缩放：现有 scale × factor，结果自动钳制 0.0625~10; factor<=0 返回 false |
 | 可见性 | setVisiblePlayers | `(int64_t, std::vector<std::string> const&) -> bool` | 白名单（按 realName 匹配）; 空列表 = 清除限制 |
 | | setVisiblePlayer / clearVisiblePlayers | `(int64_t, std::string const&) / (int64_t) -> bool` | 标量版 / 清除（恢复全员可见） |
-| 逐客户端朝向（1.20.0, 仅 C++ 接口; LSE 导出暂未覆盖） | setPlayerRotation | `(int64_t, std::string const& playerName, float yaw, float pitch) -> bool` | **1.20.0**: 覆盖指定玩家收到的该实体朝向（出生包 AddActor 与增量包都按覆盖值下发）; 未覆盖的玩家仍用 config 朝向; 玩家离线/未见过该实体返回 false; 变更走轻脏增量（无闪烁）, 下一 tick 生效 |
+| 逐客户端朝向（1.20.0; LSE: `entitySetPlayerRotation`，26.51.6 起） | setPlayerRotation | `(int64_t, std::string const& playerName, float yaw, float pitch) -> bool` | **1.20.0**: 覆盖指定玩家收到的该实体朝向（出生包 AddActor 与增量包都按覆盖值下发）; 未覆盖的玩家仍用 config 朝向; 玩家离线/未见过该实体返回 false; 变更走轻脏增量（无闪烁）, 下一 tick 生效 |
 | | clearPlayerRotation | `(int64_t, std::string const& playerName) -> bool` | 清除单个玩家的朝向覆盖 |
 | | clearPlayerRotations | `(int64_t) -> bool` | 清除该实体全部玩家的朝向覆盖 |
 | 诊断 | getDebugInfo | `(int64_t) -> std::string` | 运行态摘要; 未找到返回 `not_found` |
@@ -358,14 +356,14 @@ if (id > 0) {
 | | destroy / destroyAll / exists / get / isIdUsed / getAllIds | — | 同其他域 |
 | 属性 | setPosition | `(int64_t id, float x, float y, float z, int dim) -> bool` | dim<0 仅改坐标 |
 | | setRotation / setNametag / setSkin / setViewDistance / setEnabled | — | setSkin 未注册返回 false; 变更经 tick 脏刷新合并为单次 respawn |
-| 朝向（1.20.0, 仅 C++ 接口; LSE 导出暂未覆盖） | setRotationLight | `(int64_t id, float yaw) -> bool` | 轻量朝向: 只发 MoveActorAbsolute 增量（不重建实体/不重发皮肤, 无闪烁）, 适合每 tick 跟踪 |
+| 朝向（1.20.0; LSE: `playerNpcSetRotLight`，26.51.6 起） | setRotationLight | `(int64_t id, float yaw) -> bool` | 轻量朝向: 只发 MoveActorAbsolute 增量（不重建实体/不重发皮肤, 无闪烁）, 适合每 tick 跟踪 |
 | | setPlayerRotation | `(int64_t id, std::string const& playerName, float yaw) -> bool` | 覆盖指定玩家收到的朝向（出生包与增量包都按覆盖值）; 未覆盖玩家用 config 朝向 |
 | | clearPlayerRotation / clearPlayerRotations | `(int64_t[, std::string const&]) -> bool` | 清除单个 / 全部玩家的朝向覆盖 |
 | 可见性 | setVisiblePlayers / clearVisiblePlayers / setVisiblePlayer | — | 玩家名白名单（空 = 全员） |
 | 轻量位置（26.40.8） | setPositionLight | `(int64_t id, float x, float y, float z, int dim) -> bool` | **只发 `MoveActorAbsolute` 增量**（不重建实体/不重发皮肤, 无闪烁）; 与 setRotationLight 同一条轻脏通道, 同一 tick 合并一条包; `dim` 与当前维度不同返回 false（跨维度仍走 setPosition 重建） |
-| 皮肤注入（26.40.8; 仅 C++） | injectSkin | `(std::string const& viewerName, std::string const& targetName, std::string const& skinId) -> bool` | 用 **target 自己的 UUID / uniqueId** 发 `PlayerList(Add)` 就地更新皮肤条目（真实 xuid + trust 三态 + 皮肤对象 `OverridesPlayerAppearance=true`——覆盖客户端已装备皮肤的前提）; `viewerName` 空串 = 所有在线玩家（**含 target 本人**）; 条目按注册表原样下发; **不自动重发**（丢帧由消费方再调一次） |
+| 皮肤注入（26.40.8; LSE: `playerNpcInjectSkin` / `playerNpcInjectSkinAll`） | injectSkin | `(std::string const& viewerName, std::string const& targetName, std::string const& skinId) -> bool` | 用 **target 自己的 UUID / uniqueId** 发 `PlayerList(Add)` 就地更新皮肤条目（真实 xuid + trust 三态 + 皮肤对象 `OverridesPlayerAppearance=true`——覆盖客户端已装备皮肤的前提）; `viewerName` 空串 = 所有在线玩家（**含 target 本人**）; 条目按注册表原样下发; **不自动重发**（丢帧由消费方再调一次） |
 | | injectSkinAll | `(std::string const& targetName, std::string const& skinId) -> bool` | 全员版（等价 `injectSkin("", targetName, skinId)`） |
-| 动画（26.40.8; 仅 C++） | playAnimation | `(int64_t id, std::string const& animation, std::string const& stopExpression, int durationTicks) -> bool` | 对"已见过该 NPC 的玩家"发 `AnimateEntityPacket`（controller 名按 NPC id 内自动唯一化, 资源包无需同名控制器）; `stopExpression` 空 = 常驻, `query.any_animation` = 立刻停, `durationTicks>0` 到期自动补停止包; 动画名需客户端可解析（原版或随资源包下发）; 无观察者返回 false |
+| 动画（26.40.8; LSE: `playerNpcPlayAnimation` / `playerNpcPlayAnimationTo`） | playAnimation | `(int64_t id, std::string const& animation, std::string const& stopExpression, int durationTicks) -> bool` | 对"已见过该 NPC 的玩家"发 `AnimateEntityPacket`（controller 名按 NPC id 内自动唯一化, 资源包无需同名控制器）; `stopExpression` 空 = 常驻, `query.any_animation` = 立刻停, `durationTicks>0` 到期自动补停止包; 动画名需客户端可解析（原版或随资源包下发）; 无观察者返回 false |
 | | playAnimationTo | `(int64_t id, std::string const& playerName, std::string const& animation, std::string const& stopExpression, int durationTicks) -> bool` | 同上, 只发给该玩家（补发用; 未见过该 NPC 返回 false） |
 | 出生回调（26.40.8; 仅 C++） | setEntitySpawnCallback | `(std::function<void(int64_t id, std::string const& playerName)>) -> void` | NPC 对某玩家**出生完成**回调（供补发动画/状态; EntitySpawnCallback 语义）; 与 customentity 域同款队列（+2 tick 发出） |
 | 诊断 | getDebugInfo | `(int64_t id) const -> std::string` | 运行态摘要 |

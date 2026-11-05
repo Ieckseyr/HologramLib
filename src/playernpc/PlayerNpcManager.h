@@ -1,15 +1,8 @@
-// PlayerNpcManager.h - 假玩家 NPC 管理器（1.16.0）
-//
-// 纯协议假玩家生命周期:
-//   PlayerListPacket(Add, 皮肤) → AddPlayerPacket → [20 tick] PlayerListPacket(Remove)
-//   （假玩家短暂出现在 Tab 后被移除, 实体因皮肤已缓存而持续渲染）
-// 逐玩家可见性 + 视距滞回（进入视距立即 spawn; 退出需超出 viewDistance+4 才 despawn,
-//   防边界抖动——每次 respawn 都要重发完整皮肤, 滞回显著降低带宽）
-// 属性变更经脏刷新合并为单次 respawn（对齐 ItemDisplay/CustomEntity 模式）
 #pragma once
 
-#include "core/Registry.h"        // 内核层: 对象表（NoLock：临界区由本域的 mMutex 持有）
-#include "core/VirtualActorIds.h" // runtimeId 号段（唯一出处）
+#include "core/Registry.h"
+#include "core/VirtualActorIds.h"
+#include "core/VisibilitySync.h"
 
 #include <array>
 #include <cstdint>
@@ -25,124 +18,106 @@
 
 #include <ll/api/event/Listener.h>
 
-#include "hologramlib/HologramLib.h" // hologramlib::PlayerNpcConfig / PlayerNpcSkin
+#include "hologramlib/HologramLib.h"
 
 #include "mc/platform/UUID.h"
 
-class Player; // ::Player
+class Player;
 
 namespace debugshape_export {
 
 using PlayerNpcConfig = hologramlib::PlayerNpcConfig;
 
+// 假玩家 NPC
 class PlayerNpcManager {
 public:
     static PlayerNpcManager& getInstance();
 
-    // 生命周期（事件监听 + tick hook; 由 ModEntry 调用）
     void init();
     void shutdown();
 
-    // 皮肤（委托 NpcSkinRegistry; 返回值语义见 IPlayerNpc 注释）
     bool registerSkin(hologramlib::PlayerNpcSkin const& skin);
-    // PNG 注册并把半透明像素压成不透明（展示面用; 防止客户端 alpha test 出现缺块）
+
     bool registerSkinOpaque(hologramlib::PlayerNpcSkin const& skin);
-    // 26.40：128×128 PNG -> 单面/双面平面皮肤（sizeBlocks 为边长格数，1 = 128 px/格）。
-    bool registerImageSkin(std::string const& pngPath, std::string const& skinId, float sizeBlocks, bool transparent);
-    bool captureSkin(std::string const& skinId, std::string const& playerName);
-    bool hasSkin(std::string const& skinId) const;
-    bool unregisterSkin(std::string const& skinId); // 有 NPC 引用时拒绝
+
+    bool                     registerImageSkin(std::string const& pngPath, std::string const& skinId, float sizeBlocks, bool transparent);
+    bool                     captureSkin(std::string const& skinId, std::string const& playerName);
+    bool                     hasSkin(std::string const& skinId) const;
+    bool                     unregisterSkin(std::string const& skinId);
     std::vector<std::string> getSkinIds() const;
-    // 目录批量导入（1.18.0; 一个子文件夹 = 一套皮肤: PNG + 可选 .json 几何）
-    // 返回导入数量; 目录无效返回 -1
+
     int importSkins(std::string const& dirPath);
-    // 皮肤全字段序列化导出 / blob 注册（消费方持久化用）
+
     bool getSkinBlob(std::string const& skinId, std::string& out) const;
     bool registerSkinFromBlob(std::string const& blob);
 
-    // NPC 生命周期（创建失败: -1 常规 / -2 id 占用 / -3 皮肤未注册）
-    int64_t create(PlayerNpcConfig const& config);
-    int64_t createRandom(PlayerNpcConfig const& config);
-    int64_t createWithId(PlayerNpcConfig const& config, int64_t desiredId);
-    bool    destroy(int64_t id);
-    void    destroyAll();
-    bool    exists(int64_t id) const;
-    bool    get(int64_t id, PlayerNpcConfig& out) const;
-    bool    isIdUsed(int64_t id) const;
+    int64_t              create(PlayerNpcConfig const& config);
+    int64_t              createRandom(PlayerNpcConfig const& config);
+    int64_t              createWithId(PlayerNpcConfig const& config, int64_t desiredId);
+    bool                 destroy(int64_t id);
+    void                 destroyAll();
+    bool                 exists(int64_t id) const;
+    bool                 get(int64_t id, PlayerNpcConfig& out) const;
+    bool                 isIdUsed(int64_t id) const;
     std::vector<int64_t> getAllIds() const;
 
-    // 属性（setter 标脏, tick 内合并 respawn）
-    bool setPosition(int64_t id, float x, float y, float z, int dim); // dim<0 仅改坐标
+    bool setPosition(int64_t id, float x, float y, float z, int dim);
     bool setRotation(int64_t id, float yaw);
     bool setNametag(int64_t id, std::string const& text);
-    bool setSkin(int64_t id, std::string const& skinId); // 未注册返回 false
+    bool setSkin(int64_t id, std::string const& skinId);
     bool setViewDistance(int64_t id, double dist);
-    bool setScale(int64_t id, float scale); // <0.0625 或 >10 返回 false
+    bool setScale(int64_t id, float scale);
     bool setEnabled(int64_t id, bool enabled);
 
-    // 可见玩家白名单（Player::getRealName 即 LSE realName 匹配; 空列表 = 全员可见）
     bool setVisiblePlayers(int64_t id, std::vector<std::string> const& playerNames);
     bool clearVisiblePlayers(int64_t id);
     bool setVisiblePlayer(int64_t id, std::string const& playerName);
 
     std::string getDebugInfo(int64_t id) const;
 
-    // 该假玩家的 ActorRuntimeID（0 = 不存在）；给 ActorEvent/Respawn 一类按 runtimeId 寻址的包用
     std::uint64_t runtimeIdOf(int64_t id) const;
 
-    // runtimeId -> 库内 id 反查（ghost 交互路由用; 无匹配返回 false）
     bool findByRuntimeId(std::uint64_t runtimeId, int64_t& outId) const;
 
-    // ── 1.20.0 追加: 轻量朝向更新 + 逐客户端朝向 ──
-    // 只发朝向增量包（MoveActorAbsolute; 不重建实体/不重发皮肤, 无闪烁）, 下一 tick 生效
     bool setRotationLight(int64_t id, float yaw);
-    // 覆盖指定玩家收到的朝向（出生包 AddPlayer 与增量包都按覆盖值下发）;
-    // 未覆盖的玩家仍用 config 朝向; 玩家离线/未见过该 NPC 返回 false
+
     bool setPlayerRotation(int64_t id, std::string const& playerName, float yaw);
     bool clearPlayerRotation(int64_t id, std::string const& playerName);
     bool clearPlayerRotations(int64_t id);
 
-    // ── 1.26.0 追加: 轻量位置更新 + 玩家皮肤注入 ──
-    // 只发 MoveActorAbsolute（与 setRotationLight 同一轻脏通道, 同 tick 合并）
-    // dim 与当前不同返回 false（跨维度走 setPosition 重建）
     bool setPositionLight(int64_t id, float x, float y, float z, int dim);
-    // 皮肤注入: viewerName 空 = 全体在线玩家（含本人）; targetName = 在线玩家 realName
+
     bool injectSkin(std::string const& viewerName, std::string const& targetName, std::string const& skinId);
     bool injectSkinAll(std::string const& targetName, std::string const& skinId);
 
-    // ── 1.26.0: 动画（AnimateEntityPacket; 队列 +2 tick 发出, 与 customentity 域同节奏）──
     bool playAnimation(int64_t id, std::string const& animation, std::string const& stopExpression, int durationTicks);
     bool playAnimationTo(
-        int64_t id,
+        int64_t            id,
         std::string const& playerName,
         std::string const& animation,
         std::string const& stopExpression,
-        int durationTicks
-    );
-    // ── 26.40.12: 显式停止（同 controller 换播空动作 + stopExpression=1 的取消配方）──
+        int                durationTicks);
+
     bool stopAnimation(int64_t id);
     bool stopAnimationTo(int64_t id, std::string const& playerName);
-    // ── 26.40.12: 姿势 / 装备 / 骑乘 ──
-    // pose: PoseIndex(ActorPose) 0=站 1=潜行 2=睡 3=游泳 4=爬行（客户端对玩家模型生效, 需实测）
-    // 只发 SetActorData（不重建实体, 无闪烁）; 同时按 pose 自动叠 ActorFlags 位
+
     bool setPose(int64_t id, int pose);
-    // 装备槽: 0=主手 1=副手 2=头 3=胸 4=腿 5=脚; name 空 = 清空该槽
-    // 主/副手走 MobEquipmentPacket, 四甲走 MobArmorEquipmentPacket（不重建实体）
+
     bool setEquipment(int64_t id, int slot, std::string const& name, int aux, std::string const& nbt);
-    // 骑乘: 载具用 **ActorUniqueID**（真实实体/自定义实体/玩家都可以）; 0 = 清除
-    // 链接包 A=载具 B=本 NPC（乘客）; 清除走 respawn（新实体不带链接）
+
     bool setRideUniqueId(int64_t id, std::int64_t vehicleUniqueId);
-    bool setRidePlayer(int64_t id, std::string const& playerName);   // 骑到在线玩家头上
-    bool setRideEntity(int64_t id, int64_t vehicleEntityId);         // 骑到库内自定义实体
+    bool setRidePlayer(int64_t id, std::string const& playerName);
+    bool setRideEntity(int64_t id, int64_t vehicleEntityId);
     bool clearRide(int64_t id);
     void setEntitySpawnCallback(std::function<void(int64_t, std::string const&)> callback);
-    // LSE 侧取走出生事件（每条 "player=<名字> id=<npcId>"），取走即清空
-    // 原版表情动作（EmotePacket）: 只发给已见过该 NPC 的玩家
+    void drainSpawnCallbacks();
+    void dropDisallowedLocked(int64_t id);
+
     bool playEmote(int64_t id, std::string const& pieceId, int lengthTicks);
 
     std::vector<std::string> pollSpawns();
     void                     clearSpawns();
-    // 出生完成通知（内部: 可见性同步里调用; 公开是为了不依赖后置定义的 TickHookAccess）
+
     void notifySpawn(int64_t id, std::string const& playerName) const;
 
 private:
@@ -150,55 +125,51 @@ private:
     ~PlayerNpcManager() = default;
 
 public:
-    // 运行时状态（发包原语需要访问）
     struct Runtime {
-        std::uint64_t                 uniqueId{};   // ActorUniqueID
-        std::uint64_t                 runtimeId{};  // ActorRuntimeID
-        std::unordered_set<mce::UUID> shownPlayers; // 已向其发送假玩家的玩家
-        // 逐客户端朝向覆盖（玩家 uuid → 朝向; 缺省 = 用 config 的 yaw）
-        // 玩家 uuid 不随 respawn 变化, 覆盖自动跨 respawn 保留
+        std::uint64_t                 uniqueId{};
+        std::uint64_t                 runtimeId{};
+        std::unordered_set<mce::UUID> shownPlayers;
+
         std::unordered_map<mce::UUID, hologramlib::PerPlayerRotation> playerRot;
 
-        // ── 26.40.12: 姿势 / 装备 / 骑乘（不放进 PlayerNpcConfig, 避免改公开结构体大小）──
-        int          pose{0};          // PoseIndex（ActorPose）
-        std::int64_t flags{0};         // 额外 ActorFlags（按 pose 自动叠加 Sneaking/Swimming/Sleeping）
+        int          pose{0};
+        std::int64_t flags{0};
         struct NpcEquip {
             std::string name{};
             int         aux{0};
             std::string nbt{};
         };
-        std::array<NpcEquip, 6> equip{};      // 0=主手 1=副手 2=头 3=胸 4=腿 5=脚
-        std::int64_t            rideVehicleUniqueId{0}; // 0 = 未骑乘
+        std::array<NpcEquip, 6> equip{};
+        std::int64_t            rideVehicleUniqueId{0};
     };
 
-    // 待处理 Tab 移除（spawn 后 20 tick; NPC id -> 条目列表）
     struct TabRemoval {
         mce::UUID     playerUuid;
         std::uint64_t dueTick{};
     };
 
 private:
-    // 内部（持锁状态）
-    void    refreshLocked(int64_t id);            // respawn（换新实体 ID, 防串台）
-    void    refreshLightLocked(int64_t id);      // 轻脏: 只发 MoveActorAbsolute（朝向/坐标增量）
-    void    syncVisibilityLocked();              // 可见性重算（含滞回）
-    void    processDirtyLocked();                 // tick 内合并脏刷新
-    void    flushAnimsLocked();                   // 到期的动画包发出（AnimateEntityPacket）
+    void    refreshLocked(int64_t id);
+    void    refreshLightLocked(int64_t id);
+    void    syncVisibilityLocked();
+    void    syncOneLocked(int64_t id, core::SpawnBudget& budget);
+    bool    spawnForViewerLocked(int64_t id, PlayerNpcConfig const& config, Runtime& rt, Player& player, core::SpawnBudget& budget);
+    void    processDirtyLocked();
+    void    flushAnimsLocked();
     int64_t createLocked(PlayerNpcConfig const& config, int64_t id);
-    bool    skinReferencedLocked(std::string const& skinId) const; // 是否有 NPC 在用
-    // 26.40.12: spawn 之后补发姿势/装备/骑乘（调用方持锁且玩家已 insert 进 shownPlayers）
-    void    afterSpawnLocked(Player& player, int64_t id, Runtime const& rt);
+    bool    skinReferencedLocked(std::string const& skinId) const;
+
+    [[nodiscard]] std::unordered_set<std::string> const* filterOf(int64_t id) const;
+
+    void afterSpawnLocked(Player& player, int64_t id, Runtime const& rt);
 
     friend struct PlayerNpcTickHookAccess;
 
-    // ── 合并后的条目: 原本是 mConfigs / mRuntimes 两张 id 同键的并行表 ──
-    // 两张表必须同时存在/同时删除, 分开存时这个不变量只能靠人守, 现在合成一个 Entry。
     struct Entry {
         PlayerNpcConfig config;
         Runtime         runtime;
     };
 
-    // 持锁状态下的访问器（调用方必须已持有 mMutex）: NoLock 表的 peek 不加锁
     [[nodiscard]] PlayerNpcConfig* configOf(int64_t id) noexcept {
         auto* entry = mEntries.peek(id);
         return entry == nullptr ? nullptr : &entry->config;
@@ -218,13 +189,14 @@ private:
 
     mutable std::recursive_mutex                                 mMutex;
     core::Registry<Entry, core::NoLock>                          mEntries;
-    std::unordered_set<int64_t>                                mDirtyIds;
-    std::unordered_set<int64_t>                                mLightDirtyIds; // 轻脏: 只发朝向/坐标增量
-    std::unordered_map<int64_t, std::vector<TabRemoval>>        mTabRemovals;
+    core::PlayerGrid                                             mGrid;
+    std::vector<mce::UUID>                                       mSeenScratch;
+    std::unordered_set<int64_t>                                  mDirtyIds;
+    std::unordered_set<int64_t>                                  mLightDirtyIds;
+    std::unordered_map<int64_t, std::vector<TabRemoval>>         mTabRemovals;
     std::unordered_map<int64_t, std::unordered_set<std::string>> mVisibleFilter;
-    std::unordered_set<std::string>                              mWarnedMissingSkins; // 皮肤缺失告警去重
+    std::unordered_set<std::string>                              mWarnedMissingSkins;
 
-    // 动画队列: dueTick → 条目（与 customentity 域同构）
     struct AnimEntry {
         mce::UUID     playerUuid;
         std::uint64_t runtimeId{0};
@@ -233,23 +205,18 @@ private:
         std::string   controller;
         std::string   stopExpression;
     };
-    std::multimap<std::uint64_t, AnimEntry>                mAnimQueue;
-    std::function<void(int64_t, std::string const&)>       mSpawnCallback;
-    // LSE 接不了回调 → 出生事件也进队列, 由 playerNpcPollSpawns 取走。上限防无消费方时涨内存。
-    mutable std::deque<std::pair<int64_t, std::string>> mSpawnQueue;
+    std::multimap<std::uint64_t, AnimEntry>          mAnimQueue;
+    std::function<void(int64_t, std::string const&)> mSpawnCallback;
 
-    // Actor ID 段：
-    //   actorUniqueId 取 0x1F600000 起（约 5 亿）：客户端能稳定处理的量级
-    //   （原生玩家约 6.6e12、探针约 2e6 都正常，但 2^48 量级会让客户端出错）
-    //   runtimeId 用 0x6F 段，ghost 交互路由依赖该段做分发
-    // Actor ID 段：uniqueId 用 0x1F600000 起（安全量级），runtimeId 用 0x6F 段
-    // （ghost 交互路由按段分发，且要避开真实实体的 runtimeId 区间）
+    mutable std::deque<std::pair<int64_t, std::string>>  mSpawnQueue;
+    mutable std::vector<std::pair<int64_t, std::string>> mPendingSpawnCallbacks;
+
     std::uint64_t mNextActorUniqueId{0x1F600000ULL};
     std::uint64_t mNextRuntimeId{core::actorIds::playerNpc.first};
 
-    std::unordered_set<mce::UUID>                             mInitializedPlayers;
-    ll::event::ListenerPtr                                    mJoinListener;
-    ll::event::ListenerPtr                                    mDisconnectListener;
+    std::unordered_set<mce::UUID> mInitializedPlayers;
+    ll::event::ListenerPtr        mJoinListener;
+    ll::event::ListenerPtr        mDisconnectListener;
 };
 
 } // namespace debugshape_export

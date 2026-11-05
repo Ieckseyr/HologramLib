@@ -8,7 +8,7 @@
 #endif
 
 namespace debugshape_export {
-// LineColor 实现
+
 LineColor LineColor::fromHSV(float h, float s, float v, float a) {
     float c = v * s;
     float x = c * (1.0f - std::abs(std::fmod(h / 60.0f, 2.0f) - 1.0f));
@@ -43,13 +43,12 @@ LineColor LineColor::fromHSV(float h, float s, float v, float a) {
 
     return LineColor(r + m, g + m, b + m, a);
 }
-// GradientLineManager 单例
+
 GradientLineManager& GradientLineManager::getInstance() {
     static GradientLineManager instance;
     return instance;
 }
 
-// 创建与销毁
 int64_t GradientLineManager::create(float x1, float y1, float z1,
                                     float x2, float y2, float z2,
                                     int segments) {
@@ -61,8 +60,8 @@ int64_t GradientLineManager::create(float x1, float y1, float z1,
     line->y2           = y2;
     line->z2           = z2;
     line->segments     = (segments < 2) ? 2 : ((segments > 100) ? 100 : segments);
-    line->startColor   = LineColor(1.0f, 0.0f, 0.0f); // 默认红
-    line->endColor     = LineColor(0.0f, 0.0f, 1.0f); // 默认蓝
+    line->startColor   = LineColor(1.0f, 0.0f, 0.0f);
+    line->endColor     = LineColor(0.0f, 0.0f, 1.0f);
     line->isRainbow    = false;
     line->rainbowSpeed = 1.0f;
     line->animTime     = 0.0f;
@@ -76,7 +75,7 @@ int64_t GradientLineManager::create(float x1, float y1, float z1,
 }
 
 bool GradientLineManager::destroy(int64_t id) {
-    // 先销毁线段（会调形状域），再从表里摘掉: 顺序与迁移前一致
+
     if (!mLines.withObject(id, [&](GradientLine& line) {
             destroySegments(line);
         }))
@@ -86,12 +85,12 @@ bool GradientLineManager::destroy(int64_t id) {
 }
 
 void GradientLineManager::destroyAll() {
-    // 逐个销毁: 线段销毁要调形状域, 不在大锁里做整批
+
     for (auto const id : mLines.snapshotAll()) {
         destroy(id);
     }
 }
-// 颜色设置
+
 bool GradientLineManager::setGradient(int64_t id,
                                       float r1, float g1, float b1,
                                       float r2, float g2, float b2) {
@@ -141,9 +140,9 @@ bool GradientLineManager::setEndpoints(int64_t id,
         line.z2 = z2;
 
         if (line.isDrawn) {
-            // 需要重建所有线段
+
             rebuildSegments(line);
-            // 重新绘制
+
             auto& shapeMgr = PacketDebugRenderer::getInstance();
             for (int64_t segId : line.segmentIds) {
                 shapeMgr.draw(segId);
@@ -151,7 +150,7 @@ bool GradientLineManager::setEndpoints(int64_t id,
         }
     });
 }
-// 显示控制
+
 bool GradientLineManager::draw(int64_t id) {
     return mLines.withObject(id, [&](GradientLine& line) {
         rebuildSegments(line);
@@ -188,23 +187,20 @@ bool GradientLineManager::remove(int64_t id) {
         line.isDrawn = false;
     });
 }
-// 动画更新
-// 注意：由于 DebugShape API 的限制，频繁调用 draw() 会导致闪烁
-// tick 只更新内部状态，不会自动重绘
+
 void GradientLineManager::tick(float deltaTime) {
     mLines.forEachLocked([&](int64_t, GradientLine& line) {
         if (!line.isDrawn)
             return;
 
-        // 只有彩虹模式需要更新时间
         if (line.isRainbow) {
             line.animTime += deltaTime;
-            // 只更新颜色值，不调用 draw()
+
             updateSegmentColors(line);
         }
     });
 }
-// 内部方法
+
 void GradientLineManager::destroySegments(GradientLine& line) {
     auto& shapeMgr = PacketDebugRenderer::getInstance();
     for (int64_t segId : line.segmentIds) {
@@ -214,23 +210,20 @@ void GradientLineManager::destroySegments(GradientLine& line) {
 }
 
 void GradientLineManager::rebuildSegments(GradientLine& line) {
-    // 先销毁旧的
+
     destroySegments(line);
 
     auto& shapeMgr = PacketDebugRenderer::getInstance();
     line.segmentIds.reserve(line.segments);
 
-    // 计算方向向量
     float dx = line.x2 - line.x1;
     float dy = line.y2 - line.y1;
     float dz = line.z2 - line.z1;
 
-    // 创建 N 段线条
     for (int i = 0; i < line.segments; ++i) {
         float t1 = (float)i / line.segments;
         float t2 = (float)(i + 1) / line.segments;
 
-        // 计算这段线条的起点和终点
         float sx = line.x1 + dx * t1;
         float sy = line.y1 + dy * t1;
         float sz = line.z1 + dz * t1;
@@ -238,16 +231,11 @@ void GradientLineManager::rebuildSegments(GradientLine& line) {
         float ey = line.y1 + dy * t2;
         float ez = line.z1 + dz * t2;
 
-        // 创建线段
         int64_t segId = shapeMgr.createLine(sx, sy, sz, ex, ey, ez);
         if (segId < 0)
             continue;
 
-        // 注: 不设置 duration —— 客户端会按 mTotalTimeLeft 倒计时自动删除,
-        // 永久渐变线保持 nullopt(由 destroy 显式控制生命周期)
-
-        // 计算颜色
-        float     tMid = (t1 + t2) / 2.0f; // 使用中点颜色
+        float     tMid = (t1 + t2) / 2.0f;
         LineColor color;
 
         if (line.isRainbow) {
@@ -266,7 +254,7 @@ void GradientLineManager::updateSegmentColors(GradientLine& line) {
     auto& shapeMgr = PacketDebugRenderer::getInstance();
 
     for (size_t i = 0; i < line.segmentIds.size(); ++i) {
-        float     t = ((float)i + 0.5f) / line.segments; // 中点
+        float     t = ((float)i + 0.5f) / line.segments;
         LineColor color;
 
         if (line.isRainbow) {
@@ -277,7 +265,6 @@ void GradientLineManager::updateSegmentColors(GradientLine& line) {
         }
 
         shapeMgr.setColor(line.segmentIds[i], color.r, color.g, color.b, color.a);
-        // 不调用 draw()，避免闪烁
     }
 }
 

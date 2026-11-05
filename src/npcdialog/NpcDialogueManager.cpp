@@ -1,13 +1,14 @@
-// NpcDialogueManager.cpp - NPC 对话界面（协议层）实现
 #include "npcdialog/NpcDialogueManager.h"
+#include "core/EventIds.h"
+#include "core/HookRegistry.h"
 
-#include "core/PacketSink.h"
 #include "DiagLog.h"
+#include "core/PacketSink.h"
 
 #include "customentity/CustomEntityManager.h"
 #include "npcdialog/NpcCarrierPacket.h"
-#include "view/ViewOverrideExporter.h" // parseEntitySpec（avatarViewSpec 叠加, 26.40.8）
-#include "view/ViewOverrideLogic.h"    // normaliseType（短名补 minecraft: 前缀）
+#include "view/ViewOverrideExporter.h"
+#include "view/ViewOverrideLogic.h"
 
 #include <ll/api/io/LoggerRegistry.h>
 #include <ll/api/memory/Hook.h>
@@ -47,10 +48,10 @@ namespace debugshape_export {
 
 namespace {
 
-
 Player* findPlayerByName(std::string const& name) {
     auto level = ll::service::getLevel();
-    if (!level) return nullptr;
+    if (!level)
+        return nullptr;
     Player* found = nullptr;
     level->forEachPlayer([&](Player& p) -> bool {
         if (p.getRealName() == name) {
@@ -64,7 +65,8 @@ Player* findPlayerByName(std::string const& name) {
 
 Player* findPlayerByNetworkId(NetworkIdentifier const& source) {
     auto level = ll::service::getLevel();
-    if (!level) return nullptr;
+    if (!level)
+        return nullptr;
     Player* found = nullptr;
     level->forEachPlayer([&](Player& p) -> bool {
         if (p.getNetworkIdentifier() == source) {
@@ -81,23 +83,29 @@ std::string jsonEscape(std::string const& s) {
     out.reserve(s.size() + 8);
     for (char const c : s) {
         switch (c) {
-            case '"': out += "\\\""; break;
-            case '\\': out += "\\\\"; break;
-            case '\n': out += "\\n"; break;
-            case '\r': out += "\\r"; break;
-            case '\t': out += "\\t"; break;
-            default: out.push_back(c); break;
+        case '"':
+            out += "\\\"";
+            break;
+        case '\\':
+            out += "\\\\";
+            break;
+        case '\n':
+            out += "\\n";
+            break;
+        case '\r':
+            out += "\\r";
+            break;
+        case '\t':
+            out += "\\t";
+            break;
+        default:
+            out.push_back(c);
+            break;
         }
     }
     return out;
 }
 
-// 按钮 JSON —— 26.40 实测格式（客户端 SetActions 的原样载荷, 由本库 NpcRequest 钩子记录）:
-//   [ { "button_name": "...", "data": [ { "cmd_line": "...", "cmd_ver": 50 } ],
-//       "mode": 0, "text": "...\n", "type": 1 }, ... ]
-// 注意: 顶层是**数组**（不是 {"buttons":[...]}）; cmd_ver 实测恒为 50。
-// mode = 客户端动作类型（与参考实现 ActionType 一致）: 0=普通按钮(回传 ExecuteAction) 1=关闭 2=打开。
-// 客户端读的是 AddActor 里的 Actions 元数据, 这份 JSON 同时也会放进 NpcDialoguePacket（冗余但一致）。
 std::string buildActionJson(std::vector<hologramlib::NpcDialogButton> const& buttons) {
     std::string json{"[\n"};
     for (std::size_t i = 0; i < buttons.size(); ++i) {
@@ -107,8 +115,7 @@ std::string buildActionJson(std::vector<hologramlib::NpcDialogButton> const& but
         json += "      \"button_name\" : \"" + jsonEscape(btn.label) + "\",\n";
         json += "      \"data\" : [\n";
         for (std::size_t k = 0; k < btn.commands.size(); ++k) {
-            json += "         {\n            \"cmd_line\" : \"" + jsonEscape(btn.commands[k])
-                    + "\",\n            \"cmd_ver\" : 50\n         }";
+            json += "         {\n            \"cmd_line\" : \"" + jsonEscape(btn.commands[k]) + "\",\n            \"cmd_ver\" : 50\n         }";
             json += (k + 1 < btn.commands.size()) ? ",\n" : "\n";
             text += btn.commands[k] + "\n";
         }
@@ -126,58 +133,43 @@ std::string resolveActionJson(hologramlib::NpcDialogSpec const& spec) {
     return spec.rawActionJson.empty() ? buildActionJson(spec.buttons) : spec.rawActionJson;
 }
 
-// 与交易菜单同款: 不做 BDS 回读硬校验（合成 JSON 可能被读后校验拒绝, 但不影响客户端收包）
 template <typename PacketT>
 bool sendPacket(Player& player, PacketT const& packet) {
 
-    // 26.60: 统一走 wire26 编码（AddActor/AddPlayer/BossEvent/PlayerList/PlayerSkin 有字段级变更），
-    // 这些合成包不做 BDS 回读校验（合成的 JSON / NBT 会被读后校验拒绝，但客户端能吃）。
-    return wire::sendBodyUnchecked(
+    return wire::sendBody(
         player,
         static_cast<std::uint32_t>(packet.getId()),
         wire26::body26(packet),
-        packet.getName()
-    );
+        wire::Reliability::Reliable,
+        packet.getName(),
+        false);
 }
 
-// 合成载体 NPC 的生成包（纯协议实体, 不进 BDS 实体系统 —— BDS 侧没有它, 所以 NpcRequest 钩子恒调 origin）。
-// 包结构见 NpcCarrierPacket.h（离线对拍: tests/check-npc-carrier.py）。
-// 位置 = 玩家身后 5 格 + 世界下方 y=kCarrierY: 客户端看不到实体本身, 但界面里的头像照常渲染。
-//
-// 返回**实际使用**的 (uniqueId, runtimeId): 调用方（ensureCarrier / open）必须用返回值 ——
-// 对话包的 mNpcId 要指向真正生成的那只实体。
 std::pair<std::uint64_t, std::uint64_t> sendCarrierSpawn(
-    Player&                            player,
-    std::uint64_t                      uniqueId,
-    std::uint64_t                      runtimeId,
-    hologramlib::NpcDialogSpec const&  spec,
-    std::string const&                 actionJson
-) {
-    auto const& pos = player.getPosition();
-    float const yaw = player.getRotation().y;
-    float const rad = yaw * (std::numbers::pi_v<float> / 180.0f);
+    Player&                           player,
+    std::uint64_t                     uniqueId,
+    std::uint64_t                     runtimeId,
+    hologramlib::NpcDialogSpec const& spec,
+    std::string const&                actionJson) {
+    auto const& pos      = player.getPosition();
+    float const yaw      = player.getRotation().y;
+    float const rad      = yaw * (std::numbers::pi_v<float> / 180.0f);
     auto const  position = sculk::protocol::Vec3{
-        pos.x + std::sin(rad) * 5.0f, // 前向 = (-sin, cos) → 身后 = (sin, -cos)
+        pos.x + std::sin(rad) * 5.0f,
         npcdialog::kCarrierY,
-        pos.z - std::cos(rad) * 5.0f
-    };
+        pos.z - std::cos(rad) * 5.0f};
 
-    // 26.40.8: 聊天框头像/模型自定义 —— avatarViewSpec 按**视图覆盖语义**叠加到载体自身:
-    //   type → 换载体类型（⚠ 非 NPC 家族会破坏界面绑定, 与 carrierIdentifier 同边界; 测试: zombie/chicken）
-    //   name → 换界面标题/交互文字（写进 Name/InteractText 项）
-    //   skin= → **已移除**（收缩, 见 VERSION-HISTORY）: 之前会把载体换成"玩家模型"（PlayerList+AddPlayer）,
-    //           实测客户端在该载体上点进菜单会关界面; "让客户端认它是玩家"的路线改由消费方自建
-    //           （playerNpcs() 造真·假玩家 + npcUniqueIdOverride 把对话挂到它 id 上）
-    // avatarSkinVariant → 载体 ActorData 的 SkinId(104)（内置皮肤变体 0..59; -1 = 不加项）
     std::string identifier = spec.carrierIdentifier;
     std::string title      = spec.npcName;
     if (!spec.avatarViewSpec.empty()) {
         auto const view = parseEntitySpec(spec.avatarViewSpec);
         if (!view.identifier.empty()) {
             auto const normalised = view::logic::normaliseType(view.identifier);
-            if (!normalised.empty()) identifier = normalised;
+            if (!normalised.empty())
+                identifier = normalised;
         }
-        if (view.hasNametag && !view.nametag.empty()) title = view.nametag;
+        if (view.hasNametag && !view.nametag.empty())
+            title = view.nametag;
     }
 
     sendPacket(
@@ -190,24 +182,24 @@ std::pair<std::uint64_t, std::uint64_t> sendCarrierSpawn(
             actionJson,
             position,
             yaw,
-            spec.avatarSkinVariant
-        )
-    );
+            spec.avatarSkinVariant));
     return {uniqueId, runtimeId};
 }
 
 } // namespace
 
 namespace {
-// 载体 uniqueId 取负段（与真实 NPC 同风格, 且避开真实 id）, runtimeId 用高位段避免冲突
-std::atomic<std::int64_t>   gNextCarrierUid{-850403524570LL};
-std::atomic<std::uint64_t>  gNextCarrierRid{0x6E200000ULL};
+
+std::atomic<std::int64_t>  gNextCarrierUid{-850403524570LL};
+std::atomic<std::uint64_t> gNextCarrierRid{0x6E200000ULL};
 } // namespace
 
 std::uint64_t NpcDialogueManager::nextCarrierUniqueId() {
     return static_cast<std::uint64_t>(gNextCarrierUid.fetch_sub(1));
 }
-std::uint64_t NpcDialogueManager::nextCarrierRuntimeId() { return gNextCarrierRid.fetch_add(1); }
+std::uint64_t NpcDialogueManager::nextCarrierRuntimeId() {
+    return gNextCarrierRid.fetch_add(1);
+}
 
 NpcDialogueManager& NpcDialogueManager::getInstance() {
     static NpcDialogueManager instance;
@@ -215,32 +207,36 @@ NpcDialogueManager& NpcDialogueManager::getInstance() {
 }
 
 void NpcDialogueManager::removeCarrierEntity(Player& player, std::uint64_t uniqueId) {
-    if (uniqueId == 0) return;
+    if (uniqueId == 0)
+        return;
     sculk::protocol::RemoveActorPacket packet;
     packet.mActorUniqueId = static_cast<std::int64_t>(uniqueId);
     sendPacket(player, packet);
 }
 
-// 生成（或重建）该玩家的对话载体: 合成 NPC、只发给该玩家、摆在身后 5 格的世界下方。
-// 每次打开都重建 —— 按钮 JSON 随 AddActor 的 ActorData 下发, 且旧的客户端实体要先删掉不留残影。
 std::uint64_t NpcDialogueManager::ensureCarrier(
-    Player&                            player,
-    std::string const&                 playerName,
-    hologramlib::NpcDialogSpec const&  spec,
-    std::string const&                 actionJson
-) {
+    Player&                           player,
+    std::string const&                playerName,
+    hologramlib::NpcDialogSpec const& spec,
+    std::string const&                actionJson) {
+    bool         hadPrevious = false;
+    std::int64_t previousUid = 0;
     {
         std::lock_guard lock(mMutex);
         auto            it = mCarriers.find(playerName);
         if (it != mCarriers.end()) {
-            removeCarrierEntity(player, it->second.uniqueId);
+            hadPrevious = true;
+            previousUid = it->second.uniqueId;
             mCarriers.erase(it);
         }
     }
+    // 拆旧载体要发包，必须在锁外
+    if (hadPrevious)
+        removeCarrierEntity(player, previousUid);
 
     auto const uid = nextCarrierUniqueId();
     auto const rid = nextCarrierRuntimeId();
-    // 实际 id 以返回值为准（对话包的 mNpcId 必须指向真正生成的那只实体）
+
     auto const actual = sendCarrierSpawn(player, uid, rid, spec, actionJson);
 
     {
@@ -251,8 +247,7 @@ std::uint64_t NpcDialogueManager::ensureCarrier(
         "[NpcDialog] 载体已生成: player={} uid={} rid={} (合成载体, y=-66)",
         playerName,
         actual.first,
-        actual.second
-    );
+        actual.second);
     return actual.first;
 }
 
@@ -280,11 +275,13 @@ int64_t NpcDialogueManager::open(std::string const& playerName, hologramlib::Npc
     auto const actionJson = resolveActionJson(spec);
     HLIB_LOG_INFO("[NpcDialog] open 步骤1/5: 生成载体（合成 NPC·y=-66·仅该玩家可见）");
     dialog0Uid = ensureCarrier(*player, playerName, spec, actionJson);
-    if (dialog0Uid == 0) return -1;
+    if (dialog0Uid == 0)
+        return -1;
     {
         std::lock_guard lock(mMutex);
         auto            it = mCarriers.find(playerName);
-        if (it == mCarriers.end()) return -1;
+        if (it == mCarriers.end())
+            return -1;
         carrierRuntime = it->second.runtimeId;
     }
     HLIB_LOG_INFO("[NpcDialog] open 步骤2/5: 载体就绪 uid={} rid={}", dialog0Uid, carrierRuntime);
@@ -294,8 +291,8 @@ int64_t NpcDialogueManager::open(std::string const& playerName, hologramlib::Npc
     HLIB_LOG_INFO("[NpcDialog] open 步骤3/5: id pair uid={} rid={}", uniqueId, runtimeId);
 
     Dialog dialog;
-    dialog.playerName       = playerName;
-    // 诊断覆盖: 指定了就用它当目标 NPC（不再依赖自建载体被识别为 NPC）
+    dialog.playerName = playerName;
+
     dialog.carrierUniqueId  = spec.npcUniqueIdOverride != 0
                                   ? static_cast<std::uint64_t>(spec.npcUniqueIdOverride)
                                   : uniqueId;
@@ -305,8 +302,7 @@ int64_t NpcDialogueManager::open(std::string const& playerName, hologramlib::Npc
     int64_t dialogId = 0;
     {
         std::lock_guard lock(mMutex);
-        // 同一玩家只保留一个对话记录: 重开时把上一条清掉, 否则 mDialogs 里会留陈旧条目
-        // （旧 id 还会被 isOpen/getAllIds 报出来, 客户端回传旧 id 时匹配语义也不清晰）
+
         if (auto prev = mByPlayer.find(playerName); prev != mByPlayer.end()) {
             mDialogs.erase(prev->second);
         }
@@ -329,13 +325,10 @@ int64_t NpcDialogueManager::open(std::string const& playerName, hologramlib::Npc
         dialogId,
         spec.sceneName,
         spec.buttons.size(),
-        spec.npcName
-    );
+        spec.npcName);
     return dialogId;
 }
 
-// 26.40.8: 聊天框内显示的头像/模型自定义 —— 更新 avatarSkinVariant / avatarViewSpec 后就地重开
-// （删旧载体 → 建新载体 → 重发 Open, 与翻页/换层同一条 0 闪烁路径）。
 bool NpcDialogueManager::setAvatar(int64_t dialogId, int skinVariant, std::string const& avatarViewSpec) {
     std::string                playerName;
     hologramlib::NpcDialogSpec spec;
@@ -350,7 +343,7 @@ bool NpcDialogueManager::setAvatar(int64_t dialogId, int skinVariant, std::strin
     }
     spec.avatarSkinVariant = skinVariant;
     spec.avatarViewSpec    = avatarViewSpec;
-    return open(playerName, spec) >= 0; // 重开（同 tick 内无缝换内容）
+    return open(playerName, spec) >= 0;
 }
 
 bool NpcDialogueManager::update(int64_t dialogId, hologramlib::NpcDialogSpec const& spec) {
@@ -359,23 +352,23 @@ bool NpcDialogueManager::update(int64_t dialogId, hologramlib::NpcDialogSpec con
         std::lock_guard lock(mMutex);
         if (!mDialogs.withObject(dialogId, [&](Dialog& d) {
                 d.spec    = spec;
-                d.touched = true; // 本次点击已由调用方接管: 库里不再自动拆这个对话
+                d.touched = true;
                 copy      = d;
             })) {
             return false;
         }
     }
     auto* player = findPlayerByName(copy.playerName);
-    if (player == nullptr) return false;
+    if (player == nullptr)
+        return false;
 
-    sendDialog(*player, copy, true); // 同一载体, 只重发对话包
+    sendDialog(*player, copy, true);
     HLIB_LOG_INFO(
         "[NpcDialog] 就地换内容: player={} dialogId={} scene={} 按钮={}",
         copy.playerName,
         dialogId,
         spec.sceneName,
-        spec.buttons.size()
-    );
+        spec.buttons.size());
     return true;
 }
 
@@ -401,8 +394,8 @@ bool NpcDialogueManager::close(int64_t dialogId) {
         }
     }
     if (auto* player = findPlayerByName(copy.playerName)) {
-        sendDialog(*player, copy, false); // ActionType::Close
-        // 关闭即删除客户端上的载体实体（不留残影）; 下次打开会重新生成
+        sendDialog(*player, copy, false);
+
         std::uint64_t carrierUid = 0;
         {
             std::lock_guard lock(mMutex);
@@ -418,22 +411,30 @@ bool NpcDialogueManager::close(int64_t dialogId) {
 }
 
 void NpcDialogueManager::closeAll() {
-    for (auto const id : mDialogs.snapshotAll())
+    std::vector<int64_t> ids;
+    {
+        std::lock_guard lock(mMutex);
+        ids = mDialogs.snapshotAll();
+    }
+    // close() 自己加锁，不能持锁遍历
+    for (auto const id : ids)
         close(id);
 }
 
 bool NpcDialogueManager::isOpen(int64_t dialogId) const {
+    std::lock_guard lock(mMutex);
     return mDialogs.exists(dialogId);
 }
 
 std::vector<int64_t> NpcDialogueManager::getAllIds() const {
+    std::lock_guard lock(mMutex);
     return mDialogs.snapshotAll();
 }
 
 uint64_t NpcDialogueManager::addClickListener(
-    std::function<void(hologramlib::NpcDialogClickEvent const&)> listener
-) {
-    if (!listener) return 0;
+    std::function<void(hologramlib::NpcDialogClickEvent const&)> listener) {
+    if (!listener)
+        return 0;
     std::lock_guard lock(mMutex);
     auto const      token = mNextListenerToken++;
     mListeners.emplace(token, std::move(listener));
@@ -449,13 +450,19 @@ void NpcDialogueManager::dispatch(hologramlib::NpcDialogClickEvent const& event)
     std::vector<std::function<void(hologramlib::NpcDialogClickEvent const&)>> snapshot;
     {
         std::lock_guard lock(mMutex);
-        // LSE 侧拿不到 C++ 监听器 → 同一份事件也进轮询队列（npcDialogPollClicks 取走并清空）
+
+        if (mClickQueue.size() >= kClickQueueCap) {
+            mClickQueue.pop_front();
+            mDroppedClicks.fetch_add(1, std::memory_order_relaxed);
+        }
         mClickQueue.push_back(event);
         snapshot.reserve(mListeners.size());
-        for (auto const& [token, fn] : mListeners) snapshot.push_back(fn);
+        for (auto const& [token, fn] : mListeners)
+            snapshot.push_back(fn);
     }
     for (auto& fn : snapshot) {
-        if (fn) fn(event);
+        if (fn)
+            fn(event);
     }
 }
 
@@ -475,14 +482,13 @@ void NpcDialogueManager::clearClicks() {
     mClickQueue.clear();
 }
 
-// LSE 轮询条目格式（脚本按空格切即可）:
-//   "player=Steve dialogId=1 scene=main button=0 actionId=main#0 closed=0 commands=say+hi"
-// commands 用逗号分隔多条; 每条内部原本的空格与逗号替换成 '+'（命令里几乎不会出现, 但能看出来）
 std::string NpcDialogueManager::formatClick(hologramlib::NpcDialogClickEvent const& event) {
     std::string commands;
     for (std::size_t i = 0; i < event.commands.size(); ++i) {
-        if (i) commands += ',';
-        for (char const c : event.commands[i]) commands += (c == ',' || c == ' ') ? '+' : c;
+        if (i)
+            commands += ',';
+        for (char const c : event.commands[i])
+            commands += (c == ',' || c == ' ') ? '+' : c;
     }
     return std::format(
         "player={} dialogId={} scene={} button={} actionId={} closed={} commands={}",
@@ -492,8 +498,7 @@ std::string NpcDialogueManager::formatClick(hologramlib::NpcDialogClickEvent con
         event.buttonIndex,
         event.actionId,
         event.closed ? 1 : 0,
-        commands
-    );
+        commands);
 }
 
 bool NpcDialogueManager::handleNpcRequest(
@@ -501,17 +506,17 @@ bool NpcDialogueManager::handleNpcRequest(
     std::uint64_t      npcId,
     int                requestType,
     int                actionIndex,
-    std::string const& sceneName
-) {
+    std::string const& sceneName) {
     hologramlib::NpcDialogClickEvent event;
     bool                             finished = false;
     {
         std::lock_guard lock(mMutex);
         auto            byPlayer = mByPlayer.find(playerName);
-        if (byPlayer == mByPlayer.end()) return false;
+        if (byPlayer == mByPlayer.end())
+            return false;
         bool const hit = mDialogs.withObject(byPlayer->second, [&](Dialog& dialog) -> bool {
-            dialog.touched = false; // 本次回传开始; 调用方在回调里 update 会重新置位
-            // 回传的 mId 是 ActorUniqueID —— 两个 id 都比一遍（客户端回传的不一定用哪一个）
+            dialog.touched = false;
+
             if (npcId != dialog.carrierUniqueId && npcId != dialog.carrierRuntimeId)
                 return false;
 
@@ -523,37 +528,35 @@ bool NpcDialogueManager::handleNpcRequest(
                 event.buttonIndex = actionIndex;
                 if (actionIndex >= 0 && static_cast<std::size_t>(actionIndex) < dialog.spec.buttons.size()) {
                     auto const& btn = dialog.spec.buttons[actionIndex];
-                    event.actionId  = btn.actionId; // 回填调用方的标识
-                    event.commands  = btn.commands; // 合成 NPC 不由 BDS 代跑命令, 交给调用方处理
+                    event.actionId  = btn.actionId;
+                    event.commands  = btn.commands;
                 }
                 finished = true;
             } else if (requestType == static_cast<int>(::NpcRequestPacket::RequestType::ExecuteClosingCommands)) {
                 event.closed = true;
                 finished     = true;
             }
-            // 其余回传类型（SetActions/SetName/SetSkin/SetInteractText…）是客户端编辑器回写,
-            // 对合成 NPC 无意义, 不结束对话。
+
             return true;
         });
         if (!hit)
             return false;
     }
 
-    // dispatch 之前先记下当前载体: 回调里若换成另一个对话（open）, 旧载体实体要由这里收尾
     std::uint64_t preDispatchCarrierUid = 0;
     {
         std::lock_guard lock(mMutex);
-        if (auto it = mCarriers.find(playerName); it != mCarriers.end()) preDispatchCarrierUid = it->second.uniqueId;
+        if (auto it = mCarriers.find(playerName); it != mCarriers.end())
+            preDispatchCarrierUid = it->second.uniqueId;
     }
 
+    if (!event.closed && event.buttonIndex < 0) {
+        return false;
+    }
     dispatch(event);
 
     if (finished) {
-        // 点按钮/关闭后客户端已自行收起界面, 正常情况下这里收尾（删载体 + 结束记录）。
-        // 但**回调里可能已经接管了这次点击**:
-        //   · 调了 update()（就地换页/进子菜单）→ 界面要继续留着, 不能拆
-        //   · 调了 open()（换成另一个对话）→ 当前对话已换成新的, 不能按玩家无脑拆
-        // 所以只处理"本次事件对应的那个对话", 且它没有被接管过。
+
         std::uint64_t removeCarrierUid = 0;
         {
             std::lock_guard lock(mMutex);
@@ -561,11 +564,11 @@ bool NpcDialogueManager::handleNpcRequest(
             mDialogs.withObject(event.dialogId, [&](Dialog const& d) {
                 tookOver = d.touched;
             });
-            auto            byPlayer     = mByPlayer.find(playerName);
-            bool const      stillCurrent = (byPlayer != mByPlayer.end() && byPlayer->second == event.dialogId);
+            auto       byPlayer     = mByPlayer.find(playerName);
+            bool const stillCurrent = (byPlayer != mByPlayer.end() && byPlayer->second == event.dialogId);
 
             if (tookOver) {
-                // 调用方接管（就地换内容）: 保持对话与载体
+
             } else if (stillCurrent) {
                 if (auto car = mCarriers.find(playerName); car != mCarriers.end()) {
                     removeCarrierUid = car->second.uniqueId;
@@ -574,12 +577,13 @@ bool NpcDialogueManager::handleNpcRequest(
                 mDialogs.erase(event.dialogId);
                 mByPlayer.erase(byPlayer);
             } else {
-                // 回调里开了新对话: 只清掉旧载体实体, 新对话保持不动
+
                 removeCarrierUid = preDispatchCarrierUid;
             }
         }
         if (removeCarrierUid != 0) {
-            if (auto* player = findPlayerByName(playerName)) removeCarrierEntity(*player, removeCarrierUid);
+            if (auto* player = findPlayerByName(playerName))
+                removeCarrierEntity(*player, removeCarrierUid);
         }
     }
     return true;
@@ -589,20 +593,24 @@ void NpcDialogueManager::onPlayerLeave(std::string const& playerName) {
     int64_t dialogId = -1;
     {
         std::lock_guard lock(mMutex);
-        if (auto it = mByPlayer.find(playerName); it != mByPlayer.end()) dialogId = it->second;
-        mCarriers.erase(playerName); // 玩家已离线, 客户端实体随之消失, 只需清记录
+        if (auto it = mByPlayer.find(playerName); it != mByPlayer.end())
+            dialogId = it->second;
+        mCarriers.erase(playerName);
     }
-    if (dialogId >= 0) close(dialogId);
+    if (dialogId >= 0)
+        close(dialogId);
+}
+
+std::uint64_t NpcDialogueManager::droppedClicks() const {
+    return mDroppedClicks.load(std::memory_order_relaxed);
 }
 
 void NpcDialogueManager::shutdown() {
     closeAll();
     std::lock_guard lock(mMutex);
-    mCarriers.clear(); // 载体只在客户端存在, 库卸载时无需再发包
+    mCarriers.clear();
 }
 
-// ── NpcRequestPacket 钩子: 点按钮 / 关闭对话的回传 ──
-// 我们的载体是纯协议实体, BDS 侧找不到它 → 恒调 origin 不改变原版行为
 LL_TYPE_INSTANCE_HOOK(
     NpcRequestHook,
     ll::memory::HookPriority::Normal,
@@ -610,18 +618,15 @@ LL_TYPE_INSTANCE_HOOK(
     &ServerNetworkHandler::$handle,
     void,
     NetworkIdentifier const& source,
-    NpcRequestPacket const&  packet
-) {
+    NpcRequestPacket const&  packet) {
+    if (!debugshape_export::core::live()) {
+        origin(source, packet);
+        return;
+    }
     origin(source, packet);
 
-    // NpcRequestPacket 继承自 ll::PayloadPacket<NpcRequestPacketPayload> —— 字段名用 payload 的
-    // （mId/mType/mActionIndex/mSceneName）, 且都在 TypedStorage 里, 需 .get()
-    // 全量诊断: 记录每一个 NpcRequest 的原始内容。
-    // 关键点: 对话/按钮 JSON 是客户端通过 SetActions(0) 发给服务端的（schema:
-    // NpcRequestPacketPayload.Actions 是 string）—— 所以在游戏里编辑一次对话,
-    // 那个 JSON 就会出现在这里, 这就是按钮格式的真值来源, 不用抓包。
     if (auto* player = findPlayerByNetworkId(source)) {
-        // TypedStorage 字段不能直接进 fmt, 先落成局部值
+
         std::string const sceneName = packet.mSceneName;
         std::string const actions   = packet.mActions;
         HLIB_LOG_INFO(
@@ -631,8 +636,12 @@ LL_TYPE_INSTANCE_HOOK(
             static_cast<int>(packet.mType),
             static_cast<int>(packet.mActionIndex),
             sceneName,
-            actions
-        );
+            actions);
+    }
+
+    // 只认按钮点击和关界面：SetActions/SetName/SetSkin 这类不该产出点击事件
+    if (packet.mType != ::NpcRequestPacket::RequestType::ExecuteAction && packet.mType != ::NpcRequestPacket::RequestType::ExecuteClosingCommands) {
+        return;
     }
 
     if (auto* player = findPlayerByNetworkId(source)) {
@@ -641,12 +650,20 @@ LL_TYPE_INSTANCE_HOOK(
             static_cast<std::uint64_t>(packet.mId.get().rawID),
             static_cast<int>(packet.mType),
             static_cast<int>(packet.mActionIndex),
-            packet.mSceneName
-        );
+            packet.mSceneName);
     }
 }
 
 static ll::memory::HookRegistrar<NpcRequestHook> gNpcRequestHookRegistrar;
+static debugshape_export::core::HookRegistrar    gHookReg_npcdialog_request{
+    "npcdialog-request",
+    [] {
+        decltype(gNpcRequestHookRegistrar)::hook();
+    },
+    [] {
+        decltype(gNpcRequestHookRegistrar)::unhook();
+    },
+};
 
 namespace {
 class NpcDialogueAdapter final : public hologramlib::INpcDialogue {
@@ -654,8 +671,8 @@ public:
     int64_t open(std::string const& playerName, hologramlib::NpcDialogSpec const& spec) override {
         return NpcDialogueManager::getInstance().open(playerName, spec);
     }
-    bool close(int64_t dialogId) override { return NpcDialogueManager::getInstance().close(dialogId); }
-    void closeAll() override { NpcDialogueManager::getInstance().closeAll(); }
+    bool               close(int64_t dialogId) override { return NpcDialogueManager::getInstance().close(dialogId); }
+    void               closeAll() override { NpcDialogueManager::getInstance().closeAll(); }
     [[nodiscard]] bool isOpen(int64_t dialogId) const override {
         return NpcDialogueManager::getInstance().isOpen(dialogId);
     }

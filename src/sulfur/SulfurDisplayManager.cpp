@@ -1,8 +1,7 @@
-// SulfurDisplayManager.cpp - 硫磺立方体展示域实现（委托 CustomEntityManager）
 #include "SulfurDisplayManager.h"
 
 #include "customentity/CustomEntityManager.h"
-#include "sulfur/SulfurDisplayPackets.h" // kArchetypeProperty
+#include "sulfur/SulfurDisplayPackets.h"
 
 #include <format>
 #include <memory>
@@ -11,13 +10,10 @@ namespace debugshape_export {
 
 namespace {
 
-// 立方体的 identifier（行为包 entities/sulfur_cube.json）
 constexpr char const* kSulfurIdentifier = "minecraft:sulfur_cube";
 
-// 主手槽位（MobEquipmentPacket 编码: 0=mainhand）
 constexpr int kMainhandSlot = 0;
 
-// 装备物品的自定义名/描述 → 物品 user data 的 SNBT（CustomEntityEquipment::nbt 的格式）
 std::string buildDisplaySnbt(hologramlib::ContainerMenuItem const& item) {
     if (item.name.empty() && item.lore.empty())
         return {};
@@ -45,7 +41,7 @@ std::string buildDisplaySnbt(hologramlib::ContainerMenuItem const& item) {
 hologramlib::CustomEntityEquipment toEquipment(hologramlib::ContainerMenuItem const& item) {
     hologramlib::CustomEntityEquipment eq;
     if (item.type.empty())
-        return eq; // 空手
+        return eq;
     eq.name = item.type;
     eq.aux  = item.damage;
     eq.nbt  = buildDisplaySnbt(item);
@@ -79,7 +75,6 @@ int64_t SulfurDisplayManager::create(hologramlib::SulfurDisplaySpec const& spec)
     if (entityId < 0)
         return -1;
 
-    // 可见玩家白名单（空 = 全员可见）
     if (!spec.visiblePlayers.empty()) {
         CustomEntityManager::getInstance().setVisiblePlayers(entityId, spec.visiblePlayers);
     }
@@ -144,7 +139,7 @@ bool SulfurDisplayManager::destroy(int64_t id) {
 }
 
 void SulfurDisplayManager::destroyAll() {
-    // 先取快照, 再逐个销毁（快照之外的并发插入由下一次 destroyAll 处理; 不在锁内回调下游）
+
     for (auto const id : mEntries.snapshotAll()) {
         destroy(id);
     }
@@ -167,7 +162,6 @@ int64_t SulfurDisplayManager::entityIdOf(int64_t id) const {
     return *entityId;
 }
 
-// ── 公开接口适配 ──
 namespace {
 class SulfurDisplayAdapter final : public hologramlib::ISulfurDisplay {
 public:

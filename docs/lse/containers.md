@@ -92,6 +92,50 @@ setInterval(() => {                                  // 也可以挂在 mc.liste
     containerSetTitle(id, "§8任务列表 · 第 2 页");
     ```
 
+### 整菜单重发（可选换标题）
+
+`containerUpdate(id, title)`
+
+- 参数：
+  - `id` : `Integer`<br>菜单 id
+  - `title` : `String`<br>新标题（支持 `§` 颜色码）；**空串 = 保留当前标题**，只做整菜单重发
+- 返回值：`true` = 已重发；`false` = 菜单已不在或玩家离线
+- 返回值类型：`Boolean`
+- 说明：`containerSetTitle` 是「改标题 + 整菜单重发」；这个函数是你**不知道原标题、也想把整张菜单重发一遍**时的入口（内部就是 C++ 的 `IContainerMenu::update`）。
+  它按**当前生效的 spec** 重发，所以不用重摆方块、不用重新 `containerOpen`，也没有打开延迟。
+  注意：行数（27 / 54 格）在打开时就定了，`containerUpdate` **不会**改行数 —— 要换尺寸只能关掉重开
+- 示例：
+
+    ```js
+    const containerUpdate = ll.import("HologramLib", "containerUpdate");
+    containerUpdate(id, "");                    // 原样重发一遍（标题不变）
+    containerUpdate(id, "§8任务列表 · 第 2 页");  // 换标题并重发
+    ```
+
+### 就地刷新一个带附魔的格子
+
+`containerSetItemEnchanted(id, slot, type, count, damage, name, loreCsv, enchCsv)`
+
+和 `containerSetItem` 完全一样，只多一个 `enchCsv`：该条目会按**真实附魔物品**下发 ——
+客户端会渲染附魔光效，悬停也能看到附魔名（客户端自己翻译）。
+
+- 参数：
+  - 前七个参数同 `containerSetItem`
+  - `enchCsv` : `String`<br>附魔列表，形如 `"9:5,13:2"`（**Bedrock 附魔数字 id : 等级**，逗号/竖线/分号/空格分隔）。
+    空串 = 无附魔。id 取值见 Bedrock `Enchant::Type`（0 保护 / 9 锋利 / 13 火焰附加 / 27 绑定诅咒 …）；
+    越界或等级 < 1 的项**整条忽略**（宁可少一条附魔，也不会让整格变成空气）
+- 返回值：`true` = 已刷新；`false` = 菜单已不在、槽位越界或玩家离线
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    const containerSetItemEnchanted = ll.import("HologramLib", "containerSetItemEnchanted");
+    // 锋利 V + 火焰附加 II
+    containerSetItemEnchanted(id, 3, "minecraft:diamond_sword", 1, 0, "§c烈焰之刃", "§7第一行", "9:5,13:2");
+    ```
+
+> 附魔同时写进**方块实体那份 NBT**，所以关掉重开界面、换维度重发都不会丢光效。
+
 ### 打开或关闭可交互模式
 
 `containerSetInteractive(id, on)`
@@ -178,6 +222,26 @@ setInterval(() => {                                  // 也可以挂在 mc.liste
     const containerClose = ll.import("HologramLib", "containerClose");
     containerClose(id);
     ```
+
+### 预览一个真实容器（只读）
+
+给玩家看**世界里某个真实容器**的当前内容：`containerPreview(playerName, dim, x, y, z)`。
+
+```js
+const id = Container.preview("Steve", 0, 120, 64, -35);
+// 或自定义标题
+const id2 = Container.previewTitled("Steve", 0, 120, 64, -35, "§8仓库 #3");
+```
+
+- 返回值：菜单 id（用 `containerClose(id)` 关）；`-1` 玩家不在线/坐标无效，`-2` 区块未加载，`-3` 该方块不是容器
+- 能预览的容器：箱子 / 木桶 / 潜影盒 / 漏斗 / 熔炉 / 发射器 / 酿造台等（读 `Container::getContainerSize()` 与每格 `getItem`）
+- 未加载的区块会**先按需加载一次**（`readOnly`，不写回存档），读完整块自然卸载
+- 内容只读：**不能拿取**，服务端没有这个容器的会话（点击请求会被拒）
+- 不触发真实开箱：没有开盖动画、比较器信号，其他玩家也看不到
+
+内容会照抄格子的物品 id / 数量 / 耐久 / 自定义名 / lore，所以箱子里是什么，界面上就是什么。
+
+---
 
 ### 假箱子的开合动画
 

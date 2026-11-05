@@ -559,5 +559,5 @@ mc.listen("onTick", () => {
 - **每个 tick 最多只生成 2 个 NPC**（多个同时生成会让客户端一次收到大量数据而断开），所以可见性最多晚一个 tick；视距进出带 4 格滞回，避免在边界上反复重发皮肤。
 - **属性变更会合并**：同一 tick 里连改位置 / 朝向 / 缩放 / 皮肤，只会重建一次（不闪）。但每次重建都会把皮肤重发一遍，所以高频跟踪式移动不适合放在脚本 tick 里 —— LSE 侧没有轻量位置通道，这类需求在 C++ 侧用 `setPositionLight`。
 - **点击要轮询**：假玩家的交互不进回调，用 `ghostPollInteractions()` 取，条目格式形如 `player=Steve action=2 domain=npc id=7`（`action=1` 右键交互，`action=2` 攻击）。
-- **部分能力没有脚本接口**：`setRotationLight` / `setPositionLight` / `playAnimation` / `playAnimationTo` / `setEntitySpawnCallback` 目前只有 C++ 接口，脚本里 `ll.import` 会拿到 `null`；可以先 `ll.hasExported("HologramLib", "...")` 判断再决定要不要用。
+- **回调类能力没有脚本接口**：`setRotationLight` / `setPositionLight` / `playAnimation` / `playAnimationTo` 自 26.51.6 起已有脚本版（`playerNpcSetRotLight` / `playerNpcSetPosLight` / `playerNpcPlayAnimation` / `playerNpcPlayAnimationTo`）；只剩 `setEntitySpawnCallback` 是 C++ 回调 —— 脚本侧改用 `playerNpcPollSpawns()` 轮询同一份出生事件。
 - **白名单按名字匹配**：用的是玩家名（LSE 的 `realName`），不是 uuid；玩家改名后旧名单会失效。

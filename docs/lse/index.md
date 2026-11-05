@@ -10,7 +10,7 @@ HologramLib 在脚本侧只占**一个命名空间** `HologramLib`：装上前�
 
 两种方式，都能用，也可以混：
 
-- **统一导入**（推荐）：`const { ItemActor } = require("plugins/HologramLib/lib/HologramLib.js")`
+- **统一导入**（推荐）：`const { ItemActor } = require("mods/HologramLib/lib/HologramLib.js")`
   —— 懒绑定、缺函数降级、编辑器可补全
 - **lrca 直连**：`ll.import("HologramLib", "itemActorSpawn")` —— 只用一两个函数时更省事
 
@@ -27,7 +27,7 @@ HologramLib 在脚本侧只占**一个命名空间** `HologramLib`：装上前�
 统一导入：
 
 ```js
-const { Hologram } = require("plugins/HologramLib/lib/HologramLib.js");
+const { Hologram } = require("mods/HologramLib/lib/HologramLib.js");
 
 const id = Hologram.create(0, 70, 0);        // 在坐标原点的上方 70 格建一块悬浮字
 Hologram.addLine(id, "你好");                 // 加一行
@@ -105,7 +105,7 @@ mc.listen("onJoin", (player) => {
 
 ## 5. 点击 / 交互事件怎么拿（轮询）
 
-界面类（容器、NPC 对话、交易）和 ghost 交互的事件**不进回调**，而是进队列，需要你在定时器或 tick 里自己轮询。一次调用会把队列**取走并清空**，条目是一行 `键=值` 组成的字符串：
+界面类（容器、NPC 对话、交易）和 ghost / 真实实体交互的事件**不进回调**，而是进队列，需要你在定时器或 tick 里自己轮询。一次调用会把队列**取走并清空**，条目是一行 `键=值` 组成的字符串：
 
 | 轮询函数 | 条目格式（示例） |
 |---|---|
@@ -114,6 +114,7 @@ mc.listen("onJoin", (player) => {
 | `tradePollSettlements` | `player=Steve menuId=3 offer=1 ok=1 reason=` |
 | `fakeInvPollClicks` | `player=Steve slot=5` |
 | `ghostPollInteractions` | `player=Steve action=1 domain=npc id=42 pos=(100.50,65.00,100.50)` |
+| `actorPollInteractions` | `player=Steve action=2 runtimeId=123 uniqueId=45 type=minecraft:zombie pos=(100.50,65.00,100.50)` |
 
 ```js
 const containerPollClicks = ll.import("HologramLib", "containerPollClicks");
@@ -147,7 +148,7 @@ setInterval(() => {
 | 画线 / 方框 / 球 / 形状、多行悬浮字、渐变线 | `shape*` · `holo*` · `gradient*` | [DebugShape（悬浮字与形状）](debugshape.md) |
 | 显示物品名、物品悬浮实体 | `itemDetail*` · `itemDisplay*` | [物品显示](item-display.md) |
 | 粒子形状 | `particle*` | [粒子](particles.md) |
-| 自定义实体、真实实体交互、ghost 事件 | `entity*` · `ghost*` | [实体与交互](entities.md) |
+| 自定义实体、真实实体交互、ghost 事件 | `entity*` · `ghost*` · `actorPollInteractions` | [实体与交互](entities.md) |
 | 协议层假玩家（NPC）、皮肤 / 图片平面 / 姿势 / 装备 / 骑乘 | `playerNpc*` | [假玩家 NPC](player-npc.md) |
 | 虚拟容器、背包虚容器 | `container*` · `fakeInv*` | [容器与背包](containers.md) |
 | 交易菜单、NPC 对话框 | `trade*` · `npcDialog*` | [界面](interfaces.md) |
@@ -160,7 +161,7 @@ setInterval(() => {
 | 隐身 | `playerHide*` | [隐身](visibility.md) |
 | 死亡动画后的复活 | `playerRespawn*` | [死亡后的复活](respawn.md) |
 
-函数总数 400，全部在运行期注册，`ll.import` 都能拿到。
+函数总数 424，全部在运行期注册，`ll.import` 都能拿到。
 
 ---
 

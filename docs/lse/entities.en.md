@@ -703,7 +703,7 @@ It looks at the same record as `entityExists`, with a name that fits the "probe 
 `ghost*` has only two functions, but they are used differently from the other domains; read these three points first:
 
 1. **Events go into a queue; there is no callback.** When a player clicks a library protocol entity (a custom entity / an item display / a fake-player NPC), the library puts that interaction into a pending queue, and you have to call `ghostPollInteractions()` yourself, per tick or on a timer, to take it out; if you never take it, it just piles up in the queue.
-2. **The events come from client interaction packets.** The library hooks the packet-receiving path, looks the target of each interaction packet from the client back up to its **library id**, and formats the result into a string for the queue. Only interactions that hit a **library protocol entity** enter this queue — a click on a real server-side entity (a vanilla mob, a player) never shows up here.
+2. **The events come from client interaction packets.** The library hooks the packet-receiving path, looks the target of each interaction packet from the client back up to its **library id**, and formats the result into a string for the queue. Only interactions that hit a **library protocol entity** enter this queue — a click on a real server-side entity (a vanilla mob, a player) never shows up here; it goes to `actorPollInteractions()` instead (next section).
 3. **The queue has a limit.** It holds at most 256 entries, and once it is full a new event pushes the oldest one out; not polling = losing events.
 
 ### Take and clear the interaction events
@@ -745,6 +745,53 @@ It looks at the same record as `entityExists`, with a name that fits the "probe 
     const ghostClearInteractions = ll.import("HologramLib", "ghostClearInteractions");
     // Clear it once when a player reconnects or the scene changes, so that you do not handle stale clicks
     ghostClearInteractions();
+    ```
+
+## Real-entity interaction events (actor*)
+
+The previous section only covers interactions that hit a **library protocol entity**. Interactions that hit a **real server-side entity** (a vanilla mob, another player's entity, your own mod's entity) go into a second queue, exposed by two `actor*` functions:
+
+The two queues are complementary and never double-enqueue: if the target is in the library's protocol-entity table (custom entity / item display / fake-player NPC) it goes to `ghost*`, otherwise to `actor*`.
+
+### Take and clear the real-entity interaction events
+
+`actorPollInteractions()`
+
+- Return value: each entry is one event string; an empty array when the queue is empty
+- Return type: `Array<String>`
+
+  The format: `player=<playerName> action=<1|2> runtimeId=<entityRuntimeId> uniqueId=<entityUniqueId> type=<entityTypeName>`; a `pos=(x,y,z)` is appended when the client carries coordinates.
+
+  - `action`: `1` = right-click / use / interact, `2` = left-click attack (from `InteractPacket` and `ItemUseOnActorInventoryTransaction`; the latter counts `Attack` as 2 and everything else as 1).
+  - `runtimeId` is the **current server-side** runtime id — it changes after a restart, so do not persist it; `uniqueId` is stable within the same world, use that for persistence.
+  - `type` is the entity type name (e.g. `minecraft:zombie`); it is an empty string when the server cannot resolve the entity.
+- Note: the queue limit is 256 entries here too, the oldest is dropped when full, and one call takes the queue away and clears it.
+- The event source is **exactly the same** as the C++ `addActorInteractListener` (the server-side entity item-transaction path, `ItemUseOnActorInventoryTransaction`) — the script side neither receives more nor fewer events than C++; interactions that produce no item transaction (an empty-hand click on a target, for instance) may not produce an event, so do not treat this queue as a complete audit of interactions.
+- Example:
+
+    ```js
+    const actorPollInteractions = ll.import("HologramLib", "actorPollInteractions");
+    setInterval(() => {
+      for (const line of actorPollInteractions()) {
+        const m = line.match(/player=(\S+) action=(\d+) runtimeId=(\d+) uniqueId=(-?\d+) type=(\S*)/);
+        if (!m) continue;
+        const [, who, action, , uniqueId, type] = m;
+        if (action === "2" && type === "minecraft:zombie") logger.info(`${who} hit zombie ${uniqueId}`);
+      }
+    }, 100);
+    ```
+
+### Discard real-entity interaction events
+
+`actorClearInteractions()`
+
+- Return value: no return value
+- Return type: `Null`
+- Example:
+
+    ```js
+    const actorClearInteractions = ll.import("HologramLib", "actorClearInteractions");
+    actorClearInteractions();
     ```
 
 ## Particle shapes · Creation
@@ -1227,12 +1274,12 @@ Every transform happens about the shape's **anchor** (line = midpoint, rectangle
 ## Notes
 
 1. **`ghost*` must be polled.** Interaction events do not go into a callback, they only sit in the queue; if you never call `ghostPollInteractions()` you will never receive them. The queue holds at most 256 entries, and once it is full the oldest is dropped.
-2. **Only interactions that hit a library protocol entity enter the queue.** Clicks on a custom entity, an item display or a fake-player NPC carry a `domain` and a library `id`; a click on a real server-side entity (a vanilla mob, a player) never appears in the return value of `ghostPollInteractions()`.
+2. **`ghost*` only covers library protocol entities.** Clicks on a custom entity, an item display or a fake-player NPC carry a `domain` and a library `id`; a click on a real server-side entity (a vanilla mob, a player) never appears in the return value of `ghostPollInteractions()` — those go to `actorPollInteractions()` (also polled by you, also capped at 256 entries).
 3. **A custom entity does not "appear the moment it is created".** Who can see it is recalculated by the library on a timer, so a newly created entity shows up on the client within about 1 second at the latest; a property change triggers a recalculation along the way, which is usually faster.
 4. **Protocol entities take no part in server-side logic.** They have no AI, no collision and nothing written to the save: hitting one does not cost health, walking through one does not bump into it, and they all vanish after a restart — if you need persistence, save the ids yourself and restore them with `entityCreateWithId`.
 5. **Visibility is the intersection of four conditions.** Only a player who satisfies dimension + view distance + whitelist + the `entitySetEnabled` switch sees the entity; the whitelist does not "append", and `entitySetVisiblePlayer` replaces the whole list.
 6. **By default a nametag only shows when the crosshair is on it.** There is no function on the LSE side to switch "always shown" on; if you want it visible all the time like holographic text, hang a separate line of text on it with the `holo*` domain.
-7. **Per-client orientation has no LSE export.** "Each player sees a different orientation" (the `setPlayerRotation` family) exists only on the C++ interface; the per-client functions on this page cover nametags, scale and equipment only.
+7. **Per-client orientation does have an LSE export (since 26.51.6).** `entitySetPlayerRotation` / `entityClearPlayerRotation` / `entityClearPlayerRotations` are the script-side versions of the C++ `setPlayerRotation` family; nametag, scale and equipment each have their own per-client export (see "Custom entity · per-client appearance" above).
 8. **`entityPlayAnimation` sends one packet and does not persist.** A player who only sees this entity later does not get the animation re-sent automatically; calling it while `entitySetEnabled` has the entity switched off returns `false` outright.
 9. **Particle shapes have no "destroy all" or "list every id" export.** Your script has to keep the ids returned at creation itself, and `particleDestroy` them one by one when tidying up.
 10. **The particle whitelist works by uuid and stacks with the dimension.** When not one valid player on the whitelist is in the shape's dimension, the shape is removed automatically (it does not stay around waiting for someone); a shape whose dimension is merely empty is kept, spinning idle.

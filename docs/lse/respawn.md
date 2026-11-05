@@ -11,7 +11,7 @@
 **服务端实体完全不动**：血量、位置、维度、背包都不变，也不会触发任何死亡 / 重生事件。
 
 ```js
-const { ActorEffect, PlayerRespawn } = require("plugins/HologramLib/lib/HologramLib.js");
+const { ActorEffect, PlayerRespawn } = require("mods/HologramLib/lib/HologramLib.js");
 
 const rid = ActorEffect.runtimeIdOfPlayer("Steve");
 ActorEffect.playDeath(rid);          // 客户端开始播死亡动画

@@ -156,7 +156,7 @@ int32 颜色在 **v2168 是 ARGB** 打包。库早年沿用 v944 的字节序 �
 |---|---|
 | `.cache/schema-*/` | 字段增删（如 `lineGapHeight` 这类「以为有其实没有」的字段） |
 | `bedrock_server_mod.exe` 字符串扫描 | 引擎真实使用的字段名与枚举 |
-| `plugins/BedrockProtocol-main/sculk/protocol/codec` | 协议库的读写实现 |
+| `mods/BedrockProtocol-main/sculk/protocol/codec` | 协议库的读写实现 |
 
 三者一致才算真值 —— 库内多次结论（文本载荷没有行级字段、`SetActorData` 带 `mTick`、掉落物走 `AddItemActor`）都是这样三级核对出来的。
 

@@ -82,7 +82,7 @@ mc.listen("onJoin", (player) => {
 
 ## 5. How to get click / interaction events (polling)
 
-Events from the interface domains (container, NPC dialogue, trade) and from ghost interactions **do not go into callbacks**: they go into queues, and you have to poll them yourself on a timer or per tick. One call **takes the queue away and clears it**, and an entry is a line built from `key=value` fields:
+Events from the interface domains (container, NPC dialogue, trade) and from ghost / real-entity interactions **do not go into callbacks**: they go into queues, and you have to poll them yourself on a timer or per tick. One call **takes the queue away and clears it**, and an entry is a line built from `key=value` fields:
 
 | Polling function | Entry format (example) |
 |---|---|
@@ -91,6 +91,7 @@ Events from the interface domains (container, NPC dialogue, trade) and from ghos
 | `tradePollSettlements` | `player=Steve menuId=3 offer=1 ok=1 reason=` |
 | `fakeInvPollClicks` | `player=Steve slot=5` |
 | `ghostPollInteractions` | `player=Steve action=1 domain=npc id=42 pos=(100.50,65.00,100.50)` |
+| `actorPollInteractions` | `player=Steve action=2 runtimeId=123 uniqueId=45 type=minecraft:zombie pos=(100.50,65.00,100.50)` |
 
 ```js
 const containerPollClicks = ll.import("HologramLib", "containerPollClicks");
@@ -132,7 +133,7 @@ setInterval(() => {
 | Client view override (swap model / hide / re-skin) | `view*` | [View override](view.md) |
 | Device sensing | `sensing*` | [Client sensing](sensing.md) |
 
-387 functions in total, all registered at runtime, and `ll.import` can fetch every one of them.
+424 functions in total, all registered at runtime, and `ll.import` can fetch every one of them.
 
 ---
 

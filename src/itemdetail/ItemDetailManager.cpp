@@ -1,4 +1,3 @@
-// ItemDetailManager.cpp - 物品详情悬浮显示实现
 #include "ItemDetailManager.h"
 #include "FloatingTextManager.h"
 
@@ -21,15 +20,15 @@ ItemDetailManager& ItemDetailManager::getInstance() {
 }
 
 std::string ItemDetailManager::resolveItemName(const std::string& itemId, int aux) const {
-    // 注册表解析 → ItemStack → I18n 翻译链（与 ItemPhys DropName 同源方案）
+
     auto level = ll::service::getLevel();
     if (level) {
         auto weak = level->getItemRegistry().getItem(::HashedString(itemId));
         if (weak) {
-            // 26.32: ItemStack 无 4 参构造, 改用默认构造 + reinit
+
             ::ItemStack stack{};
             stack.reinit(*weak, 1, aux);
-            auto        key = stack.getDescriptionId();
+            auto key = stack.getDescriptionId();
             if (!key.empty()) {
                 auto& i18n       = getI18n();
                 auto  locale     = i18n.getLocaleFor("en_US");
@@ -39,12 +38,14 @@ std::string ItemDetailManager::resolveItemName(const std::string& itemId, int au
                 }
             }
             auto name = stack.getName();
-            if (!name.empty()) return name;
+            if (!name.empty())
+                return name;
             name = stack.getDescriptionName();
-            if (!name.empty()) return name;
+            if (!name.empty())
+                return name;
         }
     }
-    return itemId; // 兜底: 原样显示 ID（不阻断显示）
+    return itemId;
 }
 
 int64_t ItemDetailManager::show(
@@ -55,23 +56,23 @@ int64_t ItemDetailManager::show(
     const std::string& itemId,
     int                aux,
     int                count,
-    const std::string& customText
-) {
+    const std::string& customText) {
     std::lock_guard<std::mutex> lock(mMutex);
 
     std::string text = customText;
     if (text.empty()) {
         std::string name = resolveItemName(itemId, aux);
-        text = count > 1 ? std::format("{} x{}", name, count) : name;
+        text             = count > 1 ? std::format("{} x{}", name, count) : name;
     }
 
-    auto& holo = FloatingTextManager::getInstance();
-    int64_t id = holo.create(x, y, z);
-    if (id < 0) return -1;
+    auto&   holo = FloatingTextManager::getInstance();
+    int64_t id   = holo.create(x, y, z);
+    if (id < 0)
+        return -1;
 
     holo.addLine(id, text);
     if (!holo.drawToDimension(id, dimId)) {
-        // 绘制失败（如维度无效）直接回收, 不留僵尸数据
+
         holo.destroy(id);
         return -1;
     }

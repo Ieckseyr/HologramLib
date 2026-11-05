@@ -130,7 +130,7 @@ Sends `AnimateEntityPacket` to players that have already seen this NPC:
 
 Paired with `setEntitySpawnCallback`: it fires when an NPC has finished spawning for a given player, so the consumer can resend animations / state (**the library notifies, the consumer decides**). The same queue as the customentity domain (sent at +2 ticks).
 
-`setPositionLight` / `playAnimation(To)` / `setEntitySpawnCallback` are currently **C++-only, with no LSE exports yet**; the skin family does have LSE (`playerNpcInjectSkin` / `playerNpcInjectSkinAll`).
+`setPositionLight` / `setRotationLight` / `playAnimation(To)` and per-player orientation have had LSE exports since 26.51.6 (`playerNpcSetPosLight` / `playerNpcSetRotLight` / `playerNpcPlayAnimation(To)` / `playerNpcSetPlayerRotation`); only `setEntitySpawnCallback` stays a C++ callback — the script side polls the same spawn events with `playerNpcPollSpawns()`.
 
 ### Three field-tested pitfalls (all found the hard way)
 

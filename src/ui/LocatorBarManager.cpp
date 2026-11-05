@@ -1,7 +1,6 @@
-// LocatorBarManager.cpp - 方位条航点（1.33.0：图标 / 大小 / 绑定实体 / 分组）
 #include "LocatorBarManager.h"
 
-#include "../visibility/PlayerVisibilityManager.h" // 隐藏的实现搬到了那边
+#include "../visibility/PlayerVisibilityManager.h"
 #include "core/PacketSink.h"
 
 #include <ll/api/service/Bedrock.h>
@@ -16,8 +15,6 @@ namespace debugshape_export {
 
 namespace {
 
-// key → 稳定的 128 位句柄（FNV-1a 变体挑两个互不相关的种子）。
-// 只需要"同一 key 每次得到同一 UUID"，不要求抗碰撞强度。
 std::uint64_t fnv1a(std::string const& text, std::uint64_t seed) {
     std::uint64_t hash = seed;
     for (unsigned char const c : text) {
@@ -36,7 +33,6 @@ std::uint64_t fnv1a(std::string const& text, std::uint64_t seed) {
 
 } // namespace
 
-// 协议载荷与其标志位（本文件多处用）
 using Payload = sculk::protocol::LocatorBarServerWaypointPayload;
 
 LocatorBarManager& LocatorBarManager::getInstance() {
@@ -75,7 +71,7 @@ bool LocatorBarManager::sendOne(::Player& player, Waypoint const& waypoint, bool
     server.mClientPositionAuthority = waypoint.clientAuthority;
     flags                           = static_cast<std::uint8_t>(flags) | static_cast<std::uint8_t>(Payload::UpdateFlags::ClientPositionAuthority);
     if (waypoint.actorUniqueId != 0) {
-        // 绑定实体：协议里没有专门的 UpdateFlag 位，随位置一起带上
+
         server.mActorUniqueId = waypoint.actorUniqueId;
     }
     server.mUpdateFlag = static_cast<Payload::UpdateFlags>(flags);
@@ -83,7 +79,7 @@ bool LocatorBarManager::sendOne(::Player& player, Waypoint const& waypoint, bool
     sculk::protocol::LocatorBarPacket packet;
     packet.mWaypoints.push_back(payload);
 
-    auto bytes = wire::encodeChecked(packet);
+    auto bytes = wire::encode(packet);
     if (bytes.empty())
         return false;
     wire::sendRaw(player, bytes);
@@ -134,7 +130,7 @@ bool LocatorBarManager::sendMany(::Player& player, std::vector<Waypoint> const& 
         packet.mWaypoints.push_back(std::move(payload));
     }
 
-    auto bytes = wire::encodeChecked(packet);
+    auto bytes = wire::encode(packet);
     if (bytes.empty())
         return false;
     wire::sendRaw(player, bytes);
@@ -408,7 +404,7 @@ bool LocatorBarManager::removeWaypoint(std::string const& playerName, std::strin
     sculk::protocol::LocatorBarPacket packet;
     packet.mWaypoints.push_back(payload);
 
-    auto bytes = wire::encodeChecked(packet);
+    auto bytes = wire::encode(packet);
     if (bytes.empty())
         return false;
     wire::sendRaw(*player, bytes);
@@ -443,7 +439,7 @@ int LocatorBarManager::clearWaypoints(std::string const& playerName) {
         packet.mWaypoints.push_back(std::move(payload));
     }
 
-    auto bytes = wire::encodeChecked(packet);
+    auto bytes = wire::encode(packet);
     if (bytes.empty())
         return 0;
     wire::sendRaw(*player, bytes);

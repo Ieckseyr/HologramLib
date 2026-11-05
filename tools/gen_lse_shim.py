@@ -25,8 +25,8 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "src")
-# 产物直接放插件根目录：部署后就是 plugins/HologramLib/lib/HologramLib.js，
-# 脚本 require("plugins/HologramLib/lib/HologramLib.js") 即可；发布包里也在根。
+# 产物直接放插件根目录：部署后就是 mods/HologramLib/lib/HologramLib.js，
+# 脚本 require("mods/HologramLib/lib/HologramLib.js") 即可；发布包里也在根。
 OUT_DIR = os.path.join(ROOT, "lib")
 NAMESPACE = "HologramLib"
 
@@ -52,6 +52,7 @@ GROUPS = [
     ("view", "View"),
     ("itemActor", "ItemActor"),
     ("playerRespawn", "PlayerRespawn"),
+    ("actor", "ActorEffect"),
     ("playerHide", "Visibility"),
     ("locatorBar", "LocatorBar"),
     ("form", "Form"),
@@ -60,6 +61,9 @@ GROUPS = [
 
 # C++ 形参类型 → TS 类型（够用即可；拿不准的一律 any）
 TYPE_MAP = [
+    (r"std::vector<\s*std::string\s*>", "string[]"),
+    (r"std::vector<\s*int64_t\s*>", "number[]"),
+    (r"std::vector<[^>]*>", "any[]"),
     (r"std::string", "string"),
     (r"char const\*", "string"),
     (r"int64_t", "number"),
@@ -69,7 +73,6 @@ TYPE_MAP = [
     (r"float", "number"),
     (r"double", "number"),
     (r"bool", "boolean"),
-    (r"std::vector<[^>]*>", "any[]"),
 ]
 
 
@@ -187,7 +190,10 @@ def group_for(name: str) -> tuple[str, str]:
     prefix, group = best
     rest = name[len(prefix):]
     if not rest:
-        return ("Misc", name)
+        # 导出名正好等于前缀（playerRespawn）：用前缀最后一个驼峰词做方法名（respawn），别丢进 Misc
+        words = re.findall(r"[A-Z]?[a-z0-9]+", prefix)
+        word = words[-1] if words else name
+        return (group, word[0].lower() + word[1:])
     method = rest[0].lower() + rest[1:]
     return (group, method)
 
@@ -247,13 +253,13 @@ def render_js(exports: list[dict], api_version: str, abi_stamp: str) -> str:
 //
 // 用法一：按分组调用
 //
-//   const {{ ItemActor, Visibility, LocatorBar }} = require("plugins/HologramLib/lib/HologramLib.js");
+//   const {{ ItemActor, Visibility, LocatorBar }} = require("mods/HologramLib/lib/HologramLib.js");
 //   ItemActor.spawn("minecraft:diamond", 0, 1, 100.5, 65, 100.5, 0, 0, 0.4, 0);
 //   Visibility.setHidden("Steve", true);
 //
 // 用法二：按函数原名调用
 //
-//   const HL = require("plugins/HologramLib/lib/HologramLib.js");
+//   const HL = require("mods/HologramLib/lib/HologramLib.js");
 //   HL.itemActorSpawn("minecraft:diamond", 0, 1, 100.5, 65, 100.5, 0, 0, 0.4, 0);
 //
 // 说明:

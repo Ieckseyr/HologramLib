@@ -1,21 +1,5 @@
-﻿// ProtocolShape.h - 基于 BedrockProtocol v2168 的形状数据结构与构造辅助
-//
-// 本头文件是对 sculk::protocol::abi_v2168::PrimitiveShapes 的薄封装，
-// 提供与旧版 ProtoShape 兼容的接口，使上层 PacketDebugRenderer 无需大改。
-// 实际序列化由 Protocol v2168 静态库的 PrimitiveShapes::write /
-// PrimitiveShapesPacket::writeWithHeader 完成。
-//
-// v944 → v2168 迁移说明:
-//   DebugDrawerPacket → PrimitiveShapesPacket（包 ID 328 不变）
-//   DebugShape        → PrimitiveShapes
-//   枚举值重排: v944 Text=0/Line=1/Box=2/Circle=3/Sphere=4/Arrow=5
-//              v2168 Line=0/Box=1/Sphere=2/Circle=3/Text=4/Arrow=5
-//   新增原生 Line 载荷（v944 用 Arrow 模拟线段, v2168 直接用 LineDataPayload）
-//   新增 Sphere segments 载荷（v944 用 monostate）
-// v2168 → 2193 (MC 1.26.50/51) 迁移说明:
-//   TextDataPayload 在 BackgroundColor 与 DepthTest 之间新增 LineGapHeight(float)。
-//   线上的字段错位会让 26.51 客户端把后面几个 bool 读成垃圾, 必须显式发出该字段
-//   （见下方 kTextLineGapHeight）。
+﻿
+
 #pragma once
 
 #include <algorithm>
@@ -25,14 +9,10 @@
 #include "sculk/protocol/codec/level/PrimitiveShapes.hpp"
 #include "sculk/protocol/codec/math/Vec3.hpp"
 #include "sculk/protocol/codec/packet/PrimitiveShapesPacket.hpp"
-#include "shape/ShapeIdMap.h" // 脚本编号 ↔ 协议编号（6 是历史空洞）
+#include "shape/ShapeIdMap.h"
 
 namespace debugshape_export {
 
-// 形状类型枚举（LSE 兼容，与 PacketDebugRenderer 配套使用）
-// 注意: 数值是 LSE 脚本侧的稳定 API，与协议层 PrimitiveShapesType 的数值不同，
-// 映射关系见下方 toProtoShapeType。
-// 注: FilledQuad(6) 已移除（极薄 Box 模拟填充面方案废弃）; 6 保留空洞防止旧脚本误判
 enum class LSEShapeType : int {
     Text   = shape_id::kLseText,
     Line   = shape_id::kLseLine,
@@ -40,14 +20,13 @@ enum class LSEShapeType : int {
     Circle = shape_id::kLseCircle,
     Sphere = shape_id::kLseSphere,
     Arrow  = shape_id::kLseArrow,
-    // 6 是历史空洞（FilledQuad 废弃后留空），不要复用
+
     Cylinder  = shape_id::kLseCylinder,
     Pyramid   = shape_id::kLsePyramid,
     Ellipsoid = shape_id::kLseEllipsoid,
     Cone      = shape_id::kLseCone
 };
 
-// 直接复用 v2168 命名空间下的类型（保留旧别名使上层代码无需改动）
 using ProtoShape         = sculk::protocol::PrimitiveShapes;
 using ProtoShapeType     = sculk::protocol::PrimitiveShapesType;
 using ProtoVec3          = sculk::protocol::Vec3;
@@ -57,7 +36,6 @@ using ProtoLinePayload   = sculk::protocol::LineDataPayload;
 using ProtoArrowPayload  = sculk::protocol::ArrowDataPayload;
 using ProtoSpherePayload = sculk::protocol::SphereDataPayload;
 
-// v944 时代的历史别名（上层代码沿用）
 using DebugShape     = ProtoShape;
 using DebugShapeType = ProtoShapeType;
 using Vec3           = ProtoVec3;
@@ -66,7 +44,6 @@ using DebugBox       = ProtoBoxPayload;
 using DebugLine      = ProtoLinePayload;
 using DebugArrow     = ProtoArrowPayload;
 
-// LSE 形状类型 → v2168 协议形状类型（数值重排后的显式映射）
 [[nodiscard]] inline ProtoShapeType toProtoShapeType(LSEShapeType t) {
     switch (t) {
     case LSEShapeType::Text:
@@ -93,12 +70,6 @@ using DebugArrow     = ProtoArrowPayload;
     return ProtoShapeType::Box;
 }
 
-// 颜色辅助：v2168 的 mColor / TextDataPayload 的 mBackgroundColor 都是 int32 颜色，
-// 按 **ARGB** 打包（A 在最高字节, R 次之, G 再次, B 在最低字节; 与 sculk 的
-// mMapWaterColorARGB 命名约定 / 官方协议口径一致）。
-// 注意: v944 时代的 writeColor 是逐字节 r, g, b, a（LE int32 = r | g<<8 | b<<16 | a<<24），
-// v2168 字段虽同为 int32 但字节序不同 —— 2026-10-09 实测: 填红显蓝（R/B 颠倒）,
-// 即旧字节序在 v2168 上是错的; 本函数已按 ARGB 修正。
 struct ProtoColor {
     std::uint8_t r{255}, g{255}, b{255}, a{255};
 
@@ -117,28 +88,19 @@ struct ProtoColor {
             static_cast<std::uint8_t>(std::clamp(af * 255.0f, 0.0f, 255.0f))};
     }
 
-    // 转换为 v2168 使用的 int32 打包颜色（ARGB: A 最高字节, B 最低字节）
     [[nodiscard]] std::int32_t toPacked() const {
         return static_cast<std::int32_t>(
             (static_cast<std::uint32_t>(a) << 24) | (static_cast<std::uint32_t>(r) << 16) | (static_cast<std::uint32_t>(g) << 8) | static_cast<std::uint32_t>(b));
     }
 };
 
-//================================================================
-// 形状构造辅助函数（返回 v2168 PrimitiveShapes）
-//================================================================
-
 inline ProtoShape makeRemoveShape(std::uint64_t networkId) {
     ProtoShape shape;
     shape.mNetworkId = networkId;
-    // 其余字段均为 nullopt / monostate，客户端收到后会移除该 networkId 的形状
+
     return shape;
 }
 
-// 2193 新增的文本行距（行与行之间的间距）。26.40 线上没有这个字段, 行距由客户端固定;
-// 26.51 起由它决定。0.0f 与协议库的字段默认值一致, 即"不额外加行距"。
-// 全库只有本函数构造文本形状（悬浮字把多行用 \n 合并成同一个形状走这里）, 所以多行
-// 悬浮字若在 26.51 客户端上显得贴行, 要调的就是这一个值。
 constexpr float kTextLineGapHeight = 0.0f;
 
 inline ProtoShape makeTextShape(std::uint64_t networkId, Vec3 const& pos, std::string const& text) {
@@ -153,7 +115,6 @@ inline ProtoShape makeTextShape(std::uint64_t networkId, Vec3 const& pos, std::s
     return shape;
 }
 
-// v2168 新增原生 Line 载荷（v944 时代用 Arrow 模拟, 现在直接画无箭头线段）
 inline ProtoShape makeLineShape(std::uint64_t networkId, Vec3 const& start, Vec3 const& end) {
     ProtoShape shape;
     shape.mNetworkId = networkId;
@@ -178,7 +139,7 @@ inline ProtoShape makeSphereShape(std::uint64_t networkId, Vec3 const& pos, floa
     shape.mType      = ProtoShapeType::Sphere;
     shape.mLocation  = pos;
     shape.mScale     = scale;
-    // v2168 Sphere 载荷携带 segments（v944 时代为 monostate, 该参数此前被忽略）
+
     shape.mShape = ProtoSpherePayload{.mSegments = segments};
     return shape;
 }
@@ -189,13 +150,10 @@ inline ProtoShape makeCircleShape(std::uint64_t networkId, Vec3 const& pos, floa
     shape.mType      = ProtoShapeType::Circle;
     shape.mLocation  = pos;
     shape.mScale     = scale;
-    // Circle 无专属载荷（variant 中不存在 Circle 项），使用 monostate（variant 0）
+
     return shape;
 }
 
-// ── 1.33.0 新增：四种形状 ──
-// CylinderDataPayload / ConeDataPayload 的半径字段是 Vec2，协议文档没写两个分量各是什么，
-// 这里两个分量填同一个值（等径），需要收腰/锥度时再扩展参数。
 inline ProtoShape makeCylinderShape(
     std::uint64_t networkId,
     Vec3 const&   pos,
@@ -228,7 +186,7 @@ inline ProtoShape makePyramidShape(
     shape.mLocation  = pos;
     shape.mShape     = sculk::protocol::PyramidDataPayload{
         .mWidth  = width,
-        .mDepth  = depth, // 可选字段，这里总是给出
+        .mDepth  = depth,
         .mHeight = height,
     };
     return shape;

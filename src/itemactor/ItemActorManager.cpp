@@ -1,4 +1,3 @@
-// ItemActorManager.cpp - 协议层掉落物
 #include "ItemActorManager.h"
 
 #include "core/PacketSink.h"
@@ -35,7 +34,6 @@ std::uint64_t currentTick() {
     return level->getPlayer(name);
 }
 
-// 角度（度）→ 协议用的字节角
 std::uint8_t rotToByte(float degrees) {
     float const normalized = degrees * (256.0f / 360.0f);
     auto const  value      = static_cast<int>(normalized) % 256;
@@ -67,7 +65,6 @@ int64_t ItemActorManager::spawn(hologramlib::ItemActorSpec const& spec) {
     if (spec.itemId.empty())
         return -1;
 
-    // 取数字物品 id：不带 UserData，普通掉落物不需要 NBT。
     hologramlib::ContainerMenuItem entry;
     entry.type              = spec.itemId;
     entry.count             = spec.count < 1 ? 1 : spec.count;
@@ -92,7 +89,6 @@ int64_t ItemActorManager::spawn(hologramlib::ItemActorSpec const& spec) {
     actor.z         = spec.z;
     actor.dimension = spec.dimension;
 
-    // 该维度没有玩家时不占 id
     auto level = ll::service::getLevel();
     if (!level)
         return -1;
@@ -117,7 +113,7 @@ int64_t ItemActorManager::spawn(hologramlib::ItemActorSpec const& spec) {
     packet.mVelocity        = sculk::protocol::Vec3{spec.vx, spec.vy, spec.vz};
     packet.mIsFromFishing   = false;
 
-    auto bytes = wire::encodeChecked(packet);
+    auto bytes = wire::encode(packet);
     if (bytes.empty())
         return -1;
 
@@ -136,7 +132,7 @@ bool ItemActorManager::setMotion(int64_t id, float vx, float vy, float vz) {
     packet.mMotion         = sculk::protocol::Vec3{vx, vy, vz};
     packet.mTick           = currentTick();
 
-    auto bytes = wire::encodeChecked(packet);
+    auto bytes = wire::encode(packet);
     if (bytes.empty())
         return false;
 
@@ -162,7 +158,7 @@ bool ItemActorManager::moveTo(int64_t id, float x, float y, float z) {
     packet.mRotationY      = rotToByte(0.0f);
     packet.mRotationYHead  = rotToByte(0.0f);
 
-    auto bytes = wire::encodeChecked(packet);
+    auto bytes = wire::encode(packet);
     if (bytes.empty())
         return false;
 
@@ -171,64 +167,77 @@ bool ItemActorManager::moveTo(int64_t id, float x, float y, float z) {
 }
 
 bool ItemActorManager::take(int64_t id, std::string const& playerName) {
-    std::lock_guard lock(mMutex);
-    Actor*          actor = mActors.peek(id);
-    if (actor == nullptr)
-        return false;
+    // 锁内只取数据（拷成值），编码与发送放到锁外（P04）；erase 会析构记录，锁外不能再碰指针
+    std::uint64_t snapshotUniqueId  = 0;
+    std::uint64_t snapshotRuntimeId = 0;
+    int           snapshotDimension = 0;
+    ::Player*     player            = nullptr;
+    {
+        std::lock_guard lock(mMutex);
+        auto*           snapshot = mActors.peek(id);
+        if (snapshot == nullptr)
+            return false;
+        player = findPlayer(playerName);
+        if (player == nullptr)
+            return false;
+        snapshotUniqueId  = snapshot->uniqueId;
+        snapshotRuntimeId = snapshot->runtimeId;
+        snapshotDimension = snapshot->dimension;
+        mActors.erase(id);
+    }
 
-    ::Player* player = findPlayer(playerName);
-    if (player == nullptr)
-        return false;
-
-    // 只给该玩家播放拾取动画
     sculk::protocol::TakeItemActorPacket take;
-    take.mItemRuntimeId  = actor->runtimeId;
+    take.mItemRuntimeId  = snapshotRuntimeId;
     take.mActorRuntimeId = player->getRuntimeID().rawID;
-    if (auto bytes = wire::encodeChecked(take); !bytes.empty()) {
+    if (auto bytes = wire::encode(take); !bytes.empty()) {
         wire::sendRaw(*player, bytes);
     }
 
-    // 对所有人删除
     sculk::protocol::RemoveActorPacket remove;
-    remove.mActorUniqueId = static_cast<std::int64_t>(actor->uniqueId);
-    if (auto bytes = wire::encodeChecked(remove); !bytes.empty()) {
-        sendToDimension(actor->dimension, bytes);
+    remove.mActorUniqueId = static_cast<std::int64_t>(snapshotUniqueId);
+    if (auto bytes = wire::encode(remove); !bytes.empty()) {
+        sendToDimension(snapshotDimension, bytes);
     }
-
-    mActors.erase(id);
     return true;
 }
 
 bool ItemActorManager::destroy(int64_t id) {
-    std::lock_guard lock(mMutex);
-    Actor*          actor = mActors.peek(id);
-    if (actor == nullptr)
-        return false;
-
-    sculk::protocol::RemoveActorPacket remove;
-    remove.mActorUniqueId = static_cast<std::int64_t>(actor->uniqueId);
-    if (auto bytes = wire::encodeChecked(remove); !bytes.empty()) {
-        sendToDimension(actor->dimension, bytes);
+    std::uint64_t uniqueId  = 0;
+    int           dimension = 0;
+    {
+        std::lock_guard lock(mMutex);
+        auto*           actor = mActors.peek(id);
+        if (actor == nullptr)
+            return false;
+        uniqueId  = actor->uniqueId;
+        dimension = actor->dimension;
+        mActors.erase(id);
     }
 
-    mActors.erase(id);
+    sculk::protocol::RemoveActorPacket remove;
+    remove.mActorUniqueId = static_cast<std::int64_t>(uniqueId);
+    if (auto bytes = wire::encode(remove); !bytes.empty()) {
+        sendToDimension(dimension, bytes);
+    }
     return true;
 }
 
 void ItemActorManager::destroyAll() {
-    std::lock_guard                            lock(mMutex);
     std::vector<std::pair<std::uint64_t, int>> victims;
-    mActors.forEachLocked([&](int64_t, Actor const& actor) {
-        victims.emplace_back(actor.uniqueId, actor.dimension);
-    });
+    {
+        std::lock_guard lock(mMutex);
+        mActors.forEachLocked([&](int64_t, Actor const& actor) {
+            victims.emplace_back(actor.uniqueId, actor.dimension);
+        });
+        mActors.clear();
+    }
     for (auto const& [uniqueId, dimension] : victims) {
         sculk::protocol::RemoveActorPacket remove;
         remove.mActorUniqueId = static_cast<std::int64_t>(uniqueId);
-        if (auto bytes = wire::encodeChecked(remove); !bytes.empty()) {
+        if (auto bytes = wire::encode(remove); !bytes.empty()) {
             sendToDimension(dimension, bytes);
         }
     }
-    mActors.clear();
 }
 
 std::uint64_t ItemActorManager::uniqueIdOf(int64_t id) const {

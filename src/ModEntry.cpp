@@ -1,7 +1,10 @@
 #include "ModEntry.h"
+#include "core/EventIds.h"
+#include "core/HookRegistry.h"
+#include "core/PlayerIndex.h"
+#include "core/TickDriver.h"
 
 #include "DiagLog.h"
-#include "EventIdCompat.h"
 
 #include "FloatingTextExporter.h"
 #include "FloatingTextManager.h"
@@ -67,218 +70,216 @@ ModEntry& ModEntry::getInstance() {
 
 namespace {
 
-// LSE 导出状态（attach 成功且已完成统一命名空间 HologramLib 导出）
 std::atomic<bool> gLseExported{false};
 
-// ── 域适配器 ─────────────────────────────────────────────────────────────────
-// 一个域只描述三件事: 怎么起 / 怎么停 / 导出什么。
-// 顺序由 ModEntry::enable() 里的 add 顺序决定（stop 自动反向），不再有三张需要同步维护的清单。
-//
-// 历史: 收敛前 enable()/disable()/exportLseFunctions() 各有一张手工清单，ghost 域的两个导出
-// 曾长期漏在注册流程外（脚本 ll.import 得 null）。另外 ContainerMenu / NpcDialogue /
-// PlayerSensing / FakeInventory 四个域的 shutdown() 写好了但从来没人调用 —— 现在在这里补上。
-
-struct ItemDisplayDomain final : core::IDomain {
-    char const* name() const noexcept override { return "itemdisplay"; }
-    bool        start() override {
-        ItemDisplayManager::getInstance().init();
-        return true;
-    }
-    void stop() noexcept override { ItemDisplayManager::getInstance().shutdown(); }
-    void exportLse() override { ItemDisplayExporter::exportAll(); }
+core::Domain const kDomains[] = {
+    {"itemdisplay",
+     +[] {
+         ItemDisplayManager::getInstance().init();
+         return true;
+     },
+     +[] {
+         ItemDisplayManager::getInstance().shutdown();
+     },
+     +[] {
+         ItemDisplayExporter::exportAll();
+     }},
+    {"customentity",
+     +[] {
+         CustomEntityManager::getInstance().init();
+         return true;
+     },
+     +[] {
+         CustomEntityManager::getInstance().shutdown();
+     },
+     +[] {
+         CustomEntityExporter::exportAll();
+     }},
+    {"particles",
+     +[] {
+         ParticleShapeManager::getInstance().init();
+         return true;
+     },
+     +[] {
+         ParticleShapeManager::getInstance().shutdown();
+     },
+     +[] {
+         ParticleShapeExporter::exportAll();
+     }},
+    {"playernpc",
+     +[] {
+         PlayerNpcManager::getInstance().init();
+         return true;
+     },
+     +[] {
+         PlayerNpcManager::getInstance().shutdown();
+     },
+     +[] {
+         PlayerNpcExporter::exportAll();
+     }},
+    {"trade",
+     +[] {
+         TradeMenuManager::getInstance().init();
+         return true;
+     },
+     +[] {
+         TradeMenuManager::getInstance().shutdown();
+     },
+     +[] {
+         TradeMenuExporter::exportAll();
+     }},
+    {"view",
+     +[] {
+         view::initViewOverrideEvents();
+         return true;
+     },
+     +[] {
+         view::ViewOverrideManager::getInstance().shutdown();
+     },
+     +[] {
+         ViewOverrideExporter::exportAll();
+     }},
+    {"shape",
+     +[] {
+         PacketDebugRenderer::getInstance().init();
+         return true;
+     },
+     +[] {
+         PacketDebugRenderer::getInstance().shutdown();
+         PacketDebugRenderer::getInstance().destroyAll();
+     },
+     +[] {
+         RemoteCallExporter::exportAll();
+     }},
+    {"hologramtext",
+     +[] {
+         FloatingTextManager::getInstance().initDynamicDriver();
+         return true;
+     },
+     +[] {
+         FloatingTextManager::getInstance().shutdownDynamicDriver();
+         FloatingTextManager::getInstance().destroyAll();
+     },
+     +[] {
+         FloatingTextExporter::exportAll();
+     }},
+    {"gradientline", nullptr,
+     +[] {
+         GradientLineManager::getInstance().destroyAll();
+     },
+     +[] {
+         GradientLineExporter::exportAll();
+     }},
+    {"itemdetail", nullptr, nullptr, +[] {
+         ItemDetailExporter::exportAll();
+     }},
+    {"container", nullptr, +[] {
+         ContainerMenuManager::getInstance().shutdown();
+     },
+     +[] {
+         ContainerMenuExporter::exportAll();
+     }},
+    {"npcdialog", nullptr, +[] {
+         NpcDialogueManager::getInstance().shutdown();
+     },
+     +[] {
+         NpcDialogueExporter::exportAll();
+     }},
+    {"sensing", nullptr, +[] {
+         PlayerSensingManager::getInstance().shutdown();
+     },
+     +[] {
+         PlayerSensingExporter::exportAll();
+     }},
+    {"fakeinv", nullptr, +[] {
+         FakeInventoryManager::getInstance().shutdown();
+     },
+     +[] {
+         FakeInventoryExporter::exportAll();
+     }},
+    {"sulfur", nullptr, nullptr, +[] {
+         SulfurDisplayExporter::exportAll();
+     }},
+    {"ghost", nullptr, nullptr, +[] {
+         GhostInteractRouter::exportLse();
+     }},
+    {"info", nullptr, nullptr, +[] {
+         InfoExporter::exportAll();
+     }},
+    {"bossbar", nullptr, +[] {
+         BossBarManager::getInstance().shutdown();
+     },
+     +[] {
+         BossBarExporter::exportAll();
+     }},
+    {"hud", nullptr, nullptr, +[] {
+         HudExporter::exportAll();
+     }},
+    {"locatorbarExt", nullptr, nullptr, +[] {
+         LocatorBarExtExporter::exportAll();
+     }},
+    {"actoreffect", nullptr, nullptr, +[] {
+         ActorEffectExporter::exportAll();
+     }},
+    {"anchor", nullptr, +[] {
+         AnchorPool::getInstance().shutdown();
+     },
+     nullptr},
+    {"sidebar", nullptr, +[] {
+         SidebarManager::getInstance().shutdown();
+     },
+     +[] {
+         SidebarExporter::exportAll();
+     }},
+    {"itemactor", nullptr, +[] {
+         ItemActorManager::getInstance().shutdown();
+     },
+     +[] {
+         ItemActorExporter::exportAll();
+     }},
+    {"form", nullptr, nullptr, +[] {
+         FormControlExporter::exportAll();
+     }},
+    {"locatorbar", nullptr, +[] {
+         LocatorBarManager::getInstance().shutdown();
+     },
+     +[] {
+         LocatorBarExporter::exportAll();
+     }},
+    {"visibility", nullptr, +[] {
+         PlayerVisibilityManager::getInstance().shutdown();
+     },
+     +[] {
+         PlayerVisibilityExporter::exportAll();
+     }},
 };
 
-struct CustomEntityDomain final : core::IDomain {
-    char const* name() const noexcept override { return "customentity"; }
-    bool        start() override {
-        CustomEntityManager::getInstance().init();
-        return true;
-    }
-    void stop() noexcept override { CustomEntityManager::getInstance().shutdown(); }
-    void exportLse() override { CustomEntityExporter::exportAll(); }
-};
+// 掉线清理挂在组合根：各域只提供 onPlayerLeave，不自己注册监听。
+// 不接这些的效果分别是：容器菜单占满 101..199 的 id（此后所有箱子都开不了）、
+// 对话条目与合成载体留在表里、Boss 条 / 侧边栏 / 玩家可见性 每条留一个死条目。
+core::PlayerLeaveHook const gContainerLeaveHook{[](std::string const& playerName) {
+    ContainerMenuManager::getInstance().onPlayerLeave(playerName);
+}};
 
-struct ParticleShapeDomain final : core::IDomain {
-    char const* name() const noexcept override { return "particles"; }
-    bool        start() override {
-        ParticleShapeManager::getInstance().init();
-        return true;
-    }
-    void stop() noexcept override { ParticleShapeManager::getInstance().shutdown(); }
-    void exportLse() override { ParticleShapeExporter::exportAll(); }
-};
+core::PlayerLeaveHook const gNpcDialogLeaveHook{[](std::string const& playerName) {
+    NpcDialogueManager::getInstance().onPlayerLeave(playerName);
+}};
 
-struct PlayerNpcDomain final : core::IDomain {
-    char const* name() const noexcept override { return "playernpc"; }
-    bool        start() override {
-        PlayerNpcManager::getInstance().init();
-        return true;
-    }
-    void stop() noexcept override { PlayerNpcManager::getInstance().shutdown(); }
-    void exportLse() override { PlayerNpcExporter::exportAll(); }
-};
+core::PlayerLeaveHook const gBossBarLeaveHook{[](std::string const& playerName) {
+    BossBarManager::getInstance().onPlayerLeave(playerName);
+}};
 
-struct TradeMenuDomain final : core::IDomain {
-    char const* name() const noexcept override { return "trade"; }
-    bool        start() override {
-        // 挂掉线清理（关菜单 + 把真结算账本里暂存的付费还给玩家 —— 掉线瞬间玩家对象还在）
-        TradeMenuManager::getInstance().init();
-        return true;
-    }
-    void stop() noexcept override { TradeMenuManager::getInstance().shutdown(); }
-    void exportLse() override { TradeMenuExporter::exportAll(); }
-};
+core::PlayerLeaveHook const gSidebarLeaveHook{[](std::string const& playerName) {
+    SidebarManager::getInstance().onPlayerLeave(playerName);
+}};
 
-struct ViewOverrideDomain final : core::IDomain {
-    char const* name() const noexcept override { return "view"; }
-    bool        start() override {
-        // 掉线时清掉运行时 id 索引（出站钩子在 OutboundViewHook.cpp 自注册）
-        view::initViewOverrideEvents();
-        return true;
-    }
-    void stop() noexcept override { view::ViewOverrideManager::getInstance().shutdown(); }
-    void exportLse() override { ViewOverrideExporter::exportAll(); }
-};
-
-struct ShapeDomain final : core::IDomain {
-    char const* name() const noexcept override { return "shape"; }
-    bool        start() override {
-        // 进服后重发全部可见形状（客户端不落盘, 重连必须补发）; 含 15s 周期兜底
-        PacketDebugRenderer::getInstance().init();
-        return true;
-    }
-    void stop() noexcept override {
-        PacketDebugRenderer::getInstance().shutdown();
-        PacketDebugRenderer::getInstance().destroyAll(); // 补发移除包, 避免客户端残留
-    }
-    void exportLse() override { RemoteCallExporter::exportAll(); }
-};
-
-struct HologramTextDomain final : core::IDomain {
-    char const* name() const noexcept override { return "hologramtext"; }
-    bool        start() override {
-        // 动态行驱动（内容池轮播 / 变量刷新, 0.5s 节流）
-        FloatingTextManager::getInstance().initDynamicDriver();
-        return true;
-    }
-    void stop() noexcept override {
-        FloatingTextManager::getInstance().shutdownDynamicDriver();
-        FloatingTextManager::getInstance().destroyAll();
-    }
-    void exportLse() override { FloatingTextExporter::exportAll(); }
-};
-
-// 渐变线没有启动动作（线段批由消费方按需驱动），只有关停清理
-struct GradientLineDomain final : core::IDomain {
-    char const* name() const noexcept override { return "gradientline"; }
-    void        stop() noexcept override { GradientLineManager::getInstance().destroyAll(); }
-    void        exportLse() override { GradientLineExporter::exportAll(); }
-};
-
-// 以下四个域此前只有导出、没有生命周期入口; shutdown() 存在但从未被调用（见文件头说明）
-struct ItemDetailDomain final : core::IDomain {
-    char const* name() const noexcept override { return "itemdetail"; }
-    void        exportLse() override { ItemDetailExporter::exportAll(); }
-};
-
-struct ContainerMenuDomain final : core::IDomain {
-    char const* name() const noexcept override { return "container"; }
-    void        stop() noexcept override { ContainerMenuManager::getInstance().shutdown(); }
-    void        exportLse() override { ContainerMenuExporter::exportAll(); }
-};
-
-struct NpcDialogueDomain final : core::IDomain {
-    char const* name() const noexcept override { return "npcdialog"; }
-    void        stop() noexcept override { NpcDialogueManager::getInstance().shutdown(); }
-    void        exportLse() override { NpcDialogueExporter::exportAll(); }
-};
-
-struct PlayerSensingDomain final : core::IDomain {
-    char const* name() const noexcept override { return "sensing"; }
-    void        stop() noexcept override { PlayerSensingManager::getInstance().shutdown(); }
-    void        exportLse() override { PlayerSensingExporter::exportAll(); }
-};
-
-struct FakeInventoryDomain final : core::IDomain {
-    char const* name() const noexcept override { return "fakeinv"; }
-    void        stop() noexcept override { FakeInventoryManager::getInstance().shutdown(); }
-    void        exportLse() override { FakeInventoryExporter::exportAll(); }
-};
-
-struct InfoDomain final : core::IDomain {
-    char const* name() const noexcept override { return "info"; }
-    void        exportLse() override { InfoExporter::exportAll(); }
-};
-
-struct BossBarDomain final : core::IDomain {
-    char const* name() const noexcept override { return "bossbar"; }
-    void        stop() noexcept override { BossBarManager::getInstance().shutdown(); }
-    void        exportLse() override { BossBarExporter::exportAll(); }
-};
-
-struct HudDomain final : core::IDomain {
-    char const* name() const noexcept override { return "hud"; }
-    void        exportLse() override { HudExporter::exportAll(); }
-};
-
-struct LocatorBarExtDomain final : core::IDomain {
-    char const* name() const noexcept override { return "locatorbarExt"; }
-    void        exportLse() override { LocatorBarExtExporter::exportAll(); }
-};
-
-struct AnchorDomain final : core::IDomain {
-    char const* name() const noexcept override { return "anchor"; }
-    void        stop() noexcept override { AnchorPool::getInstance().shutdown(); }
-};
-
-struct SidebarDomain final : core::IDomain {
-    char const* name() const noexcept override { return "sidebar"; }
-    void        stop() noexcept override { SidebarManager::getInstance().shutdown(); }
-    void        exportLse() override { SidebarExporter::exportAll(); }
-};
-
-struct ActorEffectDomain final : core::IDomain {
-    char const* name() const noexcept override { return "actoreffect"; }
-    void        exportLse() override { ActorEffectExporter::exportAll(); }
-};
-
-struct ItemActorDomain final : core::IDomain {
-    char const* name() const noexcept override { return "itemactor"; }
-    void        stop() noexcept override { ItemActorManager::getInstance().shutdown(); }
-    void        exportLse() override { ItemActorExporter::exportAll(); }
-};
-
-struct FormControlDomain final : core::IDomain {
-    char const* name() const noexcept override { return "form"; }
-    void        exportLse() override { FormControlExporter::exportAll(); }
-};
-
-struct PlayerVisibilityDomain final : core::IDomain {
-    char const* name() const noexcept override { return "visibility"; }
-    void        stop() noexcept override { PlayerVisibilityManager::getInstance().shutdown(); }
-    void        exportLse() override { PlayerVisibilityExporter::exportAll(); }
-};
-
-struct LocatorBarDomain final : core::IDomain {
-    char const* name() const noexcept override { return "locatorbar"; }
-    void        stop() noexcept override { LocatorBarManager::getInstance().shutdown(); }
-    void        exportLse() override { LocatorBarExporter::exportAll(); }
-};
-
-struct SulfurDisplayDomain final : core::IDomain {
-    char const* name() const noexcept override { return "sulfur"; }
-    void        exportLse() override { SulfurDisplayExporter::exportAll(); }
-};
-
-// ghost 域: 钩子在静态初始化期自注册, 这里只需要它的两个 LSE 导出（曾漏过一次）
-struct GhostDomain final : core::IDomain {
-    char const* name() const noexcept override { return "ghost"; }
-    void        exportLse() override { GhostInteractRouter::exportLse(); }
-};
+core::PlayerLeaveHook const gPlayerVisibilityLeaveHook{[](std::string const& playerName) {
+    PlayerVisibilityManager::getInstance().onPlayerLeave(playerName);
+}};
 
 void exportLseFunctions(core::ServiceHost& host) {
     if (gLseExported.exchange(true))
-        return; // 幂等
+        return;
     host.exportAll();
 }
 
@@ -290,41 +291,14 @@ bool ModEntry::load() {
 }
 
 bool ModEntry::enable() {
-    // 构建时间戳: 与磁盘 DLL 的 LastWriteTime 对比即可确认部署的是否为当前构建
+
     HLIB_LOG_INFO("HologramLib enabling... (API 0x{:06X}, build {} {})", HOLOGLIB_API_VERSION, __DATE__, __TIME__);
 
-    // 每 tick 驱动的执行顺序在这里可见（顺序由 core/TickDriver.h 的 Order 显式决定,
-    // 不再依赖各 TU 的静态初始化顺序）
     HLIB_LOG_INFO("[tick] order: {}", tick::TickDriver::getInstance().describe());
 
-    // 声明顺序 = 启动顺序；关停时 ServiceHost 反向遍历
-    mHost.add<ItemDisplayDomain>();
-    mHost.add<CustomEntityDomain>();
-    mHost.add<ParticleShapeDomain>();
-    mHost.add<PlayerNpcDomain>();
-    mHost.add<TradeMenuDomain>();
-    mHost.add<ViewOverrideDomain>();
-    mHost.add<ShapeDomain>();
-    mHost.add<HologramTextDomain>();
-    mHost.add<GradientLineDomain>();
-    mHost.add<ItemDetailDomain>();
-    mHost.add<ContainerMenuDomain>();
-    mHost.add<NpcDialogueDomain>();
-    mHost.add<PlayerSensingDomain>();
-    mHost.add<FakeInventoryDomain>();
-    mHost.add<SulfurDisplayDomain>();
-    mHost.add<GhostDomain>();
-    mHost.add<InfoDomain>();
-    mHost.add<BossBarDomain>();
-    mHost.add<HudDomain>();
-    mHost.add<LocatorBarExtDomain>();
-    mHost.add<ActorEffectDomain>();
-    mHost.add<AnchorDomain>();
-    mHost.add<SidebarDomain>();
-    mHost.add<ItemActorDomain>();
-    mHost.add<FormControlDomain>();
-    mHost.add<LocatorBarDomain>();
-    mHost.add<PlayerVisibilityDomain>();
+    for (auto const& domain : kDomains) {
+        mHost.add(domain);
+    }
 
     if (!mHost.startAll()) {
         HLIB_LOG_ERROR("[host] domain start failed; HologramLib stays disabled");
@@ -332,27 +306,32 @@ bool ModEntry::enable() {
     }
     HLIB_LOG_INFO("[host] {} domains: {}", mHost.size(), mHost.describe());
 
-    // 运行时可选挂载 LegacyRemoteCall（无前置依赖）:
-    // - lrca 已加载（顺序在前）→ 立即导出, LSE 可用
-    // - lrca 未加载 → 监听 ServerStartedEvent 兜底（届时所有插件均已加载）
     if (hologramlib::lse::attach()) {
         exportLseFunctions(mHost);
         HLIB_LOG_INFO("LSE compat layer attached (LegacyRemoteCall detected).");
     } else {
         HLIB_LOG_INFO("LegacyRemoteCall not loaded yet; native C++ API active, will retry on ServerStarted.");
-        ll::event::EventBus::getInstance().emplaceListener<ll::event::ServerStartedEvent>(
-            [this](ll::event::ServerStartedEvent&) {
-                if (hologramlib::lse::attach()) {
-                    exportLseFunctions(mHost);
-                    HLIB_LOG_INFO("LSE compat layer attached on ServerStarted.");
-                } else {
-                    HLIB_LOG_INFO(
-                        "LegacyRemoteCall absent: LSE (ll.import) calls disabled; native C++ API unaffected.");
-                }
-            });
+        debugshape_export::core::listen<ll::event::ServerStartedEvent>(core::kServerStartedId,
+                                                                       [this](ll::event::ServerStartedEvent&) {
+                                                                           if (hologramlib::lse::attach()) {
+                                                                               exportLseFunctions(mHost);
+                                                                               HLIB_LOG_INFO("LSE compat layer attached on ServerStarted.");
+                                                                           } else {
+                                                                               HLIB_LOG_INFO(
+                                                                                   "LegacyRemoteCall absent: LSE (ll.import) calls disabled; native C++ API unaffected.");
+                                                                           }
+                                                                       });
     }
 
-    wire::traceInit(); // 发包审计: 注册断线落盘监听（trace 未开启时零开销）
+    core::setLive(true);
+    core::hookAll(); // 上一次 disable 摘下的 detour 在这里重新挂上（首次 enable 是空操作）
+    if (auto mod = ll::mod::NativeMod::current(); mod) {
+        mod->getLogger().info("[hooks] {} 个 detour 已挂载（disable 时统一摘下）", core::hookCount());
+    }
+    tick::installDriver();
+    core::PlayerIndex::getInstance().install();
+
+    wire::traceInit();
 
     HLIB_LOG_INFO("HologramLib enabled successfully.");
     return true;
@@ -360,7 +339,12 @@ bool ModEntry::enable() {
 
 bool ModEntry::disable() {
     HLIB_LOG_INFO("HologramLib disabling...");
-    mHost.stopAll(); // 反向关停, 并清空注册表（下次 enable 重新注册）
+    // 顺序有讲究：先让 detour 透传（live=false），再停域，最后摘钩。反过来会在"域已清空、钩子仍在"的窗口里被别的线程回调，正是 0xC0000005 的来源。
+    core::setLive(false);
+    // 不摘钩：unhook 会释放蹦床，正在执行中的 detour 走到 origin() 就会跳进已释放的内存；（实测崩在 detour 的 origin 调用点）。所有 detour 都由 core::live() 门控，disable 后一律透传。
+    mHost.stopAll();
+    core::PlayerIndex::getInstance().shutdown();
+    core::removeAllListeners();
     HLIB_LOG_INFO("HologramLib disabled.");
     return true;
 }
