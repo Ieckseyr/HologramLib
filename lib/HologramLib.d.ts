@@ -14,853 +14,893 @@ declare namespace HologramLib {
     /** 显式绑定（等价于取属性） */
     bind(name: string): (...args: any[]) => any;
 
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     actorBlockClear(): any;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     actorBlockEvent(eventId: number): any;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     actorBlockEventFor(playerName: string, eventId: number): any;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     actorBlockEventForEntity(runtimeId: number, eventId: number): any;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     actorBlockStats(): string;
-    /** 实现见 src/ghost/GhostInteractRouter.cpp */
+    /** 实现见 platform/levilamina/src/ghost/GhostInteractRouter.cpp */
     actorClearInteractions(): any;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
+    actorFreeze(runtimeId: number, strength: number): boolean;
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
+    actorPlayAnimation(runtimeId: number, animation: string, stopExpression: string, blendOutTime: number): boolean;
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
+    actorPlayAnimationFull(runtimeId: number, animation: string, nextState: string, stopExpression: string, blendOutTime: number, controller: string, molangVersion: number): boolean;
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     actorPlayDeath(runtimeId: number): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     actorPlayEvent(runtimeId: number, eventId: number, data: number): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     actorPlayEventFor(playerName: string, runtimeId: number, eventId: number, data: number): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     actorPlayHurt(runtimeId: number): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     actorPlayInstantDeath(runtimeId: number): boolean;
-    /** 实现见 src/ghost/GhostInteractRouter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
+    actorPlayTotem(runtimeId: number, holdTicks: number): boolean;
+    /** 实现见 platform/levilamina/src/ghost/GhostInteractRouter.cpp */
     actorPollInteractions(): string[];
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     actorRuntimeIdOfEntity(libId: number): number;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     actorRuntimeIdOfPlayer(playerName: string): number;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
+    actorSetPose(runtimeId: number, poseIndex: number): boolean;
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     actorUnblockEvent(eventId: number): any;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     actorUnblockEventFor(playerName: string, eventId: number): any;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     actorUnblockEventForEntity(runtimeId: number, eventId: number): any;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
+    actorUnfreeze(runtimeId: number): boolean;
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     anchorAcquire(playerName: string): number;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     anchorRelease(uniqueId: number): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/block/FakeBlockExporter.cpp */
+    blockFakeClear(playerName: string, x: number, y: number, z: number): boolean;
+    /** 实现见 platform/levilamina/src/block/FakeBlockExporter.cpp */
+    blockFakeClearAll(x: number, y: number, z: number, dim: number): number;
+    /** 实现见 platform/levilamina/src/block/FakeBlockExporter.cpp */
+    blockFakeResolve(state: string): number;
+    /** 实现见 platform/levilamina/src/block/FakeBlockExporter.cpp */
+    blockFakeSet(playerName: string, x: number, y: number, z: number, state: string): boolean;
+    /** 实现见 platform/levilamina/src/block/FakeBlockExporter.cpp */
+    blockFakeSetAll(x: number, y: number, z: number, dim: number, state: string): number;
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     bossBarAdd(playerName: string, title: string, healthPercent: number, color: number, overlay: number): number;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     bossBarAddOn(playerName: string, targetId: number, title: string, percent: number, color: number, overlay: number): number;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     bossBarCount(playerName: string): number;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     bossBarGetInfo(id: number): string;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     bossBarProbe(): string;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     bossBarRemove(id: number): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     bossBarRemoveAll(playerName: string): any;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     bossBarSetHealth(id: number, percent: number): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     bossBarSetStyle(id: number, color: number, overlay: number): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     bossBarSetTitle(id: number, title: string): boolean;
-    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/container/ContainerMenuExporter.cpp */
     containerBlockEvent(menuId: number, b0: number, b1: number): boolean;
-    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/container/ContainerMenuExporter.cpp */
     containerClearClicks(): any;
-    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/container/ContainerMenuExporter.cpp */
     containerClose(id: number): boolean;
-    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/container/ContainerMenuExporter.cpp */
     containerCloseAll(): any;
-    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/container/ContainerMenuExporter.cpp */
     containerDroppedClicks(): number;
-    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/container/ContainerMenuExporter.cpp */
     containerGetIds(): number[];
-    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/container/ContainerMenuExporter.cpp */
     containerIsOpen(id: number): boolean;
-    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/container/ContainerMenuExporter.cpp */
     containerOpen(playerName: string, title: string, rows: number): number;
-    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/container/ContainerMenuExporter.cpp */
     containerPollClicks(): string[];
-    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/container/ContainerMenuExporter.cpp */
     containerPreview(playerName: string, dim: number, x: number, y: number, z: number): number;
-    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/container/ContainerMenuExporter.cpp */
     containerPreviewTitled(playerName: string, dim: number, x: number, y: number, z: number, title: string): number;
-    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/container/ContainerMenuExporter.cpp */
     containerSetInteractive(id: number, on: boolean): boolean;
-    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/container/ContainerMenuExporter.cpp */
     containerSetItem(id: number, slot: number, type: string, count: number, damage: number, name: string, loreCsv: string): boolean;
-    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/container/ContainerMenuExporter.cpp */
     containerSetItemEnchanted(id: number, slot: number, type: string, count: number, damage: number, name: string, loreCsv: string, enchCsv: string): boolean;
-    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/container/ContainerMenuExporter.cpp */
     containerSetTitle(id: number, title: string): boolean;
-    /** 实现见 src/container/ContainerMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/container/ContainerMenuExporter.cpp */
     containerUpdate(id: number, title: string): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
+    easterEggCreeper(runtimeId: number): boolean;
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
+    easterEggCreeperDisplay(id: number, durationTicks: number, rotate: boolean): boolean;
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityClearMobProperties(id: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityClearPlayerAppearance(id: number, playerName: string): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityClearPlayerRotation(id: number, playerName: string): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityClearPlayerRotations(id: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityClearRide(id: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityClearSpawns(): any;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityClearVisiblePlayers(id: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityCreate(identifier: string, x: number, y: number, z: number, dim: number): number;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityCreateAdvanced(identifier: string, x: number, y: number, z: number, dim: number, yaw: number, pitch: number, scale: number, nametag: string): number;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityCreateRandom(identifier: string, x: number, y: number, z: number, dim: number): number;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityCreateWithId(identifier: string, x: number, y: number, z: number, dim: number, desiredId: number): number;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityDestroy(id: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityDestroyAll(): any;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityExists(id: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityFindNearest(x: number, y: number, z: number, dim: number, maxDist: number): number;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityGetAllIds(): number[];
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityGetInfo(id: number): string;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityIsIdUsed(id: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityPlayAnimation(id: number, animation: string, stopExpression: string, durationTicks: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityPlayAnimationTo(id: number, playerName: string, animation: string, stopExpression: string, durationTicks: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityPollSpawns(): string[];
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityScaleBy(id: number, factor: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetColorIndex(id: number, colorIndex: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetEnabled(id: number, enabled: boolean): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetEquipmentSlot(id: number, slot: number, name: string, aux: number, nbt: string): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetFlags(id: number, flags: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetIdentifier(id: number, identifier: string): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetInvisible(id: number, on: boolean): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetMarkVariant(id: number, markVariant: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetMobProperty(id: number, name: string, value: string): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetNametag(id: number, text: string): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetPlayerEquipmentSlot(id: number, playerName: string, slot: number, name: string, aux: number, nbt: string): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetPlayerNametag(id: number, playerName: string, text: string): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetPlayerRotation(id: number, playerName: string, yaw: number, pitch: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetPlayerScale(id: number, playerName: string, scale: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetPose(id: number, pose: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetPosition(id: number, x: number, y: number, z: number, dim: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetRideEntity(id: number, vehicleEntityId: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetRidePlayer(id: number, playerName: string): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetRotation(id: number, yaw: number, pitch: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetScale(id: number, scale: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetVariant(id: number, variant: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetViewDistance(id: number, dist: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetVisiblePlayer(id: number, playerName: string): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entitySetVisiblePlayers(id: number, playerNames: string[]): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityStopAnimation(id: number): boolean;
-    /** 实现见 src/customentity/CustomEntityExporter.cpp */
+    /** 实现见 platform/levilamina/src/customentity/CustomEntityExporter.cpp */
     entityStopAnimationTo(id: number, playerName: string): boolean;
-    /** 实现见 src/fakeinv/FakeInventoryExporter.cpp */
+    /** 实现见 platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp */
     fakeInvApply(playerName: string, itemsSpec: string, refreshIntervalTicks: number): boolean;
-    /** 实现见 src/fakeinv/FakeInventoryExporter.cpp */
+    /** 实现见 platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp */
     fakeInvClear(playerName: string): boolean;
-    /** 实现见 src/fakeinv/FakeInventoryExporter.cpp */
+    /** 实现见 platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp */
     fakeInvClearAll(): any;
-    /** 实现见 src/fakeinv/FakeInventoryExporter.cpp */
+    /** 实现见 platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp */
     fakeInvClearClicks(): any;
-    /** 实现见 src/fakeinv/FakeInventoryExporter.cpp */
+    /** 实现见 platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp */
     fakeInvDroppedClicks(): number;
-    /** 实现见 src/fakeinv/FakeInventoryExporter.cpp */
+    /** 实现见 platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp */
     fakeInvGetPlayers(): string[];
-    /** 实现见 src/fakeinv/FakeInventoryExporter.cpp */
+    /** 实现见 platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp */
     fakeInvIsActive(playerName: string): boolean;
-    /** 实现见 src/fakeinv/FakeInventoryExporter.cpp */
+    /** 实现见 platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp */
     fakeInvPollClicks(): string[];
-    /** 实现见 src/fakeinv/FakeInventoryExporter.cpp */
+    /** 实现见 platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp */
     fakeInvRefresh(playerName: string): boolean;
-    /** 实现见 src/fakeinv/FakeInventoryExporter.cpp */
+    /** 实现见 platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp */
     fakeInvSetSlot(playerName: string, slot: number, type: string, count: number, damage: number, name: string, loreCsv: string): boolean;
-    /** 实现见 src/ui/ClientUiExporter.cpp */
+    /** 实现见 platform/levilamina/src/ui/ClientUiExporter.cpp */
     formClose(playerName: string): boolean;
-    /** 实现见 src/ui/ClientUiExporter.cpp */
+    /** 实现见 platform/levilamina/src/ui/ClientUiExporter.cpp */
     formCloseAll(): number;
-    /** 实现见 src/ghost/GhostInteractRouter.cpp */
+    /** 实现见 platform/levilamina/src/ghost/GhostInteractRouter.cpp */
     ghostClearInteractions(): any;
-    /** 实现见 src/ghost/GhostInteractRouter.cpp */
+    /** 实现见 platform/levilamina/src/ghost/GhostInteractRouter.cpp */
     ghostPollInteractions(): string[];
-    /** 实现见 src/GradientLineExporter.cpp */
+    /** 实现见 platform/levilamina/src/GradientLineExporter.cpp */
     gradientCreate(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, segments: number): number;
-    /** 实现见 src/GradientLineExporter.cpp */
+    /** 实现见 platform/levilamina/src/GradientLineExporter.cpp */
     gradientDestroy(id: number): boolean;
-    /** 实现见 src/GradientLineExporter.cpp */
+    /** 实现见 platform/levilamina/src/GradientLineExporter.cpp */
     gradientDestroyAll(): any;
-    /** 实现见 src/GradientLineExporter.cpp */
+    /** 实现见 platform/levilamina/src/GradientLineExporter.cpp */
     gradientDraw(id: number): boolean;
-    /** 实现见 src/GradientLineExporter.cpp */
+    /** 实现见 platform/levilamina/src/GradientLineExporter.cpp */
     gradientDrawToDimension(id: number, dimId: number): boolean;
-    /** 实现见 src/GradientLineExporter.cpp */
+    /** 实现见 platform/levilamina/src/GradientLineExporter.cpp */
     gradientRemove(id: number): boolean;
-    /** 实现见 src/GradientLineExporter.cpp */
+    /** 实现见 platform/levilamina/src/GradientLineExporter.cpp */
     gradientSetColor(id: number, r: number, g: number, b: number, a: number): boolean;
-    /** 实现见 src/GradientLineExporter.cpp */
+    /** 实现见 platform/levilamina/src/GradientLineExporter.cpp */
     gradientSetEndpoints(id: number, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number): boolean;
-    /** 实现见 src/GradientLineExporter.cpp */
+    /** 实现见 platform/levilamina/src/GradientLineExporter.cpp */
     gradientSetGradient(id: number, r1: number, g1: number, b1: number, r2: number, g2: number, b2: number): boolean;
-    /** 实现见 src/GradientLineExporter.cpp */
+    /** 实现见 platform/levilamina/src/GradientLineExporter.cpp */
     gradientSetRainbow(id: number, speed: number): boolean;
-    /** 实现见 src/GradientLineExporter.cpp */
+    /** 实现见 platform/levilamina/src/GradientLineExporter.cpp */
     gradientTick(deltaTime: number): any;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoAddLine(id: number, text: string): boolean;
-    /** 实现见 src/InfoExporter.cpp */
+    /** 实现见 platform/levilamina/src/InfoExporter.cpp */
     holoApiVersion(): number;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoClearBackgroundColor(id: number): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoClearFollowPlayer(id: number): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoClearLines(id: number): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoClearRotation(id: number): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoCreate(x: number, y: number, z: number): number;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoDestroy(id: number): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoDestroyAll(): any;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoDraw(id: number): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoDrawToDimension(id: number, dimId: number): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoDrawToPlayer(id: number, playerName: string): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoGetLineCount(id: number): number;
-    /** 实现见 src/InfoExporter.cpp */
+    /** 实现见 platform/levilamina/src/InfoExporter.cpp */
     holoInfo(): string;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoRefresh(id: number): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoRemove(id: number): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoRemoveLine(id: number, lineIndex: number): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoSetBackgroundColor(id: number, r: number, g: number, b: number, a: number): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoSetColor(id: number, r: number, g: number, b: number, a: number): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoSetDepthTest(id: number, enabled: boolean): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoSetDimension(id: number, dimId: number): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoSetFollowPlayer(id: number, playerName: string, offsetY: number): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoSetLineParseVariables(id: number, lineIndex: number, enabled: boolean): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoSetLinePool(id: number, lineIndex: number, content: string[], intervalMs: number): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoSetLineText(id: number, lineIndex: number, text: string): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoSetLocation(id: number, x: number, y: number, z: number): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoSetRotation(id: number, pitch: number, yaw: number, roll: number): boolean;
-    /** 实现见 src/FloatingTextExporter.cpp */
+    /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoSetScale(id: number, scale: number): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     hudProbe(): string;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     hudResetAll(playerName: string): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     hudSetElement(playerName: string, element: number, visible: boolean): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     hudSetElements(playerName: string, mask: number, visible: boolean): number;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     hudSetRaw(playerName: string, mask: number, visibility: number): boolean;
-    /** 实现见 src/itemactor/ItemActorExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemactor/ItemActorExporter.cpp */
     itemActorDestroy(id: number): boolean;
-    /** 实现见 src/itemactor/ItemActorExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemactor/ItemActorExporter.cpp */
     itemActorDestroyAll(): any;
-    /** 实现见 src/itemactor/ItemActorExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemactor/ItemActorExporter.cpp */
     itemActorExists(id: number): boolean;
-    /** 实现见 src/itemactor/ItemActorExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemactor/ItemActorExporter.cpp */
     itemActorGetIds(): number[];
-    /** 实现见 src/itemactor/ItemActorExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemactor/ItemActorExporter.cpp */
     itemActorMoveTo(id: number, x: number, y: number, z: number): boolean;
-    /** 实现见 src/itemactor/ItemActorExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemactor/ItemActorExporter.cpp */
     itemActorRuntimeId(id: number): number;
-    /** 实现见 src/itemactor/ItemActorExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemactor/ItemActorExporter.cpp */
     itemActorSetMotion(id: number, vx: number, vy: number, vz: number): boolean;
-    /** 实现见 src/itemactor/ItemActorExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemactor/ItemActorExporter.cpp */
     itemActorSpawn(itemId: string, aux: number, count: number, x: number, y: number, z: number, dim: number, vx: number, vy: number, vz: number): number;
-    /** 实现见 src/itemactor/ItemActorExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemactor/ItemActorExporter.cpp */
     itemActorTake(id: number, playerName: string): boolean;
-    /** 实现见 src/itemdetail/ItemDetailExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdetail/ItemDetailExporter.cpp */
     itemDetailHide(id: number): boolean;
-    /** 实现见 src/itemdetail/ItemDetailExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdetail/ItemDetailExporter.cpp */
     itemDetailShow(dimId: number, x: number, y: number, z: number, itemId: string, aux: number, count: number, customText: string): number;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayClearAnim(id: number): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayClearVisiblePlayers(id: number): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayCreate(x: number, y: number, z: number, dim: number, item: string, aux: number): number;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayCreateAdvanced(x: number, y: number, z: number, dim: number, item: string, aux: number, offX: string, offY: string, offZ: string, rotX: string, rotY: string, rotZ: string, scale: string): number;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayCreateFull(x: number, y: number, z: number, dim: number, item: string, aux: number, offX: string, offY: string, offZ: string, rotX: string, rotY: string, rotZ: string, scale: string, nbt: string, glint: boolean): number;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayCreateRandom(x: number, y: number, z: number, dim: number, item: string, aux: number): number;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayCreateSeamless(x: number, y: number, z: number, dim: number, item: string, aux: number, offX: string, offY: string, offZ: string, rotX: string, rotY: string, rotZ: string, scale: string, mode: number, viewDistance: number, visiblePlayer: string): number;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayCreateWithId(x: number, y: number, z: number, dim: number, item: string, aux: number, desiredId: number): number;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayDestroy(id: number): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayDestroyAll(): any;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayEmitForEntity(playerName: string, uniqueId: number, item: string, aux: number, offsetY: string, rotX: string, rotY: string, rotZ: string, scale: string, nbt: string, glint: boolean): number;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayExists(id: number): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayFindNearest(x: number, y: number, z: number, dim: number, maxDist: number): number;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayFollow(id: number, playerName: string, offX: number, offY: number, offZ: number): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayGetAllIds(): number[];
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayGetInfo(id: number): string;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayIsIdUsed(id: number): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayRotateY(id: number, delta: number): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayRuntimeId(id: number): number;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayScaleBy(id: number, factor: number): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayScaleTo(id: number, targetScale: number): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetAnim(id: number, spinSpeed: number, spinAxis: number, bobAmp: number, bobPeriod: number, pulseAmp: number, pulsePeriod: number, swayAmp: number, swayPeriod: number, phase: number, billboard: boolean): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetBaseOffset(id: number, ox: string, oy: string, oz: string): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetEnabled(id: number, enabled: boolean): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetExtend(id: number, scale: string, rx: string, ry: string): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetGlint(id: number, on: boolean): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetHitbox(id: number, width: number, height: number): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetItem(id: number, item: string, aux: number): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetItemWithNbt(id: number, item: string, aux: number, nbt: string): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetMode(id: number, mode: number): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetOffset(id: number, ox: string, oy: string, oz: string): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetOffsetLive(id: number, ox: string, oy: string, oz: string): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetPosition(id: number, x: number, y: number, z: number, dim: number): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetPreset(id: number, preset: string, a: number, b: number, c: number): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetRotation(id: number, rx: string, ry: string, rz: string): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetRotationLive(id: number, rx: string, ry: string, rz: string): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetScale(id: number, scale: string): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetScaleLive(id: number, scale: string): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetStretch(id: number, xz: string, y: string): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetStretchLive(id: number, xz: string, y: string): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetTransformLive(id: number, ox: string, oy: string, oz: string, rx: string, ry: string, rz: string, scale: string): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetViewDistance(id: number, dist: number): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetVisiblePlayer(id: number, playerName: string): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplaySetVisiblePlayers(id: number, playerNames: string[]): boolean;
-    /** 实现见 src/itemdisplay/ItemDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayUnfollow(id: number): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     locatorBarAttachEntity(playerName: string, key: string, entityUniqueId: number): boolean;
-    /** 实现见 src/ui/ClientUiExporter.cpp */
+    /** 实现见 platform/levilamina/src/ui/ClientUiExporter.cpp */
     locatorBarClear(playerName: string): number;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     locatorBarClearAttach(playerName: string, key: string): boolean;
-    /** 实现见 src/ui/ClientUiExporter.cpp */
+    /** 实现见 platform/levilamina/src/ui/ClientUiExporter.cpp */
     locatorBarCount(playerName: string): number;
-    /** 实现见 src/ui/ClientUiExporter.cpp */
+    /** 实现见 platform/levilamina/src/ui/ClientUiExporter.cpp */
     locatorBarHideFromOthers(playerName: string, hidden: boolean): boolean;
-    /** 实现见 src/ui/ClientUiExporter.cpp */
+    /** 实现见 platform/levilamina/src/ui/ClientUiExporter.cpp */
     locatorBarIsHiddenFromOthers(playerName: string): boolean;
-    /** 实现见 src/ui/ClientUiExporter.cpp */
+    /** 实现见 platform/levilamina/src/ui/ClientUiExporter.cpp */
     locatorBarRemove(playerName: string, key: string): boolean;
-    /** 实现见 src/ui/ClientUiExporter.cpp */
+    /** 实现见 platform/levilamina/src/ui/ClientUiExporter.cpp */
     locatorBarSet(playerName: string, key: string, x: number, y: number, z: number, dim: number, color: number, visible: boolean): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     locatorBarSetClientAuthority(playerName: string, key: string, enabled: boolean): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     locatorBarSetEx(playerName: string, key: string, x: number, y: number, z: number, dim: number, color: number, visible: boolean, texturePath: string, iconWidth: number, iconHeight: number, authority: boolean): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     locatorBarSetGroup(playerName: string, key: string, groupKey: string): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     locatorBarSetIcon(playerName: string, key: string, texturePath: string): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     locatorBarSetIconSize(playerName: string, key: string, width: number, height: number): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     locatorBarSyncGroup(playerName: string, groupKey: string): number;
-    /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
+    /** 实现见 platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp */
     npcDialogClearClicks(): any;
-    /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
+    /** 实现见 platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp */
     npcDialogClose(id: number): boolean;
-    /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
+    /** 实现见 platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp */
     npcDialogCloseAll(): any;
-    /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
+    /** 实现见 platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp */
     npcDialogDroppedClicks(): number;
-    /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
+    /** 实现见 platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp */
     npcDialogGetIds(): number[];
-    /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
+    /** 实现见 platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp */
     npcDialogIsOpen(id: number): boolean;
-    /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
+    /** 实现见 platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp */
     npcDialogOpen(playerName: string, npcName: string, sceneName: string, dialogue: string, buttonsSpec: string, carrierIdentifier: string): number;
-    /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
+    /** 实现见 platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp */
     npcDialogPollClicks(): string[];
-    /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
+    /** 实现见 platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp */
     npcDialogSetAvatar(id: number, skinVariant: number, avatarViewSpec: string): boolean;
-    /** 实现见 src/npcdialog/NpcDialogueExporter.cpp */
+    /** 实现见 platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp */
     npcDialogUpdate(id: number, dialogue: string, buttonsSpec: string): boolean;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleClearVisiblePlayers(id: number): boolean;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleCreateBox(playerName: string, dimId: number, cx: number, cy: number, cz: number, hx: number, hy: number, hz: number, step: number, effect: string, interval: number, lifetime: number): number;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleCreateBoxFaces(playerName: string, dimId: number, cx: number, cy: number, cz: number, hx: number, hy: number, hz: number, step: number, effect: string, interval: number, lifetime: number): number;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleCreateLine(playerName: string, dimId: number, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, step: number, effect: string, interval: number, lifetime: number): number;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleCreatePlane(playerName: string, dimId: number, cx: number, cy: number, cz: number, w: number, h: number, axis: number, step: number, effect: string, interval: number, lifetime: number): number;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleCreatePoint(playerName: string, dimId: number, x: number, y: number, z: number, effect: string, interval: number, lifetime: number): number;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleCreatePoly(playerName: string, dimId: number, verts: string, edges: string, step: number, effect: string, interval: number, lifetime: number): number;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleCreateRect(playerName: string, dimId: number, cx: number, cy: number, cz: number, w: number, h: number, axis: number, step: number, effect: string, interval: number, lifetime: number): number;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleDestroy(id: number): boolean;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleDestroyAll(): any;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleExists(id: number): boolean;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleFollow(id: number, uuid: string, offX: number, offY: number, offZ: number): boolean;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleGetAllIds(): number[];
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleGetInfo(id: number): string;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleMoveBy(id: number, dx: number, dy: number, dz: number): boolean;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleMoveTo(id: number, x: number, y: number, z: number, durationTicks: number): boolean;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleSetEffect(id: number, effect: string): boolean;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleSetInterval(id: number, ticks: number): boolean;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleSetLifetime(id: number, ticks: number): boolean;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleSetPos(id: number, x: number, y: number, z: number): boolean;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleSetRot(id: number, rx: number, ry: number, rz: number): boolean;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleSetScale(id: number, s: number): boolean;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleSetViewDistance(id: number, blocks: number): boolean;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleSetVisible(id: number, playersCsv: string): boolean;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleSetVisiblePlayers(id: number, playerUuids: string[]): boolean;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleSpin(id: number, sx: number, sy: number, sz: number): boolean;
-    /** 实现见 src/particles/ParticleShapeExporter.cpp */
+    /** 实现见 platform/levilamina/src/particles/ParticleShapeExporter.cpp */
     particleUnfollow(id: number): boolean;
-    /** 实现见 src/ui/ClientUiExporter.cpp */
+    /** 实现见 platform/levilamina/src/ui/ClientUiExporter.cpp */
     playerHideGetMask(playerName: string): string;
-    /** 实现见 src/ui/ClientUiExporter.cpp */
+    /** 实现见 platform/levilamina/src/ui/ClientUiExporter.cpp */
     playerHideIsHidden(playerName: string): boolean;
-    /** 实现见 src/ui/ClientUiExporter.cpp */
+    /** 实现见 platform/levilamina/src/ui/ClientUiExporter.cpp */
     playerHideRestore(playerName: string): boolean;
-    /** 实现见 src/ui/ClientUiExporter.cpp */
+    /** 实现见 platform/levilamina/src/ui/ClientUiExporter.cpp */
     playerHideSetHidden(playerName: string, hidden: boolean): boolean;
-    /** 实现见 src/ui/ClientUiExporter.cpp */
+    /** 实现见 platform/levilamina/src/ui/ClientUiExporter.cpp */
     playerHideSetMask(playerName: string, spawn: boolean, tab: boolean, motion: boolean, state: boolean, skin: boolean, alsoSelf: boolean): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcCaptureSkin(skinId: string, playerName: string): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcClearPlayerRotation(id: number, playerName: string): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcClearPlayerRotations(id: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcClearRide(id: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcClearSpawns(): any;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcClearVisiblePlayers(id: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcCreate(x: number, y: number, z: number, dim: number, name: string, skinId: string): number;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcCreateEx(x: number, y: number, z: number, dim: number, name: string, skinId: string, yaw: number, scale: number): number;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcCreateRandom(x: number, y: number, z: number, dim: number, name: string, skinId: string): number;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcCreateWithId(x: number, y: number, z: number, dim: number, name: string, skinId: string, desiredId: number): number;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcDestroy(id: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcDestroyAll(): any;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcExists(id: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcGetAllIds(): number[];
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcGetDebugInfo(id: number): string;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcGetSkinBlobB64(skinId: string): string;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcGetSkinIds(): string[];
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcHasSkin(skinId: string): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcImportSkins(dirPath: string): number;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcInjectSkin(viewerName: string, targetName: string, skinId: string): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcInjectSkinAll(targetName: string, skinId: string): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcIsIdUsed(id: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcPlayAnimation(id: number, animation: string, stopExpression: string, durationTicks: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcPlayAnimationTo(id: number, playerName: string, animation: string, stopExpression: string, durationTicks: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcPlayEmote(id: number, pieceId: string, lengthTicks: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcPollSpawns(): string[];
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcRegisterImageSkin(pngPath: string, skinId: string, sizeBlocks: number, transparent: boolean): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
+    playerNpcRegisterImageSkinSized(pngPath: string, skinId: string, widthBlocks: number, heightBlocks: number, transparent: boolean): boolean;
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcRegisterSkin(pngPath: string, skinId: string, geometry: string, armSize: string): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcRegisterSkinData(pngPath: string, skinId: string, armSize: string, geometryData: string): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcRegisterSkinDataOpaque(pngPath: string, skinId: string, armSize: string, geometryData: string): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcRegisterSkinFromBlobB64(b64: string): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcRegisterSkinFromBlobFile(path: string): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcRuntimeId(id: number): number;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetEnabled(id: number, enabled: boolean): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetEquipment(id: number, slot: number, name: string, aux: number, nbt: string): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
+    playerNpcSetImageSize(id: number, pngPath: string, widthBlocks: number, heightBlocks: number, transparent: boolean): boolean;
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetNametag(id: number, text: string): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetPlayerRotation(id: number, playerName: string, yaw: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetPos(id: number, x: number, y: number, z: number, dim: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetPosLight(id: number, x: number, y: number, z: number, dim: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetPose(id: number, pose: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetRideEntity(id: number, vehicleEntityId: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetRidePlayer(id: number, playerName: string): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetRideUniqueId(id: number, vehicleUniqueId: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetRotLight(id: number, yaw: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetRotation(id: number, yaw: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetScale(id: number, scale: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetSkin(id: number, skinId: string): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetViewDistance(id: number, dist: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetVisiblePlayer(id: number, playerName: string): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcSetVisiblePlayers(id: number, playerNames: string[]): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcStopAnimation(id: number): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcStopAnimationTo(id: number, playerName: string): boolean;
-    /** 实现见 src/playernpc/PlayerNpcExporter.cpp */
+    /** 实现见 platform/levilamina/src/playernpc/PlayerNpcExporter.cpp */
     playerNpcUnregisterSkin(skinId: string): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
+    playerPlayCelebrate(playerName: string, seconds: number): boolean;
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
+    playerPlayOminousDrink(playerName: string, holdTicks: number): boolean;
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     playerRespawn(playerName: string): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     playerRespawnAt(playerName: string, x: number, y: number, z: number): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     playerRespawnState(playerName: string, state: number): boolean;
-    /** 实现见 src/sensing/PlayerSensingExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
+    playerShowBadOmen(playerName: string, durationTicks: number): boolean;
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
+    playerShowEffect(playerName: string, effectId: number, durationTicks: number, amplifier: number): boolean;
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
+    playerShowVillageHero(playerName: string, durationTicks: number): boolean;
+    /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
     sensingDeviceCode(playerName: string): number;
-    /** 实现见 src/sensing/PlayerSensingExporter.cpp */
+    /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
     sensingDeviceOf(playerName: string): string;
-    /** 实现见 src/sensing/PlayerSensingExporter.cpp */
+    /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
     sensingIsTouch(playerName: string): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeAttachEntity(id: number, entityUniqueId: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeClearAttachedEntity(id: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeClearBackgroundColor(id: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeClearRotation(id: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeCreateArrow(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number): number;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeCreateBox(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number): number;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeCreateCircle(x: number, y: number, z: number, scale: number): number;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeCreateCone(x: number, y: number, z: number, radiusX: number, radiusZ: number, height: number, segments: number): number;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeCreateCylinder(x: number, y: number, z: number, radiusX: number, radiusZ: number, height: number, segments: number): number;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeCreateEllipsoid(x: number, y: number, z: number, radiusX: number, radiusY: number, radiusZ: number, segmentsPerAxis: number): number;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeCreateLine(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number): number;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeCreatePyramid(x: number, y: number, z: number, width: number, height: number, depth: number): number;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeCreateSphere(x: number, y: number, z: number, scale: number): number;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeCreateText(x: number, y: number, z: number, text: string): number;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeDestroy(id: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeDestroyAll(): any;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeDestroyBatch(ids: number[]): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeDraw(id: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeDrawBatch(ids: number[]): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeDrawToDimension(id: number, dimId: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeDrawToPlayer(id: number, playerName: string): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeExists(id: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeFindTextByLocation(x: number, y: number, z: number, radius: number): number[];
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeFindTextByLocationAndContent(x: number, y: number, z: number, radius: number, text: string): number;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeGetAllShapeIds(): number[];
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeGetColor(id: number): any[];
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeGetLocation(id: number): any[];
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeGetRotation(id: number): any[];
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeGetShapeType(id: number): number;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeGetText(id: number): string;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeRemove(id: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeRemoveToDimension(id: number, dimId: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeRemoveToPlayer(id: number, playerName: string): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeSetBackgroundColor(id: number, r: number, g: number, b: number, a: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeSetColor(id: number, r: number, g: number, b: number, a: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeSetDepthTest(id: number, enabled: boolean): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeSetDimension(id: number, dimId: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeSetDuration(id: number, seconds: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeSetLocation(id: number, x: number, y: number, z: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeSetMaxRenderDistance(id: number, distance: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeSetRotation(id: number, pitch: number, yaw: number, roll: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeSetScale(id: number, scale: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeSetText(id: number, text: string): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeUpdate(id: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeUpdateToDimension(id: number, dimId: number): boolean;
-    /** 实现见 src/RemoteCallExporter.cpp */
+    /** 实现见 platform/levilamina/src/RemoteCallExporter.cpp */
     shapeUpdateToPlayer(id: number, playerName: string): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     sidebarIsShown(playerName: string): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     sidebarLineCount(playerName: string): number;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     sidebarRemove(playerName: string): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     sidebarRemoveAll(): any;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     sidebarSet(playerName: string, title: string, lines: string[]): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     sidebarSetLine(playerName: string, index: number, text: string): boolean;
-    /** 实现见 src/hud/HudExporter.cpp */
+    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     sidebarSetTitle(playerName: string, title: string): boolean;
-    /** 实现见 src/sulfur/SulfurDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp */
     sulfurCreate(x: number, y: number, z: number, dim: number, blockType: string, blockCount: number, blockDamage: number, blockName: string, archetype: string, invisible: boolean): number;
-    /** 实现见 src/sulfur/SulfurDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp */
     sulfurDestroy(id: number): boolean;
-    /** 实现见 src/sulfur/SulfurDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp */
     sulfurDestroyAll(): any;
-    /** 实现见 src/sulfur/SulfurDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp */
     sulfurExists(id: number): boolean;
-    /** 实现见 src/sulfur/SulfurDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp */
     sulfurGetEntityId(id: number): number;
-    /** 实现见 src/sulfur/SulfurDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp */
     sulfurGetIds(): number[];
-    /** 实现见 src/sulfur/SulfurDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp */
     sulfurSetArchetype(id: number, archetype: string): boolean;
-    /** 实现见 src/sulfur/SulfurDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp */
     sulfurSetBlock(id: number, type: string, count: number, damage: number, name: string): boolean;
-    /** 实现见 src/sulfur/SulfurDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp */
     sulfurSetInvisible(id: number, on: boolean): boolean;
-    /** 实现见 src/sulfur/SulfurDisplayExporter.cpp */
+    /** 实现见 platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp */
     sulfurSetScale(id: number, scale: number): boolean;
-    /** 实现见 src/trade/TradeMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/trade/TradeMenuExporter.cpp */
     tradeAddOffer(id: number, buyAType: string, buyACount: number, buyBType: string, buyBCount: number, sellType: string, sellCount: number, sellName: string, tier: number, locked: boolean): boolean;
-    /** 实现见 src/trade/TradeMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/trade/TradeMenuExporter.cpp */
     tradeClose(id: number): boolean;
-    /** 实现见 src/trade/TradeMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/trade/TradeMenuExporter.cpp */
     tradeCloseAll(): any;
-    /** 实现见 src/trade/TradeMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/trade/TradeMenuExporter.cpp */
     tradeDroppedSettlements(): number;
-    /** 实现见 src/trade/TradeMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/trade/TradeMenuExporter.cpp */
     tradeGetIds(): number[];
-    /** 实现见 src/trade/TradeMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/trade/TradeMenuExporter.cpp */
     tradeIsOpen(id: number): boolean;
-    /** 实现见 src/trade/TradeMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/trade/TradeMenuExporter.cpp */
     tradeIsSettle(id: number): boolean;
-    /** 实现见 src/trade/TradeMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/trade/TradeMenuExporter.cpp */
     tradeOpen(playerName: string, tradeType: string, tier: number, experience: number, realTrades: boolean, carrierIdentifier: string): number;
-    /** 实现见 src/trade/TradeMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/trade/TradeMenuExporter.cpp */
     tradePollSettlements(): string[];
-    /** 实现见 src/trade/TradeMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/trade/TradeMenuExporter.cpp */
     tradeSetSettle(id: number, on: boolean): boolean;
-    /** 实现见 src/trade/TradeMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/trade/TradeMenuExporter.cpp */
     tradeSetTier(id: number, tier: number, experience: number): boolean;
-    /** 实现见 src/trade/TradeMenuExporter.cpp */
+    /** 实现见 platform/levilamina/src/trade/TradeMenuExporter.cpp */
     tradeUpdate(id: number, tradeType: string, tier: number, experience: number): boolean;
-    /** 实现见 src/view/ViewOverrideExporter.cpp */
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewBlock(playerName: string, x: number, y: number, z: number, type: string): boolean;
-    /** 实现见 src/view/ViewOverrideExporter.cpp */
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewClearAll(playerName: string): any;
-    /** 实现见 src/view/ViewOverrideExporter.cpp */
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewClearBlock(playerName: string, x: number, y: number, z: number): boolean;
-    /** 实现见 src/view/ViewOverrideExporter.cpp */
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewClearEntity(playerName: string, uniqueId: number): boolean;
-    /** 实现见 src/view/ViewOverrideExporter.cpp */
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewClearId(uniqueId: number): boolean;
-    /** 实现见 src/view/ViewOverrideExporter.cpp */
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewDescribe(playerName: string): string;
-    /** 实现见 src/view/ViewOverrideExporter.cpp */
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewEcho(text: string): string;
-    /** 实现见 src/view/ViewOverrideExporter.cpp */
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewEntity(playerName: string, uniqueId: number, spec: string): boolean;
-    /** 实现见 src/view/ViewOverrideExporter.cpp */
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewItemSpawnHooked(): boolean;
-    /** 实现见 src/view/ViewOverrideExporter.cpp */
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewMetaProbe(spec: string): string;
-    /** 实现见 src/view/ViewOverrideExporter.cpp */
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewPollSpawnEvents(): string[];
-    /** 实现见 src/view/ViewOverrideExporter.cpp */
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewSelf(playerName: string, spec: string): boolean;
-    /** 实现见 src/view/ViewOverrideExporter.cpp */
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewSelfClear(playerName: string): boolean;
-    /** 实现见 src/view/ViewOverrideExporter.cpp */
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewSelfHide(playerName: string, hidden: boolean): boolean;
-    /** 实现见 src/view/ViewOverrideExporter.cpp */
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewSelfName(playerName: string, nametag: string, alwaysShow: boolean): boolean;
-    /** 实现见 src/view/ViewOverrideExporter.cpp */
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewSelfSkin(playerName: string, skinOfPlayer: string): boolean;
-    /** 实现见 src/view/ViewOverrideExporter.cpp */
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewSelfType(playerName: string, type: string): boolean;
-    /** 实现见 src/view/ViewOverrideExporter.cpp */
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewTargetType(uniqueId: number, type: string): boolean;
-    /** 实现见 src/view/ViewOverrideExporter.cpp */
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewUniqueIdOf(playerName: string): number;
-    /** 实现见 src/InfoExporter.cpp */
+    /** 实现见 platform/levilamina/src/InfoExporter.cpp */
     wireResetStats(): any;
-    /** 实现见 src/InfoExporter.cpp */
+    /** 实现见 platform/levilamina/src/InfoExporter.cpp */
     wireStats(): string;
-    /** 实现见 src/InfoExporter.cpp */
+    /** 实现见 platform/levilamina/src/InfoExporter.cpp */
     wireTraceActive(): boolean;
-    /** 实现见 src/InfoExporter.cpp */
+    /** 实现见 platform/levilamina/src/InfoExporter.cpp */
     wireTraceClear(): any;
-    /** 实现见 src/InfoExporter.cpp */
+    /** 实现见 platform/levilamina/src/InfoExporter.cpp */
     wireTraceCount(): number;
-    /** 实现见 src/InfoExporter.cpp */
+    /** 实现见 platform/levilamina/src/InfoExporter.cpp */
     wireTraceDump(): string;
-    /** 实现见 src/InfoExporter.cpp */
+    /** 实现见 platform/levilamina/src/InfoExporter.cpp */
     wireTraceMark(tag: string): any;
-    /** 实现见 src/InfoExporter.cpp */
+    /** 实现见 platform/levilamina/src/InfoExporter.cpp */
     wireTraceStart(tag: string): boolean;
-    /** 实现见 src/InfoExporter.cpp */
+    /** 实现见 platform/levilamina/src/InfoExporter.cpp */
     wireTraceStop(): boolean;
   }
 
@@ -872,17 +912,23 @@ declare namespace HologramLib {
     blockEventForEntity(runtimeId: number, eventId: number): any;
     blockStats(): string;
     clearInteractions(): any;
+    freeze(runtimeId: number, strength: number): boolean;
+    playAnimation(runtimeId: number, animation: string, stopExpression: string, blendOutTime: number): boolean;
+    playAnimationFull(runtimeId: number, animation: string, nextState: string, stopExpression: string, blendOutTime: number, controller: string, molangVersion: number): boolean;
     playDeath(runtimeId: number): boolean;
     playEvent(runtimeId: number, eventId: number, data: number): boolean;
     playEventFor(playerName: string, runtimeId: number, eventId: number, data: number): boolean;
     playHurt(runtimeId: number): boolean;
     playInstantDeath(runtimeId: number): boolean;
+    playTotem(runtimeId: number, holdTicks: number): boolean;
     pollInteractions(): string[];
     runtimeIdOfEntity(libId: number): number;
     runtimeIdOfPlayer(playerName: string): number;
+    setPose(runtimeId: number, poseIndex: number): boolean;
     unblockEvent(eventId: number): any;
     unblockEventFor(playerName: string, eventId: number): any;
     unblockEventForEntity(runtimeId: number, eventId: number): any;
+    unfreeze(runtimeId: number): boolean;
   }
 
   interface Container {
@@ -1107,6 +1153,11 @@ declare namespace HologramLib {
   interface Misc {
     anchorAcquire(playerName: string): number;
     anchorRelease(uniqueId: number): boolean;
+    blockFakeClear(playerName: string, x: number, y: number, z: number): boolean;
+    blockFakeClearAll(x: number, y: number, z: number, dim: number): number;
+    blockFakeResolve(state: string): number;
+    blockFakeSet(playerName: string, x: number, y: number, z: number, state: string): boolean;
+    blockFakeSetAll(x: number, y: number, z: number, dim: number, state: string): number;
     bossBarAdd(playerName: string, title: string, healthPercent: number, color: number, overlay: number): number;
     bossBarAddOn(playerName: string, targetId: number, title: string, percent: number, color: number, overlay: number): number;
     bossBarCount(playerName: string): number;
@@ -1117,11 +1168,18 @@ declare namespace HologramLib {
     bossBarSetHealth(id: number, percent: number): boolean;
     bossBarSetStyle(id: number, color: number, overlay: number): boolean;
     bossBarSetTitle(id: number, title: string): boolean;
+    easterEggCreeper(runtimeId: number): boolean;
+    easterEggCreeperDisplay(id: number, durationTicks: number, rotate: boolean): boolean;
     hudProbe(): string;
     hudResetAll(playerName: string): boolean;
     hudSetElement(playerName: string, element: number, visible: boolean): boolean;
     hudSetElements(playerName: string, mask: number, visible: boolean): number;
     hudSetRaw(playerName: string, mask: number, visibility: number): boolean;
+    playerPlayCelebrate(playerName: string, seconds: number): boolean;
+    playerPlayOminousDrink(playerName: string, holdTicks: number): boolean;
+    playerShowBadOmen(playerName: string, durationTicks: number): boolean;
+    playerShowEffect(playerName: string, effectId: number, durationTicks: number, amplifier: number): boolean;
+    playerShowVillageHero(playerName: string, durationTicks: number): boolean;
     sidebarIsShown(playerName: string): boolean;
     sidebarLineCount(playerName: string): number;
     sidebarRemove(playerName: string): boolean;
@@ -1211,6 +1269,7 @@ declare namespace HologramLib {
     playEmote(id: number, pieceId: string, lengthTicks: number): boolean;
     pollSpawns(): string[];
     registerImageSkin(pngPath: string, skinId: string, sizeBlocks: number, transparent: boolean): boolean;
+    registerImageSkinSized(pngPath: string, skinId: string, widthBlocks: number, heightBlocks: number, transparent: boolean): boolean;
     registerSkin(pngPath: string, skinId: string, geometry: string, armSize: string): boolean;
     registerSkinData(pngPath: string, skinId: string, armSize: string, geometryData: string): boolean;
     registerSkinDataOpaque(pngPath: string, skinId: string, armSize: string, geometryData: string): boolean;
@@ -1219,6 +1278,7 @@ declare namespace HologramLib {
     runtimeId(id: number): number;
     setEnabled(id: number, enabled: boolean): boolean;
     setEquipment(id: number, slot: number, name: string, aux: number, nbt: string): boolean;
+    setImageSize(id: number, pngPath: string, widthBlocks: number, heightBlocks: number, transparent: boolean): boolean;
     setNametag(id: number, text: string): boolean;
     setPlayerRotation(id: number, playerName: string, yaw: number): boolean;
     setPos(id: number, x: number, y: number, z: number, dim: number): boolean;

@@ -4,6 +4,12 @@ From nothing to a running HologramLib: build → deploy → first feature. About
 
 Just using the library and not building it yourself? Skip ahead to [Deployment](#3-deployment).
 
+!!! tip "Using Endstone?"
+
+    This page covers the LeviLamina build (xmake + C++ plugin). The endstone build is a Python plugin plus
+    `holo_core.dll`; one command `build.cmd --deploy <server>/plugins` installs it. See
+    [Endstone edition](endstone/index.md).
+
 
 ---
 
@@ -158,7 +164,7 @@ There are two failure modes, both explicit and neither silent:
 | Function name does not exist (older library) | `ll.import` returns `null` |
 
 So "I got `null`" always means "you do not have this capability right now", never "it was called but did nothing".
-All 424 functions are listed by domain in the [LSE scripting API](lse/index.md).
+All 444 functions are listed by domain in the [LSE scripting API](lse/index.md).
 
 ---
 

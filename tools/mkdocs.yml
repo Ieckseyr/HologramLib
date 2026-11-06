@@ -94,6 +94,56 @@ plugins:
           build: true
           site_description: Bedrock protocol-layer unified hologram & display library
           nav_translations:
+            LeviLamina 的 C++ 包装: LeviLamina C++ wrappers
+            符号清单（67 个）: Symbol list (67)
+            ABI 接口: ABI
+            1.17 IItemActor / IFormControl / ILocatorBar: 1.17 IItemActor / IFormControl / ILocatorBar
+            1.16 IViewOverride · 视图覆盖: 1.16 IViewOverride · View override
+            1.15 ISulfurDisplay · 硫磺方块: 1.15 ISulfurDisplay · Sulfur cube
+            1.14 IFakeInventory · 假背包: 1.14 IFakeInventory · Fake inventory
+            1.13 感知域 · 逐玩家变量: 1.13 Sensing · per-player variables
+            1.12 IContainerMenu · 虚拟容器: 1.12 IContainerMenu · Containers
+            1.11 INpcDialogue · NPC 对话: 1.11 INpcDialogue · NPC dialog
+            1.10 ITradeMenu · 交易菜单: 1.10 ITradeMenu · Trade menus
+            1.9 IPlayerNpc · 假玩家 NPC: 1.9 IPlayerNpc · Player NPCs
+            1.8 IParticleShape · 粒子形状: 1.8 IParticleShape · Particle shapes
+            1.7 GhostInteractEvent · 交互事件: 1.7 GhostInteractEvent · Interactions
+            1.6 ICustomEntity · 自定义实体: 1.6 ICustomEntity · Custom entities
+            1.5 IItemDisplay · 物品悬浮: 1.5 IItemDisplay · Item displays
+            1.4 IItemDetail · 物品详情: 1.4 IItemDetail · Item detail
+            1.3 IHologramText · 悬浮字: 1.3 IHologramText · Holograms
+            1.2 IShapeDrawer · 形状渲染: 1.2 IShapeDrawer · Shapes
+            杂项: Misc
+            线路诊断: Wire diagnostics
+            幽灵交互: Ghost interaction
+            可见性: Visibility
+            视角覆盖: View override
+            玩家 NPC: Player NPCs
+            硫磺方块: Sulfur cube
+            NPC 对话: NPC dialog
+            交易菜单: Trade
+            自定义实体: Custom entities
+            假背包: Fake inventory
+            虚拟容器: Virtual containers
+            物品展示: Item displays
+            掉落物: Item actors
+            复活: Respawn
+            物品详情: Item detail
+            表单: Forms
+            假方块: Fake blocks
+            定位条: Locator bar
+            Actor 表现: Actor effects
+            玩家表现: Player effects
+            HUD 显隐: HUD
+            侧边栏: Sidebar
+            Boss 条: Boss bars
+            渐变线: Gradient lines
+            悬浮字: Holograms
+            API 索引（444 条）: API index (444)
+            按域指南: Domain guides
+            脚本导入（lrca / 统一导入）: Importing (lrca / unified)
+            Endstone: Endstone
+            LeviLamina: LeviLamina
             首页: Home
             快速开始: Getting started
             设计说明: Design notes
@@ -123,6 +173,9 @@ plugins:
             更新日志: Changelog
             版本与 ABI 对照: Version & ABI matrix
             LSE 脚本接口: LSE scripting API
+            平台: Platforms
+            Endstone 版: Endstone edition
+            Endstone API 参考: Endstone API reference
             怎么用: How to use it
             形状: Shapes
             悬浮字与渐变线: Holograms & gradient lines
@@ -136,28 +189,87 @@ plugins:
 nav:
   - 首页: index.md
   - 快速开始: getting-started.md
-  - LSE 脚本接口:
-      - 脚本导入（lrca / 统一导入）: lse/importing.md
-      - 怎么用: lse/index.md
-      - DebugShape（悬浮字与形状）: lse/debugshape.md
-      - 物品显示: lse/item-display.md
-      - 粒子: lse/particles.md
-      - 实体与交互: lse/entities.md
-      - 假玩家 NPC: lse/player-npc.md
-      - 容器与背包: lse/containers.md
-      - 界面: lse/interfaces.md
-      - 硫磺立方体: lse/sulfur.md
-      - 视图覆盖: lse/view.md
-      - 客户端感知: lse/sensing.md
-      - 掉落物生成: lse/item-actor.md
-      - 表单控制: lse/form.md
-      - 方位条: lse/locator-bar.md
-      - 隐身: lse/visibility.md
-      - Boss 条与 HUD 显隐: lse/hud.md
-      - 实体表现事件: lse/actor-effect.md
-      - 死亡后的复活: lse/respawn.md
-      - 侧边栏计分板: lse/sidebar.md
-  - C++ 接口参考: reference/cpp-api.md
+  - LeviLamina:
+      - 总览: levilamina/index.md
+      - C++ 接口: levilamina/cpp.md
+      - LSE 脚本接口:
+          - 脚本导入（lrca / 统一导入）: lse/importing.md
+          - 怎么用: lse/index.md
+          - DebugShape（悬浮字与形状）: lse/debugshape.md
+          - 物品显示: lse/item-display.md
+          - 粒子: lse/particles.md
+          - 实体与交互: lse/entities.md
+          - 假玩家 NPC: lse/player-npc.md
+          - 容器与背包: lse/containers.md
+          - 界面: lse/interfaces.md
+          - 硫磺立方体: lse/sulfur.md
+          - 视图覆盖: lse/view.md
+          - 客户端感知: lse/sensing.md
+          - 掉落物生成: lse/item-actor.md
+          - 表单控制: lse/form.md
+          - 方位条: lse/locator-bar.md
+          - 隐身: lse/visibility.md
+          - Boss 条与 HUD 显隐: lse/hud.md
+          - 实体表现事件: lse/actor-effect.md
+          - 假方块: lse/fake-block.md
+          - 彩蛋：朋友的⑨: lse/easter-egg.md
+          - 死亡后的复活: lse/respawn.md
+          - 侧边栏计分板: lse/sidebar.md
+  - Endstone:
+      - 总览: endstone/index.md
+      - 按域指南:
+          - 形状: endstone/shape.md
+          - 悬浮字: endstone/hologram.md
+          - 渐变线: endstone/gradient.md
+          - 粒子: endstone/particles.md
+          - Boss 条: endstone/bossbar.md
+          - 侧边栏: endstone/sidebar.md
+          - HUD 显隐: endstone/hud.md
+          - 玩家表现: endstone/player-effect.md
+          - Actor 表现: endstone/actor-effect.md
+          - 定位条: endstone/locator-bar.md
+          - 假方块: endstone/fake-block.md
+          - 表单: endstone/form.md
+          - 物品详情: endstone/item-detail.md
+          - 复活: endstone/respawn.md
+          - 掉落物: endstone/item-actor.md
+          - 物品展示: endstone/item-display.md
+          - 虚拟容器: endstone/containers.md
+          - 假背包: endstone/fake-inventory.md
+          - 自定义实体: endstone/entities.md
+          - 交易菜单: endstone/trade.md
+          - NPC 对话: endstone/npc-dialog.md
+          - 硫磺方块: endstone/sulfur.md
+          - 玩家 NPC: endstone/player-npc.md
+          - 视角覆盖: endstone/view.md
+          - 客户端感知: endstone/sensing.md
+          - 可见性: endstone/visibility.md
+          - 幽灵交互: endstone/ghost.md
+          - 线路诊断: endstone/wire.md
+          - 杂项: endstone/misc.md
+      - API 索引（444 条）: endstone/api.md
+  - ABI 接口:
+      - 总览: abi/index.md
+      - 符号清单（67 个）: abi/symbols.md
+      - LeviLamina 的 C++ 包装:
+          - 总览: abi/levilamina/index.md
+          - 1.2 IShapeDrawer · 形状渲染: abi/levilamina/shape-drawer.md
+          - 1.3 IHologramText · 悬浮字: abi/levilamina/hologram-text.md
+          - 1.4 IItemDetail · 物品详情: abi/levilamina/item-detail.md
+          - 1.5 IItemDisplay · 物品悬浮: abi/levilamina/item-display.md
+          - 1.6 ICustomEntity · 自定义实体: abi/levilamina/custom-entity.md
+          - 1.7 GhostInteractEvent · 交互事件: abi/levilamina/ghost-interact.md
+          - 1.8 IParticleShape · 粒子形状: abi/levilamina/particle-shape.md
+          - 1.9 IPlayerNpc · 假玩家 NPC: abi/levilamina/player-npc.md
+          - 1.10 ITradeMenu · 交易菜单: abi/levilamina/trade-menu.md
+          - 1.11 INpcDialogue · NPC 对话: abi/levilamina/npc-dialogue.md
+          - 1.12 IContainerMenu · 虚拟容器: abi/levilamina/container-menu.md
+          - 1.13 感知域 · 逐玩家变量: abi/levilamina/sensing.md
+          - 1.14 IFakeInventory · 假背包: abi/levilamina/fake-inventory.md
+          - 1.15 ISulfurDisplay · 硫磺方块: abi/levilamina/sulfur-display.md
+          - 1.16 IViewOverride · 视图覆盖: abi/levilamina/view-override.md
+          - 1.17 IItemActor / IFormControl / ILocatorBar: abi/levilamina/item-actor-form-locator.md
+
   - 能力域:
       - 总览: domains/README.md
       - DebugShape（悬浮字与形状）: domains/debugshape.md
@@ -175,7 +287,6 @@ nav:
       - 方位条: domains/locator-bar.md
       - 隐身: domains/visibility.md
   - 更新日志: versions/changelog.md
-
 markdown_extensions:
   - admonition
   - attr_list

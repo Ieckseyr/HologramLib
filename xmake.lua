@@ -2,7 +2,9 @@ add_rules("mode.debug", "mode.release")
 
 -- 缺失符号报告规则（丢在项目根目录的 symbol_missing.lua / symbol_missing.exe）
 -- 编译后会在项目根目录产出 symbol_missing.txt / symbol_missing.json
-includes("symbol_missing.lua")
+if os.isfile("symbol_missing.lua") then
+    includes("symbol_missing.lua")
+end
 
 -- 构建后部署: DLL / PDB / 导入库落回插件目录（服务器实际加载位置），
 -- 并把脚本导入层（lib/*.js|d.ts|exports.json）搬到 bin/HologramLib/lib/。
@@ -134,6 +136,21 @@ if is_plat("windows") then
     set_toolchains("clang-cl")
 end
 
+-- BedrockProtocol 静态库（两个产物共用同一份 install）
+-- 26.51 补丁: TextDataPayload.LineGapHeight 插在 BackgroundColor 与 DepthTest 之间,
+-- ItemStackResponseInfo.Containers 改 optional 编码
+-- 目录可用 HOLO_PROTOCOL_DIR 覆盖
+local function protocol_install_dir()
+    local dir = os.getenv("HOLO_PROTOCOL_DIR")
+    if not dir or dir == "" then
+        dir = path.join(os.projectdir(), "..", "BedrockProtocol-main", "install")
+    end
+    if not os.isdir(path.join(dir, "include")) then
+        raise(format("找不到 BedrockProtocol: %s\n用 HOLO_PROTOCOL_DIR 指向 install/ 目录", dir))
+    end
+    return dir
+end
+
 -- 与服务端(26.60 / BDS 1.26.60.6)匹配的 levilamina 版本（bedrockdata v26.60.6-server.1）
 if is_config("target_type", "server") then
     add_requires("levilamina 26.60.0", {configs = {target_type = "server"}})
@@ -178,7 +195,9 @@ option_end()
 
 target("HologramLib")
     add_rules("@levibuildscript/linkrule")
-    add_rules("symbol_missing")
+    if os.isfile("symbol_missing.lua") then
+        add_rules("symbol_missing")
+    end
     add_rules("@levibuildscript/modpacker")
     add_rules("holo_deploy")
     -- 不加 /EHa, 与 set_exceptions 冲突
@@ -205,17 +224,8 @@ target("HologramLib")
     set_kind("shared")
     set_languages("c++23")
 
-    -- BedrockProtocol 静态库
-    -- 26.51 补丁: TextDataPayload.LineGapHeight 插在 BackgroundColor 与 DepthTest 之间,
-    -- ItemStackResponseInfo.Containers 改 optional 编码
-    -- 目录可用 HOLO_PROTOCOL_DIR 覆盖
-    local protocol_install = os.getenv("HOLO_PROTOCOL_DIR")
-    if not protocol_install or protocol_install == "" then
-        protocol_install = path.join(os.projectdir(), "..", "BedrockProtocol-main", "install")
-    end
-    if not os.isdir(path.join(protocol_install, "include")) then
-        raise(format("找不到 BedrockProtocol: %s\n用 HOLO_PROTOCOL_DIR 指向 install/ 目录", protocol_install))
-    end
+    -- BedrockProtocol 静态库（endstone 侧的 holo_core 用同一份）
+    local protocol_install = protocol_install_dir()
     -- 三方头走 -isystem：clang 不会对系统头里的属性/弃用告警发噪音
     -- （sculk 的 ValueTag/TagVariant/MetaData 用 [[no_unique_address]]，clang 22 会报 unknown-attributes）
     add_sysincludedirs(path.join(protocol_install, "include"))
@@ -231,10 +241,19 @@ target("HologramLib")
     -- 源文件: 目录通配 —— 新增/删除 .cpp/.h 不再需要改这份清单。
     -- 旧清单是 40 行手工 add_files, 曾漏注册 ghost/GhostInteractRouter.cpp,
     -- 于是它被 #include 进了 HologramLibImpl.cpp（见 git log 与 docs/architecture/overview.md）。
-    add_headerfiles("src/**.h")
-    add_files("src/**.cpp")
+    --
+    -- 目录约定（2026-11 重构）：
+    --   core/                    平台无关: 协议编码 / 形状 / 注册表 / C ABI（endstone 复用）
+    --   platform/levilamina/     LeviLamina 原生插件 + LSE 兼容层
+    --   platform/endstone/       endstone Python 插件（不在本 target 里编译）
+    add_headerfiles("core/**.h")
+    add_headerfiles("platform/levilamina/src/**.h")
+    add_files("core/**.cpp")
+    add_files("platform/levilamina/src/**.cpp")
+    -- C ABI 只由 holo_core 导出（endstone 用），LL 版不需要第二份
+    remove_files("core/c_api.cpp")
 
-    add_includedirs("src", "include")
+    add_includedirs("platform/levilamina/src", ".", "include")
     set_symbols("debug") -- 崩溃栈符号化（部署链已含 PDB; 原值 hidden）
     add_ldflags("/OPT:REF", "/OPT:ICF")
 
@@ -243,3 +262,52 @@ target("HologramLib")
     else
         add_defines("LL_PLAT_C")
     end
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- endstone 侧产物：平台无关 core 编成独立 DLL，Python 侧用 ctypes 调。
+-- 与 LL 版共用 core/ 源码 —— 同一个形状/报文编码，不存在第二份实现。
+-- 不引用 LeviLamina / BDS 引擎头，因此 endstone（同一 BDS 进程内的宿主）可以安全加载。
+-- ═════════════════════════════════════════════════════════════════════════════
+rule("holo_core_deploy")
+    after_build(function (target)
+        local projectdir = os.projectdir()
+        local targetfile = target:targetfile()
+        if not os.isfile(targetfile) then
+            return
+        end
+        local outdir = path.join(projectdir, "platform", "endstone", "src", "hologramlib_endstone", "_native")
+        os.mkdir(outdir)
+        local dest = path.join(outdir, "holo_core.dll")
+        -- 服务端在跑时目标被占用，先改名旧文件再拷（与 holo_deploy 同样的处理）
+        os.cp(targetfile, dest)
+        if not os.isfile(dest) then
+            os.rm(dest .. ".old")
+            os.mv(dest, dest .. ".old")
+            os.cp(targetfile, dest)
+        end
+        if os.isfile(dest) then
+            cprint("${bright green}[HoloCore]: ${reset}holo_core.dll 已部署到 platform/endstone/src/hologramlib_endstone/_native")
+        else
+            cprint("${yellow}[HoloCore]: ${reset}holo_core.dll 部署失败")
+        end
+    end)
+rule_end()
+
+target("holo_core")
+    set_kind("shared")
+    set_basename("holo_core")
+    set_languages("c++23")
+    set_exceptions("cxx")
+    add_rules("holo_core_deploy")
+    add_cxflags("/utf-8", "/W4")
+    add_defines("NOMINMAX", "UNICODE", "_CRT_SECURE_NO_WARNINGS")
+    add_headerfiles("core/**.h")
+
+    local protocol_install = protocol_install_dir()
+    add_sysincludedirs(path.join(protocol_install, "include"))
+    add_linkdirs(path.join(protocol_install, "lib"))
+    add_links("Protocol")
+
+    add_files("core/*.cpp")
+    add_includedirs(".", "include")
+    set_symbols("debug")

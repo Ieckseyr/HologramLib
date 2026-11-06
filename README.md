@@ -13,12 +13,48 @@ HologramLib 是基岩版服务端（LeviLamina / BDS）的**协议层显示库**
 |---|---|
 | 插件版本 | `26.60.1` |
 | API 版本 | `1.35.0`（`HOLOGLIB_API_VERSION 0x012900`） |
-| 运行平台 | LeviLamina 26.60 · BDS 1.26.60（协议 2225） |
-| 对外接口 | 唯一公开头 `include/hologramlib/HologramLib.h`（28 个接口 / 405 槽）+ LSE 命名空间 `HologramLib`（424 个导出）。26.60.1 新增：死亡动画后的复活 `IPlayerRespawn`（补发 `RespawnPacket`，解决客户端卡死亡界面）、容器预览、表现事件阻断，以及 LSE 导出面补全（粒子查询/可见性、真实实体交互事件 `actor*`、`containerUpdate` / `tradeUpdate`）；26.60.0 新增：26.60 平台适配（字段级编码重写、发包审计 `wireTrace*`）+ 假实体 runtimeId 查询 |
+| 运行平台 | LeviLamina 26.60 · BDS 1.26.60（协议 2225） / Endstone 0.11（同一 BDS 进程） |
+| 对外接口 | 唯一公开头 `include/hologramlib/HologramLib.h`（28 个接口 / 405 槽）+ LSE 命名空间 `HologramLib`（444 个导出）。26.60.1 新增：死亡动画后的复活 `IPlayerRespawn`（补发 `RespawnPacket`，解决客户端卡死亡界面）、容器预览、表现事件阻断，以及 LSE 导出面补全（粒子查询/可见性、真实实体交互事件 `actor*`、`containerUpdate` / `tradeUpdate`）；26.60.0 新增：26.60 平台适配（字段级编码重写、发包审计 `wireTrace*`）+ 假实体 runtimeId 查询 |
 | 脚本前置 | `lrca`（LegacyRemoteCall，**可选安装**）：不装时导出调用是安全空操作，C++ 接口不受影响 |
 | 许可 | MIT（悬浮字「动态行」重构自 Phantom，按 LGPL-3.0） |
 
 本库是**纯前置库**，不是功能插件：只提供渲染原语、协议封装与时机通知。命令、表单、权限、占位符、数据持久化一律留给消费方。
+
+## 平台与目录
+
+两个加载器共用同一份协议编码（`core/`），平台差异只在最后一步"把字节交给谁"：
+
+```
+core/                     平台无关：协议编码 / 形状模型 / 注册表 / C ABI（holo_core.dll）
+platform/levilamina/      LeviLamina 原生插件 + LSE 兼容层（HologramLib.dll）
+platform/endstone/        endstone Python 插件（hologramlib_endstone + holo_core.dll）
+include/hologramlib/      公开契约头（C++ 消费方）
+```
+
+一条命令出两个产物：
+
+```bat
+build.cmd
+::  =  xmake build HologramLib + holo_core   然后 tools/pack_endstone.py
+::  产物：HologramLib.dll（LL）  dist/endstone_hologramlib-*.whl（endstone）
+```
+
+endstone 侧 **444 / 444 个导出都有实现**，其中 **404 个真实生效、40 个受限实现**（返回值或降级路径已在模块 docstring 里逐条写明）：
+
+| 域 | 实现 | 域 | 实现 |
+|---|---|---|---|
+| 形状 46 · 悬浮字 28 · 渐变线 11 · 粒子 27 | 全部真实 | 物品展示 45 | 39 真实 / 6 记录型 |
+| Boss 条 8 · 侧边栏 7 · HUD 5 · 玩家表现 5 | 全部真实 | 自定义实体 47 | 42 真实 / 5 受限 |
+| 定位条 14 · 假方块 5 · 物品实体 9 · 硫磺 10 | 全部真实 | 玩家 NPC 55 | 47 真实 / 8 受限 |
+| 交易 12 · 虚拟容器 16 · 假背包 10 · NPC 对话 10 | 27 真实 / 13 受限 | View 19 | 15 真实 / 4 受限 |
+| 线路诊断 8 · 皮肤注册表 14 · Actor 表现 23 | 全部真实或记录型 | Visibility 5 · Sensing 3 · Ghost 2 | 5 真实 / 5 受限 |
+
+受限的那 40 个分四类（详见 [架构总览](docs/architecture/overview.md#endstone-端状态)）：
+入站 `ItemStackRequest` 事务（容器/假背包/交易/对话点击，约 13 个）、出站包改写（`viewSelfType` 等 4 个）、
+端侧拿不到的数据（`captureSkin`、`sensing*`、`playerNpcSetRidePlayer` 等，约 9 个）、
+引擎侧能力缺失（`playTotem` 换副手、`itemdisplay` 的 molang 缩放，约 14 个）。
+
+`/holo demo` 可直接验证形状 + 悬浮字（逐玩家变量/动态行）+ 彩虹渐变线 + 粒子 + Boss 条 + 侧边栏 + HUD + 玩家效果。（`/holo demo` 可直接验证：3 个形状 + 3 行悬浮字（逐玩家变量 + 动态行）+ 一条彩虹渐变线 + 粒子点/线），其余域按 `platform/endstone/src/hologramlib_endstone/` 里的同一套模式继续补：每域 = core 报文编码 + Python 状态层 + 测试。
 
 ## 更新日志
 完整更新日志请看

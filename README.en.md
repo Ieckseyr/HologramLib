@@ -13,12 +13,47 @@ The same capabilities are reachable two ways: **C++ plugins** (frozen pure-virtu
 |---|---|
 | Plugin release | `26.60.1` |
 | API version | `1.35.0` (`HOLOGLIB_API_VERSION 0x012900`) |
-| Platform | LeviLamina 26.60 · BDS 1.26.60 (protocol 2225) |
-| Public surface | One public header, `include/hologramlib/HologramLib.h` (28 interfaces / 405 slots), plus the LSE namespace `HologramLib` (424 exports) |
+| Platform | LeviLamina 26.60 · BDS 1.26.60 (protocol 2225) / Endstone 0.11 (same BDS process) |
+| Public surface | One public header, `include/hologramlib/HologramLib.h` (28 interfaces / 405 slots), plus the LSE namespace `HologramLib` (444 exports) |
 | Script prerequisite | `lrca` (LegacyRemoteCall, **optional**); when absent every export call is a safe no-op and the C++ interface is unaffected |
 | License | MIT (the floating-text "dynamic lines" feature is derived from Phantom, LGPL-3.0) |
 
 This is a **prerequisite library, not a feature plugin**: it provides rendering primitives, protocol wrappers and timing notifications only. Commands, forms, permissions, placeholders and persistence belong to the consumer.
+
+## Platforms and layout
+
+Both loaders share one protocol encoding (`core/`); the platform difference is only who receives the bytes:
+
+```
+core/                     loader-agnostic: protocol encoding / shape model / registries / C ABI (holo_core.dll)
+platform/levilamina/      native LeviLamina plugin + LSE compatibility layer (HologramLib.dll)
+platform/endstone/        Endstone Python plugin (hologramlib_endstone + holo_core.dll)
+include/hologramlib/      public contract header (C++ consumers)
+```
+
+One command builds both artifacts:
+
+```bat
+build.cmd
+::  =  xmake build HologramLib + holo_core   then tools/pack_endstone.py
+::  output: HologramLib.dll (LL)   dist/endstone_hologramlib-*.whl (endstone)
+```
+
+The Endstone side implements **all 444 exports** — **404 fully functional, 40 with documented limitations**
+(placeholder return values or degraded paths, listed in each module docstring):
+
+| Domain | Status | Domain | Status |
+|---|---|---|---|
+| shape / hologram / gradient / particle (112) | real | item display (45) | 39 real / 6 record-only |
+| boss bar / sidebar / HUD / player FX (25) | real | custom entity (47) | 42 real / 5 limited |
+| locator bar / fake block / item actor / sulfur (38) | real | player NPC (55) | 47 real / 8 limited |
+| trade / container / fake inventory / NPC dialog (48) | 35 real / 13 limited | View (19) | 15 real / 4 limited |
+| wire / skins / actor FX (45) | real or record-only | visibility / sensing / ghost (10) | 5 real / 5 limited |
+
+The 40 limited ones fall into four groups: inbound `ItemStackRequest` transactions (~13),
+outbound rewriting (`viewSelfType` etc., 4), data Endstone does not expose (`captureSkin`, `sensing*`,
+`setRidePlayer`, ~9), and missing engine features (offhand swap for `playTotem`, molang scaling, ~14).
+
 
 ## Changelog
 The complete changelog lives in

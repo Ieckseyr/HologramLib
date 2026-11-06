@@ -98,7 +98,7 @@ def tidy(text: str) -> str:
 
 
 def main(argv: list[str]) -> int:
-    roots = [Path(a) for a in argv[1:]] or [Path("src"), Path("include")]
+    roots = [Path(a) for a in argv[1:]] or [Path("platform/levilamina/src"), Path("core"), Path("include")]
     files = []
     for root in roots:
         if root.is_file():

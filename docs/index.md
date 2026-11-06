@@ -2,15 +2,22 @@
 
 # HologramLib
 
-HologramLib 是基岩版服务端（LeviLamina / BDS）的**协议层显示库**：用一套 API 把形状、悬浮字、物品、实体、菜单这些内容直接「塞」给客户端 —— 不生成真实实体、不写存档、不改服务端世界状态。
+HologramLib 是基岩版服务端的**协议层显示库**：用一套 API 把形状、悬浮字、物品、实体、菜单这些内容直接「塞」给客户端 —— 不生成真实实体、不写存档、不改服务端世界状态。
 
-同一套能力有两个入口：**C++ 插件**（冻结的纯虚接口）和 **LSE 脚本**（`ll.import`）。
+同一套能力跑在**两个平台**上，协议字节同源（共用仓库 `core/`）：
+
+| 平台 | 插件形态 | 入口 |
+|---|---|---|
+| **LeviLamina** | C++ 插件 `HologramLib.dll` | C++ 接口 · LSE 脚本（`ll.import`） |
+| **Endstone** | Python 插件 + `holo_core.dll` | Python 属性调用（`lib.holograms.add_line(...)`） |
+
+本站在讲 LeviLamina 版的用法；Endstone 版看 [Endstone 版](endstone/index.md)。
 
 | | |
 |---|---|
 | 插件版本 | `26.60.1` |
 | API 版本 | `1.35.0`（`HOLOGLIB_API_VERSION 0x012900`） |
-| 运行平台 | LeviLamina 26.60 · BDS 1.26.60（协议 2225） |
+| 运行平台 | LeviLamina 26.60 · Endstone 0.11 · BDS 1.26.60（协议 2225） |
 | 脚本前置 | `lrca`（LegacyRemoteCall，可选安装） |
 
 ---
@@ -22,6 +29,7 @@ HologramLib 是基岩版服务端（LeviLamina / BDS）的**协议层显示库**
 | 第一次用这个库 | [快速开始](getting-started.md)：编译、部署、第一个功能 | [能力域指南](domains/README.md) 挑一个域 |
 | 写 LSE 脚本 | [脚本导入](lse/importing.md)：lrca 直连 / 统一导入两种方式 | [怎么用](lse/index.md) · [按域查函数](lse/index.md#7-按域查函数) |
 | 写 C++ 插件 | [C++ 接口参考](reference/cpp-api.md)：每个方法的完整签名 | [能力域指南](domains/README.md) |
+| 用 Endstone 开服 | [Endstone 版](endstone/index.md)：安装、Python 调用、覆盖率 | [函数名对照](endstone/index.md#3-函数名对照) |
 | 想知道「这个域能做到什么、有哪些坑」 | [能力域指南](domains/README.md) | 对应域的 C++ / LSE 接口页 |
 | 看某个版本改了什么 | [更新日志](versions/changelog.md) | — |
 
@@ -44,7 +52,7 @@ HologramLib 是基岩版服务端（LeviLamina / BDS）的**协议层显示库**
 | 在方位条上给玩家指路 | [方位条 `locatorBar*`](lse/locator-bar.md) |
 | 让某个玩家在别人客户端上消失 / 只屏蔽某几类包 | [隐身 `playerHide*`](lse/visibility.md) |
 
-全部 **424 个脚本函数**见 [LSE 脚本接口](lse/index.md)；C++ 侧对应的接口（`IShapeDrawer` / `IHologramText` / `ICustomEntity` / `IViewOverride` …）见 [C++ 接口参考](reference/cpp-api.md)。
+全部 **444 个脚本函数**见 [LSE 脚本接口](lse/index.md)；C++ 侧对应的接口（`IShapeDrawer` / `IHologramText` / `ICustomEntity` / `IViewOverride` …）见 [C++ 接口参考](reference/cpp-api.md)。
 
 ---
 

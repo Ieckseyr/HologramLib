@@ -1,4 +1,4 @@
-# 严格白名单: 源码、公开文档与项目配置
+# 白名单：只有下面放行的才入库
 /*
 !/.gitignore
 !/.editorconfig
@@ -13,38 +13,22 @@
 !/.github/
 !/src/
 !/include/
-# tests 入库（字节级对拍）
 !/tests/
-# 冻结契约基线（abi/vX.Y.Z.json + slots.md）：CI 与消费方对拍用, 必须入库
 !/abi/
 !/xmake.lua
 !/manifest.json
 !/tooth.json
-# 脚本导入层：生成物，但要入库 —— 跟 DLL 一起分发，CI 用 --check 防漂移
 !/lib/
+!/core/
+!/platform/
+!/build.cmd
+!/build.py
 
-# 白名单内仍需排除的内容
+# 黑名单：下面的都不入库
 src/**/*.log
-tests/__pycache__/
-
-# ── docs/ 里只有公开文档可入库 ──
-# docs/internal/ 是维护者本地文档（设计约定 / 架构开销评估 / LSE 导出清单 / API 稳定性契约）,
-# 明确禁止提交 GitHub、不上传、不提交, 也已被 tools/mkdocs.yml 的 exclude_docs 排除出文档站。
-# 注意: .gitignore 对「已被 git 跟踪的文件」无效 —— 所以另有一道 CI 守卫,
-#       见 .github/workflows/docs.yml 的 guard-local-docs job。
 docs/internal/
-
-# 文档站构建产物（mkdocs build 的输出目录）
 site/
-# 本地文档站预览环境（pip install -r tools/requirements.txt）
-
 tools/.venv/
-
-# ── 本地工作产物,永不入库(显式列出, 防止将来误放行)──
-# work/  = 离线检查的输出目录(fixture 编译产物 + 生成的包字节), 由 tests/check-*.bat 重建
-# bin/   = 打包产物(部署来源)   build/ = xmake 中间产物
-# .cache = 26.40 线格式 schema 真值源 + clangd 索引   .xmake = 本地包仓库缓存
-!/.github/
 work/
 bin/
 build/
@@ -52,10 +36,9 @@ build/
 .xmake/
 .vscode/
 /*.dll
+shelf/
 
-# tests 的产物
 tests/__pycache__/
-tools/__pycache__/
 tests/*.obj
 tests/*.exe
 tests/*.pdb
@@ -66,6 +49,8 @@ tests/*.hex
 tests/build/
 tests/work/
 
-# 本地工具与文档(不随库发布)
-# 注: 设计约定、架构开销评估与 API 稳定性契约已迁入 docs/internal/(见上方规则)
-shelf/
+tools/__pycache__/
+platform/endstone/**/__pycache__/
+platform/endstone/build/
+platform/endstone/src/hologramlib_endstone/_native/
+dist/

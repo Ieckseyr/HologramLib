@@ -70,13 +70,28 @@ jobs:
       - name: 打发布包
         run: python tools/pack_release.py
 
+      - name: 打 endstone wheel
+        run: python tools/pack_endstone.py
+
+      # 发布资产按平台命名：LeviLamina-… / Endstone-… / HologramLib-pdb
+      - name: 规整产物名
+        shell: pwsh
+        run: |
+          $v = (Get-Content manifest.json -Raw | ConvertFrom-Json).version
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          Copy-Item bin/HologramLib.zip "out/LeviLamina-HologramLib-$v.zip" -Force
+          Copy-Item bin/HologramLib-pdb.zip "out/HologramLib-pdb.zip" -Force
+          $whl = Get-ChildItem dist/endstone_hologramlib-*.whl | Select-Object -First 1
+          Copy-Item $whl.FullName "out/Endstone-HologramLib-$v-py3-none-win_amd64.whl" -Force
+          Get-ChildItem out | Select-Object Name,Length
+
       - name: 上传到 Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $tag = "${{ github.ref_name }}"
-          $files = @("bin/HologramLib.zip", "bin/HologramLib-pdb.zip")
+          $files = @(Get-ChildItem out/* | ForEach-Object { $_.FullName })
           gh release view $tag 2>$null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag @files --title $tag --notes "HologramLib $tag"

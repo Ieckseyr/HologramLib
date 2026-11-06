@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "endstone-hobotest"
+version = "1.0.0"
+description = "HologramLib endstone 全量调用测试（仅本地，不发布）"
+requires-python = ">=3.11"
+
+[project.entry-points."endstone"]
+hobotest = "hobotest:HoloTestPlugin"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]

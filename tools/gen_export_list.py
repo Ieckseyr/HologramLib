@@ -23,7 +23,7 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = os.path.join(ROOT, "src")
+SRC = os.path.join(ROOT, "platform", "levilamina", "src")
 DOC = os.path.join(ROOT, "docs", "internal", "LSE导出清单.md")
 
 BEGIN = "## 分组清单"

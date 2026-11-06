@@ -3,7 +3,7 @@
 //   g++ -std=c++20 -I src tests/shape_id_map_test.cpp -o shape_id_map_test && ./shape_id_map_test
 //
 // 盯的是两套编号不许混：脚本 0..5 固定、6 是空洞、新类型 7..10 对应协议 6..9。
-#include "shape/ShapeIdMap.h"
+#include "core/ShapeIdMap.h"
 
 #include <cstdio>
 #include <string>

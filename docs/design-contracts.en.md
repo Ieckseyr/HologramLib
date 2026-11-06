@@ -44,6 +44,7 @@ The library provides rendering primitives (`create` / `destroy` / `set*`), proto
 1. Nothing is written to disk, and no consumer data is persisted. Skins, entity animations and display configuration are stored by the consumer. For skins the pattern is: the library exports a snapshot with `getSkinBlob`, the consumer writes it wherever it likes, and `registerSkinFromBlob` restores it when it is needed.
 2. The library does not decide when a consumer resends what. It reports timing (`setEntitySpawnCallback` fires after an entity has spawned or respawned for a player) and provides single-shot primitives (`playAnimationTo` sends one animation packet to a given player). Which data to resend, whether to resend it, and where the data comes from are the consumer's decisions.
 3. Commands, forms, placeholders (PAPI), permissions and command-on-click execution stay out.
+4. **Resource packs (RP/BP) are forbidden**: the library never ships, depends on, auto-installs or forwards one. Every effect must be achievable with protocol packets and vanilla client resources; anything that needs modified client assets does not go in.
 
 To judge whether a new capability belongs in the library, ask whether it would still hold for a different consumer. If it does (protocol layer, rendering layer, pure timing), it goes in; if it depends on one consumer's storage format or business semantics, it stays in the consumer.
 

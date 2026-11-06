@@ -56,6 +56,36 @@
 
 ---
 
+## 平台拆分（2026-11）
+
+加载器只有两种，但"发什么字节"只应该有一份答案。目录按这个边界切：
+
+| 目录 | 内容 | 依赖 |
+|---|---|---|
+| `core/` | 报文编码（`PacketCodec` / `Wire26` / `ShapeWire`）、形状与协议数据模型、`Registry` / `ServiceHost` / `TickDriver` 接口、C ABI | 标准库 + BedrockProtocol（sculk），**不含任何引擎头** |
+| `platform/levilamina/` | `ModEntry`、出站/入站钩子、`PacketSink`（唯一发包出口）、各域 Manager、导出层、`lse/` 兼容层 | LeviLamina + BDS |
+| `platform/endstone/` | Python 插件（`hologramlib_endstone`），玩家/维度/生命周期走 endstone API，字节走 `holo_core.dll` | endstone 0.11 |
+
+两条产物：
+
+```
+xmake build HologramLib   -> HologramLib.dll       （platform/levilamina + core）
+xmake build holo_core     -> holo_core.dll         （core + C ABI）
+tools/pack_endstone.py    -> dist/*.whl            （platform/endstone + 内嵌 holo_core.dll）
+build.cmd                 -> 上面三件事一次做完
+```
+
+形状域与悬浮字域已按这个边界双端落地：`core/ShapeWire.*` 出字节，LL 侧 `ProtocolPacketWriter`、
+endstone 侧 `ShapeApi` / `HologramApi` 都只是"把同一份 body 交给各自平台"。
+
+endstone 侧的出/入站能力并不是缺口：0.11 起已有 `PacketSendEvent` / `PacketReceiveEvent`
+（Python 侧 `payload` 可读可写、可取消；payload 不含包头，触发点在 `BatchedNetworkPeer::sendPacket`），
+所以"拦住别人发的包再改"这条路和 LL 的 `NetworkSystem::send` 钩子等价。真正的移植成本在**数据类型**：
+物品域要用 `ItemStack` / `CompoundTag` / `ItemRegistry`，NPC 域要用 `SerializedSkin` 与玩家列表条目 ——
+这些在 Python 侧要么没有等价物，要么得自己按 26.60 线格式重写编码。
+
+---
+
 ## 内核化进度
 
 10 个有主表的域都改成了 `core::Registry<T>`。`fakeinv` 的主键是玩家名，不在这个模板的范围内。
@@ -335,3 +365,37 @@ HologramLib 不以 LegacyRemoteCall（`lrca`）为前置依赖：无链接时符
 - 线格式、发包原语、抓包验证：[协议层实现笔记](protocol-notes.md)
 - 边界与纪律：[设计说明](../design-contracts.md)
 - 维护者视角的开销评估与优化候选：架构与开销评估（本地文档，不随库发布）
+
+---
+
+## endstone 端状态
+
+截至 26.60.1，`platform/endstone` **444 / 444 个导出都有实现**（404 真实生效 / 40 受限实现），每个域都按同一形状落地：
+`core` 里加报文编码（C ABI）→ Python 状态层 → `test_shape_api.py` 里的断言 → 服务端加载验证。
+
+**已完整覆盖**：形状 46、悬浮字 28、渐变线 11、粒子 27、Boss 条 8、侧边栏 7、HUD 5、玩家表现 5、
+定位条 14、假方块 5、物品实体 9、硫磺方块 10、线路诊断 8、表单 2、物品详情 2、复活 3。
+**部分覆盖**：物品展示 37/45、自定义实体 41/47、玩家 NPC 38/55、皮肤注册表 10/14、
+虚拟容器 12/16、假背包 7/10、交易 10/12、NPC 对话 6/10、Actor 表现 18/23。
+
+### 未覆盖的 87 个，按卡点分类
+
+| 卡点 | 数量 | 代表导出 | 缺什么 |
+|---|---|---|---|
+| 入站包处理 | ~21 | `containerPollClicks`、`fakeInvPollClicks`、`tradePollSettlements`、`npcDialogPollClicks`、`entityPollSpawns` | 要解析 `ItemStackRequest` / `InventoryTransaction`，并按服务端权威容器事务回 `ItemStackResponse` |
+| 出站包改写 | 19 | 整个 `View` 域（`viewSelf`、`viewEntity`、`viewBlock`…） | `PacketSendEvent` 拿得到 payload，但改写前要先有 `AddActor` / `SetActorData` / `UpdateBlock` 的解码器 |
+| 端侧拿不到的数据 | ~12 | `playerNpcCaptureSkin`、`playerNpcRegisterImageSkin*`、`sensingDeviceCode` | endstone 的 `Image` 没有 Python 绑定；客户端设备/触摸信息没有入口 |
+| 依赖引擎界面 | ~10 | `tradeOpen` 的 `openTrading`、`containerSetInteractive` 的真实交易/容器事务 | 已用"直接发 `UpdateTrade` / `ContainerOpen`"替代，界面可用但交互事务未接 |
+| NPC 骑乘/表情 | ~8 | `playerNpcSetRide*`、`playerNpcPlayEmote`、`entitySetRide*` | 要 `SetActorLinkPacket` / `EmotePacket` 编码器 |
+| 图像皮肤 | 7 | `playerNpcSetImageSize`、`RegisterImageSkin*` | 需要"图片 → 方块尺寸皮肤"的另一套贴图流程 |
+
+### 必须连真实客户端才能确认的清单
+
+这些已经"发得出包、单测覆盖"，但正确性只能在客户端上看：
+
+- `UpdateTrade` 能否直接拉起交易界面（endstone 无 `openTrading`，我们直接发包）
+- `ContainerOpen` + `InventoryContent` 的虚拟容器界面与槽位错位情况
+- 玩家 NPC 的皮肤显示（我们自带 PNG 解码 + 手填 `SerializedSkin`，几何/手臂粗细目前固定 wide）
+- 悬浮字逐玩家变量与动态行的刷新观感（4Hz）
+- HUD 隐藏项（`Hide` 模式下列表的语义）
+- 粒子密度与 viewDistance 裁剪的实际效果

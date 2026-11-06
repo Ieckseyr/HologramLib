@@ -196,3 +196,35 @@ Mounting is two-phase: it is attempted during `enable()`, and if that fails the 
 - Wire formats, send primitive, capture verification: [Protocol notes](protocol-notes.md)
 - Boundaries and rules: [README · Design notes](https://github.com/Ieckseyr/HologramLib/blob/main/README.en.md#design-notes)
 - Picking a capability domain: [Domain overview](../domains/README.en.md)
+
+---
+
+## Endstone status
+
+As of 26.60.1 the `platform/endstone` port implements **all 444 exports** (404 fully functional / 40 limited). Every domain follows the same shape:
+a packet encoder in `core` (C ABI) → a Python state layer → assertions in `test_shape_api.py` → a server load check.
+
+Fully covered: shape 46, hologram 28, gradient line 11, particle 27, boss bar 8, sidebar 7, HUD 5, player FX 5,
+locator bar 14, fake block 5, item actor 9, sulfur cube 10, wire diagnostics 8, form 2, item detail 2, respawn 3.
+Partially: item display 37/45, custom entity 41/47, player NPC 38/55, skin registry 10/14, virtual container 12/16,
+fake inventory 7/10, trade 10/12, NPC dialog 6/10, actor FX 18/23.
+
+### The remaining 87, grouped by blocker
+
+| Blocker | Count | Missing piece |
+|---|---|---|
+| inbound packets | ~21 | `ItemStackRequest` / `InventoryTransaction` parsing + authoritative `ItemStackResponse` |
+| outbound rewriting | 19 (whole `View`) | `PacketSendEvent` has the payload; decoders for `AddActor` / `SetActorData` come first |
+| data Endstone does not expose | ~12 | `Image` has no Python binding; no client device/touch input |
+| engine UI | ~10 | `openTrading` / real container transactions (we send `UpdateTrade` / `ContainerOpen` directly) |
+| mounts / emotes | ~8 | `SetActorLinkPacket` / `EmotePacket` encoders |
+| image skins | 7 | a separate image-to-block skin pipeline |
+
+### Needs a real client to confirm
+
+- `UpdateTrade` opening the trade screen without `openTrading`
+- virtual container UI and slot alignment (`ContainerOpen` + `InventoryContent`)
+- player-NPC skins (own PNG decode + hand-built `SerializedSkin`, arm size fixed to `wide`)
+- floating-text per-player variables / rotating lines at 4 Hz
+- HUD `Hide` element semantics
+- particle density and view-distance culling

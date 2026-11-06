@@ -4,6 +4,11 @@
 
 > 只是用这个库（不自己编译）可以直接跳到 [部署](#3-部署)。
 
+!!! tip "用的是 Endstone？"
+
+    本页讲 LeviLamina 版（xmake + C++ 插件）。Endstone 版是 Python 插件 + `holo_core.dll`，
+    一条命令 `build.cmd --deploy <服务端>/plugins` 就能装，见 [Endstone 版](endstone/index.md)。
+
 ---
 
 ## 1. 前置条件
@@ -166,7 +171,7 @@ if (ll.hasExported("HologramLib", "containerPollClicks")) {
 | 函数名不存在（旧版库） | `ll.import` 得 `null` |
 
 所以「拿到的函数是 `null`」永远意味着「这个能力你现在没有」，而不是「调用了但没生效」。
-完整的 424 个函数按域分页，见 [LSE 脚本接口](lse/index.md)。
+完整的 444 个函数按域分页，见 [LSE 脚本接口](lse/index.md)。
 
 ---
 

@@ -161,7 +161,7 @@ setInterval(() => {
 | 隐身 | `playerHide*` | [隐身](visibility.md) |
 | 死亡动画后的复活 | `playerRespawn*` | [死亡后的复活](respawn.md) |
 
-函数总数 424，全部在运行期注册，`ll.import` 都能拿到。
+函数总数 444，全部在运行期注册，`ll.import` 都能拿到。
 
 ---
 

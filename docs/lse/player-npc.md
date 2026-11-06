@@ -67,6 +67,22 @@ setNametag(npc, "§e小美 §7<店员>");
     const npc = create(100.5, 64, 100.5, 0, "§bLogo", "logo");
     ```
 
+### 按方块尺寸设置图片平面（宽高分开、无上限）
+
+`playerNpcRegisterImageSkinSized(pngPath, skinId, widthBlocks, heightBlocks, transparent)`
+
+- 和上面的区别：宽、高分开给，单位是**格**，数值不设上限（不是缩放，几何直接按这个尺寸生成）。
+- 例：`widthBlocks = 20, heightBlocks = 9` → 20×9 格的平面；`200×100` 也行。
+- 几何 identifier 按 `skinId` 派生，所以同一张图要不同尺寸时给不同的 `skinId`。
+
+给已有图片 NPC 换尺寸：
+
+`playerNpcSetImageSize(id, pngPath, widthBlocks, heightBlocks, transparent)`
+
+- 内部按 `<原skinId>@<宽>x<高>` 注册一份新皮肤并换上去，原 NPC 位置/朝向不变。
+- 例：`playerNpcSetImageSize(npc, "E:/server/images/logo.png", 20, 9, true);`
+- 尺寸同样不设上限；换尺寸会重新生成几何并重发，客户端会有一次重建。
+
 ### 采集在线玩家的皮肤
 
 `playerNpcCaptureSkin(skinId, playerName)`

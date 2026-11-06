@@ -1,13 +1,13 @@
 {
   "namespace": "HologramLib",
   "apiVersion": "1.35.0",
-  "count": 424,
+  "count": 444,
   "exports": [
     {
       "name": "actorBlockClear",
       "params": [],
       "returns": "any",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "ActorEffect",
       "method": "blockClear"
     },
@@ -20,7 +20,7 @@
         ]
       ],
       "returns": "any",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "ActorEffect",
       "method": "blockEvent"
     },
@@ -37,7 +37,7 @@
         ]
       ],
       "returns": "any",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "ActorEffect",
       "method": "blockEventFor"
     },
@@ -54,7 +54,7 @@
         ]
       ],
       "returns": "any",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "ActorEffect",
       "method": "blockEventForEntity"
     },
@@ -62,7 +62,7 @@
       "name": "actorBlockStats",
       "params": [],
       "returns": "string",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "ActorEffect",
       "method": "blockStats"
     },
@@ -70,9 +70,88 @@
       "name": "actorClearInteractions",
       "params": [],
       "returns": "any",
-      "file": "src/ghost/GhostInteractRouter.cpp",
+      "file": "platform/levilamina/src/ghost/GhostInteractRouter.cpp",
       "group": "ActorEffect",
       "method": "clearInteractions"
+    },
+    {
+      "name": "actorFreeze",
+      "params": [
+        [
+          "runtimeId",
+          "number"
+        ],
+        [
+          "strength",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
+      "group": "ActorEffect",
+      "method": "freeze"
+    },
+    {
+      "name": "actorPlayAnimation",
+      "params": [
+        [
+          "runtimeId",
+          "number"
+        ],
+        [
+          "animation",
+          "string"
+        ],
+        [
+          "stopExpression",
+          "string"
+        ],
+        [
+          "blendOutTime",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
+      "group": "ActorEffect",
+      "method": "playAnimation"
+    },
+    {
+      "name": "actorPlayAnimationFull",
+      "params": [
+        [
+          "runtimeId",
+          "number"
+        ],
+        [
+          "animation",
+          "string"
+        ],
+        [
+          "nextState",
+          "string"
+        ],
+        [
+          "stopExpression",
+          "string"
+        ],
+        [
+          "blendOutTime",
+          "number"
+        ],
+        [
+          "controller",
+          "string"
+        ],
+        [
+          "molangVersion",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
+      "group": "ActorEffect",
+      "method": "playAnimationFull"
     },
     {
       "name": "actorPlayDeath",
@@ -83,7 +162,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "ActorEffect",
       "method": "playDeath"
     },
@@ -104,7 +183,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "ActorEffect",
       "method": "playEvent"
     },
@@ -129,7 +208,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "ActorEffect",
       "method": "playEventFor"
     },
@@ -142,7 +221,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "ActorEffect",
       "method": "playHurt"
     },
@@ -155,15 +234,32 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "ActorEffect",
       "method": "playInstantDeath"
+    },
+    {
+      "name": "actorPlayTotem",
+      "params": [
+        [
+          "runtimeId",
+          "number"
+        ],
+        [
+          "holdTicks",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
+      "group": "ActorEffect",
+      "method": "playTotem"
     },
     {
       "name": "actorPollInteractions",
       "params": [],
       "returns": "string[]",
-      "file": "src/ghost/GhostInteractRouter.cpp",
+      "file": "platform/levilamina/src/ghost/GhostInteractRouter.cpp",
       "group": "ActorEffect",
       "method": "pollInteractions"
     },
@@ -176,7 +272,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "ActorEffect",
       "method": "runtimeIdOfEntity"
     },
@@ -189,9 +285,26 @@
         ]
       ],
       "returns": "number",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "ActorEffect",
       "method": "runtimeIdOfPlayer"
+    },
+    {
+      "name": "actorSetPose",
+      "params": [
+        [
+          "runtimeId",
+          "number"
+        ],
+        [
+          "poseIndex",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
+      "group": "ActorEffect",
+      "method": "setPose"
     },
     {
       "name": "actorUnblockEvent",
@@ -202,7 +315,7 @@
         ]
       ],
       "returns": "any",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "ActorEffect",
       "method": "unblockEvent"
     },
@@ -219,7 +332,7 @@
         ]
       ],
       "returns": "any",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "ActorEffect",
       "method": "unblockEventFor"
     },
@@ -236,9 +349,22 @@
         ]
       ],
       "returns": "any",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "ActorEffect",
       "method": "unblockEventForEntity"
+    },
+    {
+      "name": "actorUnfreeze",
+      "params": [
+        [
+          "runtimeId",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
+      "group": "ActorEffect",
+      "method": "unfreeze"
     },
     {
       "name": "anchorAcquire",
@@ -249,7 +375,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "anchorAcquire"
     },
@@ -262,9 +388,130 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "anchorRelease"
+    },
+    {
+      "name": "blockFakeClear",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/block/FakeBlockExporter.cpp",
+      "group": "Misc",
+      "method": "blockFakeClear"
+    },
+    {
+      "name": "blockFakeClearAll",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "platform/levilamina/src/block/FakeBlockExporter.cpp",
+      "group": "Misc",
+      "method": "blockFakeClearAll"
+    },
+    {
+      "name": "blockFakeResolve",
+      "params": [
+        [
+          "state",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "platform/levilamina/src/block/FakeBlockExporter.cpp",
+      "group": "Misc",
+      "method": "blockFakeResolve"
+    },
+    {
+      "name": "blockFakeSet",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "state",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/block/FakeBlockExporter.cpp",
+      "group": "Misc",
+      "method": "blockFakeSet"
+    },
+    {
+      "name": "blockFakeSetAll",
+      "params": [
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "dim",
+          "number"
+        ],
+        [
+          "state",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "platform/levilamina/src/block/FakeBlockExporter.cpp",
+      "group": "Misc",
+      "method": "blockFakeSetAll"
     },
     {
       "name": "bossBarAdd",
@@ -291,7 +538,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "bossBarAdd"
     },
@@ -324,7 +571,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "bossBarAddOn"
     },
@@ -337,7 +584,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "bossBarCount"
     },
@@ -350,7 +597,7 @@
         ]
       ],
       "returns": "string",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "bossBarGetInfo"
     },
@@ -358,7 +605,7 @@
       "name": "bossBarProbe",
       "params": [],
       "returns": "string",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "bossBarProbe"
     },
@@ -371,7 +618,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "bossBarRemove"
     },
@@ -384,7 +631,7 @@
         ]
       ],
       "returns": "any",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "bossBarRemoveAll"
     },
@@ -401,7 +648,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "bossBarSetHealth"
     },
@@ -422,7 +669,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "bossBarSetStyle"
     },
@@ -439,7 +686,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "bossBarSetTitle"
     },
@@ -460,7 +707,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/container/ContainerMenuExporter.cpp",
+      "file": "platform/levilamina/src/container/ContainerMenuExporter.cpp",
       "group": "Container",
       "method": "blockEvent"
     },
@@ -468,7 +715,7 @@
       "name": "containerClearClicks",
       "params": [],
       "returns": "any",
-      "file": "src/container/ContainerMenuExporter.cpp",
+      "file": "platform/levilamina/src/container/ContainerMenuExporter.cpp",
       "group": "Container",
       "method": "clearClicks"
     },
@@ -481,7 +728,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/container/ContainerMenuExporter.cpp",
+      "file": "platform/levilamina/src/container/ContainerMenuExporter.cpp",
       "group": "Container",
       "method": "close"
     },
@@ -489,7 +736,7 @@
       "name": "containerCloseAll",
       "params": [],
       "returns": "any",
-      "file": "src/container/ContainerMenuExporter.cpp",
+      "file": "platform/levilamina/src/container/ContainerMenuExporter.cpp",
       "group": "Container",
       "method": "closeAll"
     },
@@ -497,7 +744,7 @@
       "name": "containerDroppedClicks",
       "params": [],
       "returns": "number",
-      "file": "src/container/ContainerMenuExporter.cpp",
+      "file": "platform/levilamina/src/container/ContainerMenuExporter.cpp",
       "group": "Container",
       "method": "droppedClicks"
     },
@@ -505,7 +752,7 @@
       "name": "containerGetIds",
       "params": [],
       "returns": "number[]",
-      "file": "src/container/ContainerMenuExporter.cpp",
+      "file": "platform/levilamina/src/container/ContainerMenuExporter.cpp",
       "group": "Container",
       "method": "getIds"
     },
@@ -518,7 +765,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/container/ContainerMenuExporter.cpp",
+      "file": "platform/levilamina/src/container/ContainerMenuExporter.cpp",
       "group": "Container",
       "method": "isOpen"
     },
@@ -539,7 +786,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/container/ContainerMenuExporter.cpp",
+      "file": "platform/levilamina/src/container/ContainerMenuExporter.cpp",
       "group": "Container",
       "method": "open"
     },
@@ -547,7 +794,7 @@
       "name": "containerPollClicks",
       "params": [],
       "returns": "string[]",
-      "file": "src/container/ContainerMenuExporter.cpp",
+      "file": "platform/levilamina/src/container/ContainerMenuExporter.cpp",
       "group": "Container",
       "method": "pollClicks"
     },
@@ -576,7 +823,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/container/ContainerMenuExporter.cpp",
+      "file": "platform/levilamina/src/container/ContainerMenuExporter.cpp",
       "group": "Container",
       "method": "preview"
     },
@@ -609,7 +856,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/container/ContainerMenuExporter.cpp",
+      "file": "platform/levilamina/src/container/ContainerMenuExporter.cpp",
       "group": "Container",
       "method": "previewTitled"
     },
@@ -626,7 +873,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/container/ContainerMenuExporter.cpp",
+      "file": "platform/levilamina/src/container/ContainerMenuExporter.cpp",
       "group": "Container",
       "method": "setInteractive"
     },
@@ -663,7 +910,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/container/ContainerMenuExporter.cpp",
+      "file": "platform/levilamina/src/container/ContainerMenuExporter.cpp",
       "group": "Container",
       "method": "setItem"
     },
@@ -704,7 +951,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/container/ContainerMenuExporter.cpp",
+      "file": "platform/levilamina/src/container/ContainerMenuExporter.cpp",
       "group": "Container",
       "method": "setItemEnchanted"
     },
@@ -721,7 +968,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/container/ContainerMenuExporter.cpp",
+      "file": "platform/levilamina/src/container/ContainerMenuExporter.cpp",
       "group": "Container",
       "method": "setTitle"
     },
@@ -738,9 +985,43 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/container/ContainerMenuExporter.cpp",
+      "file": "platform/levilamina/src/container/ContainerMenuExporter.cpp",
       "group": "Container",
       "method": "update"
+    },
+    {
+      "name": "easterEggCreeper",
+      "params": [
+        [
+          "runtimeId",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "easterEggCreeper"
+    },
+    {
+      "name": "easterEggCreeperDisplay",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "durationTicks",
+          "number"
+        ],
+        [
+          "rotate",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
+      "group": "Misc",
+      "method": "easterEggCreeperDisplay"
     },
     {
       "name": "entityClearMobProperties",
@@ -751,7 +1032,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "clearMobProperties"
     },
@@ -768,7 +1049,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "clearPlayerAppearance"
     },
@@ -785,7 +1066,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "clearPlayerRotation"
     },
@@ -798,7 +1079,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "clearPlayerRotations"
     },
@@ -811,7 +1092,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "clearRide"
     },
@@ -819,7 +1100,7 @@
       "name": "entityClearSpawns",
       "params": [],
       "returns": "any",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "clearSpawns"
     },
@@ -832,7 +1113,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "clearVisiblePlayers"
     },
@@ -861,7 +1142,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "create"
     },
@@ -906,7 +1187,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "createAdvanced"
     },
@@ -935,7 +1216,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "createRandom"
     },
@@ -968,7 +1249,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "createWithId"
     },
@@ -981,7 +1262,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "destroy"
     },
@@ -989,7 +1270,7 @@
       "name": "entityDestroyAll",
       "params": [],
       "returns": "any",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "destroyAll"
     },
@@ -1002,7 +1283,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "exists"
     },
@@ -1031,7 +1312,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "findNearest"
     },
@@ -1039,7 +1320,7 @@
       "name": "entityGetAllIds",
       "params": [],
       "returns": "number[]",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "getAllIds"
     },
@@ -1052,7 +1333,7 @@
         ]
       ],
       "returns": "string",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "getInfo"
     },
@@ -1065,7 +1346,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "isIdUsed"
     },
@@ -1090,7 +1371,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "playAnimation"
     },
@@ -1119,7 +1400,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "playAnimationTo"
     },
@@ -1127,7 +1408,7 @@
       "name": "entityPollSpawns",
       "params": [],
       "returns": "string[]",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "pollSpawns"
     },
@@ -1144,7 +1425,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "scaleBy"
     },
@@ -1161,7 +1442,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setColorIndex"
     },
@@ -1178,7 +1459,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setEnabled"
     },
@@ -1207,7 +1488,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setEquipmentSlot"
     },
@@ -1224,7 +1505,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setFlags"
     },
@@ -1241,7 +1522,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setIdentifier"
     },
@@ -1258,7 +1539,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setInvisible"
     },
@@ -1275,7 +1556,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setMarkVariant"
     },
@@ -1296,7 +1577,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setMobProperty"
     },
@@ -1313,7 +1594,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setNametag"
     },
@@ -1346,7 +1627,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setPlayerEquipmentSlot"
     },
@@ -1367,7 +1648,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setPlayerNametag"
     },
@@ -1392,7 +1673,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setPlayerRotation"
     },
@@ -1413,7 +1694,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setPlayerScale"
     },
@@ -1430,7 +1711,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setPose"
     },
@@ -1459,7 +1740,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setPosition"
     },
@@ -1476,7 +1757,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setRideEntity"
     },
@@ -1493,7 +1774,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setRidePlayer"
     },
@@ -1514,7 +1795,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setRotation"
     },
@@ -1531,7 +1812,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setScale"
     },
@@ -1548,7 +1829,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setVariant"
     },
@@ -1565,7 +1846,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setViewDistance"
     },
@@ -1582,7 +1863,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setVisiblePlayer"
     },
@@ -1599,7 +1880,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "setVisiblePlayers"
     },
@@ -1612,7 +1893,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "stopAnimation"
     },
@@ -1629,7 +1910,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/customentity/CustomEntityExporter.cpp",
+      "file": "platform/levilamina/src/customentity/CustomEntityExporter.cpp",
       "group": "Entity",
       "method": "stopAnimationTo"
     },
@@ -1650,7 +1931,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "file": "platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp",
       "group": "FakeInventory",
       "method": "apply"
     },
@@ -1663,7 +1944,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "file": "platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp",
       "group": "FakeInventory",
       "method": "clear"
     },
@@ -1671,7 +1952,7 @@
       "name": "fakeInvClearAll",
       "params": [],
       "returns": "any",
-      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "file": "platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp",
       "group": "FakeInventory",
       "method": "clearAll"
     },
@@ -1679,7 +1960,7 @@
       "name": "fakeInvClearClicks",
       "params": [],
       "returns": "any",
-      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "file": "platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp",
       "group": "FakeInventory",
       "method": "clearClicks"
     },
@@ -1687,7 +1968,7 @@
       "name": "fakeInvDroppedClicks",
       "params": [],
       "returns": "number",
-      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "file": "platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp",
       "group": "FakeInventory",
       "method": "droppedClicks"
     },
@@ -1695,7 +1976,7 @@
       "name": "fakeInvGetPlayers",
       "params": [],
       "returns": "string[]",
-      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "file": "platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp",
       "group": "FakeInventory",
       "method": "getPlayers"
     },
@@ -1708,7 +1989,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "file": "platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp",
       "group": "FakeInventory",
       "method": "isActive"
     },
@@ -1716,7 +1997,7 @@
       "name": "fakeInvPollClicks",
       "params": [],
       "returns": "string[]",
-      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "file": "platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp",
       "group": "FakeInventory",
       "method": "pollClicks"
     },
@@ -1729,7 +2010,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "file": "platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp",
       "group": "FakeInventory",
       "method": "refresh"
     },
@@ -1766,7 +2047,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/fakeinv/FakeInventoryExporter.cpp",
+      "file": "platform/levilamina/src/fakeinv/FakeInventoryExporter.cpp",
       "group": "FakeInventory",
       "method": "setSlot"
     },
@@ -1779,7 +2060,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/ui/ClientUiExporter.cpp",
+      "file": "platform/levilamina/src/ui/ClientUiExporter.cpp",
       "group": "Form",
       "method": "close"
     },
@@ -1787,7 +2068,7 @@
       "name": "formCloseAll",
       "params": [],
       "returns": "number",
-      "file": "src/ui/ClientUiExporter.cpp",
+      "file": "platform/levilamina/src/ui/ClientUiExporter.cpp",
       "group": "Form",
       "method": "closeAll"
     },
@@ -1795,7 +2076,7 @@
       "name": "ghostClearInteractions",
       "params": [],
       "returns": "any",
-      "file": "src/ghost/GhostInteractRouter.cpp",
+      "file": "platform/levilamina/src/ghost/GhostInteractRouter.cpp",
       "group": "Ghost",
       "method": "clearInteractions"
     },
@@ -1803,7 +2084,7 @@
       "name": "ghostPollInteractions",
       "params": [],
       "returns": "string[]",
-      "file": "src/ghost/GhostInteractRouter.cpp",
+      "file": "platform/levilamina/src/ghost/GhostInteractRouter.cpp",
       "group": "Ghost",
       "method": "pollInteractions"
     },
@@ -1840,7 +2121,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/GradientLineExporter.cpp",
+      "file": "platform/levilamina/src/GradientLineExporter.cpp",
       "group": "GradientLine",
       "method": "create"
     },
@@ -1853,7 +2134,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/GradientLineExporter.cpp",
+      "file": "platform/levilamina/src/GradientLineExporter.cpp",
       "group": "GradientLine",
       "method": "destroy"
     },
@@ -1861,7 +2142,7 @@
       "name": "gradientDestroyAll",
       "params": [],
       "returns": "any",
-      "file": "src/GradientLineExporter.cpp",
+      "file": "platform/levilamina/src/GradientLineExporter.cpp",
       "group": "GradientLine",
       "method": "destroyAll"
     },
@@ -1874,7 +2155,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/GradientLineExporter.cpp",
+      "file": "platform/levilamina/src/GradientLineExporter.cpp",
       "group": "GradientLine",
       "method": "draw"
     },
@@ -1891,7 +2172,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/GradientLineExporter.cpp",
+      "file": "platform/levilamina/src/GradientLineExporter.cpp",
       "group": "GradientLine",
       "method": "drawToDimension"
     },
@@ -1904,7 +2185,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/GradientLineExporter.cpp",
+      "file": "platform/levilamina/src/GradientLineExporter.cpp",
       "group": "GradientLine",
       "method": "remove"
     },
@@ -1933,7 +2214,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/GradientLineExporter.cpp",
+      "file": "platform/levilamina/src/GradientLineExporter.cpp",
       "group": "GradientLine",
       "method": "setColor"
     },
@@ -1970,7 +2251,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/GradientLineExporter.cpp",
+      "file": "platform/levilamina/src/GradientLineExporter.cpp",
       "group": "GradientLine",
       "method": "setEndpoints"
     },
@@ -2007,7 +2288,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/GradientLineExporter.cpp",
+      "file": "platform/levilamina/src/GradientLineExporter.cpp",
       "group": "GradientLine",
       "method": "setGradient"
     },
@@ -2024,7 +2305,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/GradientLineExporter.cpp",
+      "file": "platform/levilamina/src/GradientLineExporter.cpp",
       "group": "GradientLine",
       "method": "setRainbow"
     },
@@ -2037,7 +2318,7 @@
         ]
       ],
       "returns": "any",
-      "file": "src/GradientLineExporter.cpp",
+      "file": "platform/levilamina/src/GradientLineExporter.cpp",
       "group": "GradientLine",
       "method": "tick"
     },
@@ -2054,7 +2335,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "addLine"
     },
@@ -2062,7 +2343,7 @@
       "name": "holoApiVersion",
       "params": [],
       "returns": "number",
-      "file": "src/InfoExporter.cpp",
+      "file": "platform/levilamina/src/InfoExporter.cpp",
       "group": "Hologram",
       "method": "apiVersion"
     },
@@ -2075,7 +2356,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "clearBackgroundColor"
     },
@@ -2088,7 +2369,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "clearFollowPlayer"
     },
@@ -2101,7 +2382,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "clearLines"
     },
@@ -2114,7 +2395,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "clearRotation"
     },
@@ -2135,7 +2416,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "create"
     },
@@ -2148,7 +2429,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "destroy"
     },
@@ -2156,7 +2437,7 @@
       "name": "holoDestroyAll",
       "params": [],
       "returns": "any",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "destroyAll"
     },
@@ -2169,7 +2450,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "draw"
     },
@@ -2186,7 +2467,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "drawToDimension"
     },
@@ -2203,7 +2484,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "drawToPlayer"
     },
@@ -2216,7 +2497,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "getLineCount"
     },
@@ -2224,7 +2505,7 @@
       "name": "holoInfo",
       "params": [],
       "returns": "string",
-      "file": "src/InfoExporter.cpp",
+      "file": "platform/levilamina/src/InfoExporter.cpp",
       "group": "Hologram",
       "method": "info"
     },
@@ -2237,7 +2518,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "refresh"
     },
@@ -2250,7 +2531,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "remove"
     },
@@ -2267,7 +2548,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "removeLine"
     },
@@ -2296,7 +2577,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "setBackgroundColor"
     },
@@ -2325,7 +2606,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "setColor"
     },
@@ -2342,7 +2623,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "setDepthTest"
     },
@@ -2359,7 +2640,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "setDimension"
     },
@@ -2380,7 +2661,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "setFollowPlayer"
     },
@@ -2401,7 +2682,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "setLineParseVariables"
     },
@@ -2426,7 +2707,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "setLinePool"
     },
@@ -2447,7 +2728,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "setLineText"
     },
@@ -2472,7 +2753,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "setLocation"
     },
@@ -2497,7 +2778,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "setRotation"
     },
@@ -2514,7 +2795,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/FloatingTextExporter.cpp",
+      "file": "platform/levilamina/src/FloatingTextExporter.cpp",
       "group": "Hologram",
       "method": "setScale"
     },
@@ -2522,7 +2803,7 @@
       "name": "hudProbe",
       "params": [],
       "returns": "string",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "hudProbe"
     },
@@ -2535,7 +2816,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "hudResetAll"
     },
@@ -2556,7 +2837,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "hudSetElement"
     },
@@ -2577,7 +2858,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "hudSetElements"
     },
@@ -2598,7 +2879,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "hudSetRaw"
     },
@@ -2611,7 +2892,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemactor/ItemActorExporter.cpp",
+      "file": "platform/levilamina/src/itemactor/ItemActorExporter.cpp",
       "group": "ItemActor",
       "method": "destroy"
     },
@@ -2619,7 +2900,7 @@
       "name": "itemActorDestroyAll",
       "params": [],
       "returns": "any",
-      "file": "src/itemactor/ItemActorExporter.cpp",
+      "file": "platform/levilamina/src/itemactor/ItemActorExporter.cpp",
       "group": "ItemActor",
       "method": "destroyAll"
     },
@@ -2632,7 +2913,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemactor/ItemActorExporter.cpp",
+      "file": "platform/levilamina/src/itemactor/ItemActorExporter.cpp",
       "group": "ItemActor",
       "method": "exists"
     },
@@ -2640,7 +2921,7 @@
       "name": "itemActorGetIds",
       "params": [],
       "returns": "number[]",
-      "file": "src/itemactor/ItemActorExporter.cpp",
+      "file": "platform/levilamina/src/itemactor/ItemActorExporter.cpp",
       "group": "ItemActor",
       "method": "getIds"
     },
@@ -2665,7 +2946,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemactor/ItemActorExporter.cpp",
+      "file": "platform/levilamina/src/itemactor/ItemActorExporter.cpp",
       "group": "ItemActor",
       "method": "moveTo"
     },
@@ -2678,7 +2959,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/itemactor/ItemActorExporter.cpp",
+      "file": "platform/levilamina/src/itemactor/ItemActorExporter.cpp",
       "group": "ItemActor",
       "method": "runtimeId"
     },
@@ -2703,7 +2984,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemactor/ItemActorExporter.cpp",
+      "file": "platform/levilamina/src/itemactor/ItemActorExporter.cpp",
       "group": "ItemActor",
       "method": "setMotion"
     },
@@ -2752,7 +3033,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/itemactor/ItemActorExporter.cpp",
+      "file": "platform/levilamina/src/itemactor/ItemActorExporter.cpp",
       "group": "ItemActor",
       "method": "spawn"
     },
@@ -2769,7 +3050,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemactor/ItemActorExporter.cpp",
+      "file": "platform/levilamina/src/itemactor/ItemActorExporter.cpp",
       "group": "ItemActor",
       "method": "take"
     },
@@ -2782,7 +3063,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdetail/ItemDetailExporter.cpp",
+      "file": "platform/levilamina/src/itemdetail/ItemDetailExporter.cpp",
       "group": "ItemDetail",
       "method": "hide"
     },
@@ -2823,7 +3104,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/itemdetail/ItemDetailExporter.cpp",
+      "file": "platform/levilamina/src/itemdetail/ItemDetailExporter.cpp",
       "group": "ItemDetail",
       "method": "show"
     },
@@ -2836,7 +3117,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "clearAnim"
     },
@@ -2849,7 +3130,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "clearVisiblePlayers"
     },
@@ -2882,7 +3163,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "create"
     },
@@ -2943,7 +3224,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "createAdvanced"
     },
@@ -3012,7 +3293,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "createFull"
     },
@@ -3045,7 +3326,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "createRandom"
     },
@@ -3118,7 +3399,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "createSeamless"
     },
@@ -3155,7 +3436,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "createWithId"
     },
@@ -3168,7 +3449,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "destroy"
     },
@@ -3176,7 +3457,7 @@
       "name": "itemDisplayDestroyAll",
       "params": [],
       "returns": "any",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "destroyAll"
     },
@@ -3229,7 +3510,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "emitForEntity"
     },
@@ -3242,7 +3523,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "exists"
     },
@@ -3271,7 +3552,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "findNearest"
     },
@@ -3300,7 +3581,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "follow"
     },
@@ -3308,7 +3589,7 @@
       "name": "itemDisplayGetAllIds",
       "params": [],
       "returns": "number[]",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "getAllIds"
     },
@@ -3321,7 +3602,7 @@
         ]
       ],
       "returns": "string",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "getInfo"
     },
@@ -3334,7 +3615,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "isIdUsed"
     },
@@ -3351,7 +3632,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "rotateY"
     },
@@ -3364,7 +3645,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "runtimeId"
     },
@@ -3381,7 +3662,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "scaleBy"
     },
@@ -3398,7 +3679,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "scaleTo"
     },
@@ -3451,7 +3732,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setAnim"
     },
@@ -3476,7 +3757,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setBaseOffset"
     },
@@ -3493,7 +3774,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setEnabled"
     },
@@ -3518,7 +3799,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setExtend"
     },
@@ -3535,7 +3816,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setGlint"
     },
@@ -3556,7 +3837,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setHitbox"
     },
@@ -3577,7 +3858,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setItem"
     },
@@ -3602,7 +3883,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setItemWithNbt"
     },
@@ -3619,7 +3900,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setMode"
     },
@@ -3644,7 +3925,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setOffset"
     },
@@ -3669,7 +3950,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setOffsetLive"
     },
@@ -3698,7 +3979,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setPosition"
     },
@@ -3727,7 +4008,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setPreset"
     },
@@ -3752,7 +4033,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setRotation"
     },
@@ -3777,7 +4058,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setRotationLive"
     },
@@ -3794,7 +4075,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setScale"
     },
@@ -3811,7 +4092,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setScaleLive"
     },
@@ -3832,7 +4113,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setStretch"
     },
@@ -3853,7 +4134,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setStretchLive"
     },
@@ -3894,7 +4175,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setTransformLive"
     },
@@ -3911,7 +4192,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setViewDistance"
     },
@@ -3928,7 +4209,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setVisiblePlayer"
     },
@@ -3945,7 +4226,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "setVisiblePlayers"
     },
@@ -3958,7 +4239,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/itemdisplay/ItemDisplayExporter.cpp",
+      "file": "platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp",
       "group": "ItemDisplay",
       "method": "unfollow"
     },
@@ -3979,7 +4260,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "LocatorBar",
       "method": "attachEntity"
     },
@@ -3992,7 +4273,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/ui/ClientUiExporter.cpp",
+      "file": "platform/levilamina/src/ui/ClientUiExporter.cpp",
       "group": "LocatorBar",
       "method": "clear"
     },
@@ -4009,7 +4290,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "LocatorBar",
       "method": "clearAttach"
     },
@@ -4022,7 +4303,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/ui/ClientUiExporter.cpp",
+      "file": "platform/levilamina/src/ui/ClientUiExporter.cpp",
       "group": "LocatorBar",
       "method": "count"
     },
@@ -4039,7 +4320,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/ui/ClientUiExporter.cpp",
+      "file": "platform/levilamina/src/ui/ClientUiExporter.cpp",
       "group": "LocatorBar",
       "method": "hideFromOthers"
     },
@@ -4052,7 +4333,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/ui/ClientUiExporter.cpp",
+      "file": "platform/levilamina/src/ui/ClientUiExporter.cpp",
       "group": "LocatorBar",
       "method": "isHiddenFromOthers"
     },
@@ -4069,7 +4350,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/ui/ClientUiExporter.cpp",
+      "file": "platform/levilamina/src/ui/ClientUiExporter.cpp",
       "group": "LocatorBar",
       "method": "remove"
     },
@@ -4110,7 +4391,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/ui/ClientUiExporter.cpp",
+      "file": "platform/levilamina/src/ui/ClientUiExporter.cpp",
       "group": "LocatorBar",
       "method": "set"
     },
@@ -4131,7 +4412,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "LocatorBar",
       "method": "setClientAuthority"
     },
@@ -4188,7 +4469,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "LocatorBar",
       "method": "setEx"
     },
@@ -4209,7 +4490,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "LocatorBar",
       "method": "setGroup"
     },
@@ -4230,7 +4511,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "LocatorBar",
       "method": "setIcon"
     },
@@ -4255,7 +4536,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "LocatorBar",
       "method": "setIconSize"
     },
@@ -4272,7 +4553,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "LocatorBar",
       "method": "syncGroup"
     },
@@ -4280,7 +4561,7 @@
       "name": "npcDialogClearClicks",
       "params": [],
       "returns": "any",
-      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "file": "platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp",
       "group": "NpcDialog",
       "method": "clearClicks"
     },
@@ -4293,7 +4574,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "file": "platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp",
       "group": "NpcDialog",
       "method": "close"
     },
@@ -4301,7 +4582,7 @@
       "name": "npcDialogCloseAll",
       "params": [],
       "returns": "any",
-      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "file": "platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp",
       "group": "NpcDialog",
       "method": "closeAll"
     },
@@ -4309,7 +4590,7 @@
       "name": "npcDialogDroppedClicks",
       "params": [],
       "returns": "number",
-      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "file": "platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp",
       "group": "NpcDialog",
       "method": "droppedClicks"
     },
@@ -4317,7 +4598,7 @@
       "name": "npcDialogGetIds",
       "params": [],
       "returns": "number[]",
-      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "file": "platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp",
       "group": "NpcDialog",
       "method": "getIds"
     },
@@ -4330,7 +4611,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "file": "platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp",
       "group": "NpcDialog",
       "method": "isOpen"
     },
@@ -4363,7 +4644,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "file": "platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp",
       "group": "NpcDialog",
       "method": "open"
     },
@@ -4371,7 +4652,7 @@
       "name": "npcDialogPollClicks",
       "params": [],
       "returns": "string[]",
-      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "file": "platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp",
       "group": "NpcDialog",
       "method": "pollClicks"
     },
@@ -4392,7 +4673,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "file": "platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp",
       "group": "NpcDialog",
       "method": "setAvatar"
     },
@@ -4413,7 +4694,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/npcdialog/NpcDialogueExporter.cpp",
+      "file": "platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp",
       "group": "NpcDialog",
       "method": "update"
     },
@@ -4426,7 +4707,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "clearVisiblePlayers"
     },
@@ -4483,7 +4764,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "createBox"
     },
@@ -4540,7 +4821,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "createBoxFaces"
     },
@@ -4597,7 +4878,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "createLine"
     },
@@ -4654,7 +4935,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "createPlane"
     },
@@ -4695,7 +4976,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "createPoint"
     },
@@ -4736,7 +5017,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "createPoly"
     },
@@ -4793,7 +5074,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "createRect"
     },
@@ -4806,7 +5087,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "destroy"
     },
@@ -4814,7 +5095,7 @@
       "name": "particleDestroyAll",
       "params": [],
       "returns": "any",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "destroyAll"
     },
@@ -4827,7 +5108,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "exists"
     },
@@ -4856,7 +5137,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "follow"
     },
@@ -4864,7 +5145,7 @@
       "name": "particleGetAllIds",
       "params": [],
       "returns": "number[]",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "getAllIds"
     },
@@ -4877,7 +5158,7 @@
         ]
       ],
       "returns": "string",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "getInfo"
     },
@@ -4902,7 +5183,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "moveBy"
     },
@@ -4931,7 +5212,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "moveTo"
     },
@@ -4948,7 +5229,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "setEffect"
     },
@@ -4965,7 +5246,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "setInterval"
     },
@@ -4982,7 +5263,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "setLifetime"
     },
@@ -5007,7 +5288,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "setPos"
     },
@@ -5032,7 +5313,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "setRot"
     },
@@ -5049,7 +5330,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "setScale"
     },
@@ -5066,7 +5347,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "setViewDistance"
     },
@@ -5083,7 +5364,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "setVisible"
     },
@@ -5100,7 +5381,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "setVisiblePlayers"
     },
@@ -5125,7 +5406,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "spin"
     },
@@ -5138,7 +5419,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/particles/ParticleShapeExporter.cpp",
+      "file": "platform/levilamina/src/particles/ParticleShapeExporter.cpp",
       "group": "Particle",
       "method": "unfollow"
     },
@@ -5151,7 +5432,7 @@
         ]
       ],
       "returns": "string",
-      "file": "src/ui/ClientUiExporter.cpp",
+      "file": "platform/levilamina/src/ui/ClientUiExporter.cpp",
       "group": "Visibility",
       "method": "getMask"
     },
@@ -5164,7 +5445,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/ui/ClientUiExporter.cpp",
+      "file": "platform/levilamina/src/ui/ClientUiExporter.cpp",
       "group": "Visibility",
       "method": "isHidden"
     },
@@ -5177,7 +5458,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/ui/ClientUiExporter.cpp",
+      "file": "platform/levilamina/src/ui/ClientUiExporter.cpp",
       "group": "Visibility",
       "method": "restore"
     },
@@ -5194,7 +5475,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/ui/ClientUiExporter.cpp",
+      "file": "platform/levilamina/src/ui/ClientUiExporter.cpp",
       "group": "Visibility",
       "method": "setHidden"
     },
@@ -5231,7 +5512,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/ui/ClientUiExporter.cpp",
+      "file": "platform/levilamina/src/ui/ClientUiExporter.cpp",
       "group": "Visibility",
       "method": "setMask"
     },
@@ -5248,7 +5529,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "captureSkin"
     },
@@ -5265,7 +5546,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "clearPlayerRotation"
     },
@@ -5278,7 +5559,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "clearPlayerRotations"
     },
@@ -5291,7 +5572,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "clearRide"
     },
@@ -5299,7 +5580,7 @@
       "name": "playerNpcClearSpawns",
       "params": [],
       "returns": "any",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "clearSpawns"
     },
@@ -5312,7 +5593,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "clearVisiblePlayers"
     },
@@ -5345,7 +5626,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "create"
     },
@@ -5386,7 +5667,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "createEx"
     },
@@ -5419,7 +5700,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "createRandom"
     },
@@ -5456,7 +5737,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "createWithId"
     },
@@ -5469,7 +5750,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "destroy"
     },
@@ -5477,7 +5758,7 @@
       "name": "playerNpcDestroyAll",
       "params": [],
       "returns": "any",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "destroyAll"
     },
@@ -5490,7 +5771,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "exists"
     },
@@ -5498,7 +5779,7 @@
       "name": "playerNpcGetAllIds",
       "params": [],
       "returns": "number[]",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "getAllIds"
     },
@@ -5511,7 +5792,7 @@
         ]
       ],
       "returns": "string",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "getDebugInfo"
     },
@@ -5524,7 +5805,7 @@
         ]
       ],
       "returns": "string",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "getSkinBlobB64"
     },
@@ -5532,7 +5813,7 @@
       "name": "playerNpcGetSkinIds",
       "params": [],
       "returns": "string[]",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "getSkinIds"
     },
@@ -5545,7 +5826,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "hasSkin"
     },
@@ -5558,7 +5839,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "importSkins"
     },
@@ -5579,7 +5860,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "injectSkin"
     },
@@ -5596,7 +5877,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "injectSkinAll"
     },
@@ -5609,7 +5890,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "isIdUsed"
     },
@@ -5634,7 +5915,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "playAnimation"
     },
@@ -5663,7 +5944,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "playAnimationTo"
     },
@@ -5684,7 +5965,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "playEmote"
     },
@@ -5692,7 +5973,7 @@
       "name": "playerNpcPollSpawns",
       "params": [],
       "returns": "string[]",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "pollSpawns"
     },
@@ -5717,9 +5998,38 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "registerImageSkin"
+    },
+    {
+      "name": "playerNpcRegisterImageSkinSized",
+      "params": [
+        [
+          "pngPath",
+          "string"
+        ],
+        [
+          "skinId",
+          "string"
+        ],
+        [
+          "widthBlocks",
+          "number"
+        ],
+        [
+          "heightBlocks",
+          "number"
+        ],
+        [
+          "transparent",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "registerImageSkinSized"
     },
     {
       "name": "playerNpcRegisterSkin",
@@ -5742,7 +6052,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "registerSkin"
     },
@@ -5767,7 +6077,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "registerSkinData"
     },
@@ -5792,7 +6102,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "registerSkinDataOpaque"
     },
@@ -5805,7 +6115,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "registerSkinFromBlobB64"
     },
@@ -5818,7 +6128,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "registerSkinFromBlobFile"
     },
@@ -5831,7 +6141,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "runtimeId"
     },
@@ -5848,7 +6158,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "setEnabled"
     },
@@ -5877,9 +6187,38 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "setEquipment"
+    },
+    {
+      "name": "playerNpcSetImageSize",
+      "params": [
+        [
+          "id",
+          "number"
+        ],
+        [
+          "pngPath",
+          "string"
+        ],
+        [
+          "widthBlocks",
+          "number"
+        ],
+        [
+          "heightBlocks",
+          "number"
+        ],
+        [
+          "transparent",
+          "boolean"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
+      "group": "PlayerNpc",
+      "method": "setImageSize"
     },
     {
       "name": "playerNpcSetNametag",
@@ -5894,7 +6233,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "setNametag"
     },
@@ -5915,7 +6254,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "setPlayerRotation"
     },
@@ -5944,7 +6283,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "setPos"
     },
@@ -5973,7 +6312,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "setPosLight"
     },
@@ -5990,7 +6329,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "setPose"
     },
@@ -6007,7 +6346,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "setRideEntity"
     },
@@ -6024,7 +6363,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "setRidePlayer"
     },
@@ -6041,7 +6380,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "setRideUniqueId"
     },
@@ -6058,7 +6397,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "setRotLight"
     },
@@ -6075,7 +6414,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "setRotation"
     },
@@ -6092,7 +6431,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "setScale"
     },
@@ -6109,7 +6448,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "setSkin"
     },
@@ -6126,7 +6465,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "setViewDistance"
     },
@@ -6143,7 +6482,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "setVisiblePlayer"
     },
@@ -6160,7 +6499,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "setVisiblePlayers"
     },
@@ -6173,7 +6512,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "stopAnimation"
     },
@@ -6190,7 +6529,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "stopAnimationTo"
     },
@@ -6203,9 +6542,43 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/playernpc/PlayerNpcExporter.cpp",
+      "file": "platform/levilamina/src/playernpc/PlayerNpcExporter.cpp",
       "group": "PlayerNpc",
       "method": "unregisterSkin"
+    },
+    {
+      "name": "playerPlayCelebrate",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "seconds",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "playerPlayCelebrate"
+    },
+    {
+      "name": "playerPlayOminousDrink",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "holdTicks",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "playerPlayOminousDrink"
     },
     {
       "name": "playerRespawn",
@@ -6216,7 +6589,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "PlayerRespawn",
       "method": "respawn"
     },
@@ -6241,7 +6614,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "PlayerRespawn",
       "method": "at"
     },
@@ -6258,9 +6631,68 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "PlayerRespawn",
       "method": "state"
+    },
+    {
+      "name": "playerShowBadOmen",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "durationTicks",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "playerShowBadOmen"
+    },
+    {
+      "name": "playerShowEffect",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "effectId",
+          "number"
+        ],
+        [
+          "durationTicks",
+          "number"
+        ],
+        [
+          "amplifier",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "playerShowEffect"
+    },
+    {
+      "name": "playerShowVillageHero",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "durationTicks",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
+      "group": "Misc",
+      "method": "playerShowVillageHero"
     },
     {
       "name": "sensingDeviceCode",
@@ -6271,7 +6703,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/sensing/PlayerSensingExporter.cpp",
+      "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
       "group": "Sensing",
       "method": "deviceCode"
     },
@@ -6284,7 +6716,7 @@
         ]
       ],
       "returns": "string",
-      "file": "src/sensing/PlayerSensingExporter.cpp",
+      "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
       "group": "Sensing",
       "method": "deviceOf"
     },
@@ -6297,7 +6729,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/sensing/PlayerSensingExporter.cpp",
+      "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
       "group": "Sensing",
       "method": "isTouch"
     },
@@ -6314,7 +6746,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "attachEntity"
     },
@@ -6327,7 +6759,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "clearAttachedEntity"
     },
@@ -6340,7 +6772,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "clearBackgroundColor"
     },
@@ -6353,7 +6785,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "clearRotation"
     },
@@ -6386,7 +6818,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "createArrow"
     },
@@ -6419,7 +6851,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "createBox"
     },
@@ -6444,7 +6876,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "createCircle"
     },
@@ -6481,7 +6913,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "createCone"
     },
@@ -6518,7 +6950,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "createCylinder"
     },
@@ -6555,7 +6987,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "createEllipsoid"
     },
@@ -6588,7 +7020,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "createLine"
     },
@@ -6621,7 +7053,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "createPyramid"
     },
@@ -6646,7 +7078,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "createSphere"
     },
@@ -6671,7 +7103,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "createText"
     },
@@ -6684,7 +7116,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "destroy"
     },
@@ -6692,7 +7124,7 @@
       "name": "shapeDestroyAll",
       "params": [],
       "returns": "any",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "destroyAll"
     },
@@ -6705,7 +7137,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "destroyBatch"
     },
@@ -6718,7 +7150,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "draw"
     },
@@ -6731,7 +7163,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "drawBatch"
     },
@@ -6748,7 +7180,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "drawToDimension"
     },
@@ -6765,7 +7197,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "drawToPlayer"
     },
@@ -6778,7 +7210,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "exists"
     },
@@ -6803,7 +7235,7 @@
         ]
       ],
       "returns": "number[]",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "findTextByLocation"
     },
@@ -6832,7 +7264,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "findTextByLocationAndContent"
     },
@@ -6840,7 +7272,7 @@
       "name": "shapeGetAllShapeIds",
       "params": [],
       "returns": "number[]",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "getAllShapeIds"
     },
@@ -6853,7 +7285,7 @@
         ]
       ],
       "returns": "any[]",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "getColor"
     },
@@ -6866,7 +7298,7 @@
         ]
       ],
       "returns": "any[]",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "getLocation"
     },
@@ -6879,7 +7311,7 @@
         ]
       ],
       "returns": "any[]",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "getRotation"
     },
@@ -6892,7 +7324,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "getShapeType"
     },
@@ -6905,7 +7337,7 @@
         ]
       ],
       "returns": "string",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "getText"
     },
@@ -6918,7 +7350,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "remove"
     },
@@ -6935,7 +7367,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "removeToDimension"
     },
@@ -6952,7 +7384,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "removeToPlayer"
     },
@@ -6981,7 +7413,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "setBackgroundColor"
     },
@@ -7010,7 +7442,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "setColor"
     },
@@ -7027,7 +7459,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "setDepthTest"
     },
@@ -7044,7 +7476,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "setDimension"
     },
@@ -7061,7 +7493,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "setDuration"
     },
@@ -7086,7 +7518,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "setLocation"
     },
@@ -7103,7 +7535,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "setMaxRenderDistance"
     },
@@ -7128,7 +7560,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "setRotation"
     },
@@ -7145,7 +7577,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "setScale"
     },
@@ -7162,7 +7594,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "setText"
     },
@@ -7175,7 +7607,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "update"
     },
@@ -7192,7 +7624,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "updateToDimension"
     },
@@ -7209,7 +7641,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/RemoteCallExporter.cpp",
+      "file": "platform/levilamina/src/RemoteCallExporter.cpp",
       "group": "Shape",
       "method": "updateToPlayer"
     },
@@ -7222,7 +7654,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "sidebarIsShown"
     },
@@ -7235,7 +7667,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "sidebarLineCount"
     },
@@ -7248,7 +7680,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "sidebarRemove"
     },
@@ -7256,7 +7688,7 @@
       "name": "sidebarRemoveAll",
       "params": [],
       "returns": "any",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "sidebarRemoveAll"
     },
@@ -7277,7 +7709,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "sidebarSet"
     },
@@ -7298,7 +7730,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "sidebarSetLine"
     },
@@ -7315,7 +7747,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/hud/HudExporter.cpp",
+      "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "sidebarSetTitle"
     },
@@ -7364,7 +7796,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "file": "platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp",
       "group": "Sulfur",
       "method": "create"
     },
@@ -7377,7 +7809,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "file": "platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp",
       "group": "Sulfur",
       "method": "destroy"
     },
@@ -7385,7 +7817,7 @@
       "name": "sulfurDestroyAll",
       "params": [],
       "returns": "any",
-      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "file": "platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp",
       "group": "Sulfur",
       "method": "destroyAll"
     },
@@ -7398,7 +7830,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "file": "platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp",
       "group": "Sulfur",
       "method": "exists"
     },
@@ -7411,7 +7843,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "file": "platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp",
       "group": "Sulfur",
       "method": "getEntityId"
     },
@@ -7419,7 +7851,7 @@
       "name": "sulfurGetIds",
       "params": [],
       "returns": "number[]",
-      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "file": "platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp",
       "group": "Sulfur",
       "method": "getIds"
     },
@@ -7436,7 +7868,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "file": "platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp",
       "group": "Sulfur",
       "method": "setArchetype"
     },
@@ -7465,7 +7897,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "file": "platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp",
       "group": "Sulfur",
       "method": "setBlock"
     },
@@ -7482,7 +7914,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "file": "platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp",
       "group": "Sulfur",
       "method": "setInvisible"
     },
@@ -7499,7 +7931,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/sulfur/SulfurDisplayExporter.cpp",
+      "file": "platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp",
       "group": "Sulfur",
       "method": "setScale"
     },
@@ -7548,7 +7980,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/trade/TradeMenuExporter.cpp",
+      "file": "platform/levilamina/src/trade/TradeMenuExporter.cpp",
       "group": "Trade",
       "method": "addOffer"
     },
@@ -7561,7 +7993,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/trade/TradeMenuExporter.cpp",
+      "file": "platform/levilamina/src/trade/TradeMenuExporter.cpp",
       "group": "Trade",
       "method": "close"
     },
@@ -7569,7 +8001,7 @@
       "name": "tradeCloseAll",
       "params": [],
       "returns": "any",
-      "file": "src/trade/TradeMenuExporter.cpp",
+      "file": "platform/levilamina/src/trade/TradeMenuExporter.cpp",
       "group": "Trade",
       "method": "closeAll"
     },
@@ -7577,7 +8009,7 @@
       "name": "tradeDroppedSettlements",
       "params": [],
       "returns": "number",
-      "file": "src/trade/TradeMenuExporter.cpp",
+      "file": "platform/levilamina/src/trade/TradeMenuExporter.cpp",
       "group": "Trade",
       "method": "droppedSettlements"
     },
@@ -7585,7 +8017,7 @@
       "name": "tradeGetIds",
       "params": [],
       "returns": "number[]",
-      "file": "src/trade/TradeMenuExporter.cpp",
+      "file": "platform/levilamina/src/trade/TradeMenuExporter.cpp",
       "group": "Trade",
       "method": "getIds"
     },
@@ -7598,7 +8030,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/trade/TradeMenuExporter.cpp",
+      "file": "platform/levilamina/src/trade/TradeMenuExporter.cpp",
       "group": "Trade",
       "method": "isOpen"
     },
@@ -7611,7 +8043,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/trade/TradeMenuExporter.cpp",
+      "file": "platform/levilamina/src/trade/TradeMenuExporter.cpp",
       "group": "Trade",
       "method": "isSettle"
     },
@@ -7644,7 +8076,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/trade/TradeMenuExporter.cpp",
+      "file": "platform/levilamina/src/trade/TradeMenuExporter.cpp",
       "group": "Trade",
       "method": "open"
     },
@@ -7652,7 +8084,7 @@
       "name": "tradePollSettlements",
       "params": [],
       "returns": "string[]",
-      "file": "src/trade/TradeMenuExporter.cpp",
+      "file": "platform/levilamina/src/trade/TradeMenuExporter.cpp",
       "group": "Trade",
       "method": "pollSettlements"
     },
@@ -7669,7 +8101,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/trade/TradeMenuExporter.cpp",
+      "file": "platform/levilamina/src/trade/TradeMenuExporter.cpp",
       "group": "Trade",
       "method": "setSettle"
     },
@@ -7690,7 +8122,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/trade/TradeMenuExporter.cpp",
+      "file": "platform/levilamina/src/trade/TradeMenuExporter.cpp",
       "group": "Trade",
       "method": "setTier"
     },
@@ -7715,7 +8147,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/trade/TradeMenuExporter.cpp",
+      "file": "platform/levilamina/src/trade/TradeMenuExporter.cpp",
       "group": "Trade",
       "method": "update"
     },
@@ -7744,7 +8176,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/view/ViewOverrideExporter.cpp",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "block"
     },
@@ -7757,7 +8189,7 @@
         ]
       ],
       "returns": "any",
-      "file": "src/view/ViewOverrideExporter.cpp",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "clearAll"
     },
@@ -7782,7 +8214,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/view/ViewOverrideExporter.cpp",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "clearBlock"
     },
@@ -7799,7 +8231,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/view/ViewOverrideExporter.cpp",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "clearEntity"
     },
@@ -7812,7 +8244,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/view/ViewOverrideExporter.cpp",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "clearId"
     },
@@ -7825,7 +8257,7 @@
         ]
       ],
       "returns": "string",
-      "file": "src/view/ViewOverrideExporter.cpp",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "describe"
     },
@@ -7838,7 +8270,7 @@
         ]
       ],
       "returns": "string",
-      "file": "src/view/ViewOverrideExporter.cpp",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "echo"
     },
@@ -7859,7 +8291,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/view/ViewOverrideExporter.cpp",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "entity"
     },
@@ -7867,7 +8299,7 @@
       "name": "viewItemSpawnHooked",
       "params": [],
       "returns": "boolean",
-      "file": "src/view/ViewOverrideExporter.cpp",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "itemSpawnHooked"
     },
@@ -7880,7 +8312,7 @@
         ]
       ],
       "returns": "string",
-      "file": "src/view/ViewOverrideExporter.cpp",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "metaProbe"
     },
@@ -7888,7 +8320,7 @@
       "name": "viewPollSpawnEvents",
       "params": [],
       "returns": "string[]",
-      "file": "src/view/ViewOverrideExporter.cpp",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "pollSpawnEvents"
     },
@@ -7905,7 +8337,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/view/ViewOverrideExporter.cpp",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "self"
     },
@@ -7918,7 +8350,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/view/ViewOverrideExporter.cpp",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "selfClear"
     },
@@ -7935,7 +8367,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/view/ViewOverrideExporter.cpp",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "selfHide"
     },
@@ -7956,7 +8388,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/view/ViewOverrideExporter.cpp",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "selfName"
     },
@@ -7973,7 +8405,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/view/ViewOverrideExporter.cpp",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "selfSkin"
     },
@@ -7990,7 +8422,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/view/ViewOverrideExporter.cpp",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "selfType"
     },
@@ -8007,7 +8439,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/view/ViewOverrideExporter.cpp",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "targetType"
     },
@@ -8020,7 +8452,7 @@
         ]
       ],
       "returns": "number",
-      "file": "src/view/ViewOverrideExporter.cpp",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "uniqueIdOf"
     },
@@ -8028,7 +8460,7 @@
       "name": "wireResetStats",
       "params": [],
       "returns": "any",
-      "file": "src/InfoExporter.cpp",
+      "file": "platform/levilamina/src/InfoExporter.cpp",
       "group": "Misc",
       "method": "wireResetStats"
     },
@@ -8036,7 +8468,7 @@
       "name": "wireStats",
       "params": [],
       "returns": "string",
-      "file": "src/InfoExporter.cpp",
+      "file": "platform/levilamina/src/InfoExporter.cpp",
       "group": "Misc",
       "method": "wireStats"
     },
@@ -8044,7 +8476,7 @@
       "name": "wireTraceActive",
       "params": [],
       "returns": "boolean",
-      "file": "src/InfoExporter.cpp",
+      "file": "platform/levilamina/src/InfoExporter.cpp",
       "group": "Misc",
       "method": "wireTraceActive"
     },
@@ -8052,7 +8484,7 @@
       "name": "wireTraceClear",
       "params": [],
       "returns": "any",
-      "file": "src/InfoExporter.cpp",
+      "file": "platform/levilamina/src/InfoExporter.cpp",
       "group": "Misc",
       "method": "wireTraceClear"
     },
@@ -8060,7 +8492,7 @@
       "name": "wireTraceCount",
       "params": [],
       "returns": "number",
-      "file": "src/InfoExporter.cpp",
+      "file": "platform/levilamina/src/InfoExporter.cpp",
       "group": "Misc",
       "method": "wireTraceCount"
     },
@@ -8068,7 +8500,7 @@
       "name": "wireTraceDump",
       "params": [],
       "returns": "string",
-      "file": "src/InfoExporter.cpp",
+      "file": "platform/levilamina/src/InfoExporter.cpp",
       "group": "Misc",
       "method": "wireTraceDump"
     },
@@ -8081,7 +8513,7 @@
         ]
       ],
       "returns": "any",
-      "file": "src/InfoExporter.cpp",
+      "file": "platform/levilamina/src/InfoExporter.cpp",
       "group": "Misc",
       "method": "wireTraceMark"
     },
@@ -8094,7 +8526,7 @@
         ]
       ],
       "returns": "boolean",
-      "file": "src/InfoExporter.cpp",
+      "file": "platform/levilamina/src/InfoExporter.cpp",
       "group": "Misc",
       "method": "wireTraceStart"
     },
@@ -8102,7 +8534,7 @@
       "name": "wireTraceStop",
       "params": [],
       "returns": "boolean",
-      "file": "src/InfoExporter.cpp",
+      "file": "platform/levilamina/src/InfoExporter.cpp",
       "group": "Misc",
       "method": "wireTraceStop"
     }

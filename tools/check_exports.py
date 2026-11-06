@@ -22,7 +22,7 @@ import sys
 from collections import Counter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = os.path.join(ROOT, "src")
+SRC = os.path.join(ROOT, "platform", "levilamina", "src")
 
 # exportAs(NAMESPACE, "name" —— 允许换行、允许第一个实参是任意标识符
 EXPORT_RE = re.compile(r'exportAs\s*\(\s*[^,\n]+,\s*"([A-Za-z0-9_]+)"')

@@ -24,7 +24,7 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = os.path.join(ROOT, "src")
+SRC = os.path.join(ROOT, "platform", "levilamina", "src")
 # 产物直接放插件根目录：部署后就是 mods/HologramLib/lib/HologramLib.js，
 # 脚本 require("mods/HologramLib/lib/HologramLib.js") 即可；发布包里也在根。
 OUT_DIR = os.path.join(ROOT, "lib")
