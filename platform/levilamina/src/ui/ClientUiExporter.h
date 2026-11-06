@@ -9,11 +9,6 @@ public:
     static void exportAll();
 };
 
-class LocatorBarExporter {
-public:
-    static void exportAll();
-};
-
 class PlayerVisibilityExporter {
 public:
     static void exportAll();
@@ -21,6 +16,5 @@ public:
 
 hologramlib::IFormControl&      formControlAdapter();
 hologramlib::IPlayerVisibility& playerVisibilityAdapter();
-hologramlib::ILocatorBar&       locatorBarAdapter();
 
 } // namespace debugshape_export

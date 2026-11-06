@@ -5,7 +5,6 @@
 #include "../anchor/AnchorPool.h"
 #include "../effect/ActorEventFilter.h"
 #include "../scoreboard/SidebarManager.h"
-#include "../ui/LocatorBarManager.h"
 #include "BossBarManager.h"
 #include "HudManager.h"
 #include "customentity/CustomEntityManager.h"
@@ -61,25 +60,6 @@ public:
     }
     bool resetAll(std::string const& playerName) override {
         return HudManager::getInstance().resetAll(playerName);
-    }
-};
-
-class LocatorBarExtAdapter final : public hologramlib::ILocatorBarExt {
-public:
-    bool setIcon(std::string const& playerName, std::string const& key, std::string const& texturePath) override {
-        return LocatorBarManager::getInstance().setIcon(playerName, key, texturePath);
-    }
-    bool setIconSize(std::string const& playerName, std::string const& key, float width, float height) override {
-        return LocatorBarManager::getInstance().setIconSize(playerName, key, width, height);
-    }
-    bool attachEntity(std::string const& playerName, std::string const& key, int64_t entityUniqueId) override {
-        return LocatorBarManager::getInstance().attachEntity(playerName, key, entityUniqueId);
-    }
-    bool clearAttach(std::string const& playerName, std::string const& key) override {
-        return LocatorBarManager::getInstance().clearAttach(playerName, key);
-    }
-    bool setGroup(std::string const& playerName, std::string const& key, std::string const& groupKey) override {
-        return LocatorBarManager::getInstance().setGroup(playerName, key, groupKey);
     }
 };
 
@@ -157,11 +137,6 @@ hologramlib::IBossBar& bossBarAdapter() {
 
 hologramlib::IHud& hudAdapter() {
     static HudAdapter adapter;
-    return adapter;
-}
-
-hologramlib::ILocatorBarExt& locatorBarExtAdapter() {
-    static LocatorBarExtAdapter adapter;
     return adapter;
 }
 
@@ -299,90 +274,6 @@ void HudExporter::exportAll() {
     hologramlib::lse::exportAs(NAMESPACE, "hudResetAll", [&mgr](std::string const& playerName) -> bool {
         return mgr.resetAll(playerName);
     });
-}
-
-void LocatorBarExtExporter::exportAll() {
-    auto& mgr = LocatorBarManager::getInstance();
-
-    hologramlib::lse::exportAs(
-        NAMESPACE,
-        "locatorBarSetEx",
-        [&mgr](
-            std::string const& playerName,
-            std::string const& key,
-            float              x,
-            float              y,
-            float              z,
-            int                dim,
-            int                color,
-            bool               visible,
-            std::string const& texturePath,
-            float              iconWidth,
-            float              iconHeight,
-            bool               authority) -> bool {
-            return mgr.setWaypointEx(
-                playerName,
-                key,
-                x,
-                y,
-                z,
-                dim,
-                color,
-                visible,
-                texturePath,
-                iconWidth,
-                iconHeight,
-                authority);
-        });
-
-    hologramlib::lse::exportAs(
-        NAMESPACE,
-        "locatorBarSetClientAuthority",
-        [&mgr](std::string const& playerName, std::string const& key, bool enabled) -> bool {
-            return mgr.setClientAuthority(playerName, key, enabled);
-        });
-
-    hologramlib::lse::exportAs(
-        NAMESPACE,
-        "locatorBarSetIcon",
-        [&mgr](std::string const& playerName, std::string const& key, std::string const& texturePath) -> bool {
-            return mgr.setIcon(playerName, key, texturePath);
-        });
-
-    hologramlib::lse::exportAs(
-        NAMESPACE,
-        "locatorBarSetIconSize",
-        [&mgr](std::string const& playerName, std::string const& key, float width, float height) -> bool {
-            return mgr.setIconSize(playerName, key, width, height);
-        });
-
-    hologramlib::lse::exportAs(
-        NAMESPACE,
-        "locatorBarAttachEntity",
-        [&mgr](std::string const& playerName, std::string const& key, int64_t entityUniqueId) -> bool {
-            return mgr.attachEntity(playerName, key, entityUniqueId);
-        });
-
-    hologramlib::lse::exportAs(
-        NAMESPACE,
-        "locatorBarClearAttach",
-        [&mgr](std::string const& playerName, std::string const& key) -> bool {
-            return mgr.clearAttach(playerName, key);
-        });
-
-    hologramlib::lse::exportAs(
-        NAMESPACE,
-        "locatorBarSetGroup",
-        [&mgr](std::string const& playerName, std::string const& key, std::string const& groupKey) -> bool {
-            return mgr.setGroup(playerName, key, groupKey);
-        });
-
-    hologramlib::lse::exportAs(
-        NAMESPACE,
-        "locatorBarSyncGroup",
-        [&mgr](std::string const& playerName, std::string const& groupKey) -> int {
-            return mgr.syncGroup(playerName, groupKey);
-        });
 }
 
 void SidebarExporter::exportAll() {

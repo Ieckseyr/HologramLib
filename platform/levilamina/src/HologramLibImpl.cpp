@@ -651,7 +651,6 @@ public:
 
     IBossBar&       bossBars() override { return debugshape_export::bossBarAdapter(); }
     IHud&           hud() override { return debugshape_export::hudAdapter(); }
-    ILocatorBarExt& locatorBarExt() override { return debugshape_export::locatorBarExtAdapter(); }
     IActorEffect&   actorEffects() override { return debugshape_export::actorEffectAdapter(); }
     ISidebar&       sidebar() override { return debugshape_export::sidebarAdapter(); }
 
@@ -710,7 +709,6 @@ public:
 
     IItemActor&        itemActors() override { return debugshape_export::itemActorAdapter(); }
     IFormControl&      formControl() override { return debugshape_export::formControlAdapter(); }
-    ILocatorBar&       locatorBar() override { return debugshape_export::locatorBarAdapter(); }
     IPlayerVisibility& playerVisibility() override { return debugshape_export::playerVisibilityAdapter(); }
 
     IFakeInventory& fakeInventories() override { return debugshape_export::fakeInventoryAdapter(); }

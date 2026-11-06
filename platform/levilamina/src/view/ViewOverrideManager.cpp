@@ -36,6 +36,7 @@
 #include <mc/world/actor/player/Inventory.h>
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/item/ItemStack.h>
+#include <mc/legacy/ActorUniqueID.h>
 #include <mc/world/level/Level.h>
 #include <mc/world/level/block/Block.h>
 #include <sculk/protocol/codec/packet/ActorEventPacket.hpp>
@@ -395,6 +396,36 @@ bool ViewOverrideManager::overrideBlock(
         sendBlockUpdate(player, x, y, z, *networkId);
     });
     return true;
+}
+
+hologramlib::EntityInfo ViewOverrideManager::queryEntity(std::int64_t uniqueId) const {
+    hologramlib::EntityInfo info{};
+    auto                    level = ::ll::service::getLevel();
+    if (!level || uniqueId <= 0)
+        return info;
+
+    auto* actor = level->fetchEntity(::ActorUniqueID(uniqueId), false);
+    if (actor == nullptr)
+        return info;
+
+    info.identifier = actor->getTypeName();
+    info.nameTag    = actor->getNameTag();
+    info.hasNameTag = !info.nameTag.empty();
+    info.isPlayer   = actor->isPlayer();
+    info.health     = actor->getHealth();
+    return info;
+}
+
+bool ViewOverrideManager::alignEntity(std::string const& playerName, std::int64_t uniqueId) {
+    auto const info = queryEntity(uniqueId);
+    if (info.identifier.empty())
+        return false;
+
+    hologramlib::EntityView view;
+    view.identifier  = info.identifier;
+    view.hasNametag  = info.hasNameTag;
+    view.nametag     = info.nameTag;
+    return overrideEntity(playerName, uniqueId, view);
 }
 
 bool ViewOverrideManager::clearEntity(std::string const& playerName, std::int64_t uniqueId) {
@@ -870,6 +901,14 @@ public:
         int                           z,
         hologramlib::BlockView const& view) override {
         return ViewOverrideManager::getInstance().overrideBlock(playerName, x, y, z, view);
+    }
+
+    [[nodiscard]] hologramlib::EntityInfo queryEntity(std::int64_t entityUniqueId) const override {
+        return ViewOverrideManager::getInstance().queryEntity(entityUniqueId);
+    }
+
+    bool alignEntity(std::string const& playerName, std::int64_t entityUniqueId) override {
+        return ViewOverrideManager::getInstance().alignEntity(playerName, entityUniqueId);
     }
 
     bool clearEntity(std::string const& playerName, std::int64_t entityUniqueId) override {

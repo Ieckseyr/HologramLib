@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#define HOLOGLIB_API_VERSION 0x012900
+#define HOLOGLIB_API_VERSION 0x012A00
 
 inline constexpr std::uint32_t HOLOGLIB_ABI_STAMP = 1;
 
@@ -953,31 +953,6 @@ public:
     virtual int closeAllForms() = 0;
 };
 
-// 方位条航点
-class ILocatorBar {
-public:
-    virtual ~ILocatorBar() = default;
-
-    virtual bool setWaypoint(
-        std::string const& playerName,
-        std::string const& key,
-        float              x,
-        float              y,
-        float              z,
-        int                dimension,
-        int                color   = -1,
-        bool               visible = true) = 0;
-
-    virtual bool hideFromOthers(std::string const& playerName, bool hidden) = 0;
-
-    [[nodiscard]] virtual bool isHiddenFromOthers(std::string const& playerName) const = 0;
-
-    virtual bool removeWaypoint(std::string const& playerName, std::string const& key) = 0;
-
-    virtual int               clearWaypoints(std::string const& playerName)      = 0;
-    [[nodiscard]] virtual int waypointCount(std::string const& playerName) const = 0;
-};
-
 struct PlayerPacketMask {
     bool spawn{false};
     bool tab{false};
@@ -1041,6 +1016,17 @@ struct BlockView {
 };
 
 // 客户端视图覆盖（换模型/换皮/隐藏）
+// 服务端真实实体的信息（先查再覆盖）
+struct EntityInfo {
+    std::string identifier;   // minecraft:zombie
+    std::string nameTag;      // 玩家看到的显示名（可能带 §）
+    bool        hasNameTag{false};
+    bool        isPlayer{false};
+    float       health{0.0f};
+    std::int32_t variant{0};
+    std::int32_t markVariant{0};
+};
+
 class IViewOverride {
 public:
     virtual ~IViewOverride() = default;
@@ -1056,6 +1042,11 @@ public:
     virtual void clearAll(std::string const& playerName) = 0;
 
     [[nodiscard]] virtual std::string describeFor(std::string const& playerName) const = 0;
+
+    // 1.36.0：读真实实体信息 / 把覆盖参数对齐到真实实体
+    [[nodiscard]] virtual EntityInfo queryEntity(std::int64_t entityUniqueId) const = 0;
+
+    virtual bool alignEntity(std::string const& playerName, std::int64_t entityUniqueId) = 0;
 };
 
 enum class BossBarColor : int {
@@ -1123,22 +1114,6 @@ public:
     virtual int setElements(std::string const& playerName, int mask, bool visible) = 0;
 
     virtual bool resetAll(std::string const& playerName) = 0;
-};
-
-// 方位条扩展（图标/尺寸/分组/挂实体）
-class ILocatorBarExt {
-public:
-    virtual ~ILocatorBarExt() = default;
-
-    virtual bool setIcon(std::string const& playerName, std::string const& key, std::string const& texturePath) = 0;
-
-    virtual bool setIconSize(std::string const& playerName, std::string const& key, float width, float height) = 0;
-
-    virtual bool attachEntity(std::string const& playerName, std::string const& key, int64_t entityUniqueId) = 0;
-
-    virtual bool clearAttach(std::string const& playerName, std::string const& key) = 0;
-
-    virtual bool setGroup(std::string const& playerName, std::string const& key, std::string const& groupKey) = 0;
 };
 
 // 实体表现事件（受伤/死亡/任意 ActorEvent）
@@ -1264,14 +1239,12 @@ public:
 
     virtual IItemActor&        itemActors()       = 0;
     virtual IFormControl&      formControl()      = 0;
-    virtual ILocatorBar&       locatorBar()       = 0;
     virtual IPlayerVisibility& playerVisibility() = 0;
 
     virtual IShapeDrawerExt& shapeExt() = 0;
 
     virtual IBossBar&       bossBars()      = 0;
     virtual IHud&           hud()           = 0;
-    virtual ILocatorBarExt& locatorBarExt() = 0;
     virtual IActorEffect&   actorEffects()  = 0;
     virtual ISidebar&       sidebar()       = 0;
 

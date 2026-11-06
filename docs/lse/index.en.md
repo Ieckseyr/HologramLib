@@ -144,3 +144,30 @@ setInterval(() => {
 - **`§` colour codes** and `\n` line breaks go straight into the text, for example `"§cfirst line\n§7second line"`.
 - **No declared dependency needed**: your script plugin's `manifest.json` only has to depend on the LSE engine itself.
 - The C++ plugin side has the same set of capabilities (the interfaces correspond one to one); see the [C++ API reference](../reference/cpp-api.md).
+
+---
+
+## 9. Checking the API version / gating features
+
+`holoApiVersion()` returns the library's API version as an integer, so a script can tell whether a given export exists
+in the DLL it is running against.
+
+```js
+const holoApiVersion = ll.import("HologramLib", "holoApiVersion");
+const api = holoApiVersion();          // e.g. 0x012900 = 1.35.0
+
+if (api >= 0x012A00) {                 // only available from 1.36.0
+    const setNear = ll.import("HologramLib", "blockBatchSetNear");
+    setNear("Steve", packed, 4, false);
+} else {
+    // fall back to the single-block API, or skip the feature
+}
+```
+
+- Encoding: `0x01` + minor (hex) + patch — `1.35.0 → 0x012900`, `1.36.0 → 0x012A00`
+  (same numbering as the [version & ABI matrix](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.md)).
+- **Compare numeric values only**; do not parse strings.
+- Read it once at module load, not on every call.
+
+On endstone the equivalent is `lib.holo_api_version` (a string such as `"1.35.0"`); split it into three integers before
+comparing.

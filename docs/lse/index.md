@@ -172,3 +172,28 @@ setInterval(() => {
 - **`§` 颜色代码**和 `\n` 换行直接写在文本里，例如 `"§c第一行\n§7第二行"`。
 - **不需要 declare 依赖**：脚本插件的 `manifest.json` 里只要依赖 LSE 引擎本身。
 - C++ 插件侧有同一套能力（接口一一对应），见 [C++ 接口参考](../reference/cpp-api.md)。
+
+---
+
+## 9. 查 API 版本 / 按版本开关功能
+
+`holoApiVersion()` 返回库的 API 版本（整数），用来判断某个接口在当前这份 DLL 里到底有没有。
+
+```js
+const holoApiVersion = ll.import("HologramLib", "holoApiVersion");
+const api = holoApiVersion();          // 例：0x012900 = 1.35.0
+
+if (api >= 0x012A00) {                 // 1.36.0 起才有的接口
+    const setNear = ll.import("HologramLib", "blockBatchSetNear");
+    setNear("Steve", packed, 4, false);
+} else {
+    // 降级：用已有的单方块接口，或者直接跳过这部分功能
+}
+```
+
+- 编码规则：`0x01` + 次版本（十六进制）+ 补丁位 —— `1.35.0 → 0x012900`、`1.36.0 → 0x012A00`
+  （同一套编号见 [版本与 ABI 对照](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.md)）。
+- **只比数值大小**，不要拿字符串去解析。
+- 判定放在模块加载时取一次，不要每次调用都判断。
+
+endstone 侧对应的是 `lib.holo_api_version`（字符串，如 `"1.35.0"`），比较时先拆成三段整数。

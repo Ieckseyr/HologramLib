@@ -208,6 +208,29 @@ HOLO_CORE_EXPORT int32_t holo_core_encode_update_block(
     uint8_t** out_body,
     size_t*   out_len);
 
+// ── 方块批量（一条 UpdateSubChunkBlocks 承载一个子区块的多个改动） ──────
+typedef struct holo_block_change {
+    int32_t  x;
+    int32_t  y;
+    int32_t  z;
+    uint32_t runtime_id;
+    uint32_t flags;
+    uint64_t sync_entity;
+    uint32_t sync_message;
+} holo_block_change;
+
+HOLO_CORE_EXPORT uint32_t holo_core_packet_id_update_subchunk_blocks(void);
+
+// sub_*: 子区块原点的方块坐标（x & ~15），待抓包对拍确认
+HOLO_CORE_EXPORT int32_t holo_core_encode_update_subchunk_blocks(
+    int32_t                  sub_x,
+    int32_t                  sub_y,
+    int32_t                  sub_z,
+    const holo_block_change* blocks,
+    size_t                   count,
+    uint8_t**                out_body,
+    size_t*                  out_len);
+
 // ── Actor 元数据（姿态 / 冻结强度等） ───────────────────────────────────
 // kind: 0 byte, 1 short, 2 int, 3 float, 4 long, 5 vec3
 typedef struct holo_meta_entry {

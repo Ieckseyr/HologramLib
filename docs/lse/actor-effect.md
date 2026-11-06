@@ -4,60 +4,249 @@
 
 目标是实体的 **runtimeId**（`entityGetInfo`、`playerNpc*` 一类接口返回的那个），不是插件层 id。
 
+## 快速开始
+
 ```js
 const { ActorEffect } = require("mods/HologramLib/lib/HologramLib.js");
 
-ActorEffect.playHurt(runtimeId);     // 受伤闪红
-ActorEffect.playDeath(runtimeId);    // 死亡动画
-ActorEffect.playInstantDeath(runtimeId); // 立即消失（不掉落、不播完整死亡动画）
+ActorEffect.playHurt(runtimeId);         // 受伤闪红
+ActorEffect.playDeath(runtimeId);        // 死亡动画
+ActorEffect.playInstantDeath(runtimeId); // 立即消失
 ```
 
-| 函数 | 返回 | 说明 |
-|---|---|---|
-| `actorPlayHurt(runtimeId)` | `Boolean` | 受伤动画（`ActorEvent::HURT = 2`） |
-| `actorPlayDeath(runtimeId)` | `Boolean` | 死亡动画（`DEATH = 3`） |
-| `actorPlayInstantDeath(runtimeId)` | `Boolean` | 立即死亡（`INSTANT_DEATH = 61`） |
-| `actorPlayEvent(runtimeId, eventId, data)` | `Boolean` | 任意事件，事件值见协议 `ActorEvent` 枚举 |
-| `actorPlayEventFor(playerName, runtimeId, eventId, data)` | `Boolean` | 只发给指定玩家 |
-| `actorRuntimeIdOfPlayer(playerName)` | `Integer` | 取玩家实体的 runtimeId（不在线 `-1`） |
-| `actorRuntimeIdOfEntity(libId)` | `Integer` | 取协议层实体的 runtimeId（查不到 `-1`） |
+## 播放事件
 
-常用事件值：`2` 受伤 · `3` 死亡 · `10` 吃草 · `21` 爱心 · `22` 村民生气 · `39` 抖动 · `61` 立即死亡。
+### 受伤动画
 
-播完死亡动画后实体仍在客户端，需要消失再调对应的 destroy 接口。
+`actorPlayHurt(runtimeId)`
+
+- 参数：
+  - `runtimeId` : `Integer`<br>目标实体的 runtimeId
+- 返回值：`true` 已下发，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "actorPlayHurt")(rid);
+    ```
+
+对应 `ActorEvent::HURT = 2`。
+
+### 死亡动画
+
+`actorPlayDeath(runtimeId)`
+
+- 参数：
+  - `runtimeId` : `Integer`<br>目标实体 runtimeId
+- 返回值：`true` 已下发，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "actorPlayDeath")(rid);
+    ```
+
+`DEATH = 3`。播完实体仍在客户端，要消失再调对应 destroy。
+
+### 立即死亡
+
+`actorPlayInstantDeath(runtimeId)`
+
+- 参数：
+  - `runtimeId` : `Integer`<br>目标实体 runtimeId
+- 返回值：`true` 已下发，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "actorPlayInstantDeath")(rid);
+    ```
+
+`INSTANT_DEATH = 61`，不播完整死亡动画。
+
+### 任意事件
+
+`actorPlayEvent(runtimeId, eventId, data)`
+
+- 参数：
+  - `runtimeId` : `Integer`<br>目标实体 runtimeId
+  - `eventId` : `Integer`<br>协议 `ActorEvent` 值：`2` 受伤 · `3` 死亡 · `10` 吃草 · `21` 爱心 · `22` 村民生气 · `39` 抖动 · `61` 立即死亡
+  - `data` : `Integer`<br>事件附带数据，没有就传 `0`
+- 返回值：`true` 已下发，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "actorPlayEvent")(rid, 21, 0);
+    ```
+
+### 只发给指定玩家
+
+`actorPlayEventFor(playerName, runtimeId, eventId, data)`
+
+- 参数：
+  - `playerName` : `String`<br>只把事件发给这名玩家
+  - 其余参数同 `actorPlayEvent`
+- 返回值：`true` 已下发，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "actorPlayEventFor")("Steve", rid, 3, 0);
+    ```
+
+### 取玩家的 runtimeId
+
+`actorRuntimeIdOfPlayer(playerName)`
+
+- 参数：
+  - `playerName` : `String`<br>玩家名
+- 返回值：该玩家实体的 runtimeId；不在线返回 `-1`
+- 返回值类型：`Integer`
+- 示例：
+
+    ```js
+    const rid = ll.import("HologramLib", "actorRuntimeIdOfPlayer")("Steve");
+    ```
+
+### 取协议层实体的 runtimeId
+
+`actorRuntimeIdOfEntity(libId)`
+
+- 参数：
+  - `libId` : `Integer`<br>库内实体 id（自定义实体等）
+- 返回值：runtimeId；查不到返回 `-1`
+- 返回值类型：`Integer`
+- 示例：
+
+    ```js
+    const rid = ll.import("HologramLib", "actorRuntimeIdOfEntity")(entityId);
+    ```
 
 ## 阻断表现事件（受伤 / 死亡不播）
 
 在出站口拦 `ActorEventPacket`：被拦的包不会到达客户端，动画就不播。
 **只拦表现包**，服务端状态完全不变（血量、掉落、死亡事件照常）。
 
-| 函数 | 说明 |
-|---|---|
-| `actorBlockEvent(eventId)` | 全局拦截；`2` 受伤 / `3` 死亡 / `61` 立即死亡 / `-1` 全部 |
-| `actorUnblockEvent(eventId)` | 解除全局拦截（`-1` = 全部解除） |
-| `actorBlockEventFor(playerName, eventId)` | 只让该玩家看不到 |
-| `actorUnblockEventFor(playerName, eventId)` | 解除该玩家的拦截 |
-| `actorBlockEventForEntity(runtimeId, eventId)` | 只拦这个实体 |
-| `actorUnblockEventForEntity(runtimeId, eventId)` | 解除该实体的拦截 |
-| `actorBlockClear()` | 清空全部规则 |
-| `actorBlockStats()` | `"blocked=N passed=N rules=gX/pY/eZ"` |
+### 全局拦截
 
-```js
-ActorEffect.blockEvent(2);                 // 全服都看不到受伤闪红
-ActorEffect.blockEventFor("Steve", 3);     // 只有 Steve 看不到死亡动画
-ActorEffect.blockEventForEntity(rid, 2);   // 只有这只实体不闪红
-ActorEffect.blockStats();                  // 看命中数
-```
+`actorBlockEvent(eventId)`
 
-三档可叠加，命中任一即拦。用来做"无伤感的 BOSS 演出"、"死亡不播但要正常掉落"这类效果。
+- 参数：
+  - `eventId` : `Integer`<br>`2` 受伤 / `3` 死亡 / `61` 立即死亡 / `-1` 全部
+- 返回值：`true` 已添加规则，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
 
-> 注意：`actorBlockEvent(-1)` 会把**所有** ActorEvent 都拦掉（吃东西、爱心、抖动、表情全没），
-> 演出结束后记得 `actorBlockClear()`。
+    ```js
+    ll.import("HologramLib", "actorBlockEvent")(2);
+    ```
 
-## 对虚假实体用（自定义实体 / 假玩家 / 物品展示 / 掉落物）
+### 解除全局拦截
 
-可以。这一组包**只按 runtimeId 寻址**，库不会去服务端找实体——只要客户端那边有这个 runtimeId
-的实体，动画就播得出来。库自己造的协议层实体正好满足这一点：
+`actorUnblockEvent(eventId)`
+
+- 参数：
+  - `eventId` : `Integer`<br>`-1` = 全部解除
+- 返回值：`true` 已解除，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "actorUnblockEvent")(-1);
+    ```
+
+### 只让某玩家看不到
+
+`actorBlockEventFor(playerName, eventId)`
+
+- 参数：
+  - `playerName` : `String`<br>玩家名
+  - `eventId` : `Integer`<br>事件值
+- 返回值：`true` 已添加规则，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "actorBlockEventFor")("Steve", 3);
+    ```
+
+### 解除某玩家的拦截
+
+`actorUnblockEventFor(playerName, eventId)`
+
+- 参数：
+  - `playerName` : `String`<br>玩家名
+  - `eventId` : `Integer`<br>事件值
+- 返回值：`true` 已解除，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "actorUnblockEventFor")("Steve", 3);
+    ```
+
+### 只拦这只实体
+
+`actorBlockEventForEntity(runtimeId, eventId)`
+
+- 参数：
+  - `runtimeId` : `Integer`<br>实体 runtimeId
+  - `eventId` : `Integer`<br>事件值
+- 返回值：`true` 已添加规则，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "actorBlockEventForEntity")(rid, 2);
+    ```
+
+### 解除该实体的拦截
+
+`actorUnblockEventForEntity(runtimeId, eventId)`
+
+- 参数：
+  - `runtimeId` : `Integer`<br>实体 runtimeId
+  - `eventId` : `Integer`<br>事件值
+- 返回值：`true` 已解除，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "actorUnblockEventForEntity")(rid, 2);
+    ```
+
+### 清空全部规则
+
+`actorBlockClear()`
+
+- 参数：无
+- 返回值：无
+- 返回值类型：`Null`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "actorBlockClear")();
+    ```
+
+### 查看命中统计
+
+`actorBlockStats()`
+
+- 参数：无
+- 返回值：形如 `"blocked=N passed=N rules=gX/pY/eZ"` 的统计串
+- 返回值类型：`String`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "actorBlockStats")();
+    ```
+
+三档规则可叠加，命中任一即拦。`actorBlockEvent(-1)` 会拦掉**所有** ActorEvent（吃东西、爱心、抖动、表情全没），演出结束后记得 `actorBlockClear()`。
+
+## 对虚假实体用
+
+这一组包**只按 runtimeId 寻址**，库不会去服务端找实体 —— 只要客户端那边有这个 runtimeId 的实体，动画就播得出来。
 
 | 实体 | 取 runtimeId |
 |---|---|
@@ -66,119 +255,160 @@ ActorEffect.blockStats();                  // 看命中数
 | 物品展示 | `itemDisplayRuntimeId(id)` |
 | 掉落物 | `itemActorRuntimeId(id)` |
 
-找不到时都返回 `-1`。
-
 ```js
 const rid = PlayerNpc.runtimeId(npcId);
-ActorEffect.playHurt(rid);        // 只影响"已经看到这只 NPC"的客户端
+ActorEffect.playHurt(rid);
 ActorEffect.playDeath(rid);
 ```
 
-**逐玩家生效**：`actorPlayEventFor(playerName, runtimeId, eventId, data)` 只发给指定玩家，
-其他玩家的客户端收不到这条指令，也就看不到动画。
+`playDeath` 之后实体在客户端进入"死亡"状态。**虚假实体没有 `RespawnPacket` 可发**，要"复活"就重发出生包：假玩家 `setEnabled(id, false)` → `setEnabled(id, true)`；自定义实体重新 `spawn`；物品展示重新 `draw`。
 
-```js
-ActorEffect.playEventFor("Steve", rid, 3, 0);   // 只有 Steve 看到这只 NPC 死亡
-```
+## 图腾激活动画
 
-注意两点：
+`actorPlayTotem(runtimeId, holdTicks)`
 
-- 非要发给"看不到这个实体"的玩家也没意义——客户端收到未知 runtimeId 的事件会直接忽略，不会报错。
-- `playDeath` 之后实体在客户端进入"死亡"状态。**虚假实体没有 `RespawnPacket` 可发**
-  （那个包只作用于玩家自己的死亡界面），要让它"复活"就是**重发它的出生包**：
-  假玩家用 `setEnabled(id, false)` → `setEnabled(id, true)`（内部会换新 runtimeId 重新 spawn），
-  自定义实体重新 `spawn`，物品展示重新 `setItem`/`draw` 即可。
+- 参数：
+  - `runtimeId` : `Integer`<br>必须是真人玩家的 runtimeId
+  - `holdTicks` : `Integer`<br>副手保留多少 tick；`<= 0` 按 `20`
+- 返回值：`true` 已播放，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
 
-## 图腾激活动画（`actorPlayTotem`）
+    ```js
+    ll.import("HologramLib", "actorPlayTotem")(rid, 20);
+    ```
 
-```js
-const rid = ActorEffect.runtimeIdOfPlayer("Steve");
-ActorEffect.playTotem(rid, 20);   // 20 tick 后把副手还原
-```
-
-- 只发协议，不改服务端背包：先对**所有客户端**发一条 `MobEquipment`（副手 = 不死图腾），再发 `ActorEvent` 65（`TalismanActivate`），`holdTicks` 后再用原副手发一条 `MobEquipment` 还原。
-- 原副手是从玩家身上现读的（`getAllHandEquipment`），所以不会把别人的副手清掉。
-- 只支持真人玩家（要读原副手、要引擎实体）；`holdTicks <= 0` 按 20 tick 处理。
+先对所有客户端发 `MobEquipment`（副手 = 不死图腾），再发 `ActorEvent` 65（`TalismanActivate`），`holdTicks` 后还原原副手。只支持真人玩家。
 
 ## 村庄英雄 / 灾厄之兆（只有动画）
 
-```js
-ActorEffect.showVillageHero("Steve", 0);   // 只播举手庆祝动画
-ActorEffect.showBadOmen("Steve", 0);       // 只播喝不祥之瓶动画
-```
+### 村庄英雄动画
 
-- `showVillageHero`：`AnimateEntity` 播 `animation.humanoid.celebrating`（原版 humanoid 的举手庆祝，`q.anim_time` 到 3 秒自动停），**不挂状态效果**。
-- `showBadOmen`：主手临时换成 `minecraft:ominous_bottle`（服务端背包会同步，40 tick 后还原）+ `ActorEvent` 29（`DrinkPotion` 喝瓶子动画），**不挂状态效果**。
-- 第二个参数是旧的时长占位，现在不生效，传 0 即可。
-- 就是要挂状态效果的话，用 `playerShowEffect(name, effectId, ticks, amplifier)`（灾厄之兆 28、村庄英雄 29、试炼之兆 31、袭击之兆 36）。
+`actorShowVillageHero(playerName, unused)`
 
-### 只对指定生物类型生效
+- 参数：
+  - `playerName` : `String`<br>玩家名
+  - `unused` : `Integer`<br>旧的时长占位，现在不生效，传 `0`
+- 返回值：`true` 已播放，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
 
-```js
-ActorEffect.aimAssistType("Steve", "minecraft:creeper", 90, 90, 32);
-```
+    ```js
+    ll.import("HologramLib", "actorShowVillageHero")("Steve", 0);
+    ```
 
-- 预设里 `entity_default = 0`、方块 `0`，只给目标类型 `10` 的优先级 —— 客户端只把这一个类型当候选。
-- 仍然一次只标一个目标（客户端自己选最优），角度/距离是客户端锥算的，不能无视。
-- 这条包只是设参数，客户端得先开辅助瞄准（`/aimassist @s set` 之类）才会显示。
+`AnimateEntity` 播 `animation.humanoid.celebrating`，**不挂状态效果**。
 
-## 姿势（`actorSetPose`）
+### 灾厄之兆动画
 
-```js
-ActorEffect.setPose(rid, 4);   // 元数据 PoseIndex(79)，数字对应客户端姿势
-```
+`actorShowBadOmen(playerName, unused)`
 
-- 只发 `SetActorData` 的 `PoseIndex`，0=站立、1=睡觉、2=潜行、3=游泳、4=爬行（不同版本可能有出入，直接试）。
-- 和游泳一样，**本地玩家自己**的姿势由客户端输入驱动，元数据不一定拽得动；别人视角一般能变。
+- 参数：
+  - `playerName` : `String`<br>玩家名
+  - `unused` : `Integer`<br>传 `0`
+- 返回值：`true` 已播放，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
 
-## 辅助瞄准高亮（`cameraAimAssist*`）
+    ```js
+    ll.import("HologramLib", "actorShowBadOmen")("Steve", 0);
+    ```
 
-```js
-ActorEffect.aimAssistSet("Steve", 35, 35, 8, 0);   // 水平角度 / 垂直角度 / 距离 / targetMode(0=Angle,1=Distance)
-ActorEffect.aimAssistClear("Steve");
-```
+主手临时换成 `minecraft:ominous_bottle` + `ActorEvent` 29，40 tick 后还原，**不挂状态效果**。
 
-- 走 `CameraAimAssist`(316)：`Set` 时第一人称会出现辅助瞄准的调试高亮框（`showDebugRender=true`），`Clear` 关掉。
-- 只发给指定玩家，不影响其他人。
-- 这只是"高亮"视觉，不会真的吸附视角。
+要真的挂效果，用 `playerShowEffect(name, effectId, ticks, amplifier)`（灾厄之兆 28、村庄英雄 29、试炼之兆 31、袭击之兆 36）。
 
-## 玩家死亡之后：要补 respawn 包
+## 姿势
 
-`actorPlayDeath(playerRuntimeId)` 对**真人玩家**使用时，客户端会进入死亡界面并向服务端请求复活，
-但服务端认为该玩家一直活着，不会回 `RespawnPacket` —— 客户端就卡在死亡界面。
-播放完动画后请用 [死亡后的复活](respawn.md) 补一个 `playerRespawn(playerName)`。
+`actorSetPose(runtimeId, pose)`
 
-## 冰冻（`actorFreeze` / `actorUnfreeze`）
+- 参数：
+  - `runtimeId` : `Integer`<br>实体 runtimeId
+  - `pose` : `Integer`<br>`0` 站立 · `1` 睡觉 · `2` 潜行 · `3` 游泳 · `4` 爬行（不同版本可能有出入）
+- 返回值：`true` 已下发，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
 
-```js
-const rid = ActorEffect.runtimeIdOfPlayer("Steve");
-ActorEffect.freeze(rid, 0.6);   // 0..1，越大霜冻越重
-ActorEffect.unfreeze(rid);      // 等价 freeze(rid, 0)
-```
+    ```js
+    ll.import("HologramLib", "actorSetPose")(rid, 4);
+    ```
 
-- 走实体元数据 **120 `FreezingEffectStrength`**（float，0..1），只改这个玩家客户端看到的霜冻暗角 / FOV 收缩。
-- **不扣血、不加状态效果**；要"真冰冻"（减速、掉血）得再发 `MobEffect`（`effectId = 38` Freezing），那部分库没封装。
-- 声音可以配 `LevelSoundEvent` 的 `FREEZE`(540) / `UNFREEZE`(541)，库也没封装声音。
+只发 `SetActorData` 的 `PoseIndex(79)`；本地玩家自己的姿势由客户端输入驱动，不一定拽得动。
 
-## 播放客户端动画（等价 `/playanimation`）
+## 冰冻
 
-```js
-// 苦力怕膨胀（等价 /playanimation <实体> animation.creeper.swelling none 0 "<表达式>"）
-ActorEffect.playAnimation(
-  rid,
-  "animation.creeper.swelling",
-  "v.swelling_sin=math.sin(q.life_time*720);" +
-    "v.swelling_scale1=1.0-0.1*math.max(v.swelling_sin,0)+0.15*math.max(-v.swelling_sin,0);" +
-    "v.swelling_scale2=1.0+0.1*math.max(v.swelling_sin,0)-0.4*math.max(-v.swelling_sin,0);",
-  0
-);
+### 设置霜冻强度
 
-// 完整版：next_state / controller / Molang 版本
-ActorEffect.playAnimationFull(rid, "animation.creeper.swelling", "none", "<表达式>", 0, "", 13);
-```
+`actorFreeze(runtimeId, strength)`
 
-- 包体是 `AnimateEntity`(158)：动画名、下一个状态、停止表达式（Molang）、控制器、淡出时间、runtimeId 列表。
-- **只有客户端在这个实体的动画定义里找得到该动画才会播**：`animation.creeper.swelling` 属于苦力怕族。
-  给羊、僵尸发同一条包，客户端找不到动画就什么都不播。
-- 想让别的生物也演这个动画，得让它"在客户端看起来是苦力怕"：视图覆盖换模型，或者自定义实体直接用苦力怕的客户端 type。
-- 物品展示 / 展示方块没有实体动画，这套对它们无效。
+- 参数：
+  - `runtimeId` : `Integer`<br>实体 runtimeId
+  - `strength` : `Float`<br>`0 ~ 1`，越大霜冻越重
+- 返回值：`true` 已下发，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "actorFreeze")(rid, 0.6);
+    ```
+
+### 解除冰冻
+
+`actorUnfreeze(runtimeId)`
+
+- 参数：
+  - `runtimeId` : `Integer`<br>实体 runtimeId
+- 返回值：`true` 已解除，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "actorUnfreeze")(rid);
+    ```
+
+等价 `actorFreeze(rid, 0)`。走元数据 **120 `FreezingEffectStrength`**，只改客户端画面，不扣血、不加效果。
+
+## 播放客户端动画
+
+### 播放动画
+
+`actorPlayAnimation(runtimeId, animation, stopExpression, blendOut)`
+
+- 参数：
+  - `runtimeId` : `Integer`<br>实体 runtimeId
+  - `animation` : `String`<br>动画名，如 `animation.creeper.swelling`
+  - `stopExpression` : `String`<br>Molang 停止表达式
+  - `blendOut` : `Float`<br>淡出时间（秒）
+- 返回值：`true` 已下发，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "actorPlayAnimation")(
+        rid, "animation.creeper.swelling",
+        "v.swelling_sin=math.sin(q.life_time*720);", 0);
+    ```
+
+### 完整参数版
+
+`actorPlayAnimationFull(runtimeId, animation, nextState, stopExpression, blendOut, controller, molangVersion)`
+
+- 参数：
+  - 前 5 个参数同 `actorPlayAnimation`
+  - `nextState` : `String`<br>下一个状态，一般 `"none"`
+  - `controller` : `String`<br>动画控制器名，空串 = 不用
+  - `molangVersion` : `Integer`<br>Molang 版本，如 `13`
+- 返回值：`true` 已下发，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "actorPlayAnimationFull")(
+        rid, "animation.creeper.swelling", "none", "<表达式>", 0, "", 13);
+    ```
+
+包体是 `AnimateEntity`(158)。**只有客户端在该实体的动画定义里找得到这个动画才会播**；物品展示 / 展示方块没有实体动画。
+
+## 玩家死亡之后
+
+`actorPlayDeath(playerRuntimeId)` 对**真人玩家**使用时，客户端会进入死亡界面并向服务端请求复活，但服务端认为该玩家一直活着，不会回 `RespawnPacket` —— 客户端会卡在死亡界面。播放完动画后请用[死亡后的复活](respawn.md)补一个 `playerRespawn(playerName)`。

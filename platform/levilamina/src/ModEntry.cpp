@@ -16,6 +16,8 @@
 #include "InfoExporter.h"
 #include "actor/ActorEffectManager.h"
 #include "anchor/AnchorPool.h"
+#include "block/BlockBatchExporter.h"
+#include "block/BlockBatchManager.h"
 #include "block/FakeBlockExporter.h"
 #include "container/ContainerMenuExporter.h"
 #include "container/ContainerMenuManager.h"
@@ -49,7 +51,6 @@
 #include "trade/TradeMenuManager.h"
 #include "ui/ClientUiExporter.h"
 #include "ui/FormControlManager.h"
-#include "ui/LocatorBarManager.h"
 #include "view/ViewOverrideExporter.h"
 #include "view/ViewOverrideManager.h"
 #include "visibility/PlayerVisibilityManager.h"
@@ -199,6 +200,17 @@ core::Domain const kDomains[] = {
      +[] {
          FakeInventoryExporter::exportAll();
      }},
+    {"blockbatch",
+     +[] {
+         blockbatch::BlockBatchManager::getInstance().init();
+         return true;
+     },
+     +[] {
+         blockbatch::BlockBatchManager::getInstance().shutdown();
+     },
+     +[] {
+         blockbatch::BlockBatchExporter::exportAll();
+     }},
     {"sulfur", nullptr, nullptr, +[] {
          SulfurDisplayExporter::exportAll();
      }},
@@ -216,9 +228,6 @@ core::Domain const kDomains[] = {
      }},
     {"hud", nullptr, nullptr, +[] {
          HudExporter::exportAll();
-     }},
-    {"locatorbarExt", nullptr, nullptr, +[] {
-         LocatorBarExtExporter::exportAll();
      }},
     {"actoreffect", nullptr, nullptr, +[] {
          ActorEffectExporter::exportAll();
@@ -241,12 +250,6 @@ core::Domain const kDomains[] = {
      }},
     {"form", nullptr, nullptr, +[] {
          FormControlExporter::exportAll();
-     }},
-    {"locatorbar", nullptr, +[] {
-         LocatorBarManager::getInstance().shutdown();
-     },
-     +[] {
-         LocatorBarExporter::exportAll();
      }},
     {"visibility", nullptr, +[] {
          PlayerVisibilityManager::getInstance().shutdown();
@@ -273,6 +276,10 @@ core::PlayerLeaveHook const gBossBarLeaveHook{[](std::string const& playerName) 
 
 core::PlayerLeaveHook const gSidebarLeaveHook{[](std::string const& playerName) {
     SidebarManager::getInstance().onPlayerLeave(playerName);
+}};
+
+core::PlayerLeaveHook const gBlockBatchLeaveHook{[](std::string const& playerName) {
+    blockbatch::BlockBatchManager::getInstance().onPlayerLeave(playerName);
 }};
 
 core::PlayerLeaveHook const gPlayerVisibilityLeaveHook{[](std::string const& playerName) {

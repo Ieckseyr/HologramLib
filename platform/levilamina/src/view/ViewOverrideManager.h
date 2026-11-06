@@ -37,6 +37,10 @@ public:
     void                      clearAll(std::string const& playerName);
     [[nodiscard]] std::string describeFor(std::string const& playerName) const;
 
+    // 1.36.0：读真实实体信息 / 把覆盖参数对齐到真实实体
+    [[nodiscard]] hologramlib::EntityInfo queryEntity(std::int64_t uniqueId) const;
+    bool                                 alignEntity(std::string const& playerName, std::int64_t uniqueId);
+
     [[nodiscard]] bool active() const { return mActive.load(std::memory_order_relaxed); }
 
     [[nodiscard]] bool hasOverridesFor(std::string const& playerName) const;

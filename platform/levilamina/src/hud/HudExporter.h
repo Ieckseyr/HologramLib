@@ -14,11 +14,6 @@ public:
     static void exportAll();
 };
 
-class LocatorBarExtExporter {
-public:
-    static void exportAll();
-};
-
 class SidebarExporter {
 public:
     static void exportAll();
@@ -31,7 +26,6 @@ public:
 
 hologramlib::IBossBar&           bossBarAdapter();
 hologramlib::IHud&               hudAdapter();
-hologramlib::ILocatorBarExt&     locatorBarExtAdapter();
 hologramlib::IActorEffect&       actorEffectAdapter();
 hologramlib::ISidebar&           sidebarAdapter();
 hologramlib::IPlayerRespawn&     playerRespawnAdapter();

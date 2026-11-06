@@ -142,17 +142,6 @@ lib.actoreffect.unblock_event(3)
 ```""",
     ),
     (
-        "LocatorBar", "locator-bar", "定位条",
-        "locatorbar", "LocatorBarApi", "locatorbar",
-        "屏幕上的方位条：给某个玩家在指定坐标放一个图标，可以分组、改图标、"
-        "控制别人能不能看到。适合做路径点、队友标记、目标指引。",
-        """```python
-lib.locatorbar.set("Steve", "home", 0, 64, 0, 0, 0x00FF00)
-lib.locatorbar.set_icon("Steve", "home", "textures/items/compass")
-lib.locatorbar.hide_from_others("Steve", True)
-```""",
-    ),
-    (
         "FakeBlock", "fake-block", "假方块",
         "fakeblock", "FakeBlockApi", "fakeblock",
         "只对某个玩家显示成别的方块：把石头「变成」钻石矿，服务端世界里还是石头。"
@@ -160,7 +149,8 @@ lib.locatorbar.hide_from_others("Steve", True)
         "包体 = 坐标（x/y/z 各 zigzag varint）+ 方块网络 id（varint）+ flag(3) + layer(0)。"
         "26.60 开着 `block-network-ids-are-hashes`，网络 id 是哈希值（`minecraft:stone` → `2150698529`），"
         "由 `create_block_data` 解析，不要自己拼数字。\n\n"
-        "方块名接受 `minecraft:` 前缀，也接受带状态的字面量（如 `minecraft:oak_stairs[upside_down_bit=true]`）。",
+        "方块名接受 `minecraft:` 前缀，也接受带状态的字面量（如 `minecraft:oak_stairs[upside_down_bit=true]`）。\n\n"
+        "批量替换（`blockBatch*`，含靠近切换成硫磺立方体）目前只在 LeviLamina 端提供，endstone 端待接。",
         """```python
 lib.fakeblock.set("Steve", 10, 64, 10, "minecraft:diamond_ore")
 lib.fakeblock.clear("Steve", 10, 64, 10)
@@ -424,7 +414,6 @@ MODULE_OF = {
     "HUD": ("hud", "HudApi", "hud"),
     "PlayerEffect": ("playereffect", "PlayerEffectApi", "playereffect"),
     "ActorEffect": ("actoreffect", "ActorEffectApi", "actoreffect"),
-    "LocatorBar": ("locatorbar", "LocatorBarApi", "locatorbar"),
     "FakeBlock": ("fakeblock", "FakeBlockApi", "fakeblock"),
     "Form": ("forms", "FormApi", "forms"),
     "ItemDetail": ("itemdetail", "ItemDetailApi", "itemdetail"),
@@ -649,16 +638,44 @@ def signature_of(cls, method: str):
     return params, ret_text, str(sig).split(")")[0].split("(", 1)[1] if "(" in str(sig) else ""
 
 
+SAMPLE_VALUES = {
+    "player_name": '"Steve"',
+    "entity_id": "1",
+    "shape_id": "1",
+    "text_id": "1",
+    "display_id": "1",
+    "actor_id": "1",
+    "menu_id": "1",
+    "dialog_id": "1",
+    "npc_id": "1",
+    "trade_id": "1",
+    "sulfur_id": "1",
+    "unique_id": "1",
+    "runtime_id": "1",
+    "x": "0.0", "y": "64.0", "z": "0.0",
+    "x1": "0.0", "y1": "64.0", "z1": "0.0", "x2": "1.0", "y2": "65.0", "z2": "1.0",
+    "dim": "0", "dim_id": "0", "dimension": "0",
+    "text": '"hello"', "title": '"hello"', "name": '"hello"', "identifier": '"minecraft:cow"',
+    "item": '"minecraft:diamond"', "block_type": '"minecraft:stone"', "state": '"minecraft:stone"',
+}
+
+
+def sample_args(params):
+    out = []
+    for pname, ptype, pdefault in params:
+        out.append(SAMPLE_VALUES.get(pname, "1" if (ptype or "").lower().startswith(("int", "float")) else '"..."'))
+    return ", ".join(out)
+
+
 def method_section(module: str, attr: str, method: str, classes, exports: list[dict]) -> list[str]:
     cls = classes[module]
     func = inspect.getattr_static(cls, method)
     if isinstance(func, staticmethod):
         func = func.__func__
     params, ret, _ = signature_of(cls, method)
-    signature_params = ", ".join(
-        p + (f": {t}" if t else "") + (f" = {d}" if d else "") for p, t, d in params
-    )
-    out = [f"#### `{method}`", ""]
+    signature_params = ", ".join(p + (f": {t}" if t else "") + (f" = {d}" if d else "") for p, t, d in params)
+
+    out = [f"### `{method}`", ""]
     out.append(f"`lib.{attr}.{method}({signature_params})`")
     out.append("")
     if params:
@@ -674,12 +691,17 @@ def method_section(module: str, attr: str, method: str, classes, exports: list[d
             out.append(line)
     else:
         out.append("- 参数：无")
-    out.append(f"- 返回值类型：{('`' + ret + '`') if ret else '—'}")
-    out.append("- 对应 LSE： " + "、".join(f"`{n['name']}`" for n in exports))
+
     doc = inspect.getdoc(func) or ""
     doc = doc.strip().splitlines()[0] if doc else ""
-    if doc:
-        out.append(f"- 说明：{doc}")
+    out.append(f"- 返回值：{doc if doc else '成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）'}")
+    out.append(f"- 返回值类型：{('`' + ret + '`') if ret else '—'}")
+    out.append("- 对应 LSE 导出：" + "、".join(f"`{n['name']}`" for n in exports))
+    out.append("- 示例：")
+    out.append("")
+    out.append("    ```python")
+    out.append(f"    lib.{attr}.{method}({sample_args(params)})")
+    out.append("    ```")
     out.append("")
     return out
 
@@ -690,11 +712,11 @@ def build_domain(entry, exports_all, classes) -> tuple[str, str]:
     lines = [f"# {title_zh} · Endstone", ""]
     lines.append(intro)
     lines.append("")
-    lines.append("## 快速上手")
+    lines.append("## 快速开始")
     lines.append("")
     lines.append(example)
     lines.append("")
-    lines.append(f"## 函数（{len(exports)} 个）")
+    lines.append("## 函数")
     lines.append("")
     current_attr = None
     for e in exports:
@@ -801,6 +823,19 @@ def build_index(exports_all) -> str:
         "| 调度 | LL tick 驱动 | `server.scheduler`（20 tick/s） |",
         "",
         "两边**字节同源**：同一个形状、同一个悬浮字，在两个平台发出的包体完全一致。",
+        "",
+        "## 查 API 版本",
+        "",
+        "```python",
+        "api = lib.holo_api_version          # \"1.35.0\"",
+        "major, minor, patch = (int(x) for x in api.split(\".\"))",
+        "if (major, minor) >= (1, 36):",
+        "    lib.fakeblock.set_many_near(...)  # 1.36.0 起才有的接口",
+        "else:",
+        "    lib.logger.info(f\"版本 {api} 不支持批量靠近切换，跳过\")",
+        "```",
+        "",
+        "`lib.holo_api_version` 是字符串；LSE 的 `holoApiVersion()` 是整数（`0x012900`），两边是同一个版本的不同表示。",
         "",
         "## 按域指南",
         "",

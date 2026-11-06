@@ -77,6 +77,12 @@ int64_t SulfurDisplayManager::create(hologramlib::SulfurDisplaySpec const& spec)
 
     if (!spec.visiblePlayers.empty()) {
         CustomEntityManager::getInstance().setVisiblePlayers(entityId, spec.visiblePlayers);
+        // 可见性过滤会重建实体，重建后装备不一定会跟着重发 —— 这里补一次主手同步，
+        // 否则「只对某个玩家可见」的硫磺立方体会显示成空手
+        if (!spec.block.type.empty()) {
+            auto const eq = toEquipment(spec.block);
+            CustomEntityManager::getInstance().setEquipmentSlot(entityId, kMainhandSlot, eq.name, eq.aux, eq.nbt);
+        }
     }
 
     return mEntries.insert(std::make_unique<Entry>(Entry{entityId}));

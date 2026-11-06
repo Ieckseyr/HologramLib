@@ -40,7 +40,6 @@ void onEnable() {
 | `IViewOverride` | `lib.viewOverrides()` | 客户端视图覆盖 |
 | `IItemActor` | `lib.itemActors()` | 协议层掉落物 |
 | `IFormControl` | `lib.formControls()` | 强制关闭表单 |
-| `ILocatorBar` | `lib.locatorBars()` | 方位条 |
 
 ## 分页
 

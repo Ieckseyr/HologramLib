@@ -4,7 +4,7 @@
 
 每个形状有独立 id，改位置/颜色/缩放后要再 `draw()` 一次才会重新下发；`draw_to_player()` 只发给一个人，`draw_to_dimension()` 发给整个维度。
 
-## 快速上手
+## 快速开始
 
 ```python
 lib = self.server.plugin_manager.get_plugin("hologramlib")
@@ -17,46 +17,70 @@ text_id = lib.api.create_text(0, 70, 0, "§eHello")
 lib.api.draw(text_id)
 ```
 
-## 函数（46 个）
+## 函数
 
-#### `attach_entity`
+### `attach_entity`
 
 `lib.api.attach_entity(shape_id: int, entity_unique_id: int)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
   - `entity_unique_id` : `int`<br>实体的 uniqueId（网络层 id，不是库内 id）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeAttachEntity`
+- 对应 LSE 导出：`shapeAttachEntity`
+- 示例：
 
-#### `clear_attached_entity`
+    ```python
+    lib.api.attach_entity(1, 1)
+    ```
+
+### `clear_attached_entity`
 
 `lib.api.clear_attached_entity(shape_id: int)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeClearAttachedEntity`
+- 对应 LSE 导出：`shapeClearAttachedEntity`
+- 示例：
 
-#### `clear_background_color`
+    ```python
+    lib.api.clear_attached_entity(1)
+    ```
+
+### `clear_background_color`
 
 `lib.api.clear_background_color(shape_id: int)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeClearBackgroundColor`
+- 对应 LSE 导出：`shapeClearBackgroundColor`
+- 示例：
 
-#### `clear_rotation`
+    ```python
+    lib.api.clear_background_color(1)
+    ```
+
+### `clear_rotation`
 
 `lib.api.clear_rotation(shape_id: int)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeClearRotation`
+- 对应 LSE 导出：`shapeClearRotation`
+- 示例：
 
-#### `create_arrow`
+    ```python
+    lib.api.clear_rotation(1)
+    ```
+
+### `create_arrow`
 
 `lib.api.create_arrow(x1: float, y1: float, z1: float, x2: float, y2: float, z2: float)`
 
@@ -67,10 +91,16 @@ lib.api.draw(text_id)
   - `x2` : `float`<br>终点 X
   - `y2` : `float`<br>终点 Y
   - `z2` : `float`<br>终点 Z
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`int`
-- 对应 LSE： `shapeCreateArrow`
+- 对应 LSE 导出：`shapeCreateArrow`
+- 示例：
 
-#### `create_box`
+    ```python
+    lib.api.create_arrow(0.0, 64.0, 0.0, 1.0, 65.0, 1.0)
+    ```
+
+### `create_box`
 
 `lib.api.create_box(x1: float, y1: float, z1: float, x2: float, y2: float, z2: float)`
 
@@ -81,10 +111,16 @@ lib.api.draw(text_id)
   - `x2` : `float`<br>终点 X
   - `y2` : `float`<br>终点 Y
   - `z2` : `float`<br>终点 Z
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`int`
-- 对应 LSE： `shapeCreateBox`
+- 对应 LSE 导出：`shapeCreateBox`
+- 示例：
 
-#### `create_circle`
+    ```python
+    lib.api.create_box(0.0, 64.0, 0.0, 1.0, 65.0, 1.0)
+    ```
+
+### `create_circle`
 
 `lib.api.create_circle(x: float, y: float, z: float, scale: float = 1.0)`
 
@@ -93,10 +129,16 @@ lib.api.draw(text_id)
   - `y` : `float`<br>Y 坐标
   - `z` : `float`<br>Z 坐标
   - `scale` : `float`<br>缩放倍率，1.0 = 原始大小（默认 `1.0`）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`int`
-- 对应 LSE： `shapeCreateCircle`
+- 对应 LSE 导出：`shapeCreateCircle`
+- 示例：
 
-#### `create_cone`
+    ```python
+    lib.api.create_circle(0.0, 64.0, 0.0, 1)
+    ```
+
+### `create_cone`
 
 `lib.api.create_cone(x: float, y: float, z: float, radius_x: float, radius_z: float, height: float, segments: int = 16)`
 
@@ -108,10 +150,16 @@ lib.api.draw(text_id)
   - `radius_z` : `float`
   - `height` : `float`<br>高
   - `segments` : `int`（默认 `16`）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`int`
-- 对应 LSE： `shapeCreateCone`
+- 对应 LSE 导出：`shapeCreateCone`
+- 示例：
 
-#### `create_cylinder`
+    ```python
+    lib.api.create_cone(0.0, 64.0, 0.0, 1, 1, 1, 1)
+    ```
+
+### `create_cylinder`
 
 `lib.api.create_cylinder(x: float, y: float, z: float, radius_x: float, radius_z: float, height: float, segments: int = 16)`
 
@@ -123,10 +171,16 @@ lib.api.draw(text_id)
   - `radius_z` : `float`
   - `height` : `float`<br>高
   - `segments` : `int`（默认 `16`）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`int`
-- 对应 LSE： `shapeCreateCylinder`
+- 对应 LSE 导出：`shapeCreateCylinder`
+- 示例：
 
-#### `create_ellipsoid`
+    ```python
+    lib.api.create_cylinder(0.0, 64.0, 0.0, 1, 1, 1, 1)
+    ```
+
+### `create_ellipsoid`
 
 `lib.api.create_ellipsoid(x: float, y: float, z: float, radius_x: float, radius_y: float, radius_z: float, segments: int = 12)`
 
@@ -138,10 +192,16 @@ lib.api.draw(text_id)
   - `radius_y` : `float`
   - `radius_z` : `float`
   - `segments` : `int`（默认 `12`）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`int`
-- 对应 LSE： `shapeCreateEllipsoid`
+- 对应 LSE 导出：`shapeCreateEllipsoid`
+- 示例：
 
-#### `create_line`
+    ```python
+    lib.api.create_ellipsoid(0.0, 64.0, 0.0, 1, 1, 1, 1)
+    ```
+
+### `create_line`
 
 `lib.api.create_line(x1: float, y1: float, z1: float, x2: float, y2: float, z2: float)`
 
@@ -152,10 +212,16 @@ lib.api.draw(text_id)
   - `x2` : `float`<br>终点 X
   - `y2` : `float`<br>终点 Y
   - `z2` : `float`<br>终点 Z
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`int`
-- 对应 LSE： `shapeCreateLine`
+- 对应 LSE 导出：`shapeCreateLine`
+- 示例：
 
-#### `create_pyramid`
+    ```python
+    lib.api.create_line(0.0, 64.0, 0.0, 1.0, 65.0, 1.0)
+    ```
+
+### `create_pyramid`
 
 `lib.api.create_pyramid(x: float, y: float, z: float, width: float, height: float, depth: float)`
 
@@ -166,10 +232,16 @@ lib.api.draw(text_id)
   - `width` : `float`<br>宽
   - `height` : `float`<br>高
   - `depth` : `float`
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`int`
-- 对应 LSE： `shapeCreatePyramid`
+- 对应 LSE 导出：`shapeCreatePyramid`
+- 示例：
 
-#### `create_sphere`
+    ```python
+    lib.api.create_pyramid(0.0, 64.0, 0.0, 1, 1, 1)
+    ```
+
+### `create_sphere`
 
 `lib.api.create_sphere(x: float, y: float, z: float, scale: float = 1.0)`
 
@@ -178,10 +250,16 @@ lib.api.draw(text_id)
   - `y` : `float`<br>Y 坐标
   - `z` : `float`<br>Z 坐标
   - `scale` : `float`<br>缩放倍率，1.0 = 原始大小（默认 `1.0`）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`int`
-- 对应 LSE： `shapeCreateSphere`
+- 对应 LSE 导出：`shapeCreateSphere`
+- 示例：
 
-#### `create_text`
+    ```python
+    lib.api.create_sphere(0.0, 64.0, 0.0, 1)
+    ```
+
+### `create_text`
 
 `lib.api.create_text(x: float, y: float, z: float, text: str)`
 
@@ -190,84 +268,137 @@ lib.api.draw(text_id)
   - `y` : `float`<br>Y 坐标
   - `z` : `float`<br>Z 坐标
   - `text` : `str`<br>文本，支持 `§` 颜色码与 `{player}` 之类变量
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`int`
-- 对应 LSE： `shapeCreateText`
+- 对应 LSE 导出：`shapeCreateText`
+- 示例：
 
-#### `destroy`
+    ```python
+    lib.api.create_text(0.0, 64.0, 0.0, "hello")
+    ```
+
+### `destroy`
 
 `lib.api.destroy(shape_id: int)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeDestroy`
+- 对应 LSE 导出：`shapeDestroy`
+- 示例：
 
-#### `destroy_all`
+    ```python
+    lib.api.destroy(1)
+    ```
+
+### `destroy_all`
 
 `lib.api.destroy_all()`
 
 - 参数：无
+- 返回值：清空所有形状（一次批量发删除包）。返回清理数量。
 - 返回值类型：`int`
-- 对应 LSE： `shapeDestroyAll`
-- 说明：清空所有形状（一次批量发删除包）。返回清理数量。
+- 对应 LSE 导出：`shapeDestroyAll`
+- 示例：
 
-#### `destroy_batch`
+    ```python
+    lib.api.destroy_all()
+    ```
+
+### `destroy_batch`
 
 `lib.api.destroy_batch(ids: list[int])`
 
 - 参数：
   - `ids` : `list[int]`<br>形状 id 列表
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeDestroyBatch`
+- 对应 LSE 导出：`shapeDestroyBatch`
+- 示例：
 
-#### `draw`
+    ```python
+    lib.api.destroy_batch("...")
+    ```
+
+### `draw`
 
 `lib.api.draw(shape_id: int)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeDraw`
+- 对应 LSE 导出：`shapeDraw`
+- 示例：
 
-#### `draw_batch`
+    ```python
+    lib.api.draw(1)
+    ```
+
+### `draw_batch`
 
 `lib.api.draw_batch(ids: list[int])`
 
 - 参数：
   - `ids` : `list[int]`<br>形状 id 列表
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeDrawBatch`
+- 对应 LSE 导出：`shapeDrawBatch`
+- 示例：
 
-#### `draw_to_dimension`
+    ```python
+    lib.api.draw_batch("...")
+    ```
+
+### `draw_to_dimension`
 
 `lib.api.draw_to_dimension(shape_id: int, dim_id: int)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
   - `dim_id` : `int`<br>维度 id
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeDrawToDimension`
+- 对应 LSE 导出：`shapeDrawToDimension`
+- 示例：
 
-#### `draw_to_player`
+    ```python
+    lib.api.draw_to_dimension(1, 0)
+    ```
+
+### `draw_to_player`
 
 `lib.api.draw_to_player(shape_id: int, player_name: str)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
   - `player_name` : `str`<br>玩家名（在线玩家，大小写敏感）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeDrawToPlayer`
+- 对应 LSE 导出：`shapeDrawToPlayer`
+- 示例：
 
-#### `exists`
+    ```python
+    lib.api.draw_to_player(1, "Steve")
+    ```
+
+### `exists`
 
 `lib.api.exists(shape_id: int)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeExists`
+- 对应 LSE 导出：`shapeExists`
+- 示例：
 
-#### `find_text_by_location`
+    ```python
+    lib.api.exists(1)
+    ```
+
+### `find_text_by_location`
 
 `lib.api.find_text_by_location(x: float, y: float, z: float, radius: float = 1.0)`
 
@@ -276,10 +407,16 @@ lib.api.draw(text_id)
   - `y` : `float`<br>Y 坐标
   - `z` : `float`<br>Z 坐标
   - `radius` : `float`（默认 `1.0`）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`list[int]`
-- 对应 LSE： `shapeFindTextByLocation`
+- 对应 LSE 导出：`shapeFindTextByLocation`
+- 示例：
 
-#### `find_text_by_location_and_content`
+    ```python
+    lib.api.find_text_by_location(0.0, 64.0, 0.0, 1)
+    ```
+
+### `find_text_by_location_and_content`
 
 `lib.api.find_text_by_location_and_content(x: float, y: float, z: float, radius: float, text: str)`
 
@@ -289,92 +426,152 @@ lib.api.draw(text_id)
   - `z` : `float`<br>Z 坐标
   - `radius` : `float`
   - `text` : `str`<br>文本，支持 `§` 颜色码与 `{player}` 之类变量
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`int`
-- 对应 LSE： `shapeFindTextByLocationAndContent`
+- 对应 LSE 导出：`shapeFindTextByLocationAndContent`
+- 示例：
 
-#### `get_all_shape_ids`
+    ```python
+    lib.api.find_text_by_location_and_content(0.0, 64.0, 0.0, 1, "hello")
+    ```
+
+### `get_all_shape_ids`
 
 `lib.api.get_all_shape_ids()`
 
 - 参数：无
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`list[int]`
-- 对应 LSE： `shapeGetAllShapeIds`
+- 对应 LSE 导出：`shapeGetAllShapeIds`
+- 示例：
 
-#### `get_color`
+    ```python
+    lib.api.get_all_shape_ids()
+    ```
+
+### `get_color`
 
 `lib.api.get_color(shape_id: int)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`list[float]`
-- 对应 LSE： `shapeGetColor`
+- 对应 LSE 导出：`shapeGetColor`
+- 示例：
 
-#### `get_location`
+    ```python
+    lib.api.get_color(1)
+    ```
+
+### `get_location`
 
 `lib.api.get_location(shape_id: int)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`list[float]`
-- 对应 LSE： `shapeGetLocation`
+- 对应 LSE 导出：`shapeGetLocation`
+- 示例：
 
-#### `get_rotation`
+    ```python
+    lib.api.get_location(1)
+    ```
+
+### `get_rotation`
 
 `lib.api.get_rotation(shape_id: int)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`list[float]`
-- 对应 LSE： `shapeGetRotation`
+- 对应 LSE 导出：`shapeGetRotation`
+- 示例：
 
-#### `get_shape_type`
+    ```python
+    lib.api.get_rotation(1)
+    ```
+
+### `get_shape_type`
 
 `lib.api.get_shape_type(shape_id: int)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`int`
-- 对应 LSE： `shapeGetShapeType`
+- 对应 LSE 导出：`shapeGetShapeType`
+- 示例：
 
-#### `get_text`
+    ```python
+    lib.api.get_shape_type(1)
+    ```
+
+### `get_text`
 
 `lib.api.get_text(shape_id: int)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`str`
-- 对应 LSE： `shapeGetText`
+- 对应 LSE 导出：`shapeGetText`
+- 示例：
 
-#### `remove`
+    ```python
+    lib.api.get_text(1)
+    ```
+
+### `remove`
 
 `lib.api.remove(shape_id: int)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeRemove`
+- 对应 LSE 导出：`shapeRemove`
+- 示例：
 
-#### `remove_to_dimension`
+    ```python
+    lib.api.remove(1)
+    ```
+
+### `remove_to_dimension`
 
 `lib.api.remove_to_dimension(shape_id: int, dim_id: int)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
   - `dim_id` : `int`<br>维度 id
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeRemoveToDimension`
+- 对应 LSE 导出：`shapeRemoveToDimension`
+- 示例：
 
-#### `remove_to_player`
+    ```python
+    lib.api.remove_to_dimension(1, 0)
+    ```
+
+### `remove_to_player`
 
 `lib.api.remove_to_player(shape_id: int, player_name: str)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
   - `player_name` : `str`<br>玩家名（在线玩家，大小写敏感）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeRemoveToPlayer`
+- 对应 LSE 导出：`shapeRemoveToPlayer`
+- 示例：
 
-#### `set_background_color`
+    ```python
+    lib.api.remove_to_player(1, "Steve")
+    ```
+
+### `set_background_color`
 
 `lib.api.set_background_color(shape_id: int, r: float, g: float, b: float, a: float = 1.0)`
 
@@ -384,10 +581,16 @@ lib.api.draw(text_id)
   - `g` : `float`<br>绿色分量 0~1
   - `b` : `float`<br>蓝色分量 0~1
   - `a` : `float`<br>透明度 0~1（默认 `1.0`）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeSetBackgroundColor`
+- 对应 LSE 导出：`shapeSetBackgroundColor`
+- 示例：
 
-#### `set_color`
+    ```python
+    lib.api.set_background_color(1, 1, 1, 1, 1)
+    ```
+
+### `set_color`
 
 `lib.api.set_color(shape_id: int, r: float, g: float, b: float, a: float = 1.0)`
 
@@ -397,40 +600,64 @@ lib.api.draw(text_id)
   - `g` : `float`<br>绿色分量 0~1
   - `b` : `float`<br>蓝色分量 0~1
   - `a` : `float`<br>透明度 0~1（默认 `1.0`）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeSetColor`
+- 对应 LSE 导出：`shapeSetColor`
+- 示例：
 
-#### `set_depth_test`
+    ```python
+    lib.api.set_color(1, 1, 1, 1, 1)
+    ```
+
+### `set_depth_test`
 
 `lib.api.set_depth_test(shape_id: int, enabled: bool)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
   - `enabled` : `bool`<br>开 / 关
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeSetDepthTest`
+- 对应 LSE 导出：`shapeSetDepthTest`
+- 示例：
 
-#### `set_dimension`
+    ```python
+    lib.api.set_depth_test(1, "...")
+    ```
+
+### `set_dimension`
 
 `lib.api.set_dimension(shape_id: int, dim_id: int)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
   - `dim_id` : `int`<br>维度 id
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeSetDimension`
+- 对应 LSE 导出：`shapeSetDimension`
+- 示例：
 
-#### `set_duration`
+    ```python
+    lib.api.set_dimension(1, 0)
+    ```
+
+### `set_duration`
 
 `lib.api.set_duration(shape_id: int, seconds: float)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
   - `seconds` : `float`<br>持续秒数
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeSetDuration`
+- 对应 LSE 导出：`shapeSetDuration`
+- 示例：
 
-#### `set_location`
+    ```python
+    lib.api.set_duration(1, 1)
+    ```
+
+### `set_location`
 
 `lib.api.set_location(shape_id: int, x: float, y: float, z: float)`
 
@@ -439,20 +666,32 @@ lib.api.draw(text_id)
   - `x` : `float`<br>X 坐标
   - `y` : `float`<br>Y 坐标
   - `z` : `float`<br>Z 坐标
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeSetLocation`
+- 对应 LSE 导出：`shapeSetLocation`
+- 示例：
 
-#### `set_max_render_distance`
+    ```python
+    lib.api.set_location(1, 0.0, 64.0, 0.0)
+    ```
+
+### `set_max_render_distance`
 
 `lib.api.set_max_render_distance(shape_id: int, distance: float)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
   - `distance` : `float`<br>距离（格）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeSetMaxRenderDistance`
+- 对应 LSE 导出：`shapeSetMaxRenderDistance`
+- 示例：
 
-#### `set_rotation`
+    ```python
+    lib.api.set_max_render_distance(1, 1)
+    ```
+
+### `set_rotation`
 
 `lib.api.set_rotation(shape_id: int, pitch: float, yaw: float, roll: float = 0.0)`
 
@@ -461,57 +700,93 @@ lib.api.draw(text_id)
   - `pitch` : `float`<br>俯仰角（度）
   - `yaw` : `float`<br>水平朝向（度）
   - `roll` : `float`<br>翻滚角（度）（默认 `0.0`）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeSetRotation`
+- 对应 LSE 导出：`shapeSetRotation`
+- 示例：
 
-#### `set_scale`
+    ```python
+    lib.api.set_rotation(1, 1, 1, 1)
+    ```
+
+### `set_scale`
 
 `lib.api.set_scale(shape_id: int, scale: float)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
   - `scale` : `float`<br>缩放倍率，1.0 = 原始大小
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeSetScale`
+- 对应 LSE 导出：`shapeSetScale`
+- 示例：
 
-#### `set_text`
+    ```python
+    lib.api.set_scale(1, 1)
+    ```
+
+### `set_text`
 
 `lib.api.set_text(shape_id: int, text: str)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
   - `text` : `str`<br>文本，支持 `§` 颜色码与 `{player}` 之类变量
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeSetText`
+- 对应 LSE 导出：`shapeSetText`
+- 示例：
 
-#### `update`
+    ```python
+    lib.api.set_text(1, "hello")
+    ```
+
+### `update`
 
 `lib.api.update(shape_id: int)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeUpdate`
+- 对应 LSE 导出：`shapeUpdate`
+- 示例：
 
-#### `update_to_dimension`
+    ```python
+    lib.api.update(1)
+    ```
+
+### `update_to_dimension`
 
 `lib.api.update_to_dimension(shape_id: int, dim_id: int)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
   - `dim_id` : `int`<br>维度 id
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeUpdateToDimension`
+- 对应 LSE 导出：`shapeUpdateToDimension`
+- 示例：
 
-#### `update_to_player`
+    ```python
+    lib.api.update_to_dimension(1, 0)
+    ```
+
+### `update_to_player`
 
 `lib.api.update_to_player(shape_id: int, player_name: str)`
 
 - 参数：
   - `shape_id` : `int`<br>形状 id（`create_*` 的返回值）
   - `player_name` : `str`<br>玩家名（在线玩家，大小写敏感）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `shapeUpdateToPlayer`
+- 对应 LSE 导出：`shapeUpdateToPlayer`
+- 示例：
+
+    ```python
+    lib.api.update_to_player(1, "Steve")
+    ```
 
 
 ---

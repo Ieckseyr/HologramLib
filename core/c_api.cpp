@@ -1,5 +1,7 @@
 #include "core/c_api.h"
 
+#include "BlockPackets.h"
+
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -34,6 +36,7 @@
 #include "sculk/protocol/codec/packet/ActorEventPacket.hpp"
 #include "sculk/protocol/codec/packet/SetActorDataPacket.hpp"
 #include "sculk/protocol/codec/packet/UpdateBlockPacket.hpp"
+#include "sculk/protocol/codec/packet/UpdateSubChunkBlocksPacket.hpp"
 #include "sculk/protocol/codec/packet/AnimateEntityPacket.hpp"
 #include "sculk/protocol/codec/packet/BossEventPacket.hpp"
 #include "sculk/protocol/codec/packet/MobEffectPacket.hpp"
@@ -435,7 +438,7 @@ int32_t holo_core_encode_animate_entity(
 }
 
 uint32_t holo_core_packet_id_update_block(void) {
-    return static_cast<uint32_t>(sculk::protocol::MinecraftPacketIds::UpdateBlock);
+    return core::blocks::updateBlockPacketId();
 }
 
 int32_t holo_core_encode_update_block(
@@ -447,13 +450,32 @@ int32_t holo_core_encode_update_block(
     uint32_t  layer,
     uint8_t** out_body,
     size_t*   out_len) {
-    sculk::protocol::UpdateBlockPacket packet;
-    packet.mBlockPosition = sculk::protocol::BlockPos{x, y, z};
-    packet.mRuntimeId     = runtime_id;
-    packet.mFlag          = flag;
-    packet.mLayer         = layer;
+    auto const encoded = core::blocks::buildUpdateBlockBody(x, y, z, runtime_id, flag, layer);
+    return copyOut(encoded, out_body, out_len);
+}
 
-    auto const encoded = debugshape_export::codec::body(packet);
+uint32_t holo_core_packet_id_update_subchunk_blocks(void) {
+    return core::blocks::updateSubChunkBlocksPacketId();
+}
+
+int32_t holo_core_encode_update_subchunk_blocks(
+    int32_t                  sub_x,
+    int32_t                  sub_y,
+    int32_t                  sub_z,
+    const holo_block_change* blocks,
+    size_t                   count,
+    uint8_t**                out_body,
+    size_t*                  out_len) {
+    std::vector<core::blocks::ChangeEntry> changes;
+    if (blocks != nullptr) {
+        changes.reserve(count);
+        for (size_t i = 0; i < count; ++i) {
+            changes.push_back(core::blocks::ChangeEntry{
+                blocks[i].x, blocks[i].y, blocks[i].z, blocks[i].runtime_id,
+                blocks[i].flags, blocks[i].sync_entity, blocks[i].sync_message});
+        }
+    }
+    auto const encoded = core::blocks::buildUpdateSubChunkBlocksBody(sub_x, sub_y, sub_z, changes);
     return copyOut(encoded, out_body, out_len);
 }
 

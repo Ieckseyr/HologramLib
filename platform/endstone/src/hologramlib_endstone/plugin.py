@@ -19,7 +19,6 @@ from .gradients import GradientApi
 from .itemdetail import ItemDetailApi
 from .itemactor import ItemActorApi
 from .itemdisplay import ItemDisplayApi
-from .locatorbar import LocatorBarApi
 from .playerrespawn import PlayerRespawnApi
 from .hud import HudApi
 from .holograms import HologramApi
@@ -110,7 +109,6 @@ class _PlayerListener:
         self._plugin.holograms.forget(event.player.name)
         self._plugin.bossbars.forget(event.player.name)
         self._plugin.sidebar.forget(event.player.name)
-        self._plugin.locatorbar.forget(event.player.name)
 
 
 HOLO_API_VERSION = "1.35.0"  # 库自身 API 版本，与 LL 版 HOLOGLIB_API_VERSION 对齐

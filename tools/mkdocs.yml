@@ -207,7 +207,6 @@ nav:
           - 客户端感知: lse/sensing.md
           - 掉落物生成: lse/item-actor.md
           - 表单控制: lse/form.md
-          - 方位条: lse/locator-bar.md
           - 隐身: lse/visibility.md
           - Boss 条与 HUD 显隐: lse/hud.md
           - 实体表现事件: lse/actor-effect.md
@@ -215,8 +214,10 @@ nav:
           - 彩蛋：朋友的⑨: lse/easter-egg.md
           - 死亡后的复活: lse/respawn.md
           - 侧边栏计分板: lse/sidebar.md
+          - 方位条（暂不可用）: lse/locator-bar.md
   - Endstone:
       - 总览: endstone/index.md
+      - C++ 接口: endstone/cpp-api.md
       - 按域指南:
           - 形状: endstone/shape.md
           - 悬浮字: endstone/hologram.md
@@ -227,7 +228,6 @@ nav:
           - HUD 显隐: endstone/hud.md
           - 玩家表现: endstone/player-effect.md
           - Actor 表现: endstone/actor-effect.md
-          - 定位条: endstone/locator-bar.md
           - 假方块: endstone/fake-block.md
           - 表单: endstone/form.md
           - 物品详情: endstone/item-detail.md
@@ -284,7 +284,6 @@ nav:
       - 客户端感知: domains/sensing.md
       - 掉落物: domains/item-actor.md
       - 表单控制: domains/form.md
-      - 方位条: domains/locator-bar.md
       - 隐身: domains/visibility.md
   - 更新日志: versions/changelog.md
 markdown_extensions:

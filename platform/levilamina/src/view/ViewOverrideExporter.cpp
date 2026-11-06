@@ -255,6 +255,30 @@ void ViewOverrideExporter::exportAll() {
                                    return view::ViewOverrideManager::getInstance().clearEntity({}, uniqueId);
                                });
 
+    // 1.36.0：读真实实体信息
+    hologramlib::lse::exportAs(NAMESPACE, "viewEntityInfo", [](int64_t uniqueId) -> std::string {
+        auto const info = view::ViewOverrideManager::getInstance().queryEntity(uniqueId);
+        if (info.identifier.empty())
+            return std::string{};
+        return std::format(
+            "identifier={} nameTag='{}' hasNameTag={} isPlayer={} health={:.1f}",
+            info.identifier,
+            info.nameTag,
+            info.hasNameTag,
+            info.isPlayer,
+            info.health
+        );
+    });
+
+    // 1.36.0：把覆盖参数对齐到真实实体（类型 + 名字）
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "viewAlign",
+        [](std::string const& playerName, int64_t uniqueId) -> bool {
+            return view::ViewOverrideManager::getInstance().alignEntity(playerName, uniqueId);
+        }
+    );
+
     hologramlib::lse::exportAs(NAMESPACE, "viewMetaProbe",
                                [](std::string const& spec) -> std::string {
                                    return view::describeMetaItems(parseEntitySpec(spec));

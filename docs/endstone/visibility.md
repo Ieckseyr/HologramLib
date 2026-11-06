@@ -4,7 +4,7 @@
 
 底层与视角覆盖共用一套出站过滤，所以两者会叠加。
 
-## 快速上手
+## 快速开始
 
 ```python
 lib.visibility.set_hidden("Steve", True)
@@ -12,46 +12,70 @@ lib.visibility.set_mask("Steve", spawn=True, tab=True, motion=True, state=True, 
 lib.visibility.restore("Steve")
 ```
 
-## 函数（5 个）
+## 函数
 
-#### `get_mask`
+### `get_mask`
 
 `lib.visibility.get_mask(player_name: str)`
 
 - 参数：
   - `player_name` : `str`<br>玩家名（在线玩家，大小写敏感）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`int`
-- 对应 LSE： `playerHideGetMask`
+- 对应 LSE 导出：`playerHideGetMask`
+- 示例：
 
-#### `is_hidden`
+    ```python
+    lib.visibility.get_mask("Steve")
+    ```
+
+### `is_hidden`
 
 `lib.visibility.is_hidden(player_name: str)`
 
 - 参数：
   - `player_name` : `str`<br>玩家名（在线玩家，大小写敏感）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `playerHideIsHidden`
+- 对应 LSE 导出：`playerHideIsHidden`
+- 示例：
 
-#### `restore`
+    ```python
+    lib.visibility.is_hidden("Steve")
+    ```
+
+### `restore`
 
 `lib.visibility.restore(player_name: str)`
 
 - 参数：
   - `player_name` : `str`<br>玩家名（在线玩家，大小写敏感）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `playerHideRestore`
+- 对应 LSE 导出：`playerHideRestore`
+- 示例：
 
-#### `set_hidden`
+    ```python
+    lib.visibility.restore("Steve")
+    ```
+
+### `set_hidden`
 
 `lib.visibility.set_hidden(player_name: str, hidden: bool)`
 
 - 参数：
   - `player_name` : `str`<br>玩家名（在线玩家，大小写敏感）
   - `hidden` : `bool`<br>是否隐藏
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `playerHideSetHidden`
+- 对应 LSE 导出：`playerHideSetHidden`
+- 示例：
 
-#### `set_mask`
+    ```python
+    lib.visibility.set_hidden("Steve", "...")
+    ```
+
+### `set_mask`
 
 `lib.visibility.set_mask(player_name: str, spawn: bool, tab: bool, motion: bool, state: bool, skin: bool, also_self: bool = False)`
 
@@ -63,8 +87,14 @@ lib.visibility.restore("Steve")
   - `state` : `bool`
   - `skin` : `bool`
   - `also_self` : `bool`（默认 `False`）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `playerHideSetMask`
+- 对应 LSE 导出：`playerHideSetMask`
+- 示例：
+
+    ```python
+    lib.visibility.set_mask("Steve", "...", "...", "...", "minecraft:stone", "...", "...")
+    ```
 
 
 ---

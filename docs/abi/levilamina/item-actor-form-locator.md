@@ -1,8 +1,7 @@
-# 1.17 IItemActor / IFormControl / ILocatorBar
 
 完整签名（`#include "HologramLib/HologramLib.h"`）：
 
-四个接口都很小，各自的说明见 [掉落物](../../domains/item-actor.md) / [表单控制](../../domains/form.md) / [方位条](../../domains/locator-bar.md) / [隐身](../../domains/visibility.md)，这里只列签名。
+四个接口都很小，各自的说明见 [掉落物](../../domains/item-actor.md) / [表单控制](../../domains/form.md) / [隐身](../../domains/visibility.md)，这里只列签名。
 
 **IItemActor** —— 协议层掉落物（`AddItemActor` / `SetActorMotion` / `TakeItemActor` / `RemoveActor`）：
 
@@ -34,10 +33,8 @@ bool closeForm(std::string const& playerName);
 int  closeAllForms();
 ```
 
-**ILocatorBar** —— 方位条航点（`LocatorBar`）：
 
 ```cpp
-ILocatorBar& locatorBar();
 bool setWaypoint(playerName, key, x, y, z, dimension, color = -1, visible = true);
 bool removeWaypoint(playerName, key);
 int  clearWaypoints(playerName);
@@ -62,7 +59,6 @@ PlayerPacketMask maskOf(playerName) const;
 bool isHidden(playerName) const;
 ```
 
-### 1.33.0 追加：IBossBar / IHud / ILocatorBarExt / IActorEffect
 
 四个接口都追加在头文件尾部（`HologramLib.h` 里 `IHologramLib` 之前），访问器追加在 `IHologramLib` 尾部。
 
@@ -70,7 +66,6 @@ bool isHidden(playerName) const;
 |------|--------|------|
 | `IBossBar` | `bossBars()` | `add(playerName, title, healthPercent, color, overlays)` / `setTitle` / `setHealth` / `setStyle` / `remove` / `removeAll` / `count` |
 | `IHud` | `hud()` | `setElement(playerName, HudElement, visible)` / `setElements(playerName, mask, visible)` / `resetAll(playerName)` |
-| `ILocatorBarExt` | `locatorBarExt()` | `setIcon` / `setIconSize` / `attachEntity` / `clearAttach` / `setGroup` |
 | `IActorEffect` | `actorEffects()` | `playHurt(runtimeId)` / `playDeath` / `playInstantDeath` / `play(runtimeId, eventId, data)` |
 | `ISidebar` | `sidebar()` | `set(playerName, title, lines)` / `setTitle` / `setLine` / `remove` / `removeAll` / `isShown` / `lineCount` |
 

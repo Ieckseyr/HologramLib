@@ -4,7 +4,7 @@
 
 只在 `start()` 之后才挂监听，不抓包时没有额外开销。
 
-## 快速上手
+## 快速开始
 
 ```python
 lib.wire.start("debug")
@@ -14,81 +14,135 @@ print(lib.wire.dump())
 lib.wire.stop()
 ```
 
-## 函数（9 个）
+## 函数
 
-#### `clear`
+### `clear`
 
 `lib.wire.clear()`
 
 - 参数：无
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `wireResetStats`
+- 对应 LSE 导出：`wireResetStats`
+- 示例：
 
-#### `stats`
+    ```python
+    lib.wire.clear()
+    ```
+
+### `stats`
 
 `lib.wire.stats()`
 
 - 参数：无
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`str`
-- 对应 LSE： `wireStats`
+- 对应 LSE 导出：`wireStats`
+- 示例：
 
-#### `is_active`
+    ```python
+    lib.wire.stats()
+    ```
+
+### `is_active`
 
 `lib.wire.is_active()`
 
 - 参数：无
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `wireTraceActive`
+- 对应 LSE 导出：`wireTraceActive`
+- 示例：
 
-#### `clear`
+    ```python
+    lib.wire.is_active()
+    ```
+
+### `clear`
 
 `lib.wire.clear()`
 
 - 参数：无
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `wireTraceClear`
+- 对应 LSE 导出：`wireTraceClear`
+- 示例：
 
-#### `count`
+    ```python
+    lib.wire.clear()
+    ```
+
+### `count`
 
 `lib.wire.count()`
 
 - 参数：无
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`int`
-- 对应 LSE： `wireTraceCount`
+- 对应 LSE 导出：`wireTraceCount`
+- 示例：
 
-#### `dump`
+    ```python
+    lib.wire.count()
+    ```
+
+### `dump`
 
 `lib.wire.dump()`
 
 - 参数：无
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`str`
-- 对应 LSE： `wireTraceDump`
+- 对应 LSE 导出：`wireTraceDump`
+- 示例：
 
-#### `mark`
+    ```python
+    lib.wire.dump()
+    ```
+
+### `mark`
 
 `lib.wire.mark(tag: str)`
 
 - 参数：
   - `tag` : `str`
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `wireTraceMark`
+- 对应 LSE 导出：`wireTraceMark`
+- 示例：
 
-#### `start`
+    ```python
+    lib.wire.mark("...")
+    ```
+
+### `start`
 
 `lib.wire.start(tag: str = 'default')`
 
 - 参数：
   - `tag` : `str`（默认 `'default'`）
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `wireTraceStart`
+- 对应 LSE 导出：`wireTraceStart`
+- 示例：
 
-#### `stop`
+    ```python
+    lib.wire.start("...")
+    ```
+
+### `stop`
 
 `lib.wire.stop()`
 
 - 参数：无
+- 返回值：成功返回对应结果，失败返回 `-1` / `false` / 空串（见对应 LSE 导出）
 - 返回值类型：`bool`
-- 对应 LSE： `wireTraceStop`
+- 对应 LSE 导出：`wireTraceStop`
+- 示例：
+
+    ```python
+    lib.wire.stop()
+    ```
 
 
 ---

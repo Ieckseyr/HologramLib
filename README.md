@@ -12,7 +12,7 @@ HologramLib 是基岩版服务端（LeviLamina / BDS）的**协议层显示库**
 | | |
 |---|---|
 | 插件版本 | `26.60.1` |
-| API 版本 | `1.35.0`（`HOLOGLIB_API_VERSION 0x012900`） |
+| API 版本 | `1.36.0`（`HOLOGLIB_API_VERSION 0x012A00`） |
 | 运行平台 | LeviLamina 26.60 · BDS 1.26.60（协议 2225） / Endstone 0.11（同一 BDS 进程） |
 | 对外接口 | 唯一公开头 `include/hologramlib/HologramLib.h`（28 个接口 / 405 槽）+ LSE 命名空间 `HologramLib`（444 个导出）。26.60.1 新增：死亡动画后的复活 `IPlayerRespawn`（补发 `RespawnPacket`，解决客户端卡死亡界面）、容器预览、表现事件阻断，以及 LSE 导出面补全（粒子查询/可见性、真实实体交互事件 `actor*`、`containerUpdate` / `tradeUpdate`）；26.60.0 新增：26.60 平台适配（字段级编码重写、发包审计 `wireTrace*`）+ 假实体 runtimeId 查询 |
 | 脚本前置 | `lrca`（LegacyRemoteCall，**可选安装**）：不装时导出调用是安全空操作，C++ 接口不受影响 |
@@ -150,7 +150,7 @@ lip install github.com/Ieckseyr/HologramLib
 | 编号 | 位置 | 用途 |
 |---|---|---|
 | 插件版本 | `manifest.json` 的 `version` | 部署用，与 git tag 同名（形如 `26.60.1`） |
-| API 版本 | 本文档上方的 `1.35.0` | 人读的能力版本 |
+| API 版本 | 本文档上方的 `1.36.0` | 人读的能力版本 |
 | `HOLOGLIB_API_VERSION` | `include/hologramlib/HologramLib.h` | 代码里唯一的版本依据，`0x012900` |
 
 三者的完整对应表、编码规律，以及两次 API 收缩的原因，见 [版本与 ABI 对照](docs/versions/api-version-matrix.md)。

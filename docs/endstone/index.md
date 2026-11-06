@@ -72,6 +72,19 @@ class MyPlugin(Plugin):
 
 两边**字节同源**：同一个形状、同一个悬浮字，在两个平台发出的包体完全一致。
 
+## 查 API 版本
+
+```python
+api = lib.holo_api_version          # "1.35.0"
+major, minor, patch = (int(x) for x in api.split("."))
+if (major, minor) >= (1, 36):
+    lib.fakeblock.set_many_near(...)  # 1.36.0 起才有的接口
+else:
+    lib.logger.info(f"版本 {api} 不支持批量靠近切换，跳过")
+```
+
+`lib.holo_api_version` 是字符串；LSE 的 `holoApiVersion()` 是整数（`0x012900`），两边是同一个版本的不同表示。
+
 ## 按域指南
 
 | 域 | 条目 |
@@ -85,7 +98,6 @@ class MyPlugin(Plugin):
 | [HUD 显隐](hud.md) | 5 |
 | [玩家表现](player-effect.md) | 5 |
 | [Actor 表现](actor-effect.md) | 25 |
-| [定位条](locator-bar.md) | 14 |
 | [假方块](fake-block.md) | 5 |
 | [表单](form.md) | 2 |
 | [物品详情](item-detail.md) | 2 |

@@ -7,6 +7,7 @@
 
 | 发布版本 | API | 协议线 | 主要内容 | 新增导出 | C++ 消费方 |
 |---|---|---|---|---|---|
+| `26.60.3` | 1.36.0 | 26.60 | **ABI 破坏性变更**：移除方位条 `ILocatorBar` / `ILocatorBarExt`（虚表少 2 个访问器）与 14 个 `locatorBar*` LSE 导出、endstone `locatorbar` 模块；`IViewOverride` 尾部追加 `queryEntity` / `alignEntity`；LSE 新增批量假方块 `blockBatch*`（含靠近切硫磺立方体）、`viewEntityInfo` / `viewAlign`。**调用方必须重新编译**（虚表布局变化）。 | 6 | **必须重新编译**（虚表布局改变，非尾部追加） |
 | `26.60.2` | 1.35.0 | 26.60 | **双平台拆分**：`core/`（协议编码 + C ABI）与 `platform/levilamina`、`platform/endstone` 两个外壳；endstone 端落地 **444 个导出**（404 真实生效 / 40 受限）；`holo_core.dll` 导出 67 个 C 符号供三方共用；`build.cmd` 一次构建两个产物；文档站重构；新增 20 个 **LSE 入口**（接口层未变）。**C++ 行为与 ABI 未变。** | 20 | 无需重新编译（API 1.35.0 未变） |
 | `26.60.1` | 1.35.0 | 26.60 | 死亡动画后的复活 `IPlayerRespawn`（补发 `RespawnPacket`）、容器预览 `containerPreview`、附魔条目 `containerSetItemEnchanted`、表现事件阻断 `actorBlock*`、假实体 runtimeId 查询；**LSE 导出面补全**（particle 查询/可见性 5 个、真实实体交互事件 `actor*` 2 个、`containerUpdate` / `tradeUpdate`）；内部重构（PlayerIndex、统一发包出口、全库注释清零）。 | 27 | **需重新编译**（新增 3 个接口，尾部追加，`HOLOGLIB_ABI_STAMP` 仍为 1） |
 | `26.60.0` | 1.34.0 | 26.60 | 26.60 平台适配：字段级编码重写、NPC 对话载体修正、发包审计 `wireTrace*`、虚假实体 runtimeId 查询 | 10 | **需重新编译**（新增 1 个接口；尾部追加，`HOLOGLIB_ABI_STAMP` 仍为 1） |
@@ -17,6 +18,49 @@
 | `26.40.10` / `26.51.3` | 1.29.0 | 26.40 · 26.51 | 视图覆盖补齐 `AddItemActor` 拦截、姿态/缩放/变种/颜色；修复元数据 tick | 1（`viewItemSpawnHooked`） | 需重新编译（`EntityView` 结构体变大） |
 | `26.40.9` | 1.27.0 | 26.40 | `EntityView::skinId`（同 id 换模型）、真实实体交互事件、ABI 布局戳 | 类方法 | 需重新编译（虚表追加） |
 | `26.40.8` | 1.26.0 | 26.40 | 逐观看者覆盖、四个界面域 | 若干 | 需重新编译 |
+
+
+## 26.60.3 — API 1.36.0（方位条移除 / ABI 破坏 / 批量假方块）
+
+这一版**改了公开头文件的虚表布局**，属于 ABI 破坏性变更。
+
+### ⚠️ ABI 变更：必须重新编译
+
+`IHologramLib` 上删除了两个访问器：
+
+```cpp
+- virtual ILocatorBar&    locatorBar()    = 0;
+- virtual ILocatorBarExt& locatorBarExt() = 0;
+```
+
+虚表从"尾部追加"变成了"中间删除"，**所有按旧头文件编译的 C++ 消费方（LL 插件 / DLL）必须重新编译**，
+否则调用 `IHologramLib` 上的任何方法都可能跳到错的槽位。
+`HOLOGLIB_ABI_STAMP` 仍为 1，但这一版**不能只靠握手判断兼容**；请以 `HOLOGLIB_API_VERSION`（`0x012A00`）为准并重编。
+
+### 移除
+
+- 接口：`ILocatorBar`、`ILocatorBarExt`（头文件 + 两个访问器）
+- LL：`LocatorBarManager`、两个适配器、`locatorbar` / `locatorbarExt` 域
+- LSE 导出：`locatorBarSet` / `SetEx` / `SetIcon` / `SetIconSize` / `AttachEntity` / `ClearAttach` /
+  `SetGroup` / `SyncGroup` / `Remove` / `Clear` / `Count` / `HideFromOthers` / `IsHiddenFromOthers`（14 个）
+- endstone：`locatorbar.py`、`LocatorBarApi`、相关测试用例与文档页
+- 原因：客户端方位条只在有真实玩家时出现，插件层没有可靠办法创建客户端认可的锚点
+  （`ServerWaypoint` / `ServerWaypointGroup` 构造未导出），详见 [方位条](../lse/locator-bar.md)
+
+### 新增
+
+- `IViewOverride::queryEntity(uniqueId)` → `EntityInfo`（identifier / 名字 / 是否玩家 / 血量）
+- `IViewOverride::alignEntity(playerName, uniqueId)`：把视图覆盖参数对齐到真实实体
+- LSE：`viewEntityInfo`、`viewAlign`
+- LSE：`blockBatchSet` / `SetAll` / `SetNear` / `Clear` / `Stats` / `Progress` / `SelfTest`
+  （批量假方块，按子区块合并成 `UpdateSubChunkBlocks`；`SetNear` 靠近时切成硫磺立方体，可隐身）
+
+### 文档
+
+- `locator-bar.md` 改为"当前没有可用的实现"，写清限制与原因
+- 新增 `docs/internal/文档站编写准则.md`（内部，不上站不入库）
+- endstone 全部域页按 LSE 风格重排（接口先讲用途，再参数 / 返回值 / 示例）
+- 新增 `docs/endstone/cpp-api.md`：endstone 的 C++ ABI 使用说明
 
 ## 26.60.2 — API 1.35.0（双平台拆分 / endstone 端 / ABI）
 

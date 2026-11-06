@@ -2,7 +2,6 @@
 
 #include "../visibility/PlayerVisibilityManager.h"
 #include "FormControlManager.h"
-#include "LocatorBarManager.h"
 
 #include "lse/LseBridge.h"
 
@@ -27,54 +26,6 @@ void FormControlExporter::exportAll() {
     });
 }
 
-void LocatorBarExporter::exportAll() {
-    auto& mgr = LocatorBarManager::getInstance();
-
-    hologramlib::lse::exportAs(
-        NAMESPACE,
-        "locatorBarSet",
-        [&mgr](
-            std::string const& playerName,
-            std::string const& key,
-            float              x,
-            float              y,
-            float              z,
-            int                dim,
-            int                color,
-            bool               visible) -> bool {
-            return mgr.setWaypoint(playerName, key, x, y, z, dim, color, visible);
-        });
-
-    hologramlib::lse::exportAs(
-        NAMESPACE, "locatorBarRemove", [&mgr](std::string const& playerName, std::string const& key) -> bool {
-            return mgr.removeWaypoint(playerName, key);
-        });
-
-    hologramlib::lse::exportAs(
-        NAMESPACE, "locatorBarClear", [&mgr](std::string const& playerName) -> int {
-            return mgr.clearWaypoints(playerName);
-        });
-
-    hologramlib::lse::exportAs(
-        NAMESPACE,
-        "locatorBarHideFromOthers",
-        [&mgr](std::string const& playerName, bool hidden) -> bool {
-            return mgr.hideFromOthers(playerName, hidden);
-        });
-
-    hologramlib::lse::exportAs(
-        NAMESPACE,
-        "locatorBarIsHiddenFromOthers",
-        [&mgr](std::string const& playerName) -> bool {
-            return mgr.isHiddenFromOthers(playerName);
-        });
-
-    hologramlib::lse::exportAs(
-        NAMESPACE, "locatorBarCount", [&mgr](std::string const& playerName) -> int {
-            return mgr.waypointCount(playerName);
-        });
-}
-
 namespace {
 
 class FormControlAdapter final : public hologramlib::IFormControl {
@@ -85,45 +36,10 @@ public:
     int closeAllForms() override { return FormControlManager::getInstance().closeAllForms(); }
 };
 
-class LocatorBarAdapter final : public hologramlib::ILocatorBar {
-public:
-    bool setWaypoint(
-        std::string const& playerName,
-        std::string const& key,
-        float              x,
-        float              y,
-        float              z,
-        int                dimension,
-        int                color,
-        bool               visible) override {
-        return LocatorBarManager::getInstance().setWaypoint(playerName, key, x, y, z, dimension, color, visible);
-    }
-    bool removeWaypoint(std::string const& playerName, std::string const& key) override {
-        return LocatorBarManager::getInstance().removeWaypoint(playerName, key);
-    }
-    int clearWaypoints(std::string const& playerName) override {
-        return LocatorBarManager::getInstance().clearWaypoints(playerName);
-    }
-    [[nodiscard]] int waypointCount(std::string const& playerName) const override {
-        return LocatorBarManager::getInstance().waypointCount(playerName);
-    }
-    bool hideFromOthers(std::string const& playerName, bool hidden) override {
-        return LocatorBarManager::getInstance().hideFromOthers(playerName, hidden);
-    }
-    [[nodiscard]] bool isHiddenFromOthers(std::string const& playerName) const override {
-        return LocatorBarManager::getInstance().isHiddenFromOthers(playerName);
-    }
-};
-
 } // namespace
 
 hologramlib::IFormControl& formControlAdapter() {
     static FormControlAdapter adapter;
-    return adapter;
-}
-
-hologramlib::ILocatorBar& locatorBarAdapter() {
-    static LocatorBarAdapter adapter;
     return adapter;
 }
 

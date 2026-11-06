@@ -1,6 +1,6 @@
 # Endstone API 索引
 
-全部 **444** 个导出，按域列出；点方法名进到对应域页的那一节，
+全部 **430** 个导出，按域列出；点方法名进到对应域页的那一节，
 每个方法都有签名、参数、返回类型与对应的 LSE 导出名。
 
 命名规则：方法名 = LSE 导出名去掉域前缀后转 `snake_case`，域前缀对应插件属性（`lib.holograms`、`lib.entities` …）。
@@ -213,25 +213,6 @@
 - [`unfreeze`](actor-effect.md#unfreeze) — `lib.actoreffect.unfreeze(...)` ← `actorUnfreeze`
 - [`creeper_display`](actor-effect.md#creeper_display) — `lib.actoreffect.creeper_display(...)` ← `easterEggCreeper`
 - [`easter_egg`](actor-effect.md#easter_egg) — `lib.itemdisplay.easter_egg(...)` ← `easterEggCreeperDisplay`
-
-## 定位条（14）
-
-页面：[定位条](locator-bar.md)
-
-- [`attach_entity`](locator-bar.md#attach_entity) — `lib.locatorbar.attach_entity(...)` ← `locatorBarAttachEntity`
-- [`clear`](locator-bar.md#clear) — `lib.locatorbar.clear(...)` ← `locatorBarClear`
-- [`clear_attach`](locator-bar.md#clear_attach) — `lib.locatorbar.clear_attach(...)` ← `locatorBarClearAttach`
-- [`count`](locator-bar.md#count) — `lib.locatorbar.count(...)` ← `locatorBarCount`
-- [`hide_from_others`](locator-bar.md#hide_from_others) — `lib.locatorbar.hide_from_others(...)` ← `locatorBarHideFromOthers`
-- [`is_hidden_from_others`](locator-bar.md#is_hidden_from_others) — `lib.locatorbar.is_hidden_from_others(...)` ← `locatorBarIsHiddenFromOthers`
-- [`remove`](locator-bar.md#remove) — `lib.locatorbar.remove(...)` ← `locatorBarRemove`
-- [`set`](locator-bar.md#set) — `lib.locatorbar.set(...)` ← `locatorBarSet`
-- [`set_client_authority`](locator-bar.md#set_client_authority) — `lib.locatorbar.set_client_authority(...)` ← `locatorBarSetClientAuthority`
-- [`set_ex`](locator-bar.md#set_ex) — `lib.locatorbar.set_ex(...)` ← `locatorBarSetEx`
-- [`set_group`](locator-bar.md#set_group) — `lib.locatorbar.set_group(...)` ← `locatorBarSetGroup`
-- [`set_icon`](locator-bar.md#set_icon) — `lib.locatorbar.set_icon(...)` ← `locatorBarSetIcon`
-- [`set_icon_size`](locator-bar.md#set_icon_size) — `lib.locatorbar.set_icon_size(...)` ← `locatorBarSetIconSize`
-- [`sync_group`](locator-bar.md#sync_group) — `lib.locatorbar.sync_group(...)` ← `locatorBarSyncGroup`
 
 ## 假方块（5）
 

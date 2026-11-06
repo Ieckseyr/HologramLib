@@ -1,66 +1,186 @@
 # Boss 条与 HUD 显隐
 
-两个独立的客户端界面能力，都只发包，不需要服务端实体。
+两组客户端界面能力，都只发包，不需要服务端实体。
 
-## Boss 条（bossBar*）
+## 快速开始
 
 ```js
-const { BossBar } = require("mods/HologramLib/lib/HologramLib.js");
+const { BossBar, Hud } = require("mods/HologramLib/lib/HologramLib.js");
 
-// 给 Steve 建一条 Boss 条（血量 65%，紫色，普通进度条）
+// Boss 条：65% 血量、紫色、普通进度条
 const id = BossBar.add("Steve", "深渊守卫者", 0.65, 5, 0);
-
-// 掉血
 BossBar.setHealth(id, 0.3);
-// 改名
 BossBar.setTitle(id, "深渊守卫者 · 狂暴");
-// 换样式（颜色 3=绿，样式 2=十格）
-BossBar.setStyle(id, 3, 2);
-// 删除
 BossBar.remove(id);
+
+// HUD：藏准星和快捷栏
+Hud.setElement("Steve", 4, false);
+Hud.setElement("Steve", 5, false);
 ```
 
-| 函数 | 返回 | 说明 |
-|---|---|---|
-| `bossBarAdd(playerName, title, healthPercent, color, overlay)` | `Integer` | 创建；`healthPercent` 是 0.0~1.0 的比例；失败 `-1` |
-| `bossBarSetTitle(id, title)` | `Boolean` | 改名 |
-| `bossBarSetHealth(id, healthPercent)` | `Boolean` | 改血量比例（自动夹到 0~1） |
-| `bossBarSetStyle(id, color, overlay)` | `Boolean` | 改颜色与样式 |
-| `bossBarRemove(id)` | `Boolean` | 删除 |
-| `bossBarRemoveAll(playerName)` | `Null` | 删除该玩家全部 Boss 条 |
-| `bossBarCount(playerName)` | `Integer` | 该玩家当前条数 |
+## Boss 条
 
-颜色（`color`）：`0` 粉 · `1` 蓝 · `2` 红 · `3` 绿 · `4` 黄 · `5` 紫 · `6` 品红 · `7` 白
-样式（`overlay`）：`0` 进度条 · `1` 六格 · `2` 十格 · `3` 十二格 · `4` 二十格
+### 给玩家建一条 Boss 条
 
-**每条只属于一名玩家**：给所有人看要对每名在线玩家各建一条。
+`bossBarAdd(playerName, title, healthPercent, color, overlay)`
 
-Boss 条的 target 必须是一个客户端认识的真实实体，所以建条时库会在玩家所在维度的虚空里（`y = -120`，世界底部之外）放一只 `minecraft:structure_void` 的无模型掉落物当锚点，删除时一并回收。这样既不占玩家视野，也能让客户端把条画出来。
+- 参数：
+  - `playerName` : `String`<br>玩家名（在线，大小写敏感）
+  - `title` : `String`<br>显示名，支持 `§` 颜色码
+  - `healthPercent` : `Float`<br>血量比例 `0.0 ~ 1.0`（`0.65` = 65%）
+  - `color` : `Integer`<br>`0` 粉 · `1` 蓝 · `2` 红 · `3` 绿 · `4` 黄 · `5` 紫 · `6` 品红 · `7` 白
+  - `overlay` : `Integer`<br>`0` 进度条 · `1` 六格 · `2` 十格 · `3` 十二格 · `4` 二十格
+- 返回值：库内 Boss 条 id；失败返回 `-1`
+- 返回值类型：`Integer`
+- 示例：
 
-## HUD 显隐（hud*）
+    ```js
+    const add = ll.import("HologramLib", "bossBarAdd");
+    const id = add("Steve", "深渊守卫者", 0.65, 5, 0);
+    ```
 
-```js
-const { Hud } = require("mods/HologramLib/lib/HologramLib.js");
+### 改标题
 
-Hud.setElement("Steve", 4, false);   // 藏准星
-Hud.setElement("Steve", 5, false);   // 藏快捷栏
-Hud.setElement("Steve", 0, false);   // 藏纸娃娃（右上角小人）
-Hud.setElement("Steve", 3, false);   // 藏触屏摇杆
+`bossBarSetTitle(id, title)`
 
-// 一次藏多个：bit0=纸娃娃 bit4=准星 bit5=快捷栏 bit6=血条
-Hud.setElements("Steve", (1 << 0) | (1 << 4) | (1 << 5) | (1 << 6), false);
+- 参数：
+  - `id` : `Integer`<br>`bossBarAdd` 返回的 id
+  - `title` : `String`<br>新显示名
+- 返回值：`true` 已改；id 不存在返回 `false`
+- 返回值类型：`Boolean`
+- 示例：
 
-// 全部恢复默认
-Hud.resetAll("Steve");
-```
+    ```js
+    ll.import("HologramLib", "bossBarSetTitle")(id, "深渊守卫者 · 狂暴");
+    ```
 
-| 函数 | 返回 | 说明 |
-|---|---|---|
-| `hudSetElement(playerName, element, visible)` | `Boolean` | `visible=false` 只藏这一个元素（其余保留），`true` 恢复默认 |
-| `hudSetElements(playerName, mask, visible)` | `Integer` | `visible=false` 时掩码里的元素**保留**、其余隐藏，返回被隐藏的个数 |
-| `hudResetAll(playerName)` | `Boolean` | 13 项全部恢复默认 |
+### 改血量比例
 
-13 个元素（`element` 与掩码位一致）：
+`bossBarSetHealth(id, healthPercent)`
+
+- 参数：
+  - `id` : `Integer`<br>Boss 条 id
+  - `healthPercent` : `Float`<br>新比例，内部自动夹到 `0 ~ 1`
+- 返回值：`true` 已改，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "bossBarSetHealth")(id, 0.3);
+    ```
+
+### 改颜色与样式
+
+`bossBarSetStyle(id, color, overlay)`
+
+- 参数：
+  - `id` : `Integer`<br>Boss 条 id
+  - `color` : `Integer`<br>颜色枚举，同 `bossBarAdd`
+  - `overlay` : `Integer`<br>样式枚举，同 `bossBarAdd`
+- 返回值：`true` 已改，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "bossBarSetStyle")(id, 3, 2);
+    ```
+
+### 删除一条
+
+`bossBarRemove(id)`
+
+- 参数：
+  - `id` : `Integer`<br>Boss 条 id
+- 返回值：`true` 已删除（锚点实体一并回收），失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "bossBarRemove")(id);
+    ```
+
+### 删除该玩家全部 Boss 条
+
+`bossBarRemoveAll(playerName)`
+
+- 参数：
+  - `playerName` : `String`<br>玩家名
+- 返回值：无
+- 返回值类型：`Null`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "bossBarRemoveAll")("Steve");
+    ```
+
+### 查询条数
+
+`bossBarCount(playerName)`
+
+- 参数：
+  - `playerName` : `String`<br>玩家名
+- 返回值：该玩家当前 Boss 条数量
+- 返回值类型：`Integer`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "bossBarCount")("Steve");
+    ```
+
+**每条只属于一名玩家**：要给所有人看，就对每名在线玩家各建一条。
+
+Boss 条的 target 必须是客户端认识的真实实体，所以建条时库会在玩家所在维度的虚空里（`y = -120`）放一只 `minecraft:structure_void` 的无模型掉落物当锚点，删除时一并回收。
+
+## HUD 显隐
+
+### 显示或隐藏单个元素
+
+`hudSetElement(playerName, element, visible)`
+
+- 参数：
+  - `playerName` : `String`<br>玩家名
+  - `element` : `Integer`<br>元素编号 `0 ~ 12`（见下表）
+  - `visible` : `Boolean`<br>`false` 只藏这一个元素（其余保留），`true` 恢复默认
+- 返回值：`true` 已下发，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "hudSetElement")("Steve", 4, false);   // 藏准星
+    ```
+
+### 按掩码批量设置
+
+`hudSetElements(playerName, mask, visible)`
+
+- 参数：
+  - `playerName` : `String`<br>玩家名
+  - `mask` : `Integer`<br>位掩码，bit0=纸娃娃、bit4=准星、bit5=快捷栏、bit6=血条……（位数与元素编号一致）
+  - `visible` : `Boolean`<br>`false` 时掩码里的元素**保留**、其余隐藏
+- 返回值：被隐藏的元素个数
+- 返回值类型：`Integer`
+- 示例：
+
+    ```js
+    const mask = (1 << 0) | (1 << 4) | (1 << 5) | (1 << 6);
+    ll.import("HologramLib", "hudSetElements")("Steve", mask, false);
+    ```
+
+### 全部恢复默认
+
+`hudResetAll(playerName)`
+
+- 参数：
+  - `playerName` : `String`<br>玩家名
+- 返回值：`true` 已恢复，失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    ll.import("HologramLib", "hudResetAll")("Steve");
+    ```
+
+## 元素编号
 
 | 值 | 元素 | 值 | 元素 |
 |---|---|---|---|
@@ -72,7 +192,7 @@ Hud.resetAll("Steve");
 | 5 | 快捷栏 HotBar | 12 | 物品名 ItemText |
 | 6 | 血条 Health | | |
 
-协议只有两种状态：`Hide`（隐藏）与 `Reset`（恢复默认），没有单独的 "Show"，所以 `visible=true` 发的是 `Reset`。
+## 注意
 
-**`Hide` 时包里的元素列表是"要保留的"**（BDS 内部就是 `ServerPlayer::hideAllExcept`）：
-只藏纸娃娃 = `Hide` + 除纸娃娃外的 12 项。库已经按这个语义包好了，调用方按"我想藏哪一个"来传即可。
+- 协议只有 `Hide`（隐藏）与 `Reset`（恢复默认）两种状态，没有单独的 "Show"，所以 `visible=true` 发的是 `Reset`。
+- `Hide` 时包里的元素列表是"要保留的"（BDS 内部是 `ServerPlayer::hideAllExcept`）；库已经按"我想藏哪一个"包好了，调用方按直觉传即可。

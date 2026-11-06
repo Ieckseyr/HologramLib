@@ -14,7 +14,6 @@ from .gradients import GradientApi
 from .itemactor import ItemActorApi
 from .itemdetail import ItemDetailApi
 from .itemdisplay import ItemDisplayApi
-from .locatorbar import LocatorBarApi
 from .playerrespawn import PlayerRespawnApi
 from .ghost import GhostApi
 from .hud import HudApi
