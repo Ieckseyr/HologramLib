@@ -7,7 +7,7 @@ must recompile. The full release ↔ API mapping is in the [version & ABI matrix
 
 | Release | API | Line | Contents | New exports | C++ consumers |
 |---|---|---|---|---|---|
-| `26.60.2` | 1.35.0 | 26.60 | **Dual-platform split**: `core/` (packet encoding + C ABI) with `platform/levilamina` and `platform/endstone` shells; the endstone build covers **all 444 exports** (404 fully functional / 40 limited); `holo_core.dll` exports 67 C symbols shared by three consumers; `build.cmd` builds both artifacts; docs restructured; `lib/exports.json` gained 20 previously missing entries. **C++ behaviour and ABI unchanged.** | 0 (20 list entries) | No recompile (API 1.35.0 unchanged) |
+| `26.60.2` | 1.35.0 | 26.60 | **Dual-platform split**: `core/` (packet encoding + C ABI) with `platform/levilamina` and `platform/endstone` shells; the endstone build covers **all 444 exports** (404 fully functional / 40 limited); `holo_core.dll` exports 67 C symbols shared by three consumers; `build.cmd` builds both artifacts; docs restructured; 20 new **LSE entry points** (interface layer unchanged). **C++ behaviour and ABI unchanged.** | 20 | No recompile (API 1.35.0 unchanged) |
 | `26.60.1` | 1.35.0 | 26.60 | Respawn after the death animation `IPlayerRespawn`, container preview `containerPreview`, enchanted entries `containerSetItemEnchanted`, effect blocking `actorBlock*`, fake-entity runtime IDs; **LSE surface completed** (particle queries/visibility, real-actor interactions `actor*`, `containerUpdate` / `tradeUpdate`); internal refactor and audit fixes | 27 | **Recompile needed** (3 new interfaces, tail appends, `HOLOGLIB_ABI_STAMP` still 1) |
 | `26.60.0` | 1.34.0 | 26.60 | 26.60 platform adaptation: field-level packet encoding rewritten, NPC-dialogue carrier fix, `wireTrace*` packet audit, fake-entity runtime IDs | 10 | **Recompile needed** (1 new interface; tail appends, `HOLOGLIB_ABI_STAMP` still 1) |
 | `26.51.7` | 1.33.0 | 26.51 | Shape extensions (cylinder / pyramid / ellipsoid / cone, max render distance, attached entity), boss bar, HUD toggles, locator-bar extensions, hurt/death animation, sidebar scoreboard | 48 | **Recompile needed** (6 new interfaces; tail appends, `HOLOGLIB_ABI_STAMP` still 1) |
@@ -54,12 +54,21 @@ same layer; `core/c_api.h` can be included directly or resolved via `GetProcAddr
 Four sections: **LeviLamina** (LSE scripting API + C++ entry), **Endstone** (29 domain pages + 444-entry API index),
 **ABI** (symbol list + LeviLamina C++ wrappers), **capability domains**.
 
-### Export list completed
+### 20 new LSE entry points (interface layer unchanged)
 
-`lib/exports.json` gained 20 entries that had existed on the LL side but were missing from the manifest:
-`actorFreeze` / `actorPlayAnimation` / `actorPlayAnimationFull` / `actorPlayTotem` / `actorSetPose` /
-`actorUnfreeze`, the `blockFake*` five, the two `easterEgg*`, `playerNpcRegisterImageSkinSized` /
-`playerNpcSetImageSize`, and five `player*` effect exports. 424 → 444 exports.
+Compared with 26.60.1 the export surface grew by 20, while **the public headers and the `abi/` baseline are
+untouched** (`git diff v26.60.1 HEAD -- include/ abi/` is empty) — these are script entry points for existing
+capabilities, with no new virtual interfaces:
+
+| Group | New exports | Reuses |
+|---|---|---|
+| Fake block | `blockFakeResolve` / `blockFakeSet` / `blockFakeClear` / `blockFakeSetAll` / `blockFakeClearAll` | the `UpdateBlock` send path of `IViewOverride::overrideBlock` / `clearBlock` (same as the existing `viewBlock`) |
+| Actor effects | `actorFreeze` / `actorUnfreeze` / `actorPlayAnimation` / `actorPlayAnimationFull` / `actorPlayTotem` / `actorSetPose` | existing `ActorEffectManager` methods |
+| Easter egg | `easterEggCreeper` / `easterEggCreeperDisplay` | `AnimateEntity` + display-entity expressions |
+| Player effects | `playerPlayCelebrate` / `playerPlayOminousDrink` / `playerShowBadOmen` / `playerShowEffect` / `playerShowVillageHero` | the player branch of `ActorEffectManager` |
+| Player NPC | `playerNpcRegisterImageSkinSized` / `playerNpcSetImageSize` | image-plane skins |
+
+424 → 444 exports. `HOLOGLIB_API_VERSION` stays `0x012900` (1.35.0) and `HOLOGLIB_ABI_STAMP` stays 1.
 
 ### C++ consumers
 

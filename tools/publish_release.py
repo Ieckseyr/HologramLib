@@ -57,15 +57,29 @@ def main() -> int:
     body = (RELEASE / "RELEASE_NOTES.md").read_text(encoding="utf-8")
 
     payload = json.dumps({"tag_name": TAG, "name": VERSION, "body": body, "draft": False}).encode()
+    existing = None
     try:
-        rel = api("POST", f"https://api.github.com/repos/{OWNER}/{REPO}/releases", tok, payload)
+        existing = api("GET", f"https://api.github.com/repos/{OWNER}/{REPO}/releases/tags/{TAG}", tok)
     except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", "replace")[:300]
-        print(f"[release] 创建失败 HTTP {exc.code}: {detail}")
-        return 1
+        if exc.code != 404:
+            print(f"[release] 查询失败 HTTP {exc.code}")
+            return 1
+    if existing:
+        rel = api("PATCH", f"https://api.github.com/repos/{OWNER}/{REPO}/releases/{existing['id']}",
+                  tok, json.dumps({"name": VERSION, "body": body, "draft": False}).encode())
+        for asset in rel.get("assets", []):
+            api("DELETE", f"https://api.github.com/repos/{OWNER}/{REPO}/releases/assets/{asset['id']}", tok)
+        print(f"[release] 已更新既有 Release {rel['html_url']}")
+    else:
+        try:
+            rel = api("POST", f"https://api.github.com/repos/{OWNER}/{REPO}/releases", tok, payload)
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", "replace")[:300]
+            print(f"[release] 创建失败 HTTP {exc.code}: {detail}")
+            return 1
+        print(f"[release] 已创建 {rel['html_url']}")
 
     upload_url = rel["upload_url"].split("{")[0]
-    print(f"[release] 已创建 {rel['html_url']}")
 
     for name in ASSETS:
         path = RELEASE / name

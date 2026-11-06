@@ -7,7 +7,7 @@
 
 | 发布版本 | API | 协议线 | 主要内容 | 新增导出 | C++ 消费方 |
 |---|---|---|---|---|---|
-| `26.60.2` | 1.35.0 | 26.60 | **双平台拆分**：`core/`（协议编码 + C ABI）与 `platform/levilamina`、`platform/endstone` 两个外壳；endstone 端落地 **444 个导出**（404 真实生效 / 40 受限）；`holo_core.dll` 导出 67 个 C 符号供三方共用；`build.cmd` 一次构建两个产物；文档站重构；`lib/exports.json` 补齐 20 条此前未收录的导出。**C++ 行为与 ABI 未变。** | 0（清单补齐 20） | 无需重新编译（API 1.35.0 未变） |
+| `26.60.2` | 1.35.0 | 26.60 | **双平台拆分**：`core/`（协议编码 + C ABI）与 `platform/levilamina`、`platform/endstone` 两个外壳；endstone 端落地 **444 个导出**（404 真实生效 / 40 受限）；`holo_core.dll` 导出 67 个 C 符号供三方共用；`build.cmd` 一次构建两个产物；文档站重构；新增 20 个 **LSE 入口**（接口层未变）。**C++ 行为与 ABI 未变。** | 20 | 无需重新编译（API 1.35.0 未变） |
 | `26.60.1` | 1.35.0 | 26.60 | 死亡动画后的复活 `IPlayerRespawn`（补发 `RespawnPacket`）、容器预览 `containerPreview`、附魔条目 `containerSetItemEnchanted`、表现事件阻断 `actorBlock*`、假实体 runtimeId 查询；**LSE 导出面补全**（particle 查询/可见性 5 个、真实实体交互事件 `actor*` 2 个、`containerUpdate` / `tradeUpdate`）；内部重构（PlayerIndex、统一发包出口、全库注释清零）。 | 27 | **需重新编译**（新增 3 个接口，尾部追加，`HOLOGLIB_ABI_STAMP` 仍为 1） |
 | `26.60.0` | 1.34.0 | 26.60 | 26.60 平台适配：字段级编码重写、NPC 对话载体修正、发包审计 `wireTrace*`、虚假实体 runtimeId 查询 | 10 | **需重新编译**（新增 1 个接口；尾部追加，`HOLOGLIB_ABI_STAMP` 仍为 1） |
 | `26.51.7` | 1.33.0 | 26.51 | 形状扩展（圆柱/金字塔/椭球/圆锥、最远渲染距离、挂载实体）+ Boss 条 + HUD 显隐 + 方位条扩展 + 受伤死亡动画 + 侧边栏计分板 | 48 | **需重新编译**（新增 6 个接口；尾部追加，`HOLOGLIB_ABI_STAMP` 仍为 1） |
@@ -54,12 +54,20 @@ build.cmd / build.py   一条命令构建两个平台的产物
 拆成四节：**LeviLamina**（LSE 脚本接口 + C++ 接口入口）、**Endstone**（29 个域页 + 444 条 API 索引）、
 **ABI 接口**（符号清单 + LeviLamina 的 C++ 包装）、**能力域**。
 
-### 导出清单补齐
+### 导出层 +20（接口层未变）
 
-`lib/exports.json` 补了 20 条此前没收录的导出（LL 侧早就有，清单是旧的）：
-`actorFreeze` / `actorPlayAnimation` / `actorPlayAnimationFull` / `actorPlayTotem` / `actorSetPose` /
-`actorUnfreeze`、`blockFake*` 5 个、`easterEgg*` 2 个、`playerNpcRegisterImageSkinSized` /
-`playerNpcSetImageSize`、`player*` 表现 5 个。导出数 424 → 444。
+相对 26.60.1 新增 20 个 LSE 入口，**公开头文件与 `abi/` 基线都没有变动**（`git diff v26.60.1 HEAD -- include/ abi/` 为空），
+它们是既有能力的脚本入口，没有新增虚接口：
+
+| 组 | 新增导出 | 底层复用 |
+|---|---|---|
+| 假方块 | `blockFakeResolve` / `blockFakeSet` / `blockFakeClear` / `blockFakeSetAll` / `blockFakeClearAll` | `IViewOverride::overrideBlock` / `clearBlock` 的 `UpdateBlock` 发包路径（26.60.1 的 `viewBlock` 也走它） |
+| Actor 表现 | `actorFreeze` / `actorUnfreeze` / `actorPlayAnimation` / `actorPlayAnimationFull` / `actorPlayTotem` / `actorSetPose` | `ActorEffectManager` 现有方法 |
+| 彩蛋 | `easterEggCreeper` / `easterEggCreeperDisplay` | `AnimateEntity` + 展示方块表达式 |
+| 玩家表现 | `playerPlayCelebrate` / `playerPlayOminousDrink` / `playerShowBadOmen` / `playerShowEffect` / `playerShowVillageHero` | `ActorEffectManager` player 分支 |
+| 玩家 NPC | `playerNpcRegisterImageSkinSized` / `playerNpcSetImageSize` | 图片平面皮肤 |
+
+导出数 424 → 444。`HOLOGLIB_API_VERSION` 仍是 `0x012900`（1.35.0），`HOLOGLIB_ABI_STAMP` 仍为 1。
 
 ### C++ 消费方
 
