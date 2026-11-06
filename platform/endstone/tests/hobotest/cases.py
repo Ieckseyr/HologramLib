@@ -114,9 +114,9 @@ CASES = {
     "FakeBlock": [
         ("blockFakeClear", "fakeblock", "clear", ['$PLAYER', '$X', '$Y', '$Z']),
         ("blockFakeClearAll", "fakeblock", "clear_all", ['$X', '$Y', '$Z', '$DIM']),
-        ("blockFakeResolve", "fakeblock", "resolve", ['hltest']),
-        ("blockFakeSet", "fakeblock", "set", ['$PLAYER', '$X', '$Y', '$Z', 'hltest']),
-        ("blockFakeSetAll", "fakeblock", "set_all", ['$X', '$Y', '$Z', '$DIM', 'hltest']),
+        ("blockFakeResolve", "fakeblock", "resolve", ['minecraft:stone']),
+        ("blockFakeSet", "fakeblock", "set", ['$PLAYER', '$X', '$Y', '$Z', 'minecraft:stone']),
+        ("blockFakeSetAll", "fakeblock", "set_all", ['$X', '$Y', '$Z', '$DIM', 'minecraft:stone']),
     ],
     "FakeInventory": [
         ("fakeInvApply", "fakeinv", "apply", ['$PLAYER', 'hltest', 1]),
@@ -377,7 +377,7 @@ CASES = {
     "PlayerRespawn": [
         ("playerRespawn", "playerrespawn", "respawn", ['$PLAYER']),
         ("playerRespawnAt", "playerrespawn", "respawn_at", ['$PLAYER', '$X', '$Y', '$Z']),
-        ("playerRespawnState", "playerrespawn", "respawn_state", ['$PLAYER', 1]),
+        ("playerRespawnState", "playerrespawn", "respawn_state", ['$PLAYER', 'minecraft:stone']),
     ],
     "Sensing": [
         ("sensingDeviceCode", "sensing", "device_code", ['$PLAYER']),
@@ -442,7 +442,7 @@ CASES = {
         ("sidebarSetTitle", "sidebar", "set_title", ['$PLAYER', 'hltest']),
     ],
     "Sulfur": [
-        ("sulfurCreate", "sulfur", "create", ['$X', '$Y', '$Z', '$DIM', 'hltest', 1, 1, 'hltest', 'hltest', True]),
+        ("sulfurCreate", "sulfur", "create", ['$X', '$Y', '$Z', '$DIM', 'minecraft:stone', 1, 1, 'hltest', 'hltest', True]),
         ("sulfurDestroy", "sulfur", "destroy", ['$ID']),
         ("sulfurDestroyAll", "sulfur", "destroy_all", []),
         ("sulfurExists", "sulfur", "exists", ['$ID']),
@@ -493,7 +493,7 @@ CASES = {
         ("playerHideIsHidden", "visibility", "is_hidden", ['$PLAYER']),
         ("playerHideRestore", "visibility", "restore", ['$PLAYER']),
         ("playerHideSetHidden", "visibility", "set_hidden", ['$PLAYER', True]),
-        ("playerHideSetMask", "visibility", "set_mask", ['$PLAYER', True, True, True, True, 'hltest_skin', True]),
+        ("playerHideSetMask", "visibility", "set_mask", ['$PLAYER', True, True, True, 'minecraft:stone', 'hltest_skin', True]),
     ],
     "Wire": [
         ("wireResetStats", "wire", "clear", []),

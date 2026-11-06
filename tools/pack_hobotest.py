@@ -18,7 +18,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SRC = ROOT / "platform" / "endstone" / "tests" / "hobotest"
 DIST = ROOT / "dist"
 NAME = "endstone_hobotest"
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 TAG = "py3-none-win_amd64"
 
 

@@ -115,7 +115,7 @@ CREATOR = {
 class HoloTestPlugin(Plugin):
     api_version = "0.11"
     name = "HoloTestEndstone"
-    version = "1.2.0"
+    version = "1.2.1"
     description = "HologramLib endstone 版全量调用测试（仅本地，不发布）"
     authors = ["HologramLib"]
 

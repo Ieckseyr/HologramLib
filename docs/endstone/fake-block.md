@@ -1,8 +1,10 @@
 # 假方块 · Endstone
 
-只对某个玩家显示成别的方块：把石头「变成」钻石矿，服务端世界里还是石头。底层是 `UpdateBlock`，不写世界、不进存档。
+只对某个玩家显示成别的方块：把石头「变成」钻石矿，服务端世界里还是石头。底层是 `UpdateBlock`（包 id 21），不写世界、不进存档。
 
-方块名接受 `minecraft:` 前缀，也接受带状态的字面量（如 `minecraft:stone`）。
+包体 = 坐标（x/y/z 各 zigzag varint）+ 方块网络 id（varint）+ flag(3) + layer(0)。26.60 开着 `block-network-ids-are-hashes`，网络 id 是哈希值（`minecraft:stone` → `2150698529`），由 `create_block_data` 解析，不要自己拼数字。
+
+方块名接受 `minecraft:` 前缀，也接受带状态的字面量（如 `minecraft:oak_stairs[upside_down_bit=true]`）。
 
 ## 快速上手
 

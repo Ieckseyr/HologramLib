@@ -73,6 +73,8 @@ STRING_DEFAULT = {
     "item": "minecraft:diamond",
     "type": "minecraft:stone",
     "block": "minecraft:stone",
+    "state": "minecraft:stone",
+    "blockType": "minecraft:stone",
     "effect": "minecraft:flame",
     "skin": "hltest_skin",
     "name": "hltest",
