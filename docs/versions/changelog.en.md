@@ -7,6 +7,7 @@ must recompile. The full release ↔ API mapping is in the [version & ABI matrix
 
 | Release | API | Line | Contents | New exports | C++ consumers |
 |---|---|---|---|---|---|
+| `26.60.2` | 1.35.0 | 26.60 | **Dual-platform split**: `core/` (packet encoding + C ABI) with `platform/levilamina` and `platform/endstone` shells; the endstone build covers **all 444 exports** (404 fully functional / 40 limited); `holo_core.dll` exports 67 C symbols shared by three consumers; `build.cmd` builds both artifacts; docs restructured; `lib/exports.json` gained 20 previously missing entries. **C++ behaviour and ABI unchanged.** | 0 (20 list entries) | No recompile (API 1.35.0 unchanged) |
 | `26.60.1` | 1.35.0 | 26.60 | Respawn after the death animation `IPlayerRespawn`, container preview `containerPreview`, enchanted entries `containerSetItemEnchanted`, effect blocking `actorBlock*`, fake-entity runtime IDs; **LSE surface completed** (particle queries/visibility, real-actor interactions `actor*`, `containerUpdate` / `tradeUpdate`); internal refactor and audit fixes | 27 | **Recompile needed** (3 new interfaces, tail appends, `HOLOGLIB_ABI_STAMP` still 1) |
 | `26.60.0` | 1.34.0 | 26.60 | 26.60 platform adaptation: field-level packet encoding rewritten, NPC-dialogue carrier fix, `wireTrace*` packet audit, fake-entity runtime IDs | 10 | **Recompile needed** (1 new interface; tail appends, `HOLOGLIB_ABI_STAMP` still 1) |
 | `26.51.7` | 1.33.0 | 26.51 | Shape extensions (cylinder / pyramid / ellipsoid / cone, max render distance, attached entity), boss bar, HUD toggles, locator-bar extensions, hurt/death animation, sidebar scoreboard | 48 | **Recompile needed** (6 new interfaces; tail appends, `HOLOGLIB_ABI_STAMP` still 1) |
@@ -16,6 +17,54 @@ must recompile. The full release ↔ API mapping is in the [version & ABI matrix
 | `26.40.10` / `26.51.3` | 1.29.0 | 26.40 · 26.51 | `AddItemActor` interception, pose/scale/variant/colour, metadata tick fix | 1 (`viewItemSpawnHooked`) | Recompile (`EntityView` grew) |
 | `26.40.9` | 1.27.0 | 26.40 | `EntityView::skinId` (same-id model swap), real-actor interaction events, ABI stamp | class methods | Recompile (vtable appended) |
 | `26.40.8` | 1.26.0 | 26.40 | Per-viewer overrides, four UI domains | several | Recompile |
+
+## 26.60.2 — API 1.35.0 (dual-platform split / endstone / ABI)
+
+No protocol change and no C++ interface change: this release restructures the repository. Packet encoding moved into
+a platform-agnostic `core/`, and LeviLamina / endstone became two shells over the same bytes.
+
+### Repository split
+
+```
+core/                  packet encoding + shapes/registry + C ABI (platform agnostic)
+platform/levilamina/   native LL plugin + LSE compatibility layer
+platform/endstone/     endstone Python plugin (bundles holo_core.dll)
+build.cmd / build.py   one command builds both artifacts
+```
+
+`HologramLib.dll` and endstone's `holo_core.dll` are built from the same `core/`, so a shape or a hologram produces
+exactly the same packet body on both platforms — no more drift between two implementations.
+
+### Endstone build
+
+| Item | Value |
+|---|---|
+| Export coverage | **444 / 444** (404 fully functional · 40 limited, documented per module) |
+| Offline tests | **557 checks** (`platform/endstone/tests/test_shape_api.py`, no server needed) |
+| Calling style | Python attributes such as `lib.holograms.add_line(...)`; method name = LSE export minus prefix, snake_case |
+
+### ABI
+
+`holo_core.dll` exports **67 C symbols**: 30 packet-id lookups, 34 encoders, plus `holo_core_api_version` /
+`holo_core_version` / `holo_free`. Endstone C++ plugins, Python (ctypes) and LeviLamina (static link) all consume the
+same layer; `core/c_api.h` can be included directly or resolved via `GetProcAddress`.
+
+### Documentation
+
+Four sections: **LeviLamina** (LSE scripting API + C++ entry), **Endstone** (29 domain pages + 444-entry API index),
+**ABI** (symbol list + LeviLamina C++ wrappers), **capability domains**.
+
+### Export list completed
+
+`lib/exports.json` gained 20 entries that had existed on the LL side but were missing from the manifest:
+`actorFreeze` / `actorPlayAnimation` / `actorPlayAnimationFull` / `actorPlayTotem` / `actorSetPose` /
+`actorUnfreeze`, the `blockFake*` five, the two `easterEgg*`, `playerNpcRegisterImageSkinSized` /
+`playerNpcSetImageSize`, and five `player*` effect exports. 424 → 444 exports.
+
+### C++ consumers
+
+**No recompile needed**: `HOLOGLIB_API_VERSION` stays `0x012900` (1.35.0), the vtable is unchanged, and the ABI
+baseline is still `abi/v1.35.0.json`.
 
 ## 26.60.1 — API 1.35.0 (container preview / effect blocking / respawn packet / export surface completed)
 

@@ -7,6 +7,7 @@
 
 | 发布版本 | API | 协议线 | 主要内容 | 新增导出 | C++ 消费方 |
 |---|---|---|---|---|---|
+| `26.60.2` | 1.35.0 | 26.60 | **双平台拆分**：`core/`（协议编码 + C ABI）与 `platform/levilamina`、`platform/endstone` 两个外壳；endstone 端落地 **444 个导出**（404 真实生效 / 40 受限）；`holo_core.dll` 导出 67 个 C 符号供三方共用；`build.cmd` 一次构建两个产物；文档站重构；`lib/exports.json` 补齐 20 条此前未收录的导出。**C++ 行为与 ABI 未变。** | 0（清单补齐 20） | 无需重新编译（API 1.35.0 未变） |
 | `26.60.1` | 1.35.0 | 26.60 | 死亡动画后的复活 `IPlayerRespawn`（补发 `RespawnPacket`）、容器预览 `containerPreview`、附魔条目 `containerSetItemEnchanted`、表现事件阻断 `actorBlock*`、假实体 runtimeId 查询；**LSE 导出面补全**（particle 查询/可见性 5 个、真实实体交互事件 `actor*` 2 个、`containerUpdate` / `tradeUpdate`）；内部重构（PlayerIndex、统一发包出口、全库注释清零）。 | 27 | **需重新编译**（新增 3 个接口，尾部追加，`HOLOGLIB_ABI_STAMP` 仍为 1） |
 | `26.60.0` | 1.34.0 | 26.60 | 26.60 平台适配：字段级编码重写、NPC 对话载体修正、发包审计 `wireTrace*`、虚假实体 runtimeId 查询 | 10 | **需重新编译**（新增 1 个接口；尾部追加，`HOLOGLIB_ABI_STAMP` 仍为 1） |
 | `26.51.7` | 1.33.0 | 26.51 | 形状扩展（圆柱/金字塔/椭球/圆锥、最远渲染距离、挂载实体）+ Boss 条 + HUD 显隐 + 方位条扩展 + 受伤死亡动画 + 侧边栏计分板 | 48 | **需重新编译**（新增 6 个接口；尾部追加，`HOLOGLIB_ABI_STAMP` 仍为 1） |
@@ -16,6 +17,54 @@
 | `26.40.10` / `26.51.3` | 1.29.0 | 26.40 · 26.51 | 视图覆盖补齐 `AddItemActor` 拦截、姿态/缩放/变种/颜色；修复元数据 tick | 1（`viewItemSpawnHooked`） | 需重新编译（`EntityView` 结构体变大） |
 | `26.40.9` | 1.27.0 | 26.40 | `EntityView::skinId`（同 id 换模型）、真实实体交互事件、ABI 布局戳 | 类方法 | 需重新编译（虚表追加） |
 | `26.40.8` | 1.26.0 | 26.40 | 逐观看者覆盖、四个界面域 | 若干 | 需重新编译 |
+
+## 26.60.2 — API 1.35.0（双平台拆分 / endstone 端 / ABI）
+
+这一版**没有改协议、没有改 C++ 接口**，改的是仓库结构：协议编码抽成平台无关的 `core/`，
+LeviLamina 与 endstone 变成两个外壳，共用同一份字节。
+
+### 仓库拆分
+
+```
+core/                  协议编码 + shapes/registry + C ABI（平台无关）
+platform/levilamina/   LL 原生插件 + LSE 兼容层
+platform/endstone/     endstone Python 插件（内嵌 holo_core.dll）
+build.cmd / build.py   一条命令构建两个平台的产物
+```
+
+`HologramLib.dll` 与 endstone 的 `holo_core.dll` 编自同一份 `core/`，形状、悬浮字这些能力
+在两个平台发出的包体完全一致，不再有「两边各写一套」的漂移。
+
+### endstone 端
+
+| 项 | 数值 |
+|---|---|
+| 导出覆盖 | **444 / 444**（404 真实生效 · 40 受限实现，逐条写在各模块 docstring 与文档） |
+| 离线测试 | **557 项**（`platform/endstone/tests/test_shape_api.py`，不需要服务器） |
+| 调用方式 | `lib.holograms.add_line(...)` 这类 Python 属性，方法名 = LSE 导出名去前缀转 snake_case |
+
+### ABI
+
+`holo_core.dll` 导出 **67 个 C 符号**：30 个包 id 查询 + 34 个编码器 + `holo_core_api_version` /
+`holo_core_version` / `holo_free`。endstone 的 C++ 插件、Python（ctypes）、LeviLamina（静态链接）
+三方吃同一层，`core/c_api.h` 可直接 include，也可以 `GetProcAddress`。
+
+### 文档站
+
+拆成四节：**LeviLamina**（LSE 脚本接口 + C++ 接口入口）、**Endstone**（29 个域页 + 444 条 API 索引）、
+**ABI 接口**（符号清单 + LeviLamina 的 C++ 包装）、**能力域**。
+
+### 导出清单补齐
+
+`lib/exports.json` 补了 20 条此前没收录的导出（LL 侧早就有，清单是旧的）：
+`actorFreeze` / `actorPlayAnimation` / `actorPlayAnimationFull` / `actorPlayTotem` / `actorSetPose` /
+`actorUnfreeze`、`blockFake*` 5 个、`easterEgg*` 2 个、`playerNpcRegisterImageSkinSized` /
+`playerNpcSetImageSize`、`player*` 表现 5 个。导出数 424 → 444。
+
+### C++ 消费方
+
+**不需要重新编译**：`HOLOGLIB_API_VERSION` 仍是 `0x012900`（1.35.0），虚表没有变动，
+ABI 基线仍是 `abi/v1.35.0.json`。
 
 ## 26.60.1 — API 1.35.0（容器预览 / 表现事件阻断 / 复活包 / 导出面补全）
 
