@@ -17,8 +17,8 @@ import urllib.request
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 RELEASE = ROOT / "release"
 OWNER, REPO = "Ieckseyr", "HologramLib"
-TAG = "v26.60.2"
-VERSION = "26.60.2"
+TAG = "v26.60.3"
+VERSION = "26.60.3"
 
 ASSETS = [
     f"LeviLamina-HologramLib-{VERSION}.zip",
