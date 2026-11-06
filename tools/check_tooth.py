@@ -47,7 +47,7 @@ EXPECTED = {
     "format_version": _fmt_version,
     "format_uuid": _fmt_uuid,
     "tooth": "github.com/Ieckseyr/HologramLib",
-    "zip_name": "HologramLib.zip",
+    "zip_name": "LeviLamina-HologramLib-{{version}}.zip",
     "zip_root": "HologramLib/",
     "dest": "mods/HologramLib",
     "platform": "win-x64",
@@ -102,8 +102,11 @@ def main() -> int:
     urls = assets[0].get("urls") or []
     if len(urls) != 1:
         return fail("assets.urls 应为 1 条")
-    if not urls[0].endswith("/" + EXPECTED["zip_name"]):
-        return fail(f"发布包文件名应为 {EXPECTED['zip_name']}，当前 {urls[0]!r}")
+    version = str(tooth.get("version", ""))
+    expected_zip = EXPECTED["zip_name"].replace("{{version}}", version)
+    normalized = urls[0].replace("{{version}}", version)
+    if not normalized.endswith("/" + expected_zip):
+        return fail(f"发布包文件名应为 {expected_zip}，当前 {urls[0]!r}")
 
     placements = assets[0].get("placements") or []
     if len(placements) != 1:
@@ -135,7 +138,7 @@ def main() -> int:
 
     # 打包脚本必须真的产出同名 zip、且根目录就是这个文件夹
     pack = io.open(PACK, encoding="utf-8").read()
-    if f'MOD + ".zip"' not in pack and EXPECTED["zip_name"] not in pack:
+    if f'MOD + ".zip"' not in pack and "LeviLamina-HologramLib" not in pack:
         return fail("tools/pack_release.py 里找不到发布包文件名，打包脚本与 tooth.json 可能已脱节")
     if 'MOD + "/"' not in pack and EXPECTED["zip_root"] not in pack:
         return fail("tools/pack_release.py 里找不到压缩包根目录，打包脚本与 tooth.json 可能已脱节")
