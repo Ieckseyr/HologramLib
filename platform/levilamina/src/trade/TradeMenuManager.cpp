@@ -37,15 +37,8 @@
 #include <mc/world/item/trading/MerchantRecipeList.h>
 #include <mc/world/level/Level.h>
 
-#include <sculk/protocol/codec/actor/ActorDataIDs.hpp>
-#include <sculk/protocol/codec/inventory/container/ContainerEnumName.hpp>
-#include <sculk/protocol/codec/inventory/container/ContainerType.hpp>
-#include <sculk/protocol/codec/inventory/item/ItemStackResponse.hpp>
-#include <sculk/protocol/codec/packet/ContainerClosePacket.hpp>
-#include <sculk/protocol/codec/packet/ItemStackResponsePacket.hpp>
-#include <sculk/protocol/codec/packet/SetActorDataPacket.hpp>
-#include <sculk/protocol/codec/packet/UpdateTradePacket.hpp>
-#include <sculk/protocol/utility/BinaryStream.hpp>
+#include "core/proto/Version.h"
+#include "MetaWire.h"
 
 #include <algorithm>
 #include <cmath>
@@ -54,6 +47,8 @@
 #include <vector>
 
 namespace debugshape_export {
+
+namespace proto = ::debugshape_export::core::proto;
 using namespace trade_ops;
 
 TradeMenuManager& TradeMenuManager::getInstance() {
@@ -180,17 +175,17 @@ bool TradeMenuManager::installTrades(Player&, Menu const& menu) {
 }
 
 void TradeMenuManager::sendUpdateTrade(Player& player, Menu const& menu) {
-    sculk::protocol::UpdateTradePacket packet;
-    packet.mContainerId       = static_cast<sculk::protocol::ContainerID>(menu.containerId);
-    packet.mContainerType     = sculk::protocol::ContainerType::Trade;
-    packet.mSize              = 0;
-    packet.mTier              = toWireTier(menu.spec.tier);
-    packet.mEntityUniqueId    = static_cast<std::int64_t>(menu.carrierUniqueId);
-    packet.mLastTradingPlayer = -1;
-    packet.mDisplayName       = menu.spec.tradeType;
-    packet.mUseNewTradeScreen = true;
-    packet.mUseEconomyTrade   = true;
-    packet.mOffers            = trade::buildOffers(
+    proto::UpdateTradePacket packet;
+    packet.container_id          = static_cast<proto::ContainerIDType>(menu.containerId);
+    packet.type                  = proto::bp::ContainerType::Trade;
+    packet.size                  = 0;
+    packet.trader_tier           = toWireTier(menu.spec.tier);
+    packet.entity_unique_id      = proto::ActorUniqueID{static_cast<std::int64_t>(menu.carrierUniqueId)};
+    packet.last_trading_player   = proto::ActorUniqueID{-1};
+    packet.display_name          = menu.spec.tradeType;
+    packet.use_new_trade_screen  = true;
+    packet.using_economy_trade   = true;
+    packet.data                  = trade::buildOffers(
         toOffers(menu.spec.offers, toWireTier(menu.spec.tier)),
         trade::defaultTierExpRequirements(),
         menu.netIdBase);
@@ -200,24 +195,24 @@ void TradeMenuManager::sendUpdateTrade(Player& player, Menu const& menu) {
 }
 
 void TradeMenuManager::sendContainerClose(Player& player, Menu const& menu) {
-    sculk::protocol::ContainerClosePacket packet;
-    packet.mContainerId          = static_cast<sculk::protocol::ContainerID>(menu.containerId);
-    packet.mContainerType        = sculk::protocol::ContainerType::Trade;
-    packet.mServerInitiatedClose = true;
+    proto::ContainerClosePacket packet;
+    packet.container_id          = static_cast<proto::ContainerIDType>(menu.containerId);
+    packet.container_type        = proto::bp::ContainerType::Trade;
+    packet.server_initiated_close = true;
     sendTradePacket(player, packet);
 }
 
 void TradeMenuManager::sendTradeExp(Player& player, Menu const& menu) {
     if (menu.carrierRuntimeId == 0)
         return;
-    sculk::protocol::SetActorDataPacket packet;
-    packet.mActorRuntimeId = menu.carrierRuntimeId;
-    packet.mMetaData.mDataItems.push_back(
-        {sculk::protocol::ActorDataIDs::TradeTier, std::int32_t{toWireTier(menu.spec.tier)}});
-    packet.mMetaData.mDataItems.push_back({sculk::protocol::ActorDataIDs::MaxTradeTier, std::int32_t{4}});
-    packet.mMetaData.mDataItems.push_back(
-        {sculk::protocol::ActorDataIDs::TradeExperience, std::int32_t{menu.spec.experience}});
-    packet.mTick = 0;
+    using ids = proto::ActorDataIDs;
+
+    proto::SetActorDataPacket packet;
+    packet.id = proto::bp::ActorRuntimeID{menu.carrierRuntimeId};
+    packet.packed_items.data.push_back(meta_wire::int32(ids::TradeTier, std::int32_t{toWireTier(menu.spec.tier)}));
+    packet.packed_items.data.push_back(meta_wire::int32(ids::MaxTradeTier, std::int32_t{4}));
+    packet.packed_items.data.push_back(meta_wire::int32(ids::TradeExperience, std::int32_t{menu.spec.experience}));
+    packet.tick = proto::bp::PlayerInputTick{0};
     sendTradePacket(player, packet);
 }
 

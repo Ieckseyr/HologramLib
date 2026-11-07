@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <functional>
 #include <string>
 #include <vector>
@@ -52,13 +53,14 @@ public:
     void tick();
 
 private:
-    BlockBatchManager() = default;
+    BlockBatchManager();
+    ~BlockBatchManager();
 
     int64_t submit(std::string const& packed, std::vector<std::string> const& viewers, bool immediate);
     void    flushLocked(std::size_t budget);
 
     struct Impl;
-    Impl* mImpl{};
+    std::unique_ptr<Impl> mImpl;
 };
 
 } // namespace debugshape_export::blockbatch

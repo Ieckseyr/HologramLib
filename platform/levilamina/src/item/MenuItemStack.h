@@ -10,10 +10,6 @@
 #include <mc/world/item/ItemInstance.h>
 #include <mc/world/item/ItemStack.h>
 
-#include <sculk/protocol/codec/nbt/CompoundTag.hpp>
-#include <sculk/protocol/codec/nbt/ListTag.hpp>
-#include <sculk/protocol/codec/nbt/TagVariant.hpp>
-#include <sculk/protocol/utility/BinaryStream.hpp>
 
 #include "trade/TradeOfferNbt.h"
 

@@ -1,7 +1,6 @@
 #pragma once
 
-// PrimitiveShapes（调试形状）报文的平台无关构造与编码。
-// 形状数据模型来自 core/ProtocolShape.h；这里只负责拼包与字节化。
+// PrimitiveShapes 拼包与编码；数据模型见 core/ProtocolShape.h。
 
 #include <cstdint>
 #include <string>
@@ -10,12 +9,12 @@
 #include "core/PacketCodec.h"
 #include "core/ProtocolShape.h"
 
-#include "sculk/protocol/codec/MinecraftPacketIds.hpp"
+#include "core/proto/Version.h"
 
 namespace debugshape_export::core {
 
 inline constexpr std::uint32_t kPrimitiveShapesPacketId =
-    static_cast<std::uint32_t>(sculk::protocol::MinecraftPacketIds::PrimitiveShapes);
+    static_cast<std::uint32_t>(core::proto::PrimitiveShapesPacket::Id);
 
 [[nodiscard]] std::string buildPrimitiveShapesBody(std::vector<DebugShape> const& shapes);
 

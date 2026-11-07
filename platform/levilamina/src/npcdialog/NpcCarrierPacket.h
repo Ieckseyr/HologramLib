@@ -1,15 +1,14 @@
 #pragma once
 
-#include <sculk/protocol/codec/actor/ActorDataIDs.hpp>
-#include <sculk/protocol/codec/actor/MetaData.hpp>
-#include <sculk/protocol/codec/math/Vec2.hpp>
-#include <sculk/protocol/codec/math/Vec3.hpp>
-#include <sculk/protocol/codec/packet/AddActorPacket.hpp>
+#include "core/proto/Version.h"
+#include "MetaWire.h"
 
 #include <cstdint>
 #include <string>
 
 namespace debugshape_export::npcdialog {
+
+namespace proto = ::debugshape_export::core::proto;
 
 inline constexpr float kCarrierY = -66.0f;
 
@@ -19,34 +18,36 @@ inline std::string const& npcDataJson() {
     return json;
 }
 
-inline sculk::protocol::AddActorPacket buildCarrierAddActor(
-    std::uint64_t               uniqueId,
-    std::uint64_t               runtimeId,
-    std::string const&          identifier,
-    std::string const&          npcName,
-    std::string const&          actionJson,
-    sculk::protocol::Vec3 const position,
-    float                       yaw,
-    int                         skinVariant = -1) {
-    sculk::protocol::AddActorPacket packet;
-    packet.mActorUniqueId  = static_cast<std::int64_t>(uniqueId);
-    packet.mActorRuntimeId = runtimeId;
-    packet.mIdentifier     = identifier.empty() ? std::string{"minecraft:npc"} : identifier;
-    packet.mPosition       = position;
-    packet.mVelocity       = sculk::protocol::Vec3{0.0f, 0.0f, 0.0f};
-    packet.mRotation       = sculk::protocol::Vec2{yaw, 0.0f};
-    packet.mYHeadRotation  = 0.0f;
-    packet.mYBodyRotation  = 0.0f;
+inline proto::AddActorPacket buildCarrierAddActor(
+    std::uint64_t        uniqueId,
+    std::uint64_t        runtimeId,
+    std::string const&   identifier,
+    std::string const&   npcName,
+    std::string const&   actionJson,
+    proto::Vec3 const    position,
+    float                yaw,
+    int                  skinVariant = -1) {
+    using ids = proto::ActorDataIDs;
 
-    auto& items = packet.mMetaData.mDataItems;
+    proto::AddActorPacket packet;
+    packet.entity_id        = proto::ActorUniqueID{static_cast<std::int64_t>(uniqueId)};
+    packet.runtime_id       = proto::bp::ActorRuntimeID{runtimeId};
+    packet.actor_type       = identifier.empty() ? std::string{"minecraft:npc"} : identifier;
+    packet.pos              = position;
+    packet.velocity         = proto::Vec3{0.0f, 0.0f, 0.0f};
+    packet.rot              = proto::Vec2{yaw, 0.0f};
+    packet.y_head_rotation  = 0.0f;
+    packet.y_body_rotation  = 0.0f;
+
+    auto& items = packet.data.data;
     items.reserve(6);
-    items.push_back({sculk::protocol::ActorDataIDs::Name, std::string(npcName)});
-    items.push_back({sculk::protocol::ActorDataIDs::HasNpc, static_cast<std::uint8_t>(1)});
-    items.push_back({sculk::protocol::ActorDataIDs::NpcData, npcDataJson()});
-    items.push_back({sculk::protocol::ActorDataIDs::Actions, actionJson});
-    items.push_back({sculk::protocol::ActorDataIDs::InteractText, std::string(npcName)});
+    items.push_back(meta_wire::string(ids::Name, std::string(npcName)));
+    items.push_back(meta_wire::byte(ids::HasNpc, static_cast<std::uint8_t>(1)));
+    items.push_back(meta_wire::string(ids::NpcData, npcDataJson()));
+    items.push_back(meta_wire::string(ids::Actions, actionJson));
+    items.push_back(meta_wire::string(ids::InteractText, std::string(npcName)));
     if (skinVariant >= 0) {
-        items.push_back({sculk::protocol::ActorDataIDs::SkinId, static_cast<std::int32_t>(skinVariant)});
+        items.push_back(meta_wire::int32(ids::SkinId, static_cast<std::int32_t>(skinVariant)));
     }
     return packet;
 }

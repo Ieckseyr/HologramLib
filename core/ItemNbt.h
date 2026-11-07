@@ -8,26 +8,25 @@
 #include <utility>
 #include <vector>
 
-#include <sculk/protocol/codec/nbt/CompoundTag.hpp>
-#include <sculk/protocol/codec/nbt/ListTag.hpp>
-#include <sculk/protocol/codec/nbt/TagType.hpp>
-#include <sculk/protocol/codec/nbt/TagVariant.hpp>
+#include "core/proto/Version.h"
 
 namespace debugshape_export::trade {
 
-using sculk::protocol::ByteTag;
-using sculk::protocol::CompoundTag;
-using sculk::protocol::FloatTag;
-using sculk::protocol::IntTag;
-using sculk::protocol::ListTag;
-using sculk::protocol::ShortTag;
-using sculk::protocol::StringTag;
-using sculk::protocol::TagType;
-using sculk::protocol::TagVariant;
+namespace bp = ::bedrock::protocol;
+
+using ByteTag     = bp::ByteTag;
+using CompoundTag = bp::CompoundTag;
+using FloatTag    = bp::FloatTag;
+using IntTag      = bp::IntTag;
+using ListTag     = bp::ListTag;
+using ShortTag    = bp::ShortTag;
+using StringTag   = bp::StringTag;
+using TagType     = bp::nbt::Type;
+using Tag         = bp::Tag;
 
 template <typename T>
-inline TagVariant makeTag(T&& value) {
-    return TagVariant{std::forward<T>(value)};
+inline Tag makeTag(T&& value) {
+    return Tag{std::forward<T>(value)};
 }
 
 struct TradeItem {
@@ -66,16 +65,16 @@ namespace detail {
 
 inline CompoundTag itemToNbt(TradeItem const& item) {
     CompoundTag out;
-    out.mValue["Name"]        = makeTag(StringTag{item.type});
-    out.mValue["Count"]       = makeTag(ByteTag{static_cast<std::int8_t>(item.count)});
-    out.mValue["Damage"]      = makeTag(ShortTag{static_cast<std::int16_t>(item.damage)});
-    out.mValue["WasPickedUp"] = makeTag(ByteTag{0});
+    out["Name"]        = makeTag(StringTag{item.type});
+    out["Count"]       = makeTag(ByteTag{static_cast<std::int8_t>(item.count)});
+    out["Damage"]      = makeTag(ShortTag{static_cast<std::int16_t>(item.damage)});
+    out["WasPickedUp"] = makeTag(ByteTag{0});
     if (item.isBlock) {
         CompoundTag block;
-        block.mValue["name"]    = makeTag(StringTag{item.type});
-        block.mValue["states"]  = makeTag(CompoundTag{});
-        block.mValue["version"] = makeTag(IntTag{item.blockVersion});
-        out.mValue["Block"]     = makeTag(std::move(block));
+        block["name"]    = makeTag(StringTag{item.type});
+        block["states"]  = makeTag(CompoundTag{});
+        block["version"] = makeTag(IntTag{item.blockVersion});
+        out["Block"]     = makeTag(std::move(block));
     }
     bool const hasDisplay = !item.name.empty() || !item.lore.empty();
     bool const hasEnch    = !item.enchants.empty();
@@ -84,53 +83,50 @@ inline CompoundTag itemToNbt(TradeItem const& item) {
         if (hasDisplay) {
             CompoundTag display;
             if (!item.name.empty())
-                display.mValue["Name"] = makeTag(StringTag{item.name});
+                display["Name"] = makeTag(StringTag{item.name});
             if (!item.lore.empty()) {
-                ListTag lore;
-                lore.mType = TagType::String;
-                lore.mValue.reserve(item.lore.size());
+                ListTag lore(TagType::String);
                 for (auto const& line : item.lore)
-                    lore.mValue.push_back(makeTag(StringTag{line}));
-                display.mValue["Lore"] = makeTag(std::move(lore));
+                    lore.push_back(Tag{StringTag{line}});
+                display["Lore"] = makeTag(std::move(lore));
             }
-            tag.mValue["display"] = makeTag(std::move(display));
+            tag["display"] = makeTag(std::move(display));
         }
         if (hasEnch) {
-            ListTag ench;
-            ench.mType = TagType::Compound;
+            ListTag ench(TagType::Compound);
             for (auto const& [id, lvl] : item.enchants) {
                 if (id < 0 || id > 42 || lvl < 1 || lvl > 255)
                     continue;
                 CompoundTag one;
-                one.mValue["id"]  = makeTag(ShortTag{static_cast<std::int16_t>(id)});
-                one.mValue["lvl"] = makeTag(ShortTag{static_cast<std::int16_t>(lvl)});
-                ench.mValue.push_back(makeTag(std::move(one)));
+                one["id"]  = makeTag(ShortTag{static_cast<std::int16_t>(id)});
+                one["lvl"] = makeTag(ShortTag{static_cast<std::int16_t>(lvl)});
+                ench.push_back(Tag{std::move(one)});
             }
-            tag.mValue["ench"] = makeTag(std::move(ench));
+            tag["ench"] = makeTag(std::move(ench));
         }
-        out.mValue["tag"] = makeTag(std::move(tag));
+        out["tag"] = makeTag(std::move(tag));
     }
     return out;
 }
 
 inline CompoundTag offerToNbt(TradeOffer const& offer) {
     CompoundTag out;
-    out.mValue["buyA"] = makeTag(itemToNbt(offer.buyA));
+    out["buyA"] = makeTag(itemToNbt(offer.buyA));
     if (!offer.buyB.type.empty())
-        out.mValue["buyB"] = makeTag(itemToNbt(offer.buyB));
-    out.mValue["sell"] = makeTag(itemToNbt(offer.sell));
+        out["buyB"] = makeTag(itemToNbt(offer.buyB));
+    out["sell"] = makeTag(itemToNbt(offer.sell));
 
-    out.mValue["buyCountA"]        = makeTag(IntTag{offer.buyA.count});
-    out.mValue["buyCountB"]        = makeTag(IntTag{offer.buyB.type.empty() ? 0 : offer.buyB.count});
-    out.mValue["tier"]             = makeTag(IntTag{offer.tier});
-    out.mValue["uses"]             = makeTag(IntTag{offer.uses});
-    out.mValue["maxUses"]          = makeTag(IntTag{offer.maxUses});
-    out.mValue["demand"]           = makeTag(IntTag{offer.demand});
-    out.mValue["priceMultiplierA"] = makeTag(FloatTag{offer.priceMultiplierA});
-    out.mValue["priceMultiplierB"] = makeTag(FloatTag{offer.priceMultiplierB});
-    out.mValue["rewardExp"]        = makeTag(ByteTag{static_cast<std::int8_t>(offer.rewardExp ? 1 : 0)});
-    out.mValue["traderExp"]        = makeTag(IntTag{offer.traderExp});
-    out.mValue["netId"]            = makeTag(IntTag{offer.netId});
+    out["buyCountA"]        = makeTag(IntTag{offer.buyA.count});
+    out["buyCountB"]        = makeTag(IntTag{offer.buyB.type.empty() ? 0 : offer.buyB.count});
+    out["tier"]             = makeTag(IntTag{offer.tier});
+    out["uses"]             = makeTag(IntTag{offer.uses});
+    out["maxUses"]          = makeTag(IntTag{offer.maxUses});
+    out["demand"]           = makeTag(IntTag{offer.demand});
+    out["priceMultiplierA"] = makeTag(FloatTag{offer.priceMultiplierA});
+    out["priceMultiplierB"] = makeTag(FloatTag{offer.priceMultiplierB});
+    out["rewardExp"]        = makeTag(ByteTag{static_cast<std::int8_t>(offer.rewardExp ? 1 : 0)});
+    out["traderExp"]        = makeTag(IntTag{offer.traderExp});
+    out["netId"]            = makeTag(IntTag{offer.netId});
     return out;
 }
 
@@ -142,26 +138,22 @@ inline CompoundTag buildOffers(
     int                            baseNetId           = 3676) {
     CompoundTag root;
 
-    ListTag recipes;
-    recipes.mType = TagType::Compound;
-    recipes.mValue.reserve(offers.size());
+    ListTag recipes(TagType::Compound);
     for (std::size_t i = 0; i < offers.size(); ++i) {
         TradeOffer o = offers[i];
         if (o.netId <= 0)
             o.netId = baseNetId + static_cast<int>(i);
-        recipes.mValue.push_back(makeTag(detail::offerToNbt(o)));
+        recipes.push_back(Tag{detail::offerToNbt(o)});
     }
-    root.mValue["Recipes"] = makeTag(std::move(recipes));
+    root["Recipes"] = makeTag(std::move(recipes));
 
-    ListTag tierExp;
-    tierExp.mType = TagType::Compound;
-    tierExp.mValue.reserve(tierExpRequirements.size());
+    ListTag tierExp(TagType::Compound);
     for (std::size_t i = 0; i < tierExpRequirements.size(); ++i) {
         CompoundTag entry;
-        entry.mValue[std::to_string(i)] = makeTag(IntTag{tierExpRequirements[i]});
-        tierExp.mValue.push_back(makeTag(std::move(entry)));
+        entry[std::to_string(i)] = makeTag(IntTag{tierExpRequirements[i]});
+        tierExp.push_back(Tag{std::move(entry)});
     }
-    root.mValue["TierExpRequirements"] = makeTag(std::move(tierExp));
+    root["TierExpRequirements"] = makeTag(std::move(tierExp));
 
     return root;
 }

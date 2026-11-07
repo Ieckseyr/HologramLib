@@ -16,19 +16,15 @@
 #include <mc/world/item/registry/ItemRegistryRef.h>
 #include <mc/world/level/Level.h>
 
-#include <sculk/protocol/codec/actor/ActorDataIDs.hpp>
-#include <sculk/protocol/codec/actor/ActorEvent.hpp>
-#include <sculk/protocol/codec/level/MolangVersion.hpp>
-#include <sculk/protocol/codec/packet/ActorEventPacket.hpp>
-#include <sculk/protocol/codec/packet/AnimateEntityPacket.hpp>
-#include <sculk/protocol/codec/packet/MobEffectPacket.hpp>
-#include <sculk/protocol/codec/packet/MoveActorAbsolutePacket.hpp>
-#include <sculk/protocol/codec/packet/SetActorDataPacket.hpp>
+#include "core/proto/Version.h"
+#include "MetaWire.h"
 
 #include <format>
 #include <string_view>
 
 namespace debugshape_export {
+
+namespace proto = ::debugshape_export::core::proto;
 
 namespace {
 
@@ -90,10 +86,11 @@ tick::AutoRegister gActorFxRegister{"actorfx", &actorFxTick, tick::Order::ActorF
 }
 
 bool sendTo(::Player& player, int64_t runtimeId, int eventId, int data) {
-    sculk::protocol::ActorEventPacket packet;
-    packet.mRuntimeId = static_cast<std::uint64_t>(runtimeId);
-    packet.mEventId   = static_cast<sculk::protocol::ActorEvent>(eventId);
-    packet.mData      = data;
+    proto::ActorEventPacket packet;
+    packet.runtime_id = proto::bp::ActorRuntimeID{static_cast<std::uint64_t>(runtimeId)};
+    packet.event_id   = static_cast<decltype(packet.event_id)>(eventId);
+    packet.data       = data;
+    packet.fire_at_position.reset();
 
     auto bytes = wire::encode(packet);
     if (bytes.empty())
@@ -133,15 +130,15 @@ bool ActorEffectManager::dispatch(std::string const& playerName, int64_t runtime
 }
 
 bool ActorEffectManager::playHurt(int64_t entityRuntimeId) {
-    return dispatch("", entityRuntimeId, static_cast<int>(sculk::protocol::ActorEvent::Hurt), 0);
+    return dispatch("", entityRuntimeId, static_cast<int>(proto::ActorEvent::Hurt), 0);
 }
 
 bool ActorEffectManager::playDeath(int64_t entityRuntimeId) {
-    return dispatch("", entityRuntimeId, static_cast<int>(sculk::protocol::ActorEvent::Death), 0);
+    return dispatch("", entityRuntimeId, static_cast<int>(proto::ActorEvent::Death), 0);
 }
 
 bool ActorEffectManager::playInstantDeath(int64_t entityRuntimeId) {
-    return dispatch("", entityRuntimeId, static_cast<int>(sculk::protocol::ActorEvent::InstantDeath), 0);
+    return dispatch("", entityRuntimeId, static_cast<int>(proto::ActorEvent::InstantDeath), 0);
 }
 
 bool ActorEffectManager::play(int64_t entityRuntimeId, int eventId, int data) {
@@ -162,12 +159,12 @@ bool ActorEffectManager::setFreeze(int64_t entityRuntimeId, float strength) {
 
     float const value = strength < 0.0f ? 0.0f : (strength > 1.0f ? 1.0f : strength);
 
-    sculk::protocol::SetActorDataPacket packet;
-    packet.mActorRuntimeId      = static_cast<std::uint64_t>(entityRuntimeId);
-    packet.mTick                = core::serverTick();
-    packet.mSynchedProperties   = {};
-    packet.mMetaData.mDataItems = {
-        {sculk::protocol::ActorDataIDs::FreezingEffectStrength, value},
+    proto::SetActorDataPacket packet;
+    packet.id                 = proto::bp::ActorRuntimeID{static_cast<std::uint64_t>(entityRuntimeId)};
+    packet.tick               = proto::bp::PlayerInputTick{core::serverTick()};
+    packet.synched_properties = {};
+    packet.packed_items.data  = {
+        meta_wire::float32(proto::ActorDataIDs::FreezingEffectStrength, value),
     };
 
     auto bytes = wire::encode(packet);
@@ -197,14 +194,14 @@ bool ActorEffectManager::playAnimation(
     if (entityRuntimeId <= 0 || animation.empty())
         return false;
 
-    sculk::protocol::AnimateEntityPacket packet;
-    packet.mAnimation                   = animation;
-    packet.mNextState                   = nextState;
-    packet.mStopExpression              = stopExpression;
-    packet.mStopExpressionMolangVersion = static_cast<sculk::protocol::MolangVersion>(molangVersion);
-    packet.mController                  = controller;
-    packet.mBlendOutTime                = blendOutTime;
-    packet.mRuntimeIds                  = {static_cast<std::uint64_t>(entityRuntimeId)};
+    proto::AnimateEntityPacket packet;
+    packet.animation               = animation;
+    packet.next_state              = nextState;
+    packet.stop_expression         = stopExpression;
+    packet.stop_expression_version = static_cast<std::int32_t>(molangVersion);
+    packet.controller              = controller;
+    packet.blend_out_time          = blendOutTime;
+    packet.runtime_ids             = {proto::bp::ActorRuntimeID{static_cast<std::uint64_t>(entityRuntimeId)}};
 
     auto bytes = wire::encode(packet);
     if (bytes.empty())
@@ -359,12 +356,12 @@ bool ActorEffectManager::setPose(int64_t entityRuntimeId, int poseIndex) {
     if (entityRuntimeId <= 0 || poseIndex < 0)
         return false;
 
-    sculk::protocol::SetActorDataPacket packet;
-    packet.mActorRuntimeId      = static_cast<std::uint64_t>(entityRuntimeId);
-    packet.mTick                = core::serverTick();
-    packet.mSynchedProperties   = {};
-    packet.mMetaData.mDataItems = {
-        {sculk::protocol::ActorDataIDs::PoseIndex, static_cast<std::int32_t>(poseIndex)},
+    proto::SetActorDataPacket packet;
+    packet.id                 = proto::bp::ActorRuntimeID{static_cast<std::uint64_t>(entityRuntimeId)};
+    packet.tick               = proto::bp::PlayerInputTick{core::serverTick()};
+    packet.synched_properties = {};
+    packet.packed_items.data  = {
+        meta_wire::int32(proto::ActorDataIDs::PoseIndex, static_cast<std::int32_t>(poseIndex)),
     };
 
     auto bytes = wire::encode(packet);
@@ -414,15 +411,15 @@ bool ActorEffectManager::showEffect(
     if (player == nullptr || effectId < 0)
         return false;
 
-    sculk::protocol::MobEffectPacket packet;
-    packet.mActorRuntimeId      = static_cast<std::uint64_t>(player->getRuntimeID().rawID);
-    packet.mEventId             = sculk::protocol::MobEffectPacket::Event::Add;
-    packet.mEffectId            = effectId;
-    packet.mEffectAmplifier     = amplifier < 0 ? 0 : amplifier;
-    packet.mShowParticles       = true;
-    packet.mEffectDurationTicks = durationTicks > 0 ? durationTicks : 200;
-    packet.mTick                = core::serverTick();
-    packet.mAmbient             = false;
+    proto::MobEffectPacket packet;
+    packet.runtime_id            = proto::bp::ActorRuntimeID{static_cast<std::uint64_t>(player->getRuntimeID().rawID)};
+    packet.event_id              = proto::bp::MobEffectPacket::Event::Add;
+    packet.effect_id             = effectId;
+    packet.effect_amplifier      = amplifier < 0 ? 0 : amplifier;
+    packet.show_particles        = true;
+    packet.effect_duration_ticks = durationTicks > 0 ? durationTicks : 200;
+    packet.tick                  = proto::bp::PlayerInputTick{core::serverTick()};
+    packet.ambient               = false;
 
     auto bytes = wire::encode(packet);
     if (bytes.empty())
@@ -469,13 +466,13 @@ void ActorEffectManager::tickFx() {
                 auto const& rot = actor->getRotation();
                 float const yaw = rot.y + it->yaw;
 
-                sculk::protocol::MoveActorAbsolutePacket packet;
-                packet.mActorRuntimeId = it->runtimeId;
-                packet.mFlags          = sculk::protocol::MoveActorAbsolutePacket::Flags::ForceMove;
-                packet.mPosition       = {pos.x, pos.y, pos.z};
-                packet.mRotationX      = rotByte(rot.x);
-                packet.mRotationY      = rotByte(yaw);
-                packet.mRotationYHead  = rotByte(yaw);
+                proto::MoveActorAbsolutePacket packet;
+                packet.move_data.runtime_id = proto::bp::ActorRuntimeID{it->runtimeId};
+                packet.move_data.header     = proto::move_flags::kForceMove;
+                packet.move_data.pos        = {pos.x, pos.y, pos.z};
+                packet.move_data.rot_x      = rotByte(rot.x);
+                packet.move_data.rot_y      = rotByte(yaw);
+                packet.move_data.rot_y_head = rotByte(yaw);
 
                 auto bytes = wire::encode(packet);
                 if (!bytes.empty()) {

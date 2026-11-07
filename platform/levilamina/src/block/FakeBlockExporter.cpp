@@ -14,8 +14,7 @@
 #include <mc/world/level/Level.h>
 #include <mc/world/level/block/Block.h>
 
-#include <sculk/protocol/codec/level/block/BlockPos.hpp>
-#include <sculk/protocol/codec/packet/UpdateBlockPacket.hpp>
+#include "core/proto/Version.h"
 
 #include <cctype>
 #include <cstdlib>
@@ -23,6 +22,8 @@
 #include <vector>
 
 namespace debugshape_export {
+
+namespace proto = ::debugshape_export::core::proto;
 
 static constexpr const char* NAMESPACE = "HologramLib";
 
@@ -32,11 +33,11 @@ using blockstate::resolveNetworkId;
 namespace {
 
 bool sendUpdateBlock(::Player& player, int x, int y, int z, std::uint32_t runtimeId) {
-    sculk::protocol::UpdateBlockPacket packet;
-    packet.mBlockPosition = sculk::protocol::BlockPos{x, y, z};
-    packet.mRuntimeId     = runtimeId;
-    packet.mFlag          = 3;
-    packet.mLayer         = 0;
+    proto::UpdateBlockPacket packet;
+    packet.pos          = proto::BlockPos{x, y, z};
+    packet.runtime_id   = proto::BlockRuntimeId{runtimeId};
+    packet.update_flags = 3;
+    packet.layer        = 0;
 
     auto bytes = wire::encode(packet);
     if (bytes.empty())

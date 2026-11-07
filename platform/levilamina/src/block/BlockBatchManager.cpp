@@ -12,6 +12,7 @@
 #include "core/BlockPackets.h"
 
 #include <ll/api/event/EventBus.h>
+#include <exception>
 #include <ll/api/event/world/ServerLevelTickEvent.h>
 #include <ll/api/service/Bedrock.h>
 
@@ -86,7 +87,7 @@ std::vector<Change> parseChanges(std::string const& packed, std::size_t& outBad)
                 continue;
             }
             out.push_back(Change{x, y, z, state});
-        } catch (...) {
+        } catch (std::exception const&) {
             ++outBad;
         }
     }
@@ -111,7 +112,7 @@ std::vector<Pos> parsePositions(std::string const& packed) {
             auto const  p2 = item.find_first_of(" \t", p1 + used);
             int         z  = std::stoi(item.substr(p2 + used), &used);
             out.push_back(Pos{x, y, z});
-        } catch (...) {
+        } catch (std::exception const&) {
         }
     }
     return out;
@@ -216,6 +217,10 @@ std::string blockNameOf(std::string const& state) {
 
 } // namespace
 
+BlockBatchManager::BlockBatchManager() = default;
+
+BlockBatchManager::~BlockBatchManager() = default;
+
 BlockBatchManager& BlockBatchManager::getInstance() {
     static BlockBatchManager instance;
     return instance;
@@ -224,7 +229,7 @@ BlockBatchManager& BlockBatchManager::getInstance() {
 void BlockBatchManager::init() {
     if (mImpl != nullptr)
         return;
-    mImpl = new Impl();
+    mImpl = std::make_unique<Impl>();
     mImpl->tickListener = core::listen<::ll::event::ServerLevelTickEvent>(
         core::kServerLevelTickId,
         [](::ll::event::ServerLevelTickEvent const&) { BlockBatchManager::getInstance().tick(); },
@@ -239,8 +244,7 @@ void BlockBatchManager::shutdown() {
         ::ll::event::EventBus::getInstance().removeListener(mImpl->tickListener);
         mImpl->tickListener = nullptr;
     }
-    delete mImpl;
-    mImpl = nullptr;
+    mImpl.reset();
 }
 
 int64_t BlockBatchManager::submit(std::string const& packed, std::vector<std::string> const& viewers, bool immediate) {

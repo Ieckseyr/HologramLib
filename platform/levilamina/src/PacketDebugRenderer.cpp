@@ -311,7 +311,7 @@ std::vector<float> PacketDebugRenderer::getLocation(int64_t id) {
         if (!shape.proto.mLocation.has_value())
             return;
         auto const& loc = *shape.proto.mLocation;
-        out             = {loc.mX, loc.mY, loc.mZ};
+        out             = {loc.x, loc.y, loc.z};
     });
     return out;
 }
@@ -322,12 +322,8 @@ std::vector<float> PacketDebugRenderer::getColor(int64_t id) {
         if (!shape.proto.mColor.has_value())
             return;
 
-        std::uint32_t packed = static_cast<std::uint32_t>(*shape.proto.mColor);
-        float         r      = static_cast<std::uint8_t>((packed >> 16) & 0xFF) / 255.0f;
-        float         g      = static_cast<std::uint8_t>((packed >> 8) & 0xFF) / 255.0f;
-        float         b      = static_cast<std::uint8_t>(packed & 0xFF) / 255.0f;
-        float         a      = static_cast<std::uint8_t>((packed >> 24) & 0xFF) / 255.0f;
-        out                  = {r, g, b, a};
+        auto const& color = *shape.proto.mColor;
+        out               = {color.r / 255.0f, color.g / 255.0f, color.b / 255.0f, color.a / 255.0f};
     });
     return out;
 }
@@ -346,7 +342,7 @@ std::vector<float> PacketDebugRenderer::getRotation(int64_t id) {
         if (!shape.proto.mRotation.has_value())
             return;
         auto const& rot = *shape.proto.mRotation;
-        out             = {rot.mX, rot.mY, rot.mZ};
+        out             = {rot.x, rot.y, rot.z};
     });
     return out;
 }
@@ -473,7 +469,7 @@ std::vector<int64_t> PacketDebugRenderer::findTextByLocation(float x, float y, f
         if (!shape.proto.mLocation.has_value())
             return;
         auto const& loc = *shape.proto.mLocation;
-        float       dx = loc.mX - x, dy = loc.mY - y, dz = loc.mZ - z;
+        float       dx = loc.x - x, dy = loc.y - y, dz = loc.z - z;
         if (dx * dx + dy * dy + dz * dz <= radiusSq)
             result.push_back(id);
     });
@@ -494,7 +490,7 @@ int64_t PacketDebugRenderer::findTextByLocationAndContent(float x, float y, floa
         if (!shape.proto.mLocation.has_value())
             return;
         auto const& loc = *shape.proto.mLocation;
-        float       dx = loc.mX - x, dy = loc.mY - y, dz = loc.mZ - z;
+        float       dx = loc.x - x, dy = loc.y - y, dz = loc.z - z;
         if (dx * dx + dy * dy + dz * dz <= radiusSq)
             found = id;
     });

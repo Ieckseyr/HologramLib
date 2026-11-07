@@ -31,4 +31,10 @@ private:
 
 hologramlib::IPlayerSensing& playerSensingAdapter();
 
+// 空手挥动（攻击空气）统计：服务端 AnimatePacket(Swing) 计数
+std::uint64_t swingCount(std::string const& playerName);
+std::uint64_t swingTotal();
+void          swingReset();
+void          forgetSwings(std::string const& playerName);
+
 } // namespace debugshape_export

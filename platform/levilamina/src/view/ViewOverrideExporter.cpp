@@ -6,6 +6,7 @@
 #include "lse/LseBridge.h"
 
 #include <ll/api/service/Bedrock.h>
+#include <exception>
 
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/level/Level.h>
@@ -47,7 +48,7 @@ bool intOf(std::string const& value, int& out) {
             return false;
         out = v;
         return true;
-    } catch (...) {
+    } catch (std::exception const&) {
         return false;
     }
 }
@@ -60,7 +61,7 @@ bool floatOf(std::string const& value, float& out) {
             return false;
         out = v;
         return true;
-    } catch (...) {
+    } catch (std::exception const&) {
         return false;
     }
 }

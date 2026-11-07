@@ -8,18 +8,17 @@
 #include <string>
 #include <string_view>
 
-#include <sculk/protocol/Version.hpp>
-#include <sculk/protocol/codec/packet/PlayerListPacket.hpp>
+#include "core/proto/Version.h"
 
 namespace debugshape_export::npc_protocol {
 
-static_assert(SCULK_NETWORK_PROTOCOL_VERSION == 2168, "HologramLib NPCs require Protocol 2168 headers and library");
+namespace proto = ::debugshape_export::core::proto;
 
 inline constexpr std::uint8_t kSkinTrustedUnset = 0;
 inline constexpr std::uint8_t kSkinTrustedFalse = 1;
 inline constexpr std::uint8_t kSkinTrustedTrue  = 2;
 
-inline void finalizeSkinIds(sculk::protocol::SerializedSkin& skin, std::string_view registryId) {
+inline void finalizeSkinIds(proto::SerializedSkinRef& skin, std::string_view registryId) {
     std::uint64_t h = 1469598103934665603ULL;
     for (unsigned char c : registryId) {
         h ^= static_cast<std::uint64_t>(c);
@@ -38,43 +37,44 @@ inline void finalizeSkinIds(sculk::protocol::SerializedSkin& skin, std::string_v
         static_cast<unsigned>((b >> 28) & 0x3) | 0x8000,
         a,
         b & 0xFFFF);
-    skin.mId     = std::string(uuid) + "." + std::string(registryId);
-    skin.mFullId = skin.mId;
+    skin.id      = std::string(uuid) + "." + std::string(registryId);
+    skin.full_id = skin.id;
 }
 
-inline sculk::protocol::UUID npcUuid(std::int64_t id) {
+inline proto::UUID npcUuid(std::int64_t id) {
     return {0xF0B3'4E50'4300'0000ULL, static_cast<std::uint64_t>(id)};
 }
 
-inline sculk::protocol::PlayerListEntry playerListEntry(
-    sculk::protocol::UUID const&           uuid,
-    std::int64_t                           uniqueId,
-    std::string const&                     name,
-    sculk::protocol::SerializedSkin const& skin) {
-    sculk::protocol::PlayerListEntry entry;
-    entry.mUUID           = uuid;
-    entry.mActorUniqueId  = uniqueId;
-    entry.mPlayerName     = name;
-    entry.mXuid           = "0";
-    entry.mPlatformChatId = "";
-    entry.mSerializedSkin = skin;
-    // PlayerListEntry::write() copies mSkinTrusted into the skin tri-state, so a stale value carried on the caller's skin must not decide trust here. Set both explicitly.
-    entry.mSkinTrusted                     = true;
-    entry.mSerializedSkin.mTrustedSkinFlag = kSkinTrustedTrue;
-    entry.mBuildPlatform                   = 1;
-    entry.mColor                           = 0;
+// PlayerList 的 AddEntry。skin 的 trusted_skin_flag 就是线上信任三态，调用方传入的值会被覆盖成 True。
+inline proto::PlayerListAddEntry playerListEntry(
+    proto::UUID const&              uuid,
+    std::int64_t                    uniqueId,
+    std::string const&              name,
+    proto::SerializedSkinRef const& skin) {
+    proto::PlayerListAddEntry entry;
+    entry.action             = proto::PlayerListPacketType::Add;
+    entry.uuid               = uuid;
+    entry.id                 = proto::ActorUniqueID{uniqueId};
+    entry.name               = name;
+    entry.xuid               = "0";
+    entry.play_fab_id        = {};
+    entry.platform_online_id = {};
+    entry.build_platform     = static_cast<decltype(entry.build_platform)>(1);
+    entry.skin               = skin;
+    entry.skin.trusted_skin_flag =
+        static_cast<decltype(entry.skin.trusted_skin_flag)>(kSkinTrustedTrue);
+    entry.is_teacher     = false;
+    entry.is_host        = false;
+    entry.is_sub_client  = false;
+    entry.color          = proto::Color{0};
     return entry;
 }
 
-inline bool hasValidPlayerListPrefix(
-    sculk::protocol::PlayerListPacket const& packet,
-    std::span<std::byte const>               body) {
-    using Action = sculk::protocol::PlayerListPacket::ActionType;
-    if (packet.mPlayerEntryList.size() != 1 || body.size() < 3)
-        return false;
-    if (packet.mAction != Action::Add && packet.mAction != Action::Remove)
-        return false;
-    return body[0] == std::byte{1} && body[1] == (packet.mAction == Action::Add ? std::byte{1} : std::byte{0}) && body[2] == static_cast<std::byte>(packet.mAction);
+inline proto::PlayerListRemoveEntry playerListRemoveEntry(proto::UUID const& uuid) {
+    proto::PlayerListRemoveEntry entry;
+    entry.action = proto::PlayerListPacketType::Remove;
+    entry.uuid   = uuid;
+    return entry;
 }
 
 inline std::string bodyPrefixHex(std::span<std::byte const> body) {

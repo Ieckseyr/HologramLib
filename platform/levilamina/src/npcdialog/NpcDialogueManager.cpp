@@ -1,6 +1,6 @@
 #include "npcdialog/NpcDialogueManager.h"
-#include "kernel/EventIds.h"
 #include "core/HookRegistry.h"
+#include "kernel/EventIds.h"
 
 #include "DiagLog.h"
 #include "kernel/PacketSink.h"
@@ -27,14 +27,7 @@
 
 #include <format>
 
-#include <sculk/protocol/codec/actor/ActorDataIDs.hpp>
-#include <sculk/protocol/codec/actor/MetaData.hpp>
-#include <sculk/protocol/codec/math/Vec2.hpp>
-#include <sculk/protocol/codec/math/Vec3.hpp>
-#include <sculk/protocol/codec/packet/AddActorPacket.hpp>
-#include <sculk/protocol/codec/packet/NpcDialoguePacket.hpp>
-#include <sculk/protocol/codec/packet/RemoveActorPacket.hpp>
-#include <sculk/protocol/utility/BinaryStream.hpp>
+#include "core/proto/Version.h"
 
 #include <atomic>
 #include <cmath>
@@ -45,6 +38,8 @@
 #include <vector>
 
 namespace debugshape_export {
+
+namespace proto = ::debugshape_export::core::proto;
 
 namespace {
 
@@ -135,131 +130,38 @@ std::string resolveActionJson(hologramlib::NpcDialogSpec const& spec) {
 
 template <typename PacketT>
 bool sendPacket(Player& player, PacketT const& packet) {
-
-    return wire::sendBody(
+    auto bytes = wire::encode(packet, /*validate=*/false);
+    if (bytes.empty())
+        return false;
+    return wire::sendRaw(
         player,
-        static_cast<std::uint32_t>(packet.getId()),
-        wire26::body26(packet),
+        bytes,
         wire::Reliability::Reliable,
-        packet.getName(),
-        false);
-}
-
-std::pair<std::uint64_t, std::uint64_t> sendCarrierSpawn(
-    Player&                           player,
-    std::uint64_t                     uniqueId,
-    std::uint64_t                     runtimeId,
-    hologramlib::NpcDialogSpec const& spec,
-    std::string const&                actionJson) {
-    auto const& pos      = player.getPosition();
-    float const yaw      = player.getRotation().y;
-    float const rad      = yaw * (std::numbers::pi_v<float> / 180.0f);
-    auto const  position = sculk::protocol::Vec3{
-        pos.x + std::sin(rad) * 5.0f,
-        npcdialog::kCarrierY,
-        pos.z - std::cos(rad) * 5.0f};
-
-    std::string identifier = spec.carrierIdentifier;
-    std::string title      = spec.npcName;
-    if (!spec.avatarViewSpec.empty()) {
-        auto const view = parseEntitySpec(spec.avatarViewSpec);
-        if (!view.identifier.empty()) {
-            auto const normalised = view::logic::normaliseType(view.identifier);
-            if (!normalised.empty())
-                identifier = normalised;
-        }
-        if (view.hasNametag && !view.nametag.empty())
-            title = view.nametag;
-    }
-
-    sendPacket(
-        player,
-        npcdialog::buildCarrierAddActor(
-            uniqueId,
-            runtimeId,
-            identifier,
-            title,
-            actionJson,
-            position,
-            yaw,
-            spec.avatarSkinVariant));
-    return {uniqueId, runtimeId};
+        wire::detail::packetName(packet),
+        wire::detail::packetId(packet));
 }
 
 } // namespace
 
 namespace {
 
-std::atomic<std::int64_t>  gNextCarrierUid{-850403524570LL};
-std::atomic<std::uint64_t> gNextCarrierRid{0x6E200000ULL};
 } // namespace
-
-std::uint64_t NpcDialogueManager::nextCarrierUniqueId() {
-    return static_cast<std::uint64_t>(gNextCarrierUid.fetch_sub(1));
-}
-std::uint64_t NpcDialogueManager::nextCarrierRuntimeId() {
-    return gNextCarrierRid.fetch_add(1);
-}
 
 NpcDialogueManager& NpcDialogueManager::getInstance() {
     static NpcDialogueManager instance;
     return instance;
 }
 
-void NpcDialogueManager::removeCarrierEntity(Player& player, std::uint64_t uniqueId) {
-    if (uniqueId == 0)
-        return;
-    sculk::protocol::RemoveActorPacket packet;
-    packet.mActorUniqueId = static_cast<std::int64_t>(uniqueId);
-    sendPacket(player, packet);
-}
-
-std::uint64_t NpcDialogueManager::ensureCarrier(
-    Player&                           player,
-    std::string const&                playerName,
-    hologramlib::NpcDialogSpec const& spec,
-    std::string const&                actionJson) {
-    bool         hadPrevious = false;
-    std::int64_t previousUid = 0;
-    {
-        std::lock_guard lock(mMutex);
-        auto            it = mCarriers.find(playerName);
-        if (it != mCarriers.end()) {
-            hadPrevious = true;
-            previousUid = it->second.uniqueId;
-            mCarriers.erase(it);
-        }
-    }
-    // 拆旧载体要发包，必须在锁外
-    if (hadPrevious)
-        removeCarrierEntity(player, previousUid);
-
-    auto const uid = nextCarrierUniqueId();
-    auto const rid = nextCarrierRuntimeId();
-
-    auto const actual = sendCarrierSpawn(player, uid, rid, spec, actionJson);
-
-    {
-        std::lock_guard lock(mMutex);
-        mCarriers[playerName] = Carrier{actual.first, actual.second};
-    }
-    HLIB_LOG_INFO(
-        "[NpcDialog] 载体已生成: player={} uid={} rid={} (合成载体, y=-66)",
-        playerName,
-        actual.first,
-        actual.second);
-    return actual.first;
-}
-
 void NpcDialogueManager::sendDialog(Player& player, Dialog const& dialog, bool open) {
-    sculk::protocol::NpcDialoguePacket packet;
-    packet.mNpcId      = dialog.carrierUniqueId;
-    packet.mActionType = open ? sculk::protocol::NpcDialoguePacket::ActionType::Open
-                              : sculk::protocol::NpcDialoguePacket::ActionType::Close;
-    packet.mDialogue   = dialog.spec.dialogue;
-    packet.mSceneName  = dialog.spec.sceneName;
-    packet.mNpcName    = dialog.spec.npcName;
-    packet.mActionJSON = resolveActionJson(dialog.spec);
+    proto::NpcDialoguePacket packet;
+    packet.npc_id = proto::ActorUniqueID{static_cast<std::int64_t>(dialog.carrierUniqueId)};
+    packet.npc_dialogue_action_type =
+        open ? proto::bp::NpcDialoguePacket::NpcDialogueActionType::Open
+             : proto::bp::NpcDialoguePacket::NpcDialogueActionType::Close;
+    packet.dialogue    = dialog.spec.dialogue;
+    packet.scene_name  = dialog.spec.sceneName;
+    packet.npc_name    = dialog.spec.npcName;
+    packet.action_json = resolveActionJson(dialog.spec);
     sendPacket(player, packet);
 }
 

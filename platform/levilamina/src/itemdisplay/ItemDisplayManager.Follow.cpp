@@ -10,6 +10,8 @@
 #include <mc/world/level/Level.h>
 
 namespace debugshape_export {
+
+namespace proto = ::debugshape_export::core::proto;
 using namespace ide_ops;
 
 bool ItemDisplayManager::follow(int64_t id, std::string const& playerName, float offX, float offY, float offZ) {
@@ -61,8 +63,8 @@ int ItemDisplayManager::emitForEntity(std::string const& playerName, std::int64_
     }
 
     {
-        sculk::protocol::RemoveActorPacket rm;
-        rm.mActorUniqueId = uniqueId;
+        proto::RemoveActorPacket rm;
+        rm.entity_id = proto::ActorUniqueID{uniqueId};
         wire::send(*player, rm);
     }
 
@@ -261,14 +263,14 @@ void itemDisplayTick() {
                     if (entry.equipStack)
                         sendEquipment(*player, entry.runtimeId, *entry.equipStack);
                 } else {
-                    sculk::protocol::AnimateEntityPacket pkt;
-                    pkt.mAnimation                   = entry.animation;
-                    pkt.mNextState                   = "none";
-                    pkt.mStopExpression              = entry.stopExpression;
-                    pkt.mStopExpressionMolangVersion = sculk::protocol::MolangVersion::Initial;
-                    pkt.mController                  = entry.controller;
-                    pkt.mBlendOutTime                = 0;
-                    pkt.mRuntimeIds                  = {entry.runtimeId};
+                    proto::AnimateEntityPacket pkt;
+                    pkt.animation                = entry.animation;
+                    pkt.next_state               = "none";
+                    pkt.stop_expression          = entry.stopExpression;
+                    pkt.stop_expression_version  = static_cast<std::int32_t>(proto::MolangVersion::Initial);
+                    pkt.controller               = entry.controller;
+                    pkt.blend_out_time           = 0;
+                    pkt.runtime_ids              = {proto::bp::ActorRuntimeID{entry.runtimeId}};
                     wire::send(*player, pkt);
                 }
             }

@@ -1,17 +1,19 @@
-﻿
-
 #pragma once
+
+// 形状（PrimitiveShapes）的平台无关模型；编码见 core/ShapeWire.cpp。
 
 #include <algorithm>
 #include <cstdint>
+#include <optional>
 #include <string>
+#include <variant>
 
-#include "sculk/protocol/codec/level/PrimitiveShapes.hpp"
-#include "sculk/protocol/codec/math/Vec3.hpp"
-#include "sculk/protocol/codec/packet/PrimitiveShapesPacket.hpp"
 #include "core/ShapeIdMap.h"
+#include "core/proto/Version.h"
 
 namespace debugshape_export {
+
+namespace bp = ::bedrock::protocol;
 
 enum class LSEShapeType : int {
     Text   = shape_id::kLseText,
@@ -27,53 +29,27 @@ enum class LSEShapeType : int {
     Cone      = shape_id::kLseCone
 };
 
-using ProtoShape         = sculk::protocol::PrimitiveShapes;
-using ProtoShapeType     = sculk::protocol::PrimitiveShapesType;
-using ProtoVec3          = sculk::protocol::Vec3;
-using ProtoTextPayload   = sculk::protocol::TextDataPayload;
-using ProtoBoxPayload    = sculk::protocol::BoxDataPayload;
-using ProtoLinePayload   = sculk::protocol::LineDataPayload;
-using ProtoArrowPayload  = sculk::protocol::ArrowDataPayload;
-using ProtoSpherePayload = sculk::protocol::SphereDataPayload;
+struct Vec2 {
+    float x{};
+    float y{};
+};
 
-using DebugShape     = ProtoShape;
-using DebugShapeType = ProtoShapeType;
-using Vec3           = ProtoVec3;
-using DebugText      = ProtoTextPayload;
-using DebugBox       = ProtoBoxPayload;
-using DebugLine      = ProtoLinePayload;
-using DebugArrow     = ProtoArrowPayload;
-
-[[nodiscard]] inline ProtoShapeType toProtoShapeType(LSEShapeType t) {
-    switch (t) {
-    case LSEShapeType::Text:
-        return ProtoShapeType::Text;
-    case LSEShapeType::Line:
-        return ProtoShapeType::Line;
-    case LSEShapeType::Box:
-        return ProtoShapeType::Box;
-    case LSEShapeType::Circle:
-        return ProtoShapeType::Circle;
-    case LSEShapeType::Sphere:
-        return ProtoShapeType::Sphere;
-    case LSEShapeType::Arrow:
-        return ProtoShapeType::Arrow;
-    case LSEShapeType::Cylinder:
-        return ProtoShapeType::Cylinder;
-    case LSEShapeType::Pyramid:
-        return ProtoShapeType::Pyramid;
-    case LSEShapeType::Ellipsoid:
-        return ProtoShapeType::Ellipsoid;
-    case LSEShapeType::Cone:
-        return ProtoShapeType::Cone;
-    }
-    return ProtoShapeType::Box;
-}
+struct Vec3 {
+    float x{};
+    float y{};
+    float z{};
+};
 
 struct ProtoColor {
     std::uint8_t r{255}, g{255}, b{255}, a{255};
 
     ProtoColor() = default;
+    ProtoColor(std::int32_t packed) // ARGB
+        : r(static_cast<std::uint8_t>((packed >> 16) & 0xFF))
+        , g(static_cast<std::uint8_t>((packed >> 8) & 0xFF))
+        , b(static_cast<std::uint8_t>(packed & 0xFF))
+        , a(static_cast<std::uint8_t>((packed >> 24) & 0xFF)) {}
+
     ProtoColor(std::uint8_t r_, std::uint8_t g_, std::uint8_t b_, std::uint8_t a_ = 255)
         : r(r_)
         , g(g_)
@@ -90,14 +66,146 @@ struct ProtoColor {
 
     [[nodiscard]] std::int32_t toPacked() const {
         return static_cast<std::int32_t>(
-            (static_cast<std::uint32_t>(a) << 24) | (static_cast<std::uint32_t>(r) << 16) | (static_cast<std::uint32_t>(g) << 8) | static_cast<std::uint32_t>(b));
+            (static_cast<std::uint32_t>(a) << 24) | (static_cast<std::uint32_t>(r) << 16)
+            | (static_cast<std::uint32_t>(g) << 8) | static_cast<std::uint32_t>(b)
+        );
     }
 };
+
+enum class DebugShapeType {
+    Text,
+    Line,
+    Box,
+    Circle,
+    Sphere,
+    Arrow,
+    Cylinder,
+    Pyramid,
+    Ellipsoid,
+    Cone
+};
+
+using ProtoShapeType = DebugShapeType;
+
+struct DebugText {
+    std::string                     mText{};
+    bool                            mUseRotation{};
+    float                           mLineGapHeight{};
+    bool                            mDepthTest{};
+    bool                            mShowBackface{};
+    bool                            mShowTextBackface{};
+    std::optional<std::int32_t>     mBackgroundColor{};
+};
+
+struct DebugLine {
+    Vec3 mLineEndLocation{};
+};
+
+struct DebugBox {
+    Vec3 mBoxBound{};
+};
+
+struct DebugSphere {
+    std::uint8_t mSegments{};
+};
+
+struct DebugCylinder {
+    Vec2         mRadiusX{};
+    Vec2         mRadiusZ{};
+    float        mHeight{};
+    std::uint8_t mNumSegments{};
+};
+
+struct DebugPyramid {
+    float mWidth{};
+    float mDepth{};
+    float mHeight{};
+};
+
+struct DebugEllipsoid {
+    Vec3         mRadii{};
+    std::uint8_t mSegmentsPerAxis{};
+};
+
+struct DebugCone {
+    Vec2         mRadii{};
+    float        mHeight{};
+    std::uint8_t mNumSegments{};
+};
+
+struct DebugArrow {
+    Vec3 mArrowEndLocation{};
+};
+
+using DebugShapePayload = std::variant<
+    std::monostate,
+    DebugText,
+    DebugLine,
+    DebugBox,
+    DebugSphere,
+    DebugCylinder,
+    DebugPyramid,
+    DebugEllipsoid,
+    DebugCone,
+    DebugArrow>;
+
+struct DebugShape {
+    std::uint64_t              mNetworkId{};
+    DebugShapeType             mType{DebugShapeType::Box};
+    std::optional<Vec3>        mLocation{};
+    std::optional<float>       mScale{};
+    std::optional<Vec3>        mRotation{};
+    std::optional<float>       mTotalTimeLeft{};
+    std::optional<float>       mMaxRenderDistance{};
+    std::optional<ProtoColor>  mColor{};
+    std::optional<std::int32_t> mDimensionId{};
+    std::optional<std::int64_t> mAttachedToEntityId{};
+    DebugShapePayload          mShape{};
+};
+
+using ProtoShape        = DebugShape;
+using ProtoVec3         = Vec3;
+using ProtoTextPayload  = DebugText;
+using ProtoBoxPayload   = DebugBox;
+using ProtoLinePayload  = DebugLine;
+using ProtoArrowPayload = DebugArrow;
+using ProtoSpherePayload = DebugSphere;
+
+using DebugShapeTypeAlias = DebugShapeType;
+using DebugTextAlias      = DebugText;
+using DebugBoxAlias       = DebugBox;
+using DebugLineAlias      = DebugLine;
+using DebugArrowAlias     = DebugArrow;
+
+[[nodiscard]] inline DebugShapeType toProtoShapeType(LSEShapeType t) {
+    switch (t) {
+    case LSEShapeType::Text:
+        return DebugShapeType::Text;
+    case LSEShapeType::Line:
+        return DebugShapeType::Line;
+    case LSEShapeType::Box:
+        return DebugShapeType::Box;
+    case LSEShapeType::Circle:
+        return DebugShapeType::Circle;
+    case LSEShapeType::Sphere:
+        return DebugShapeType::Sphere;
+    case LSEShapeType::Arrow:
+        return DebugShapeType::Arrow;
+    case LSEShapeType::Cylinder:
+        return DebugShapeType::Cylinder;
+    case LSEShapeType::Pyramid:
+        return DebugShapeType::Pyramid;
+    case LSEShapeType::Ellipsoid:
+        return DebugShapeType::Ellipsoid;
+    case LSEShapeType::Cone:
+        return DebugShapeType::Cone;
+    }
+    return DebugShapeType::Box;
+}
 
 inline ProtoShape makeRemoveShape(std::uint64_t networkId) {
     ProtoShape shape;
     shape.mNetworkId = networkId;
-
     return shape;
 }
 
@@ -106,51 +214,46 @@ constexpr float kTextLineGapHeight = 0.0f;
 inline ProtoShape makeTextShape(std::uint64_t networkId, Vec3 const& pos, std::string const& text) {
     ProtoShape shape;
     shape.mNetworkId = networkId;
-    shape.mType      = ProtoShapeType::Text;
+    shape.mType      = DebugShapeType::Text;
     shape.mLocation  = pos;
-    shape.mShape     = ProtoTextPayload{
-        .mText          = text,
-        .mLineGapHeight = kTextLineGapHeight,
-    };
+    shape.mShape     = DebugText{.mText = text, .mLineGapHeight = kTextLineGapHeight};
     return shape;
 }
 
 inline ProtoShape makeLineShape(std::uint64_t networkId, Vec3 const& start, Vec3 const& end) {
     ProtoShape shape;
     shape.mNetworkId = networkId;
-    shape.mType      = ProtoShapeType::Line;
+    shape.mType      = DebugShapeType::Line;
     shape.mLocation  = start;
-    shape.mShape     = ProtoLinePayload{.mLineEndLocation = end};
+    shape.mShape     = DebugLine{.mLineEndLocation = end};
     return shape;
 }
 
 inline ProtoShape makeBoxShape(std::uint64_t networkId, Vec3 const& center, Vec3 const& bound) {
     ProtoShape shape;
     shape.mNetworkId = networkId;
-    shape.mType      = ProtoShapeType::Box;
+    shape.mType      = DebugShapeType::Box;
     shape.mLocation  = center;
-    shape.mShape     = ProtoBoxPayload{.mBoxBound = bound};
+    shape.mShape     = DebugBox{.mBoxBound = bound};
     return shape;
 }
 
 inline ProtoShape makeSphereShape(std::uint64_t networkId, Vec3 const& pos, float scale, std::uint8_t segments = 16) {
     ProtoShape shape;
     shape.mNetworkId = networkId;
-    shape.mType      = ProtoShapeType::Sphere;
+    shape.mType      = DebugShapeType::Sphere;
     shape.mLocation  = pos;
     shape.mScale     = scale;
-
-    shape.mShape = ProtoSpherePayload{.mSegments = segments};
+    shape.mShape     = DebugSphere{.mSegments = segments};
     return shape;
 }
 
 inline ProtoShape makeCircleShape(std::uint64_t networkId, Vec3 const& pos, float scale) {
     ProtoShape shape;
     shape.mNetworkId = networkId;
-    shape.mType      = ProtoShapeType::Circle;
+    shape.mType      = DebugShapeType::Circle;
     shape.mLocation  = pos;
     shape.mScale     = scale;
-
     return shape;
 }
 
@@ -160,14 +263,15 @@ inline ProtoShape makeCylinderShape(
     float         radiusX,
     float         radiusZ,
     float         height,
-    std::uint8_t  segments) {
+    std::uint8_t  segments
+) {
     ProtoShape shape;
     shape.mNetworkId = networkId;
-    shape.mType      = ProtoShapeType::Cylinder;
+    shape.mType      = DebugShapeType::Cylinder;
     shape.mLocation  = pos;
-    shape.mShape     = sculk::protocol::CylinderDataPayload{
-        .mRadiusX     = sculk::protocol::Vec2{radiusX, radiusX},
-        .mRadiusZ     = sculk::protocol::Vec2{radiusZ, radiusZ},
+    shape.mShape     = DebugCylinder{
+        .mRadiusX     = Vec2{radiusX, radiusX},
+        .mRadiusZ     = Vec2{radiusZ, radiusZ},
         .mHeight      = height,
         .mNumSegments = segments,
     };
@@ -179,16 +283,13 @@ inline ProtoShape makePyramidShape(
     Vec3 const&   pos,
     float         width,
     float         height,
-    float         depth) {
+    float         depth
+) {
     ProtoShape shape;
     shape.mNetworkId = networkId;
-    shape.mType      = ProtoShapeType::Pyramid;
+    shape.mType      = DebugShapeType::Pyramid;
     shape.mLocation  = pos;
-    shape.mShape     = sculk::protocol::PyramidDataPayload{
-        .mWidth  = width,
-        .mDepth  = depth,
-        .mHeight = height,
-    };
+    shape.mShape     = DebugPyramid{.mWidth = width, .mDepth = depth, .mHeight = height};
     return shape;
 }
 
@@ -196,15 +297,13 @@ inline ProtoShape makeEllipsoidShape(
     std::uint64_t networkId,
     Vec3 const&   pos,
     Vec3 const&   radii,
-    std::uint8_t  segmentsPerAxis) {
+    std::uint8_t  segmentsPerAxis
+) {
     ProtoShape shape;
     shape.mNetworkId = networkId;
-    shape.mType      = ProtoShapeType::Ellipsoid;
+    shape.mType      = DebugShapeType::Ellipsoid;
     shape.mLocation  = pos;
-    shape.mShape     = sculk::protocol::EllipsoidDataPayload{
-        .mRadii           = radii,
-        .mSegmentsPerAxis = segmentsPerAxis,
-    };
+    shape.mShape     = DebugEllipsoid{.mRadii = radii, .mSegmentsPerAxis = segmentsPerAxis};
     return shape;
 }
 
@@ -214,13 +313,14 @@ inline ProtoShape makeConeShape(
     float         radiusX,
     float         radiusZ,
     float         height,
-    std::uint8_t  segments) {
+    std::uint8_t  segments
+) {
     ProtoShape shape;
     shape.mNetworkId = networkId;
-    shape.mType      = ProtoShapeType::Cone;
+    shape.mType      = DebugShapeType::Cone;
     shape.mLocation  = pos;
-    shape.mShape     = sculk::protocol::ConeDataPayload{
-        .mRadii       = sculk::protocol::Vec2{radiusX, radiusZ},
+    shape.mShape = DebugCone{
+        .mRadii       = Vec2{radiusX, radiusZ},
         .mHeight      = height,
         .mNumSegments = segments,
     };
@@ -230,9 +330,9 @@ inline ProtoShape makeConeShape(
 inline ProtoShape makeArrowShape(std::uint64_t networkId, Vec3 const& start, Vec3 const& end) {
     ProtoShape shape;
     shape.mNetworkId = networkId;
-    shape.mType      = ProtoShapeType::Arrow;
+    shape.mType      = DebugShapeType::Arrow;
     shape.mLocation  = start;
-    shape.mShape     = ProtoArrowPayload{.mArrowEndLocation = end};
+    shape.mShape     = DebugArrow{.mArrowEndLocation = end};
     return shape;
 }
 

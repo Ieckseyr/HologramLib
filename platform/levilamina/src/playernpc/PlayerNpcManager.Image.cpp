@@ -1,4 +1,5 @@
 #include "PlayerNpcManager.h"
+#include "core/TextEscape.h"
 
 #include "NpcSkinRegistry.h"
 #include "DiagLog.h"
@@ -43,9 +44,10 @@ bool PlayerNpcManager::registerImageSkinSized(
         return std::format("{:.6g}", v);
     };
     std::string geo        = kTemplate;
-    auto        replaceAll = [&](std::string_view key, std::string_view val) {
-        for (auto pos = geo.find(key); pos != std::string::npos; pos = geo.find(key, pos + val.size())) {
-            geo.replace(pos, key.size(), val);
+    auto        replaceAll = [&](std::string_view key, std::string value) {
+        auto const escaped = core::text::jsonEscape(value);
+        for (auto pos = geo.find(key); pos != std::string::npos; pos = geo.find(key, pos + escaped.size())) {
+            geo.replace(pos, key.size(), escaped);
         }
     };
     replaceAll("%ID%", geoId);

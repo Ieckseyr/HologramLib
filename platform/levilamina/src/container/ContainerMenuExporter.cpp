@@ -5,6 +5,7 @@
 #include "lse/LseBridge.h"
 
 #include <string>
+#include <exception>
 #include <vector>
 
 namespace debugshape_export {
@@ -64,7 +65,7 @@ std::vector<std::pair<int, int>> splitEnch(std::string const& enchCsv) {
                 int const lvl = std::stoi(item.substr(colon + 1));
                 if (id >= 0 && id <= 42 && lvl >= 1 && lvl <= 255)
                     out.emplace_back(id, lvl);
-            } catch (...) {
+            } catch (std::exception const&) {
             }
         }
         item.clear();

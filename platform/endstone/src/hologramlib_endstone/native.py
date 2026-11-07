@@ -276,7 +276,6 @@ class NativeCore:
             "holo_core_packet_id_set_actor_motion",
             "holo_core_packet_id_take_item_actor",
             "holo_core_packet_id_respawn",
-            "holo_core_packet_id_locator_bar",
             "holo_core_packet_id_set_actor_data",
             "holo_core_packet_id_update_block",
             "holo_core_packet_id_mob_effect",
@@ -358,11 +357,6 @@ class NativeCore:
             ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_uint8, ctypes.c_uint64,
             ctypes.POINTER(ctypes.POINTER(ctypes.c_uint8)), ctypes.POINTER(ctypes.c_size_t),
         ]
-        self._lib.holo_core_encode_locator_bar.restype = ctypes.c_int32
-        self._lib.holo_core_encode_locator_bar.argtypes = [
-            ctypes.POINTER(Waypoint), ctypes.c_size_t,
-            ctypes.POINTER(ctypes.POINTER(ctypes.c_uint8)), ctypes.POINTER(ctypes.c_size_t),
-        ]
         self._lib.holo_core_encode_set_actor_data.restype = ctypes.c_int32
         self._lib.holo_core_encode_set_actor_data.argtypes = [
             ctypes.c_uint64, ctypes.c_uint64, ctypes.POINTER(MetaEntry), ctypes.c_size_t,
@@ -408,7 +402,6 @@ class NativeCore:
         self.animate_entity_packet_id = int(self._lib.holo_core_packet_id_animate_entity())
         self.update_block_packet_id = int(self._lib.holo_core_packet_id_update_block())
         self.set_actor_data_packet_id = int(self._lib.holo_core_packet_id_set_actor_data())
-        self.locator_bar_packet_id = int(self._lib.holo_core_packet_id_locator_bar())
         self.respawn_packet_id = int(self._lib.holo_core_packet_id_respawn())
         self.add_item_actor_packet_id = int(self._lib.holo_core_packet_id_add_item_actor())
         self.add_actor_packet_id = int(self._lib.holo_core_packet_id_add_actor())
@@ -816,18 +809,6 @@ class NativeCore:
         return self._take(rc, out_ptr, out_len, "holo_core_encode_respawn")
 
     # ── 定位条 ────────────────────────────────────────────────────────────
-    def encode_locator_bar(self, waypoints: list[Waypoint]) -> bytes:
-        if not waypoints:
-            return b""
-        array = (Waypoint * len(waypoints))(*waypoints)
-        out_ptr = ctypes.POINTER(ctypes.c_uint8)()
-        out_len = ctypes.c_size_t(0)
-        rc = self._lib.holo_core_encode_locator_bar(
-            array, len(waypoints), ctypes.byref(out_ptr), ctypes.byref(out_len)
-        )
-        return self._take(rc, out_ptr, out_len, "holo_core_encode_locator_bar")
-
-    # ── Actor 元数据 ──────────────────────────────────────────────────────
     def encode_set_actor_data(self, runtime_id: int, tick: int, entries: list[MetaEntry]) -> bytes:
         if not entries:
             return b""

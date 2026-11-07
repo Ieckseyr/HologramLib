@@ -39,8 +39,6 @@
 #include <mc/world/item/ItemStack.h>
 #include <mc/world/level/Level.h>
 #include <mc/world/level/block/Block.h>
-#include <sculk/protocol/codec/packet/ActorEventPacket.hpp>
-#include <sculk/protocol/codec/packet/AnimatePacket.hpp>
 
 #include <cmath>
 #include <format>

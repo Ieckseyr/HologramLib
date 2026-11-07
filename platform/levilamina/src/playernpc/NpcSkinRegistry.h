@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include <sculk/protocol/codec/actor/player/SerializedSkin.hpp>
+#include "core/proto/Version.h"
 
 #include "hologramlib/HologramLib.h"
 
@@ -35,15 +35,14 @@ public:
     bool                     unregisterSkin(std::string const& skinId);
     std::vector<std::string> getSkinIds() const;
 
-    bool getSkin(std::string const& skinId, sculk::protocol::SerializedSkin& out) const;
+    bool getSkin(std::string const& skinId, core::proto::SerializedSkinRef& out) const;
 
 private:
     NpcSkinRegistry()  = default;
     ~NpcSkinRegistry() = default;
 
     mutable std::mutex                                     mMutex;
-    std::map<std::string, sculk::protocol::SerializedSkin> mSkins;
-    void*                                                  mGdiplusToken{nullptr};
+    std::map<std::string, core::proto::SerializedSkinRef>  mSkins;
 };
 
 } // namespace debugshape_export

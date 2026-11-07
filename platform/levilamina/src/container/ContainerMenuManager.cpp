@@ -1,5 +1,6 @@
 #include "core/DiagFlags.h"
 
+#include "container/ContainerInternal.h"
 #include "container/ContainerMenuManager.h"
 #include "item/MenuItemStack.h"
 
@@ -35,21 +36,8 @@
 #include <mc/world/level/dimension/Dimension.h>
 #include <mc/world/level/dimension/DimensionHeightRange.h>
 
-#include <sculk/protocol/codec/actor/ActorDataIDs.hpp>
-#include <sculk/protocol/codec/inventory/container/ContainerID.hpp>
-#include <sculk/protocol/codec/inventory/container/ContainerType.hpp>
-#include <sculk/protocol/codec/level/block/BlockPos.hpp>
-#include <sculk/protocol/codec/nbt/CompoundTag.hpp>
-#include <sculk/protocol/codec/nbt/ListTag.hpp>
-#include <sculk/protocol/codec/nbt/TagType.hpp>
-#include <sculk/protocol/codec/nbt/TagVariant.hpp>
-#include <sculk/protocol/codec/packet/AddActorPacket.hpp>
-#include <sculk/protocol/codec/packet/BlockActorDataPacket.hpp>
-#include <sculk/protocol/codec/packet/ContainerClosePacket.hpp>
-#include <sculk/protocol/codec/packet/ContainerOpenPacket.hpp>
-#include <sculk/protocol/codec/packet/RemoveActorPacket.hpp>
-#include <sculk/protocol/codec/packet/UpdateBlockPacket.hpp>
-#include <sculk/protocol/utility/BinaryStream.hpp>
+#include "core/proto/Version.h"
+#include "MetaWire.h"
 
 #include <algorithm>
 #include <atomic>
@@ -58,36 +46,9 @@
 
 namespace debugshape_export {
 
+namespace proto = ::debugshape_export::core::proto;
+
 namespace {
-
-Player* findPlayerByName(std::string const& name) {
-    auto level = ll::service::getLevel();
-    if (!level)
-        return nullptr;
-    Player* found = nullptr;
-    level->forEachPlayer([&](Player& p) -> bool {
-        if (p.getRealName() == name) {
-            found = &p;
-            return false;
-        }
-        return true;
-    });
-    return found;
-}
-
-template <typename PacketT>
-bool sendPacket(Player& player, PacketT const& packet) {
-    if (hlibDomainDisabled("HLIB_NO_CONTAINER"))
-        return false;
-
-    return wire::sendBody(
-        player,
-        static_cast<std::uint32_t>(packet.getId()),
-        wire26::body26(packet),
-        wire::Reliability::Reliable,
-        packet.getName(),
-        false);
-}
 
 std::uint32_t chestBlockNetworkId() {
     static std::uint32_t const cached = [] {
@@ -146,13 +107,8 @@ ContainerMenuManager& ContainerMenuManager::getInstance() {
     return instance;
 }
 
-static std::uint64_t containerNowTick() {
-    auto level = ll::service::getLevel();
-    return level ? level->getCurrentTick().tickID : std::uint64_t{0};
-}
-
 int ContainerMenuManager::allocateContainerId() {
-    auto const now = containerNowTick();
+    auto const now = container_util::nowTick();
 
     for (auto it = mIdFreedTick.begin(); it != mIdFreedTick.end();) {
         if (now - it->second > 200)
@@ -181,8 +137,8 @@ void ContainerMenuManager::sendChestBlocks(Player& player, Menu const& menu) {
     auto const runtimeId = chestBlockNetworkId();
 
     auto sendOne = [&](int x, int y, int z, bool secondHalf) {
-        sendPacket(player, container::makeUpdateBlock(x, y, z, runtimeId));
-        sendPacket(
+        container_util::sendPacket(player, container::makeUpdateBlock(x, y, z, runtimeId));
+        container_util::sendPacket(
             player,
             container::makeBlockActorData(
                 x,
@@ -197,12 +153,12 @@ void ContainerMenuManager::sendChestBlocks(Player& player, Menu const& menu) {
 }
 
 void ContainerMenuManager::sendContainerOpen(Player& player, Menu const& menu) {
-    sendPacket(player, container::makeContainerOpen(menu.containerId, menu.posX, menu.posY, menu.posZ));
+    container_util::sendPacket(player, container::makeContainerOpen(menu.containerId, menu.posX, menu.posY, menu.posZ));
 }
 
 void ContainerMenuManager::restoreRealBlocks(Player& player, Menu const& menu) {
     auto sendOne = [&](int x, int y, int z) {
-        sendPacket(player, container::makeUpdateBlock(x, y, z, realBlockNetworkId(player, x, y, z)));
+        container_util::sendPacket(player, container::makeUpdateBlock(x, y, z, realBlockNetworkId(player, x, y, z)));
     };
     sendOne(menu.posX, menu.posY, menu.posZ);
     if (menu.isBig())
@@ -213,29 +169,31 @@ void ContainerMenuManager::sendMinecartCarrier(Player& player, Menu const& menu)
     auto const uid = menu.carrierUniqueId;
     auto const rid = menu.carrierRuntimeId;
 
-    sculk::protocol::AddActorPacket spawn;
-    spawn.mActorUniqueId  = static_cast<std::int64_t>(uid);
-    spawn.mActorRuntimeId = rid;
-    spawn.mIdentifier     = "minecraft:chest_minecart";
-    spawn.mPosition       = sculk::protocol::Vec3{
+    using ids = proto::ActorDataIDs;
+
+    proto::AddActorPacket spawn;
+    spawn.entity_id        = proto::ActorUniqueID{static_cast<std::int64_t>(uid)};
+    spawn.runtime_id       = proto::bp::ActorRuntimeID{rid};
+    spawn.actor_type       = "minecraft:chest_minecart";
+    spawn.pos              = proto::Vec3{
         static_cast<float>(menu.posX),
         static_cast<float>(menu.posY),
         static_cast<float>(menu.posZ)};
-    spawn.mVelocity      = sculk::protocol::Vec3{0.0f, 0.0f, 0.0f};
-    spawn.mRotation      = sculk::protocol::Vec2{0.0f, 0.0f};
-    spawn.mYHeadRotation = 0.0f;
-    spawn.mYBodyRotation = 0.0f;
-    auto& meta           = spawn.mMetaData.mDataItems;
-    meta.push_back({sculk::protocol::ActorDataIDs::Name, std::string(menu.spec.title)});
-    meta.push_back({sculk::protocol::ActorDataIDs::Reserved0, static_cast<std::int64_t>(1) << 5});
-    sendPacket(player, spawn);
+    spawn.velocity         = proto::Vec3{0.0f, 0.0f, 0.0f};
+    spawn.rot              = proto::Vec2{0.0f, 0.0f};
+    spawn.y_head_rotation  = 0.0f;
+    spawn.y_body_rotation  = 0.0f;
+    auto& meta             = spawn.data.data;
+    meta.push_back(meta_wire::string(ids::Name, std::string(menu.spec.title)));
+    meta.push_back(meta_wire::int64(ids::Reserved0, static_cast<std::int64_t>(1) << 5));
+    container_util::sendPacket(player, spawn);
 
-    sculk::protocol::ContainerOpenPacket open;
-    open.mContainerId   = static_cast<sculk::protocol::ContainerID>(menu.containerId);
-    open.mContainerType = sculk::protocol::ContainerType::MinecartChest;
-    open.mPosition      = sculk::protocol::BlockPos{menu.posX, menu.posY, menu.posZ};
-    open.mTargetActorId = static_cast<std::int64_t>(uid);
-    sendPacket(player, open);
+    proto::ContainerOpenPacket open;
+    open.container_id      = static_cast<proto::ContainerIDType>(menu.containerId);
+    open.type              = proto::bp::ContainerType::MinecartChest;
+    open.pos               = proto::BlockPos{menu.posX, menu.posY, menu.posZ};
+    open.entity_unique_id  = proto::ActorUniqueID{static_cast<std::int64_t>(uid)};
+    container_util::sendPacket(player, open);
 }
 
 bool ContainerMenuManager::snapshotMenu(int64_t menuId, Menu& out) const {
@@ -252,7 +210,7 @@ bool ContainerMenuManager::isCurrentEpoch(Menu const& menu) const {
 }
 
 void ContainerMenuManager::laterSendBlocks(std::string playerName, int64_t menuId) {
-    auto* player = findPlayerByName(playerName);
+    auto* player = container_util::findPlayerByName(playerName);
     if (player == nullptr)
         return;
     Menu copy;
@@ -264,7 +222,7 @@ void ContainerMenuManager::laterSendBlocks(std::string playerName, int64_t menuI
 }
 
 void ContainerMenuManager::laterSendOpen(std::string playerName, int64_t menuId) {
-    auto* player = findPlayerByName(playerName);
+    auto* player = container_util::findPlayerByName(playerName);
     if (player == nullptr)
         return;
     Menu copy;
@@ -280,7 +238,7 @@ void ContainerMenuManager::laterSendOpen(std::string playerName, int64_t menuId)
 }
 
 void ContainerMenuManager::laterMinecartOpen(std::string playerName, int64_t menuId) {
-    auto* player = findPlayerByName(playerName);
+    auto* player = container_util::findPlayerByName(playerName);
     if (player == nullptr)
         return;
     Menu copy;
@@ -298,7 +256,7 @@ void ContainerMenuManager::laterMinecartOpen(std::string playerName, int64_t men
 int64_t ContainerMenuManager::open(std::string const& playerName, hologramlib::ContainerMenuSpec const& spec) {
     if (hlibDomainDisabled("HLIB_NO_CONTAINER"))
         return -1;
-    auto* player = findPlayerByName(playerName);
+    auto* player = container_util::findPlayerByName(playerName);
     if (player == nullptr) {
         HLIB_LOG_WARN("[ContainerMenu] 打开失败: 玩家 {} 不在线", playerName);
         return -1;
@@ -372,7 +330,7 @@ int64_t ContainerMenuManager::open(std::string const& playerName, hologramlib::C
 
 void ContainerMenuManager::resendBlockActor(Player& player, Menu const& menu) {
     auto const title = menu.spec.title;
-    sendPacket(
+    container_util::sendPacket(
         player,
         container::makeBlockActorData(
             menu.posX,
@@ -380,7 +338,7 @@ void ContainerMenuManager::resendBlockActor(Player& player, Menu const& menu) {
             menu.posZ,
             container::buildChestNbt(menu.posX, menu.posY, menu.posZ, false, title, menu.spec.rows, menu.spec.items, menu.enchantsBySlot)));
     if (menu.isBig()) {
-        sendPacket(
+        container_util::sendPacket(
             player,
             container::makeBlockActorData(
                 menu.posX + 1,
@@ -410,7 +368,7 @@ bool ContainerMenuManager::update(int64_t menuId, hologramlib::ContainerMenuSpec
             return false;
         }
     }
-    auto* player = findPlayerByName(copy.playerName);
+    auto* player = container_util::findPlayerByName(copy.playerName);
     if (player == nullptr)
         return false;
     if (!isCurrentEpoch(copy))
@@ -443,50 +401,6 @@ bool ContainerMenuManager::setItem(int64_t menuId, int slot, hologramlib::Contai
     return setItemEnchanted(menuId, slot, item, {});
 }
 
-bool ContainerMenuManager::setItemEnchanted(
-    int64_t                                 menuId,
-    int                                     slot,
-    hologramlib::ContainerMenuItem const&   item,
-    std::vector<std::pair<int, int>> const& enchants) {
-    if (hlibDomainDisabled("HLIB_NO_CONTAINER"))
-        return false;
-    Menu copy;
-    {
-        std::lock_guard lock(mMutex);
-        bool const      patched = mMenus.withObject(menuId, [&](Menu& menu) -> bool {
-            if (slot < 0 || slot >= static_cast<int>(menu.spec.items.size()))
-                return false;
-            if (slot < static_cast<int>(menu.spec.items.size()))
-                menu.spec.items[slot] = item;
-            if (enchants.empty())
-                menu.enchantsBySlot.erase(slot);
-            else
-                menu.enchantsBySlot[slot] = enchants;
-            copy = menu;
-            return true;
-        });
-        if (!patched)
-            return false;
-    }
-    auto* player = findPlayerByName(copy.playerName);
-    if (player == nullptr)
-        return false;
-    if (!isCurrentEpoch(copy))
-        return true;
-
-    if (!copy.uiOpen)
-        return true;
-
-    auto                  stack = item::makeMenuItemStack(item, enchants);
-    ::InventorySlotPacket packet{::InventorySlotPacketPayload(
-        static_cast<::ContainerID>(copy.containerId),
-        static_cast<uint>(slot),
-        stack)};
-    (void)wire::send(*player, packet);
-    HLIB_LOG_INFO("[ContainerMenu] 按槽刷新(UI开着): player={} menuId={} slot={} 物品={}", copy.playerName, menuId, slot, item.type);
-    return true;
-}
-
 bool ContainerMenuManager::setTitle(int64_t menuId, std::string const& title) {
     hologramlib::ContainerMenuSpec spec;
     std::string                    playerName;
@@ -500,7 +414,7 @@ bool ContainerMenuManager::setTitle(int64_t menuId, std::string const& title) {
             return false;
         }
     }
-    auto* player = findPlayerByName(playerName);
+    auto* player = container_util::findPlayerByName(playerName);
     if (player == nullptr)
         return false;
 
@@ -514,104 +428,6 @@ bool ContainerMenuManager::setInteractive(int64_t menuId, bool on) {
     });
 }
 
-void ContainerMenuManager::applyInteractiveSlots(
-    Menu&                           menu,
-    std::vector<RequestSlot> const& slots,
-    int                             amount) {
-    auto isEmpty = [](hologramlib::ContainerMenuItem const& item) {
-        return item.type.empty();
-    };
-    int move = amount < 1 ? 1 : amount;
-
-    for (std::size_t i = 0; i < slots.size(); ++i) {
-        auto const& ref = slots[i];
-        if (ref.slot < 0 || ref.slot >= static_cast<int>(menu.spec.items.size()))
-            continue;
-        auto& slotItem = menu.spec.items[static_cast<std::size_t>(ref.slot)];
-
-        bool const isSource = (i % 2 == 0);
-        if (isSource) {
-            if (isEmpty(slotItem))
-                continue;
-            int const taken   = std::min(move, slotItem.count < 1 ? 1 : slotItem.count);
-            menu.cursor       = slotItem;
-            menu.cursor.count = taken;
-            slotItem.count -= taken;
-            if (slotItem.count <= 0)
-                slotItem = hologramlib::ContainerMenuItem{};
-        } else {
-            if (isEmpty(menu.cursor))
-                continue;
-            if (isEmpty(slotItem) || slotItem.type == menu.cursor.type) {
-
-                int const putCount = std::min(move, menu.cursor.count < 1 ? 1 : menu.cursor.count);
-                if (isEmpty(slotItem)) {
-                    slotItem       = menu.cursor;
-                    slotItem.count = putCount;
-                } else {
-                    slotItem.count += putCount;
-                }
-                menu.cursor.count -= putCount;
-                if (menu.cursor.count <= 0)
-                    menu.cursor = hologramlib::ContainerMenuItem{};
-            } else {
-
-                std::swap(slotItem, menu.cursor);
-            }
-        }
-    }
-}
-
-bool ContainerMenuManager::handleInteractiveRequest(
-    std::string const&              playerName,
-    std::vector<RequestSlot> const& slots,
-    int                             amount) {
-    if (slots.empty())
-        return false;
-
-    std::vector<hologramlib::ContainerClickEvent> events;
-    {
-        std::lock_guard lock(mMutex);
-        auto            byPlayer = mByPlayer.find(playerName);
-        if (byPlayer == mByPlayer.end())
-            return false;
-        bool const handled = mMenus.withObject(byPlayer->second, [&](Menu& menu) -> bool {
-            if (!menu.spec.interactive)
-                return false;
-
-            int const slotCount = static_cast<int>(menu.spec.items.size());
-            for (auto const& ref : slots) {
-                bool const inContainer = (ref.container == static_cast<int>(ContainerEnumName::LevelEntityContainer)) || (ref.containerId >= 101 && ref.containerId <= 199);
-                if (!inContainer)
-                    return false;
-                if (ref.slot < 0 || ref.slot >= slotCount)
-                    return false;
-            }
-
-            applyInteractiveSlots(menu, slots, amount);
-
-            for (std::size_t i = 0; i < slots.size(); ++i) {
-                hologramlib::ContainerClickEvent event;
-                event.playerName = playerName;
-                event.menuId     = menu.menuId;
-                event.slot       = slots[i].slot;
-                events.push_back(event);
-            }
-            return true;
-        });
-        if (!handled)
-            return false;
-    }
-    for (auto const& event : events)
-        dispatch(event);
-    HLIB_LOG_INFO(
-        "[ContainerMenu] 可交互模式接住请求: player={} 槽位数={} amount={}",
-        playerName,
-        slots.size(),
-        amount);
-    return true;
-}
-
 bool ContainerMenuManager::close(int64_t menuId) {
     Menu copy;
     {
@@ -621,19 +437,19 @@ bool ContainerMenuManager::close(int64_t menuId) {
             }))
             return false;
         mMenus.erase(menuId);
-        mIdFreedTick[copy.containerId] = containerNowTick();
+        mIdFreedTick[copy.containerId] = container_util::nowTick();
         if (auto byPlayer = mByPlayer.find(copy.playerName);
             byPlayer != mByPlayer.end() && byPlayer->second == menuId) {
             mByPlayer.erase(byPlayer);
         }
     }
-    if (auto* player = findPlayerByName(copy.playerName)) {
-        sendPacket(*player, container::makeContainerClose(copy.containerId));
+    if (auto* player = container_util::findPlayerByName(copy.playerName)) {
+        container_util::sendPacket(*player, container::makeContainerClose(copy.containerId));
         if (copy.spec.useMinecart) {
 
-            sculk::protocol::RemoveActorPacket remove;
-            remove.mActorUniqueId = static_cast<std::int64_t>(copy.carrierUniqueId);
-            sendPacket(*player, remove);
+            proto::RemoveActorPacket remove;
+            remove.entity_id = proto::ActorUniqueID{static_cast<std::int64_t>(copy.carrierUniqueId)};
+            container_util::sendPacket(*player, remove);
         } else {
             restoreRealBlocks(*player, copy);
         }
@@ -666,7 +482,7 @@ bool ContainerMenuManager::blockEvent(int64_t menuId, int b0, int b1) {
         }
     }
 
-    auto* player = findPlayerByName(playerName);
+    auto* player = container_util::findPlayerByName(playerName);
     if (player == nullptr)
         return false;
 
@@ -788,43 +604,6 @@ bool ContainerMenuManager::handleSlotAction(
             return false;
     }
     dispatch(event);
-    return true;
-}
-
-bool ContainerMenuManager::handleContainerClose(std::string const& playerName, int containerId) {
-    hologramlib::ContainerClickEvent event;
-    Menu                             copy;
-    {
-        std::lock_guard lock(mMutex);
-        auto            byPlayer = mByPlayer.find(playerName);
-        if (byPlayer == mByPlayer.end())
-            return false;
-        bool const hit = mMenus.withObject(byPlayer->second, [&](Menu const& menu) -> bool {
-            if (menu.containerId != containerId)
-                return false;
-            copy = menu;
-            return true;
-        });
-        if (!hit)
-            return false;
-        event.playerName               = playerName;
-        event.menuId                   = copy.menuId;
-        event.closed                   = true;
-        mIdFreedTick[copy.containerId] = containerNowTick();
-        mMenus.erase(byPlayer->second);
-        mByPlayer.erase(byPlayer);
-    }
-    dispatch(event);
-
-    if (auto* player = findPlayerByName(playerName)) {
-        if (copy.spec.useMinecart) {
-            sculk::protocol::RemoveActorPacket remove;
-            remove.mActorUniqueId = static_cast<std::int64_t>(copy.carrierUniqueId);
-            sendPacket(*player, remove);
-        } else {
-            restoreRealBlocks(*player, copy);
-        }
-    }
     return true;
 }
 

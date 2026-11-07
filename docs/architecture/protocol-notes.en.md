@@ -1,5 +1,10 @@
 # Protocol-layer implementation notes
 
+> Historical note: this page documents the **sculk (BedrockProtocol) era** pitfalls.
+> Since 26.60.4 the protocol dependency is **EndstoneMC/bedrock-protocol** (generated, version-aware codecs);
+> `Wire26` / hand-written encoders / `sculkSendFailureCount` are removed or renamed — kept for background only.
+
+
 This page records the **protocol-layer facts shared across domains**: the send primitive, wire-format traps, tick semantics, and the offline checks that pin them down.
 
 > When debugging a "packet does not go out / the client drops the update" problem, start with the **wire-format traps** and **tick semantics** sections here.

@@ -2,11 +2,12 @@
 
 #include "PlayerNpcManager.h"
 
-#include "SculkPacketSend.h"
+#include "ProtoPacketSend.h"
 #include "kernel/EventIds.h"
 #include "playernpc/NpcProtocol.h"
 
 #include <ll/api/service/Bedrock.h>
+#include <exception>
 
 #include <mc/deps/core/math/Vec2.h>
 #include <mc/deps/core/string/HashedString.h>
@@ -17,12 +18,12 @@
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/item/ItemStack.h>
 #include <mc/world/level/Level.h>
-#include <sculk/protocol/codec/actor/ActorDataIDs.hpp>
-#include <sculk/protocol/codec/actor/MetaData.hpp>
-#include <sculk/protocol/codec/packet/SetActorDataPacket.hpp>
-#include <sculk/protocol/codec/packet/SetActorLinkPacket.hpp>
+#include "core/proto/Version.h"
+#include "MetaWire.h"
 
 namespace debugshape_export {
+
+namespace proto = ::debugshape_export::core::proto;
 namespace npc_ops {
 
 inline std::uint64_t currentTick() {
@@ -92,7 +93,7 @@ inline ::ItemStack buildNpcEquip(PlayerNpcManager::Runtime::NpcEquip const& eq) 
             stack = tryGet(std::move(normalized));
         }
         return stack;
-    } catch (...) {
+    } catch (std::exception const&) {
         return {};
     }
 }
@@ -134,28 +135,30 @@ inline void sendNpcPose(Player& player, PlayerNpcManager::Runtime const& rt) {
     if (rt.pose == 3)
         flags |= (std::int64_t(1) << 57);
 
-    sculk::protocol::SetActorDataPacket pkt;
-    pkt.mActorRuntimeId      = rt.runtimeId;
-    pkt.mSynchedProperties   = {};
-    pkt.mTick                = currentTick();
-    pkt.mMetaData.mDataItems = {
-        {sculk::protocol::ActorDataIDs::Reserved0, flags},
-        {sculk::protocol::ActorDataIDs::PoseIndex, static_cast<std::int32_t>(rt.pose)},
+    using ids = proto::ActorDataIDs;
+
+    proto::SetActorDataPacket pkt;
+    pkt.id                 = proto::bp::ActorRuntimeID{rt.runtimeId};
+    pkt.synched_properties = {};
+    pkt.tick               = proto::bp::PlayerInputTick{currentTick()};
+    pkt.packed_items.data  = {
+        meta_wire::int64(ids::Reserved0, flags),
+        meta_wire::int32(ids::PoseIndex, static_cast<std::int32_t>(rt.pose)),
     };
-    sendSculkPacketToPlayer(player, pkt);
+    sendProtoPacketToPlayer(player, pkt);
 }
 
 inline void sendNpcRide(Player& player, PlayerNpcManager::Runtime const& rt) {
     if (rt.rideVehicleUniqueId == 0)
         return;
-    sculk::protocol::SetActorLinkPacket pkt;
-    pkt.mLink.mType                   = sculk::protocol::ActorLinkType::Riding;
-    pkt.mLink.mTargetAUniqueId        = rt.rideVehicleUniqueId;
-    pkt.mLink.mTargetBUniqueId        = static_cast<std::int64_t>(rt.uniqueId);
-    pkt.mLink.mImmediate              = true;
-    pkt.mLink.mPassengerInitiated     = false;
-    pkt.mLink.mVehicleAngularVelocity = 0.0f;
-    sendSculkPacketToPlayer(player, pkt);
+    proto::SetActorLinkPacket pkt;
+    pkt.link.type                     = proto::ActorLinkType::Riding;
+    pkt.link.a                        = proto::ActorUniqueID{static_cast<std::int64_t>(rt.rideVehicleUniqueId)};
+    pkt.link.b                        = proto::ActorUniqueID{static_cast<std::int64_t>(rt.uniqueId)};
+    pkt.link.immediate                = true;
+    pkt.link.passenger_initiated      = false;
+    pkt.link.vehicle_angular_velocity = 0.0f;
+    sendProtoPacketToPlayer(player, pkt);
 }
 
 } // namespace npc_ops

@@ -649,8 +649,13 @@ public:
 
     IShapeDrawerExt& shapeExt() override { return mShapeExt; }
 
+    // 保留槽位（1.36.0 删过 locatorBar，1.37.0 放回空占位）。
+    IReservedDomain& reservedSlot27() override { static IReservedDomain inst; return inst; }
+
     IBossBar&       bossBars() override { return debugshape_export::bossBarAdapter(); }
     IHud&           hud() override { return debugshape_export::hudAdapter(); }
+
+    IReservedDomain& reservedSlot32() override { static IReservedDomain inst; return inst; }
     IActorEffect&   actorEffects() override { return debugshape_export::actorEffectAdapter(); }
     ISidebar&       sidebar() override { return debugshape_export::sidebarAdapter(); }
 

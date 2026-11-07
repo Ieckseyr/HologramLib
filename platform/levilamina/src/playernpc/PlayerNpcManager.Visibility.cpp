@@ -12,6 +12,8 @@
 #include <mc/world/level/Level.h>
 
 namespace debugshape_export {
+
+namespace proto = ::debugshape_export::core::proto;
 using namespace npc_ops;
 
 void PlayerNpcManager::refreshLocked(int64_t id) {
@@ -34,14 +36,14 @@ void PlayerNpcManager::refreshLocked(int64_t id) {
     rt.runtimeId = mNextRuntimeId++;
 
     for (auto* player : toRefresh) {
-        sculk::protocol::RemoveActorPacket rm;
-        rm.mActorUniqueId = static_cast<std::int64_t>(rt.uniqueId);
+        proto::RemoveActorPacket rm;
+        rm.entity_id = proto::ActorUniqueID{static_cast<std::int64_t>(rt.uniqueId)};
         npc_protocol::sendToPlayer(*player, rm, wire::Reliability::Reliable);
     }
     rt.shownPlayers.clear();
 
     for (auto* player : toRefresh) {
-        sculk::protocol::SerializedSkin skin;
+        proto::SerializedSkinRef skin;
         if (!NpcSkinRegistry::getInstance().getSkin(cfg.skinId, skin))
             continue;
         Vec3 pos{cfg.x, cfg.y, cfg.z};
@@ -139,7 +141,7 @@ bool PlayerNpcManager::spawnForViewerLocked(
     if (!budget.available())
         return false;
 
-    sculk::protocol::SerializedSkin skin;
+    proto::SerializedSkinRef skin;
     if (!NpcSkinRegistry::getInstance().getSkin(config.skinId, skin)) {
         if (!mWarnedMissingSkins.contains(config.skinId)) {
             mWarnedMissingSkins.insert(config.skinId);

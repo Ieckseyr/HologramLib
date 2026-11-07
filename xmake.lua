@@ -219,18 +219,17 @@ target("HologramLib")
     end
     add_packages("levilamina")
     add_packages("magic_enum")
+    add_packages("nlohmann_json")
     -- 标准 C++ 异常 /EHsc
     set_exceptions("cxx")
     set_kind("shared")
     set_languages("c++23")
 
-    -- BedrockProtocol 静态库（endstone 侧的 holo_core 用同一份）
-    local protocol_install = protocol_install_dir()
-    -- 三方头走 -isystem：clang 不会对系统头里的属性/弃用告警发噪音
-    -- （sculk 的 ValueTag/TagVariant/MetaData 用 [[no_unique_address]]，clang 22 会报 unknown-attributes）
-    add_sysincludedirs(path.join(protocol_install, "include"))
-    add_linkdirs(path.join(protocol_install, "lib"))
-    add_links("Protocol")
+    -- 协议前置（EndstoneMC/bedrock-protocol，生成式 codec，唯一协议依赖）
+    local bp_install = path.join(os.projectdir(), "..", "..", ".llsdk", "endstone-proto", "install")
+    add_sysincludedirs(path.join(bp_install, "include"))
+    add_linkdirs(path.join(bp_install, "lib"))
+    add_links("bedrock_protocol")
 
     -- GDI+（NPC 皮肤 PNG 解码）
     add_syslinks("gdiplus")
@@ -303,10 +302,11 @@ target("holo_core")
     add_defines("NOMINMAX", "UNICODE", "_CRT_SECURE_NO_WARNINGS")
     add_headerfiles("core/**.h")
 
-    local protocol_install = protocol_install_dir()
-    add_sysincludedirs(path.join(protocol_install, "include"))
-    add_linkdirs(path.join(protocol_install, "lib"))
-    add_links("Protocol")
+    -- 协议前置（EndstoneMC/bedrock-protocol，生成式 codec，唯一协议依赖）
+    local bp_install = path.join(os.projectdir(), "..", "..", ".llsdk", "endstone-proto", "install")
+    add_sysincludedirs(path.join(bp_install, "include"))
+    add_linkdirs(path.join(bp_install, "lib"))
+    add_links("bedrock_protocol")
 
     add_files("core/*.cpp")
     add_includedirs(".", "include")

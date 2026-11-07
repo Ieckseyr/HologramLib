@@ -4,12 +4,12 @@
 
 namespace debugshape_export {
 
-inline std::atomic<std::uint64_t>& sculkSendFailureCount() {
+inline std::atomic<std::uint64_t>& protoSendFailureCount() {
     return wire::counters().droppedInvalid;
 }
 
 template <typename PacketT>
-void sendSculkPacketToPlayer(::Player& player, PacketT const& packet) {
+void sendProtoPacketToPlayer(::Player& player, PacketT const& packet) {
     (void)wire::send(player, packet);
 }
 

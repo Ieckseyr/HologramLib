@@ -1,6 +1,6 @@
 #include "actor/PlayerRespawnManager.h"
 
-#include "core/Wire26.h"
+#include "core/proto/Version.h"
 #include "kernel/PacketSink.h"
 
 #include <ll/api/service/Bedrock.h>
@@ -9,11 +9,12 @@
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/level/Level.h>
 
-#include <sculk/protocol/codec/packet/RespawnPacket.hpp>
 
 #include <algorithm>
 
 namespace debugshape_export {
+
+namespace proto = ::debugshape_export::core::proto;
 
 PlayerRespawnManager& PlayerRespawnManager::getInstance() {
     static PlayerRespawnManager instance;
@@ -43,16 +44,15 @@ bool PlayerRespawnManager::respawnAt(std::string const& playerName, float x, flo
         return false;
     }
 
-    sculk::protocol::RespawnPacket packet;
-    packet.mPosition = sculk::protocol::Vec3{x, y, z};
-    packet.mState    = static_cast<sculk::protocol::RespawnPacket::PlayerRespawnState>(
-        std::clamp(state, 0, 2));
-    packet.mActorRuntimeId = player->getRuntimeID().rawID;
+    proto::RespawnPacket packet;
+    packet.pos        = proto::Vec3{x, y, z};
+    packet.state      = static_cast<decltype(packet.state)>(std::clamp(state, 0, 2));
+    packet.runtime_id = proto::bp::ActorRuntimeID{player->getRuntimeID().rawID};
 
     return wire::sendBody(
         *player,
-        static_cast<std::uint32_t>(packet.getId()),
-        wire26::body26(packet),
+        static_cast<std::uint32_t>(proto::RespawnPacket::Id),
+        codec::body(packet),
         wire::Reliability::Reliable,
         "RespawnPacket");
 }

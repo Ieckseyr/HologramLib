@@ -4,19 +4,11 @@ C++ fixture 构造包，Python 逐字段和 BDS 抓包比对。
 
 ## 怎么跑
 
-```powershell
-cd tests
-.\check-trade-offers.bat        # offers 与抓包逐字节一致
-.\check-trade-packet.bat        # 13 项
-.\check-trade-settlement.bat    # 43 项
-.\check-container-packets.bat
-.\check-view-override.bat       # 59 项
-.\check-npc-carrier.bat         # 32 项
-.\check-fake-inventory.bat
-.\check-no-diagnostics.bat      # 正式产物不含日志字符串
-```
+协议迁移（sculk → EndstoneMC/bedrock-protocol）后，旧的 C++ 字节对拍夹具已全部删除：
+它们钉住的是旧线格式，而 1.26.30+ 多个包的 wire 已变化（PlayerList/皮肤/BossEvent 等），
+继续保留只会误导。字节一致性现在由 `core/` 的编码器对拍保证（见 `core/proto/Version.h` 注释与发布记录）。
 
-退出码 0 = 通过。
+下面只剩纯标准库单测。
 
 ## 不依赖 BDS 的测试
 

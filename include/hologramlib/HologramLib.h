@@ -7,9 +7,9 @@
 #include <string>
 #include <vector>
 
-#define HOLOGLIB_API_VERSION 0x012A00
+#define HOLOGLIB_API_VERSION 0x012B00
 
-inline constexpr std::uint32_t HOLOGLIB_ABI_STAMP = 1;
+inline constexpr std::uint32_t HOLOGLIB_ABI_STAMP = 2;
 
 inline constexpr char const* HOLOGLIB_ABI_STAMP_SYMBOL = "hologramlib_abiStamp";
 
@@ -1188,6 +1188,12 @@ inline bool abiCompatible(std::uint32_t runtimeVersion) {
     return runtimeVersion >= HOLOGLIB_API_VERSION;
 }
 
+// 27 / 32 号槽占位（1.36.0 在此删过 locatorBar，虚表中部缩短；1.37.0 放回）。
+// 空接口，当前无方法；后续新域直接替换类型，并抬 API 版本与 ABI stamp。
+struct IReservedDomain {
+    virtual ~IReservedDomain() = default;
+};
+
 class IHologramLib {
 public:
     HOLOGLIB_API static IHologramLib& getInstance();
@@ -1239,12 +1245,17 @@ public:
 
     virtual IItemActor&        itemActors()       = 0;
     virtual IFormControl&      formControl()      = 0;
+    virtual IReservedDomain& reservedSlot27() = 0; // 保留槽位（原 locatorBar）
+
     virtual IPlayerVisibility& playerVisibility() = 0;
 
     virtual IShapeDrawerExt& shapeExt() = 0;
 
     virtual IBossBar&       bossBars()      = 0;
     virtual IHud&           hud()           = 0;
+
+    virtual IReservedDomain& reservedSlot32() = 0; // 保留槽位（原 locatorBarExt）
+
     virtual IActorEffect&   actorEffects()  = 0;
     virtual ISidebar&       sidebar()       = 0;
 

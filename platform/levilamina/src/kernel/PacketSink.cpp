@@ -136,7 +136,7 @@ Counters& counters() {
 
 void noteValidationFailure(std::string_view packetName) {
     gCounters.droppedInvalid.fetch_add(1, std::memory_order_relaxed);
-    HLIB_LOG_WARN("[wire] sculk packet validation failed for {}", packetName);
+    HLIB_LOG_WARN("[wire] packet validation failed for {}", packetName);
 }
 
 bool validateBody(std::uint32_t packetId, std::string const& body) {

@@ -12,13 +12,11 @@
 #include <mc/world/item/ItemStack.h>
 #include <mc/world/level/Level.h>
 
-#include <sculk/protocol/codec/packet/AddItemActorPacket.hpp>
-#include <sculk/protocol/codec/packet/MoveActorAbsolutePacket.hpp>
-#include <sculk/protocol/codec/packet/RemoveActorPacket.hpp>
-#include <sculk/protocol/codec/packet/SetActorMotionPacket.hpp>
-#include <sculk/protocol/codec/packet/TakeItemActorPacket.hpp>
+#include "core/proto/Version.h"
 
 namespace debugshape_export {
+
+namespace proto = ::debugshape_export::core::proto;
 
 namespace {
 
@@ -103,15 +101,15 @@ int64_t ItemActorManager::spawn(hologramlib::ItemActorSpec const& spec) {
     if (!hasViewer)
         return -1;
 
-    sculk::protocol::AddItemActorPacket packet;
-    packet.mRuntimeId       = actor.runtimeId;
-    packet.mUniqueId        = static_cast<std::int64_t>(actor.uniqueId);
-    packet.mItem.mId        = numericId;
-    packet.mItem.mStackSize = static_cast<std::uint16_t>(actor.count);
-    packet.mItem.mAux       = static_cast<std::uint32_t>(spec.aux);
-    packet.mPos             = sculk::protocol::Vec3{actor.x, actor.y, actor.z};
-    packet.mVelocity        = sculk::protocol::Vec3{spec.vx, spec.vy, spec.vz};
-    packet.mIsFromFishing   = false;
+    proto::AddItemActorPacket packet;
+    packet.runtime_id        = proto::bp::ActorRuntimeID{actor.runtimeId};
+    packet.id                = proto::ActorUniqueID{static_cast<std::int64_t>(actor.uniqueId)};
+    packet.item.id           = numericId;
+    packet.item.stack_size   = static_cast<std::uint16_t>(actor.count);
+    packet.item.aux_value    = static_cast<std::uint32_t>(spec.aux);
+    packet.pos               = proto::Vec3{actor.x, actor.y, actor.z};
+    packet.velocity          = proto::Vec3{spec.vx, spec.vy, spec.vz};
+    packet.is_from_fishing   = false;
 
     auto bytes = wire::encode(packet);
     if (bytes.empty())
@@ -127,10 +125,10 @@ bool ItemActorManager::setMotion(int64_t id, float vx, float vy, float vz) {
     if (actor == nullptr)
         return false;
 
-    sculk::protocol::SetActorMotionPacket packet;
-    packet.mActorRuntimeId = actor->runtimeId;
-    packet.mMotion         = sculk::protocol::Vec3{vx, vy, vz};
-    packet.mTick           = currentTick();
+    proto::SetActorMotionPacket packet;
+    packet.runtime_id = proto::bp::ActorRuntimeID{actor->runtimeId};
+    packet.motion     = proto::Vec3{vx, vy, vz};
+    packet.tick       = proto::bp::PlayerInputTick{currentTick()};
 
     auto bytes = wire::encode(packet);
     if (bytes.empty())
@@ -150,13 +148,13 @@ bool ItemActorManager::moveTo(int64_t id, float x, float y, float z) {
     actor->y = y;
     actor->z = z;
 
-    sculk::protocol::MoveActorAbsolutePacket packet;
-    packet.mActorRuntimeId = actor->runtimeId;
-    packet.mFlags          = sculk::protocol::MoveActorAbsolutePacket::Flags::Teleport;
-    packet.mPosition       = sculk::protocol::Vec3{x, y, z};
-    packet.mRotationX      = rotToByte(0.0f);
-    packet.mRotationY      = rotToByte(0.0f);
-    packet.mRotationYHead  = rotToByte(0.0f);
+    proto::MoveActorAbsolutePacket packet;
+    packet.move_data.runtime_id = proto::bp::ActorRuntimeID{actor->runtimeId};
+    packet.move_data.header     = proto::move_flags::kTeleport;
+    packet.move_data.pos        = proto::Vec3{x, y, z};
+    packet.move_data.rot_x      = rotToByte(0.0f);
+    packet.move_data.rot_y      = rotToByte(0.0f);
+    packet.move_data.rot_y_head = rotToByte(0.0f);
 
     auto bytes = wire::encode(packet);
     if (bytes.empty())
@@ -186,15 +184,15 @@ bool ItemActorManager::take(int64_t id, std::string const& playerName) {
         mActors.erase(id);
     }
 
-    sculk::protocol::TakeItemActorPacket take;
-    take.mItemRuntimeId  = snapshotRuntimeId;
-    take.mActorRuntimeId = player->getRuntimeID().rawID;
+    proto::TakeItemActorPacket take;
+    take.item_id  = proto::bp::ActorRuntimeID{snapshotRuntimeId};
+    take.actor_id = proto::bp::ActorRuntimeID{player->getRuntimeID().rawID};
     if (auto bytes = wire::encode(take); !bytes.empty()) {
         wire::sendRaw(*player, bytes);
     }
 
-    sculk::protocol::RemoveActorPacket remove;
-    remove.mActorUniqueId = static_cast<std::int64_t>(snapshotUniqueId);
+    proto::RemoveActorPacket remove;
+    remove.entity_id = proto::ActorUniqueID{static_cast<std::int64_t>(snapshotUniqueId)};
     if (auto bytes = wire::encode(remove); !bytes.empty()) {
         sendToDimension(snapshotDimension, bytes);
     }
@@ -214,8 +212,8 @@ bool ItemActorManager::destroy(int64_t id) {
         mActors.erase(id);
     }
 
-    sculk::protocol::RemoveActorPacket remove;
-    remove.mActorUniqueId = static_cast<std::int64_t>(uniqueId);
+    proto::RemoveActorPacket remove;
+    remove.entity_id = proto::ActorUniqueID{static_cast<std::int64_t>(uniqueId)};
     if (auto bytes = wire::encode(remove); !bytes.empty()) {
         sendToDimension(dimension, bytes);
     }
@@ -232,8 +230,8 @@ void ItemActorManager::destroyAll() {
         mActors.clear();
     }
     for (auto const& [uniqueId, dimension] : victims) {
-        sculk::protocol::RemoveActorPacket remove;
-        remove.mActorUniqueId = static_cast<std::int64_t>(uniqueId);
+        proto::RemoveActorPacket remove;
+        remove.entity_id = proto::ActorUniqueID{static_cast<std::int64_t>(uniqueId)};
         if (auto bytes = wire::encode(remove); !bytes.empty()) {
             sendToDimension(dimension, bytes);
         }

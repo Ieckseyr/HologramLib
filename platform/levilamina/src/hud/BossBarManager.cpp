@@ -10,11 +10,13 @@
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/level/Level.h>
 
-#include <sculk/protocol/codec/packet/BossEventPacket.hpp>
+#include "core/proto/Version.h"
 
 #include <format>
 
 namespace debugshape_export {
+
+namespace proto = ::debugshape_export::core::proto;
 
 namespace {
 
@@ -38,14 +40,14 @@ std::int64_t BossBarManager::nextTargetId() {
 
 bool BossBarManager::send(::Player& player, Bar const& bar, int eventType, std::int64_t) {
 
-    sculk::protocol::BossEventPacket packet;
-    packet.mTargetActorID = bar.targetId;
-    packet.mType          = static_cast<sculk::protocol::BossEventPacket::EventType>(eventType);
-    packet.mName          = bar.title;
-    packet.mFilteredName  = bar.title;
-    packet.mPercentage    = bar.percent;
-    packet.mColor         = static_cast<std::uint32_t>(static_cast<int>(bar.color));
-    packet.mOverlay       = static_cast<std::uint32_t>(static_cast<int>(bar.overlay));
+    proto::BossEventPacket packet;
+    packet.boss_id          = proto::ActorUniqueID{bar.targetId};
+    packet.event_type       = static_cast<decltype(packet.event_type)>(eventType);
+    packet.name             = bar.title;
+    packet.filtered_name    = bar.title;
+    packet.health_percent   = bar.percent;
+    packet.color            = static_cast<decltype(packet.color)>(static_cast<int>(bar.color));
+    packet.overlay          = static_cast<decltype(packet.overlay)>(static_cast<int>(bar.overlay));
 
     return wire::send(player, packet);
 }
@@ -72,11 +74,11 @@ int64_t BossBarManager::add(
     bar.color      = color;
     bar.overlay    = overlay;
 
-    if (!send(*player, bar, static_cast<int>(sculk::protocol::BossEventPacket::EventType::Add), 0)) {
+    if (!send(*player, bar, static_cast<int>(proto::bp::BossEventUpdateType::Add), 0)) {
         return -1;
     }
 
-    send(*player, bar, static_cast<int>(sculk::protocol::BossEventPacket::EventType::PlayerAdded), 0);
+    send(*player, bar, static_cast<int>(proto::bp::BossEventUpdateType::PlayerAdded), 0);
 
     std::lock_guard lock(mMutex);
     bar.id = static_cast<int64_t>(bar.targetId);
@@ -104,9 +106,9 @@ int64_t BossBarManager::addOn(
     bar.color      = color;
     bar.overlay    = overlay;
 
-    if (!send(*player, bar, static_cast<int>(sculk::protocol::BossEventPacket::EventType::Add), 0))
+    if (!send(*player, bar, static_cast<int>(proto::bp::BossEventUpdateType::Add), 0))
         return -1;
-    send(*player, bar, static_cast<int>(sculk::protocol::BossEventPacket::EventType::PlayerAdded), 0);
+    send(*player, bar, static_cast<int>(proto::bp::BossEventUpdateType::PlayerAdded), 0);
 
     std::lock_guard lock(mMutex);
     mBars[bar.id] = bar;
@@ -126,7 +128,7 @@ bool BossBarManager::setTitle(int64_t id, std::string const& title) {
     ::Player* player = findPlayer(copy.playerName);
     if (player == nullptr)
         return false;
-    return send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::UpdateName), 0);
+    return send(*player, copy, static_cast<int>(proto::bp::BossEventUpdateType::UpdateName), 0);
 }
 
 bool BossBarManager::setHealth(int64_t id, float healthPercent) {
@@ -142,7 +144,7 @@ bool BossBarManager::setHealth(int64_t id, float healthPercent) {
     ::Player* player = findPlayer(copy.playerName);
     if (player == nullptr)
         return false;
-    return send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::UpdatePercent), 0);
+    return send(*player, copy, static_cast<int>(proto::bp::BossEventUpdateType::UpdatePercent), 0);
 }
 
 bool BossBarManager::setStyle(int64_t id, hologramlib::BossBarColor color, hologramlib::BossBarOverlay overlay) {
@@ -159,7 +161,7 @@ bool BossBarManager::setStyle(int64_t id, hologramlib::BossBarColor color, holog
     ::Player* player = findPlayer(copy.playerName);
     if (player == nullptr)
         return false;
-    return send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::UpdateStyle), 0);
+    return send(*player, copy, static_cast<int>(proto::bp::BossEventUpdateType::UpdateStyle), 0);
 }
 
 bool BossBarManager::remove(int64_t id) {
@@ -177,8 +179,8 @@ bool BossBarManager::remove(int64_t id) {
         return true;
 
     AnchorPool::getInstance().release(copy.targetId);
-    send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::PlayerRemoved), 0);
-    send(*player, copy, static_cast<int>(sculk::protocol::BossEventPacket::EventType::Remove), 0);
+    send(*player, copy, static_cast<int>(proto::bp::BossEventUpdateType::PlayerRemoved), 0);
+    send(*player, copy, static_cast<int>(proto::bp::BossEventUpdateType::Remove), 0);
     return true;
 }
 
@@ -199,7 +201,7 @@ void BossBarManager::removeAll(std::string const& playerName) {
     if (player == nullptr)
         return;
     for (auto const& bar : victims) {
-        send(*player, bar, static_cast<int>(sculk::protocol::BossEventPacket::EventType::Remove), 0);
+        send(*player, bar, static_cast<int>(proto::bp::BossEventUpdateType::Remove), 0);
     }
 }
 

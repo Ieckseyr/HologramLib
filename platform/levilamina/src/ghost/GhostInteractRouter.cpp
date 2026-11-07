@@ -9,6 +9,7 @@
 #include "playernpc/PlayerNpcManager.h"
 
 #include <ll/api/memory/Hook.h>
+#include <exception>
 #include <ll/api/service/Bedrock.h>
 
 #include <mc/network/NetworkIdentifier.h>
@@ -117,7 +118,7 @@ void GhostInteractRouter::dispatchActor(hologramlib::ActorInteractEvent const& e
     for (auto const& fn : multicast) {
         try {
             fn(ev);
-        } catch (...) {
+        } catch (std::exception const&) {
 
             HLIB_LOG_ERROR("HologramLib: ActorInteract 监听器抛出异常（已忽略）");
         }

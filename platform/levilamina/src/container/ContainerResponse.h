@@ -1,28 +1,29 @@
 #pragma once
 
-#include "SculkPacketSend.h"
+#include "ProtoPacketSend.h"
 
 #include <cstdint>
 #include <vector>
 
 #include <mc/world/actor/player/Player.h>
 
-#include <sculk/protocol/codec/inventory/item/ItemStackResponse.hpp>
-#include <sculk/protocol/codec/packet/ItemStackResponsePacket.hpp>
+#include "core/proto/Version.h"
 
 namespace debugshape_export::container {
+
+namespace proto = ::debugshape_export::core::proto;
 
 inline void sendRequestSuccess(::Player& player, std::vector<std::int32_t> const& requestIds) {
     if (requestIds.empty())
         return;
-    sculk::protocol::ItemStackResponsePacket packet;
+    proto::ItemStackResponsePacket packet;
     for (auto const id : requestIds) {
-        sculk::protocol::ItemStackResponseInfo info;
-        info.mResult    = sculk::protocol::ItemStackNetResult::Success;
-        info.mRequestId = id;
-        packet.mResponse.mResponses.push_back(std::move(info));
+        proto::ItemStackResponseInfo info;
+        info.result            = proto::ItemStackNetResult::Success;
+        info.client_request_id = proto::bp::ItemStackRequestId{id};
+        packet.responses.push_back(std::move(info));
     }
-    sendSculkPacketToPlayer(player, packet);
+    sendProtoPacketToPlayer(player, packet);
 }
 
 } // namespace debugshape_export::container

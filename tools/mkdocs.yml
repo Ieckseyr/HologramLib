@@ -269,6 +269,7 @@ nav:
           - 1.15 ISulfurDisplay · 硫磺方块: abi/levilamina/sulfur-display.md
           - 1.16 IViewOverride · 视图覆盖: abi/levilamina/view-override.md
           - 1.17 IItemActor / IFormControl / ILocatorBar: abi/levilamina/item-actor-form-locator.md
+          - 1.18 其它接口 · Boss 条 / HUD / 侧边栏 / 隐身 / 复活 / 容器预览: abi/levilamina/misc-interfaces.md
 
   - 能力域:
       - 总览: domains/README.md

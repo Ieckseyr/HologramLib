@@ -17,8 +17,8 @@ import urllib.request
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 RELEASE = ROOT / "release"
 OWNER, REPO = "Ieckseyr", "HologramLib"
-TAG = "v26.60.3"
-VERSION = "26.60.3"
+TAG = "v26.60.4"
+VERSION = "26.60.4"
 
 ASSETS = [
     f"LeviLamina-HologramLib-{VERSION}.zip",
@@ -28,16 +28,23 @@ ASSETS = [
 
 
 def token() -> str:
-    out = subprocess.run(
-        ["git", "credential", "fill"],
-        input="protocol=https\nhost=github.com\n\n",
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    for line in out.splitlines():
-        if line.startswith("password="):
-            return line.split("=", 1)[1]
+    """从 git 凭据助手取 token；不同机器装的后端不一样（manager / wincred）。"""
+    for helper in ("manager", "manager-core", "wincred", None):
+        cmd = ["git"]
+        if helper:
+            cmd += ["-c", f"credential.helper={helper}"]
+        cmd += ["credential", "fill"]
+        proc = subprocess.run(
+            cmd,
+            input="protocol=https\nhost=github.com\n\n",
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0:
+            continue
+        for line in proc.stdout.splitlines():
+            if line.startswith("password="):
+                return line.split("=", 1)[1]
     raise SystemExit("no credential")
 
 

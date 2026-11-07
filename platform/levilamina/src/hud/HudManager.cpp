@@ -9,9 +9,11 @@
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/level/Level.h>
 
-#include <sculk/protocol/codec/packet/SetHudPacket.hpp>
+#include "core/proto/Version.h"
 
 namespace debugshape_export {
+
+namespace proto = ::debugshape_export::core::proto;
 
 namespace {
 
@@ -20,13 +22,13 @@ namespace {
     return level ? level->getPlayer(name) : nullptr;
 }
 
-using ProtoElement    = sculk::protocol::SetHudPacket::HudElement;
-using ProtoVisibility = sculk::protocol::SetHudPacket::HudVisibility;
+using ProtoElement    = proto::HudElement;
+using ProtoVisibility = proto::HudVisibility;
 
 bool send(::Player& player, std::vector<ProtoElement> const& elements, ProtoVisibility visibility) {
-    sculk::protocol::SetHudPacket packet;
-    packet.mHudElements   = elements;
-    packet.mHudVisibility = visibility;
+    proto::SetHudPacket packet;
+    packet.hud_element  = elements;
+    packet.hud_visible  = visibility;
 
     auto bytes = wire::encode(packet);
     if (bytes.empty())

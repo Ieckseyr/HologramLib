@@ -38,15 +38,8 @@
 #include <mc/world/level/Level.h>
 #include <mc/world/level/Tick.h>
 
-#include <sculk/protocol/codec/actor/ActorDataIDs.hpp>
-#include <sculk/protocol/codec/actor/MetaData.hpp>
-#include <sculk/protocol/codec/level/MolangVersion.hpp>
-#include <sculk/protocol/codec/packet/AddActorPacket.hpp>
-#include <sculk/protocol/codec/packet/AnimateEntityPacket.hpp>
-#include <sculk/protocol/codec/packet/MoveActorAbsolutePacket.hpp>
-#include <sculk/protocol/codec/packet/RemoveActorPacket.hpp>
-#include <sculk/protocol/codec/packet/SetActorDataPacket.hpp>
-#include <sculk/protocol/utility/BinaryStream.hpp>
+#include "core/proto/Version.h"
+#include "MetaWire.h"
 
 #include <algorithm>
 #include <charconv>
@@ -56,6 +49,9 @@
 #include <optional>
 
 namespace debugshape_export {
+
+namespace proto = ::debugshape_export::core::proto;
+
 namespace ide_ops {
 
 struct AnimEntry {
@@ -377,16 +373,18 @@ inline void applyAnimToConfig(
 }
 
 inline void sendFoxActor(Player& player, ItemDisplayConfig const& data, Runtime const& rt) {
-    sculk::protocol::AddActorPacket pkt;
-    pkt.mActorUniqueId  = static_cast<std::int64_t>(rt.uniqueId);
-    pkt.mActorRuntimeId = rt.runtimeId;
-    pkt.mIdentifier     = "minecraft:fox";
-    pkt.mPosition       = {data.x, data.y, data.z};
-    pkt.mVelocity       = {0, 0, 0};
-    pkt.mRotation       = {0, 0};
-    pkt.mYHeadRotation  = 0;
-    pkt.mYBodyRotation  = 0;
-    pkt.mAttributes     = {
+    using ids = proto::ActorDataIDs;
+
+    proto::AddActorPacket pkt;
+    pkt.entity_id        = proto::ActorUniqueID{static_cast<std::int64_t>(rt.uniqueId)};
+    pkt.runtime_id       = proto::bp::ActorRuntimeID{rt.runtimeId};
+    pkt.actor_type       = "minecraft:fox";
+    pkt.pos              = {data.x, data.y, data.z};
+    pkt.velocity         = {0, 0, 0};
+    pkt.rot              = {0, 0};
+    pkt.y_head_rotation  = 0;
+    pkt.y_body_rotation  = 0;
+    pkt.attributes       = {
         {"minecraft:health", 0, 20.f, 20.f},
         {"minecraft:movement", 0, 0.3f, 3.4028235e38f},
         {"minecraft:underwater_movement", 0, 0.02f, 3.4028235e38f},
@@ -396,14 +394,14 @@ inline void sendFoxActor(Player& player, ItemDisplayConfig const& data, Runtime 
 
         {"minecraft:knockback_resistance", 1.f, 0.f, 1.f},
     };
-    pkt.mSynchedProperties = {};
-    pkt.mActorLinks        = {};
+    pkt.synched_properties = {};
+    pkt.links              = {};
 
-    std::int64_t flags       = (std::int64_t(1) << 5) | (std::int64_t(1) << 30) | (std::int64_t(1) << 31);
-    pkt.mMetaData.mDataItems = {
-        {sculk::protocol::ActorDataIDs::Reserved0, flags},
-        {sculk::protocol::ActorDataIDs::Reserved53, data.hitboxWidth},
-        {sculk::protocol::ActorDataIDs::Reserved54, data.hitboxHeight},
+    std::int64_t flags = (std::int64_t(1) << 5) | (std::int64_t(1) << 30) | (std::int64_t(1) << 31);
+    pkt.data.data      = {
+        meta_wire::int64(ids::Reserved0, flags),
+        meta_wire::float32(ids::Reserved053, data.hitboxWidth),
+        meta_wire::float32(ids::Reserved054, data.hitboxHeight),
     };
     wire::send(player, pkt);
 }
@@ -419,48 +417,52 @@ inline void sendEquipment(Player& player, std::uint64_t runtimeId, ::ItemStack c
 }
 
 inline void sendDataPacket(Player& player, std::uint64_t runtimeId, float hitboxWidth, float hitboxHeight) {
-    sculk::protocol::SetActorDataPacket pkt;
-    pkt.mActorRuntimeId    = runtimeId;
-    pkt.mSynchedProperties = {};
-    pkt.mTick              = 0;
+    using ids = proto::ActorDataIDs;
 
-    std::int64_t flags       = (std::int64_t(1) << 5) | (std::int64_t(1) << 30) | (std::int64_t(1) << 31);
-    pkt.mMetaData.mDataItems = {
-        {sculk::protocol::ActorDataIDs::Reserved0, flags},
-        {sculk::protocol::ActorDataIDs::Reserved53, hitboxWidth},
-        {sculk::protocol::ActorDataIDs::Reserved54, hitboxHeight},
+    proto::SetActorDataPacket pkt;
+    pkt.id                 = proto::bp::ActorRuntimeID{runtimeId};
+    pkt.synched_properties = {};
+    pkt.tick               = proto::bp::PlayerInputTick{0};
+
+    std::int64_t flags = (std::int64_t(1) << 5) | (std::int64_t(1) << 30) | (std::int64_t(1) << 31);
+    pkt.packed_items.data = {
+        meta_wire::int64(ids::Reserved0, flags),
+        meta_wire::float32(ids::Reserved053, hitboxWidth),
+        meta_wire::float32(ids::Reserved054, hitboxHeight),
     };
     wire::send(player, pkt);
 }
 
 inline void sendHitboxPacket(Player& player, std::uint64_t runtimeId, float width, float height) {
-    sculk::protocol::SetActorDataPacket pkt;
-    pkt.mActorRuntimeId      = runtimeId;
-    pkt.mSynchedProperties   = {};
-    pkt.mTick                = 0;
-    std::int64_t flags       = (std::int64_t(1) << 5) | (std::int64_t(1) << 30) | (std::int64_t(1) << 31);
-    pkt.mMetaData.mDataItems = {
-        {sculk::protocol::ActorDataIDs::Reserved0, flags},
-        {sculk::protocol::ActorDataIDs::Reserved53, width},
-        {sculk::protocol::ActorDataIDs::Reserved54, height},
+    using ids = proto::ActorDataIDs;
+
+    proto::SetActorDataPacket pkt;
+    pkt.id                 = proto::bp::ActorRuntimeID{runtimeId};
+    pkt.synched_properties = {};
+    pkt.tick               = proto::bp::PlayerInputTick{0};
+    std::int64_t flags     = (std::int64_t(1) << 5) | (std::int64_t(1) << 30) | (std::int64_t(1) << 31);
+    pkt.packed_items.data  = {
+        meta_wire::int64(ids::Reserved0, flags),
+        meta_wire::float32(ids::Reserved053, width),
+        meta_wire::float32(ids::Reserved054, height),
     };
     wire::send(player, pkt);
 }
 
 inline void sendFollowMove(Player& player, std::uint64_t runtimeId, float x, float y, float z) {
-    sculk::protocol::MoveActorAbsolutePacket pkt;
-    pkt.mActorRuntimeId = runtimeId;
-    pkt.mFlags          = {};
-    pkt.mPosition       = {x, y, z};
-    pkt.mRotationX      = 0;
-    pkt.mRotationY      = 0;
-    pkt.mRotationYHead  = 0;
+    proto::MoveActorAbsolutePacket pkt;
+    pkt.move_data.runtime_id = proto::bp::ActorRuntimeID{runtimeId};
+    pkt.move_data.header     = proto::move_flags::kNone;
+    pkt.move_data.pos        = {x, y, z};
+    pkt.move_data.rot_x      = 0;
+    pkt.move_data.rot_y      = 0;
+    pkt.move_data.rot_y_head = 0;
     wire::send(player, pkt);
 }
 
 inline void sendRemove(Player& player, Runtime const& rt) {
-    sculk::protocol::RemoveActorPacket pkt;
-    pkt.mActorUniqueId = static_cast<std::int64_t>(rt.uniqueId);
+    proto::RemoveActorPacket pkt;
+    pkt.entity_id = proto::ActorUniqueID{static_cast<std::int64_t>(rt.uniqueId)};
     wire::send(player, pkt);
 }
 

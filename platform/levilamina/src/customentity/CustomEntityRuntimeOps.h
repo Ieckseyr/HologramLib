@@ -3,10 +3,11 @@
 #include "CustomEntityManager.h"
 
 #include "DiagLog.h"
-#include "SculkPacketSend.h"
+#include "ProtoPacketSend.h"
 #include "sulfur/SulfurDisplayPackets.h"
 
 #include <ll/api/service/Bedrock.h>
+#include <exception>
 
 #include <mc/deps/nbt/CompoundTag.h>
 #include <mc/legacy/ActorRuntimeID.h>
@@ -17,41 +18,36 @@
 #include <mc/world/level/Level.h>
 #include <mc/world/level/Tick.h>
 
-#include <sculk/protocol/codec/actor/ActorDataIDs.hpp>
-#include <sculk/protocol/codec/actor/MetaData.hpp>
-#include <sculk/protocol/codec/level/MolangVersion.hpp>
-#include <sculk/protocol/codec/packet/AddActorPacket.hpp>
-#include <sculk/protocol/codec/packet/AnimateEntityPacket.hpp>
-#include <sculk/protocol/codec/packet/MoveActorAbsolutePacket.hpp>
-#include <sculk/protocol/codec/packet/RemoveActorPacket.hpp>
-#include <sculk/protocol/codec/packet/SetActorDataPacket.hpp>
-#include <sculk/protocol/codec/packet/SetActorLinkPacket.hpp>
-#include <sculk/protocol/codec/packet/UpdateAttributesPacket.hpp>
+#include "core/proto/Version.h"
+#include "MetaWire.h"
 
 #include <algorithm>
 #include <memory>
 #include <string>
 
 namespace debugshape_export {
+
+namespace proto = ::debugshape_export::core::proto;
+
 namespace ce_ops {
 
-inline sculk::protocol::Attribute makeAttribute(
+inline proto::AttributeData makeAttribute(
     std::string   name,
     float         minV,
     float         maxV,
     float         curV,
     float         defV = 0.0f,
     std::uint64_t tick = 0) {
-    sculk::protocol::Attribute a;
-    a.mName            = std::move(name);
-    a.mMinValue        = minV;
-    a.mMaxValue        = maxV;
-    a.mCurrentValue    = curV;
-    a.mDefaultMinValue = minV;
-    a.mDefaultMaxValue = maxV;
-    a.mDefaultValue    = (defV == 0.0f) ? curV : defV;
-    a.mModifiers       = {};
-    a.mTick            = tick;
+    (void)tick; // 2225 的 AttributeData 不再带 per-attribute tick
+    proto::AttributeData a;
+    a.name              = std::move(name);
+    a.min_value         = minV;
+    a.max_value         = maxV;
+    a.current_value     = curV;
+    a.default_min_value = minV;
+    a.default_max_value = maxV;
+    a.default_value     = (defV == 0.0f) ? curV : defV;
+    a.modifiers         = {};
     return a;
 }
 
@@ -150,7 +146,7 @@ inline ::ItemStack buildEquipmentItem(hologramlib::CustomEntityEquipment const& 
             stack = tryGet(std::move(normalized));
         }
         return stack;
-    } catch (...) {
+    } catch (std::exception const&) {
         return {};
     }
 }
@@ -219,7 +215,7 @@ inline void sendMobProperties(::Player& player, CustomEntityConfig const& data, 
     for (auto const& prop : data.mobProperties) {
         if (prop.name.empty())
             continue;
-        sendSculkPacketToPlayer(
+        sendProtoPacketToPlayer(
             player,
             sulfur::makeMobProperty(static_cast<std::int64_t>(rt.uniqueId), prop.name, prop.value));
     }
@@ -233,69 +229,64 @@ inline void sendCustomActor(
 
     PitchYaw const rot = effectiveRot(rt, player.getUuid(), data);
 
-    sculk::protocol::AddActorPacket pkt;
-    pkt.mActorUniqueId  = static_cast<std::int64_t>(rt.uniqueId);
-    pkt.mActorRuntimeId = rt.runtimeId;
-    pkt.mIdentifier     = normalizeIdentifier(data.identifier);
-    pkt.mPosition       = {data.x, data.y, data.z};
-    pkt.mVelocity       = {0, 0, 0};
-    pkt.mRotation       = {rot.pitch, rot.yaw};
-    pkt.mYHeadRotation  = rot.yaw;
-    pkt.mYBodyRotation  = rot.yaw;
-    pkt.mActorLinks     = {};
+    using ids = proto::ActorDataIDs;
+
+    proto::AddActorPacket pkt;
+    pkt.entity_id        = proto::ActorUniqueID{static_cast<std::int64_t>(rt.uniqueId)};
+    pkt.runtime_id       = proto::bp::ActorRuntimeID{rt.runtimeId};
+    pkt.actor_type       = normalizeIdentifier(data.identifier);
+    pkt.pos              = {data.x, data.y, data.z};
+    pkt.velocity         = {0, 0, 0};
+    pkt.rot              = {rot.pitch, rot.yaw};
+    pkt.y_head_rotation  = rot.yaw;
+    pkt.y_body_rotation  = rot.yaw;
+    pkt.links            = {};
 
     std::int64_t const flags = data.flags | (data.invisible ? (std::int64_t(1) << 5) : 0);
 
-    pkt.mMetaData.mDataItems.clear();
-    pkt.mMetaData.mDataItems.push_back(
-        {sculk::protocol::ActorDataIDs::Reserved0, flags});
+    pkt.data.data.clear();
+    pkt.data.data.push_back(meta_wire::int64(ids::Reserved0, flags));
     {
         auto const& name = effectiveNametag(data, rt, player.getUuid());
         if (!name.empty()) {
-            pkt.mMetaData.mDataItems.push_back(
-                {sculk::protocol::ActorDataIDs::Name, name});
+            pkt.data.data.push_back(meta_wire::string(ids::Name, name));
         }
     }
 
-    pkt.mMetaData.mDataItems.push_back(
-        {sculk::protocol::ActorDataIDs::NametagAlwaysShow,
-         static_cast<std::int32_t>(data.nametagAlwaysShow ? 0 : 1)});
+    pkt.data.data.push_back(
+        meta_wire::int32(ids::NametagAlwaysShow, static_cast<std::int32_t>(data.nametagAlwaysShow ? 0 : 1)));
     if (data.variant != 0) {
-        pkt.mMetaData.mDataItems.push_back(
-            {sculk::protocol::ActorDataIDs::Variant, static_cast<std::int32_t>(data.variant)});
+        pkt.data.data.push_back(meta_wire::int32(ids::Variant, static_cast<std::int32_t>(data.variant)));
     }
     if (data.markVariant != 0) {
-        pkt.mMetaData.mDataItems.push_back(
-            {sculk::protocol::ActorDataIDs::MarkVariant, static_cast<std::int32_t>(data.markVariant)});
+        pkt.data.data.push_back(meta_wire::int32(ids::MarkVariant, static_cast<std::int32_t>(data.markVariant)));
     }
     if (data.colorIndex != 0) {
-        pkt.mMetaData.mDataItems.push_back(
-            {sculk::protocol::ActorDataIDs::ColorIndex, static_cast<std::uint8_t>(data.colorIndex)});
+        pkt.data.data.push_back(meta_wire::byte(ids::ColorIndex, static_cast<std::uint8_t>(data.colorIndex)));
     }
 
     if (data.pose != 0) {
-        pkt.mMetaData.mDataItems.push_back(
-            {sculk::protocol::ActorDataIDs::PoseIndex, static_cast<std::int32_t>(data.pose)});
+        pkt.data.data.push_back(meta_wire::int32(ids::PoseIndex, static_cast<std::int32_t>(data.pose)));
     }
 
     float const scale = std::clamp(effectiveScaleValue(data, rt, player.getUuid()), 0.0625f, 10.0f);
-    pkt.mAttributes   = {
+    pkt.attributes    = {
         {"minecraft:health", 0.0f, 20.0f, 20.0f},
         {"minecraft:scale", 0.0625f, 10.0f, scale},
     };
-    pkt.mSynchedProperties = {};
-    sendSculkPacketToPlayer(player, pkt);
+    pkt.synched_properties = {};
+    sendProtoPacketToPlayer(player, pkt);
 
     {
         float const                             s = std::clamp(effectiveScaleValue(data, rt, player.getUuid()), 0.0625f, 10.0f);
-        sculk::protocol::UpdateAttributesPacket uap;
-        uap.mActorRuntimeId = rt.runtimeId;
-        uap.mAttributes     = {
+        proto::UpdateAttributesPacket uap;
+        uap.runtime_id      = proto::bp::ActorRuntimeID{rt.runtimeId};
+        uap.attribute_data  = {
             makeAttribute("minecraft:health", 0.0f, 20.0f, 20.0f, 20.0f),
             makeAttribute("minecraft:scale", 0.0625f, 10.0f, s, 1.0f),
         };
-        uap.mTick = currentTick();
-        sendSculkPacketToPlayer(player, uap);
+        uap.tick = proto::bp::PlayerInputTick{currentTick()};
+        sendProtoPacketToPlayer(player, uap);
     }
 
     sendEffectiveEquipment(player, data, rt);
@@ -303,21 +294,21 @@ inline void sendCustomActor(
     sendMobProperties(player, data, rt);
 
     if (vehicleUniqueId) {
-        sculk::protocol::SetActorLinkPacket linkPkt;
-        linkPkt.mLink.mType                   = sculk::protocol::ActorLinkType::Riding;
-        linkPkt.mLink.mTargetAUniqueId        = static_cast<std::int64_t>(*vehicleUniqueId);
-        linkPkt.mLink.mTargetBUniqueId        = static_cast<std::int64_t>(rt.uniqueId);
-        linkPkt.mLink.mImmediate              = true;
-        linkPkt.mLink.mPassengerInitiated     = false;
-        linkPkt.mLink.mVehicleAngularVelocity = 0.0f;
-        sendSculkPacketToPlayer(player, linkPkt);
+        proto::SetActorLinkPacket linkPkt;
+        linkPkt.link.type                     = proto::ActorLinkType::Riding;
+        linkPkt.link.a                        = proto::ActorUniqueID{static_cast<std::int64_t>(*vehicleUniqueId)};
+        linkPkt.link.b                        = proto::ActorUniqueID{static_cast<std::int64_t>(rt.uniqueId)};
+        linkPkt.link.immediate                = true;
+        linkPkt.link.passenger_initiated      = false;
+        linkPkt.link.vehicle_angular_velocity = 0.0f;
+        sendProtoPacketToPlayer(player, linkPkt);
     }
 }
 
 inline void sendRemove(Player& player, Runtime const& rt) {
-    sculk::protocol::RemoveActorPacket pkt;
-    pkt.mActorUniqueId = static_cast<std::int64_t>(rt.uniqueId);
-    sendSculkPacketToPlayer(player, pkt);
+    proto::RemoveActorPacket pkt;
+    pkt.entity_id = proto::ActorUniqueID{static_cast<std::int64_t>(rt.uniqueId)};
+    sendProtoPacketToPlayer(player, pkt);
 }
 
 inline bool spawnForPlayer(

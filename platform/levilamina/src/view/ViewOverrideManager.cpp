@@ -1,5 +1,5 @@
-#include "core/DiagFlags.h"
 #include "ViewOverrideRuntimeOps.h"
+#include "core/DiagFlags.h"
 
 #include "ViewOverrideManager.h"
 
@@ -36,11 +36,8 @@
 #include <mc/world/actor/player/Inventory.h>
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/item/ItemStack.h>
-#include <mc/legacy/ActorUniqueID.h>
 #include <mc/world/level/Level.h>
 #include <mc/world/level/block/Block.h>
-#include <sculk/protocol/codec/packet/ActorEventPacket.hpp>
-#include <sculk/protocol/codec/packet/AnimatePacket.hpp>
 
 #include <cmath>
 #include <format>
@@ -136,232 +133,6 @@ bool ViewOverrideManager::hasOverridesFor(std::string const& playerName) const {
     return it != mPlayers.end() && !it->second.empty();
 }
 
-bool ViewOverrideManager::overrideEntity(
-    std::string const&             playerName,
-    std::int64_t                   uniqueId,
-    hologramlib::EntityView const& view) {
-    if (hlibDomainDisabled("HLIB_NO_VIEW"))
-        return false;
-    auto normalised       = view;
-    normalised.identifier = logic::normaliseType(view.identifier);
-
-    normalised.skinId = logic::trimText(view.skinId);
-    if (!logic::viewHasEffect(
-            !normalised.identifier.empty(),
-            !normalised.asPlayer.empty(),
-            !normalised.skinId.empty(),
-            normalised.hidden,
-            normalised.hasNametag,
-            normalised.hasPose,
-            normalised.hasMetaScale,
-            normalised.hasVariant,
-            normalised.hasMarkVariant,
-            normalised.hasColorIndex,
-            normalised.hasColor2)) {
-        return clearEntity(playerName, uniqueId);
-    }
-
-    EntityRecord record;
-    bool         pushNametagNow = false;
-    bool         needRuntimeId  = false;
-    {
-        std::lock_guard lock(mMutex);
-        auto&           table = ensureTableLocked(playerName);
-        auto&           rec   = table.entities[uniqueId];
-        rec.uniqueId          = uniqueId;
-
-        // 合并而不是整体覆盖：只改 pose 时不能把 identifier/skin/nametag 一起清掉（R06）
-        auto merged = rec.view;
-        if (!normalised.identifier.empty()) {
-            merged.identifier = normalised.identifier;
-        }
-        if (!normalised.asPlayer.empty()) {
-            merged.asPlayer = normalised.asPlayer;
-        }
-        if (!normalised.skinId.empty()) {
-            merged.skinId = normalised.skinId;
-        }
-        if (normalised.hidden) {
-            merged.hidden = true;
-        }
-        if (normalised.scale != 0.0f) {
-            merged.scale = normalised.scale;
-        }
-        // 少了这条，换皮出生包第一次用 normalised.yOffset，之后每次重生都退回 0（模型陷进地里）
-        if (normalised.yOffset != 0.0f) {
-            merged.yOffset = normalised.yOffset;
-        }
-        if (normalised.hasNametag) {
-            merged.hasNametag        = true;
-            merged.nametag           = normalised.nametag;
-            merged.nametagAlwaysShow = normalised.nametagAlwaysShow;
-        }
-        if (normalised.hasPose) {
-            merged.hasPose = true;
-            merged.pose    = normalised.pose;
-        }
-        if (normalised.hasMetaScale) {
-            merged.hasMetaScale = true;
-            merged.metaScale    = normalised.metaScale;
-        }
-        if (normalised.hasVariant) {
-            merged.hasVariant = true;
-            merged.variant    = normalised.variant;
-        }
-        if (normalised.hasMarkVariant) {
-            merged.hasMarkVariant = true;
-            merged.markVariant    = normalised.markVariant;
-        }
-        if (normalised.hasColorIndex) {
-            merged.hasColorIndex = true;
-            merged.colorIndex    = normalised.colorIndex;
-        }
-        if (normalised.hasColor2) {
-            merged.hasColor2 = true;
-            merged.color2    = normalised.color2;
-        }
-        rec.view = merged;
-        if (rec.runtimeKnown) {
-            table.byRuntime[rec.runtimeId] = uniqueId;
-            pushNametagNow                 = !merged.hidden && normalised.hasNametag;
-        }
-        needRuntimeId = !rec.runtimeKnown;
-        record        = rec;
-        refreshActiveLocked();
-    }
-
-    if (needRuntimeId) {
-        if (auto level = ::ll::service::getLevel(); level != nullptr) {
-            if (auto* actor = level->fetchEntity(::ActorUniqueID{uniqueId}, false); actor != nullptr) {
-                auto const      runtimeId = static_cast<std::uint64_t>(actor->getRuntimeID());
-                std::lock_guard lock(mMutex);
-                auto&           table      = ensureTableLocked(playerName);
-                auto&           rec        = table.entities[uniqueId];
-                rec.runtimeKnown           = true;
-                rec.runtimeId              = runtimeId;
-                table.byRuntime[runtimeId] = uniqueId;
-                record                     = rec;
-                pushNametagNow             = !record.view.hidden && normalised.hasNametag;
-            }
-        }
-    }
-
-    // 本次调用是否动了「出生形态」：只改 pose / nametag 时不重发，否则脚本每帧调一次 setPose 就会每帧刷一遍皮肤包
-    bool const touchedShape = !normalised.asPlayer.empty() || !normalised.identifier.empty() || !normalised.skinId.empty();
-    bool const wantHidden   = normalised.hidden;
-    // 下面按「合并后的最终状态」发包：只改一个字段时不能把 scale/identifier 一起带丢
-    normalised = record.view;
-    if (wantHidden && touchedShape) {
-        forEachOverrideViewer(playerName, uniqueId, [&](::Player& player) {
-            sendRemoveActor(player, uniqueId);
-        });
-
-    } else if (touchedShape && (!normalised.asPlayer.empty() || !normalised.identifier.empty() || !normalised.skinId.empty())) {
-        forEachTargetPlayer(playerName, [&](::Player& player) {
-            auto* actor = liveActorNear(player, uniqueId);
-
-            if (actor != nullptr && actor->isPlayer()) {
-                auto& target = *static_cast<::Player*>(actor);
-                if (!normalised.asPlayer.empty()) {
-
-                    if (!sendPlayerSkin(player, target, normalised.asPlayer)) {
-                        HLIB_LOG_WARN("HologramLib: 换皮肤失败（源玩家不在线且无留存快照?）: {}", normalised.asPlayer);
-                    }
-                    return;
-                }
-                if (&target == &player)
-                    return;
-                if (normalised.identifier != "minecraft:player") {
-
-                    {
-                        std::lock_guard lock(mMutex);
-                        auto&           table = ensureTableLocked(playerName);
-                        auto&           rec   = table.entities[uniqueId];
-                        rec.substituted       = true;
-                    }
-                    sendRemoveActor(player, uniqueId);
-
-                    InputSnapshot snap{};
-                    if (inputSnapshotOf(uniqueId, snap)) {
-                        sendActorSpawnFromInput(
-                            player,
-                            snap.runtimeId,
-                            uniqueId,
-                            normalised.identifier,
-                            snap.x,
-                            snap.y,
-                            snap.z,
-                            snap.pitch,
-                            snap.yaw,
-                            snap.headYaw,
-                            planOf(normalised));
-                    }
-                    return;
-                }
-                if (normalised.hasNametag && record.runtimeKnown) {
-                    view::sendViewMeta(player, record.runtimeId, logic::metaPlanOf(true, normalised.nametag, normalised.nametagAlwaysShow));
-                }
-                return;
-            }
-
-            if (!normalised.skinId.empty()) {
-                if (actor != nullptr) {
-                    auto const pos  = actor->getPosition();
-                    auto const rot  = actor->getRotation();
-                    auto const rtId = record.runtimeKnown ? record.runtimeId
-                                                          : static_cast<std::uint64_t>(actor->getRuntimeID());
-                    sendRemoveActor(player, uniqueId);
-                    if (sendSkinnedSpawn(
-                            player,
-                            rtId,
-                            uniqueId,
-                            pos.x,
-                            pos.y,
-                            pos.z,
-                            rot.y,
-                            normalised.skinId,
-                            normalised.hasNametag,
-                            normalised.nametag,
-                            normalised.scale,
-                            normalised.yOffset)) {
-                        scheduleTabRemoval(player.getRealName(), uniqueId);
-                    } else {
-                        HLIB_LOG_WARN(
-                            "HologramLib: 换皮肤失败（皮肤没注册?）: entity={} skin={}",
-                            uniqueId,
-                            normalised.skinId);
-
-                        respawnForPlayer(player, *actor, actor->getTypeName(), logic::metaPlanOf(false, {}, false));
-                    }
-                }
-                return;
-            }
-            if (normalised.hidden) {
-                sendRemoveActor(player, uniqueId);
-            } else if (!normalised.identifier.empty()) {
-                if (actor != nullptr) {
-                    if (actor->isType(::ActorType::ItemEntity)) {
-
-                        view::sendItemActorAsOther(player, *actor, normalised.identifier, planOf(normalised));
-                        scheduleMetaPush(player.getRealName(), uniqueId);
-                    } else {
-                        respawnForPlayer(player, *actor, normalised.identifier, planOf(normalised));
-                    }
-                } else if (normalised.hasNametag && record.runtimeKnown) {
-                    view::sendViewMeta(player, record.runtimeId, logic::metaPlanOf(true, normalised.nametag, normalised.nametagAlwaysShow));
-                }
-            } else if (normalised.hasNametag && record.runtimeKnown) {
-                view::sendViewMeta(player, record.runtimeId, logic::metaPlanOf(true, normalised.nametag, normalised.nametagAlwaysShow));
-            }
-        });
-    } else if (pushNametagNow) {
-        forEachOverrideViewer(playerName, uniqueId, [&](::Player& player) {
-            view::sendViewMeta(player, record.runtimeId, logic::metaPlanOf(true, normalised.nametag, normalised.nametagAlwaysShow));
-        });
-    }
-    return true;
-}
-
 bool ViewOverrideManager::overrideBlock(
     std::string const&            playerName,
     int                           x,
@@ -422,9 +193,9 @@ bool ViewOverrideManager::alignEntity(std::string const& playerName, std::int64_
         return false;
 
     hologramlib::EntityView view;
-    view.identifier  = info.identifier;
-    view.hasNametag  = info.hasNameTag;
-    view.nametag     = info.nameTag;
+    view.identifier = info.identifier;
+    view.hasNametag = info.hasNameTag;
+    view.nametag    = info.nameTag;
     return overrideEntity(playerName, uniqueId, view);
 }
 
@@ -581,7 +352,7 @@ void ViewOverrideManager::restoreEntityForPlayer(
         bool const bodyTouched = record.substituted || record.view.hidden || !record.view.identifier.empty();
         if (bodyTouched && &player != &target) {
 
-            sculk::protocol::SerializedSkin ownSkin;
+            proto::SerializedSkinRef ownSkin;
             if (captureOwnSkin(target, ownSkin)) {
 
                 InputSnapshot snap{};
@@ -647,194 +418,6 @@ void ViewOverrideManager::noteAuthInput(std::string const& playerName, InputSnap
     mInputs[playerName]     = stamped;
 }
 
-void ViewOverrideManager::pushSubstitutedMovement(::Player& player, InputSnapshot const& snapshot) {
-    if (!mActive.load(std::memory_order_relaxed))
-        return;
-    auto level = ::ll::service::getLevel();
-    if (level == nullptr)
-        return;
-
-    bool                     globalSub = false;
-    std::vector<std::string> perViewerNames;
-    {
-        std::lock_guard lock(mMutex);
-        if (auto const it = mGlobal.entities.find(snapshot.uniqueId); it != mGlobal.entities.end()) {
-            globalSub = it->second.substituted;
-        }
-        for (auto const& [name, table] : mPlayers) {
-            auto const it = table.entities.find(snapshot.uniqueId);
-            if (it != table.entities.end() && it->second.substituted)
-                perViewerNames.push_back(name);
-        }
-    }
-    if (!globalSub && perViewerNames.empty())
-        return;
-
-    float const feetY = feetAnchorYFromInput(player, snapshot.y);
-
-    auto push = [&](::Player& viewer) {
-        sendMoveActorAbsolute(
-            viewer,
-            snapshot.runtimeId,
-            snapshot.x,
-            feetY,
-            snapshot.z,
-            snapshot.pitch,
-            snapshot.yaw,
-            snapshot.headYaw);
-    };
-    if (globalSub) {
-        level->forEachPlayer([&](::Player& p) -> bool {
-            if (&p != &player && p.distanceTo(player) <= 64.0f)
-                push(p);
-            return true;
-        });
-    } else {
-        for (auto const& name : perViewerNames) {
-            auto* p = level->getPlayer(name);
-            if (p != nullptr && p != &player && p->distanceTo(player) <= 64.0f)
-                push(*p);
-        }
-    }
-}
-
-void ViewOverrideManager::scheduleTabRemoval(std::string const& playerName, std::int64_t uniqueId) {
-    std::lock_guard lock(mMutex);
-    for (auto const& [due, entry] : mPendingTabRemoval) {
-        if (entry.first == playerName && entry.second == uniqueId)
-            return;
-    }
-    if (mPendingTabRemoval.size() > 512)
-        mPendingTabRemoval.erase(mPendingTabRemoval.begin());
-    mPendingTabRemoval.emplace_back(mServerTick + 20, std::make_pair(playerName, uniqueId));
-}
-
-void ViewOverrideManager::flushTabRemovals() {
-    std::vector<std::pair<std::string, std::int64_t>> due;
-    {
-        std::lock_guard lock(mMutex);
-        if (mPendingTabRemoval.empty())
-            return;
-        for (auto it = mPendingTabRemoval.begin(); it != mPendingTabRemoval.end();) {
-            if (it->first <= mServerTick) {
-                due.push_back(it->second);
-                it = mPendingTabRemoval.erase(it);
-            } else {
-                ++it;
-            }
-        }
-    }
-    if (due.empty())
-        return;
-    auto level = ::ll::service::getLevel();
-    if (!level)
-        return;
-    for (auto const& [name, uniqueId] : due) {
-        if (auto* player = level->getPlayer(name)) {
-            npc_protocol::removePlayerList(*player, uniqueId);
-        }
-    }
-}
-
-void ViewOverrideManager::scheduleMetaPush(std::string const& playerName, std::int64_t uniqueId) {
-    std::lock_guard lock(mMutex);
-    auto const*     record = findEntityLocked(playerName, uniqueId);
-    if (record == nullptr || planOf(record->view).empty())
-        return;
-    for (auto const& [due, name, id] : mPendingMetaPush) {
-        if (name == playerName && id == uniqueId)
-            return;
-    }
-    if (mPendingMetaPush.size() > 512)
-        mPendingMetaPush.erase(mPendingMetaPush.begin());
-    mPendingMetaPush.emplace_back(mServerTick + 2, playerName, uniqueId);
-}
-
-void ViewOverrideManager::flushMetaPushes() {
-    std::vector<std::pair<std::string, std::int64_t>> due;
-    {
-        std::lock_guard lock(mMutex);
-        if (mPendingMetaPush.empty())
-            return;
-        for (auto it = mPendingMetaPush.begin(); it != mPendingMetaPush.end();) {
-            if (std::get<0>(*it) <= mServerTick) {
-                due.emplace_back(std::get<1>(*it), std::get<2>(*it));
-                it = mPendingMetaPush.erase(it);
-            } else {
-                ++it;
-            }
-        }
-    }
-    if (due.empty())
-        return;
-    auto level = ::ll::service::getLevel();
-    if (!level)
-        return;
-    for (auto const& [name, uniqueId] : due) {
-        auto* player = level->getPlayer(name);
-        if (player == nullptr)
-            continue;
-
-        std::optional<logic::MetaPlan> plan;
-        {
-            std::lock_guard lock(mMutex);
-            if (auto const* record = findEntityLocked(name, uniqueId); record != nullptr) {
-                plan = planOf(record->view);
-            }
-        }
-        if (!plan || plan->empty())
-            continue;
-        auto* actor = liveActorNear(*player, uniqueId);
-        if (actor == nullptr)
-            continue;
-        view::sendViewMeta(*player, static_cast<std::uint64_t>(actor->getRuntimeID()), *plan);
-    }
-}
-
-void ViewOverrideManager::tickPulse() {
-    ++mServerTick;
-    view::viewTickRef() = mServerTick;
-    flushTabRemovals();
-    flushMetaPushes();
-    if (!mActive.load(std::memory_order_relaxed))
-        return;
-    auto level = ::ll::service::getLevel();
-    if (!level)
-        return;
-    level->forEachPlayer([&](::Player& player) -> bool {
-        if (hasOverridesFor(player.getRealName()))
-            pulseForPlayer(player);
-        return true;
-    });
-}
-
-std::string ViewOverrideManager::describeFor(std::string const& playerName) const {
-    std::lock_guard lock(mMutex);
-    std::size_t     entities = mGlobal.entities.size();
-    std::size_t     blocks   = mGlobal.blocks.size();
-    if (auto const* table = tableOfLocked(playerName)) {
-        entities += table->entities.size();
-        blocks += table->blocks.size();
-    }
-    auto const counters = hookCounters();
-    return std::format(
-        "entities={} blocks={} hooks(calls={} spawn={} meta={} block={} chunk={}) sendFail={} ctrlSteps={} skinnedSpawn={}",
-        entities,
-        blocks,
-        counters.calls,
-        counters.spawn,
-        counters.meta,
-        counters.block,
-        counters.chunk,
-        sculkSendFailureCount().load(std::memory_order_relaxed),
-        mControlSteps.load(std::memory_order_relaxed),
-        mSkinnedSpawnCounter.load(std::memory_order_relaxed));
-}
-
-void ViewOverrideManager::noteHookCall() {
-    mHookCalls.fetch_add(1, std::memory_order_relaxed);
-}
-
 ViewOverrideManager::HookCounters ViewOverrideManager::hookCounters() const {
     HookCounters out;
     out.calls = mHookCalls.load(std::memory_order_relaxed);
@@ -843,28 +426,6 @@ ViewOverrideManager::HookCounters ViewOverrideManager::hookCounters() const {
     out.block = mBlockSeen.load(std::memory_order_relaxed);
     out.chunk = mChunkSeen.load(std::memory_order_relaxed);
     return out;
-}
-
-void ViewOverrideManager::onPlayerLeave(std::string const& playerName) {
-    std::lock_guard lock(mMutex);
-    auto const      it = mPlayers.find(playerName);
-    if (it == mPlayers.end())
-        return;
-
-    it->second.byRuntime.clear();
-    for (auto& [uniqueId, record] : it->second.entities)
-        record.runtimeKnown = false;
-    mPulse.erase(playerName);
-    mInputs.erase(playerName);
-}
-
-void ViewOverrideManager::shutdown() {
-    std::lock_guard lock(mMutex);
-    mPlayers.clear();
-    mPulse.clear();
-    mInputs.clear();
-    mGlobal = Table{};
-    refreshActiveLocked();
 }
 
 std::size_t ViewOverrideManager::globalEntityCount() const {
@@ -880,6 +441,8 @@ std::size_t ViewOverrideManager::globalBlockCount() const {
 } // namespace debugshape_export::view
 
 namespace debugshape_export {
+
+namespace proto = ::debugshape_export::core::proto;
 
 namespace {
 

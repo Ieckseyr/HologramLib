@@ -7,6 +7,7 @@
 
 | 发布版本 | API | 协议线 | 主要内容 | 新增导出 | C++ 消费方 |
 |---|---|---|---|---|---|
+| `26.60.4` | 1.37.0 | 26.60 | **协议前置迁移**：`sculk`（BedrockProtocol）→ `EndstoneMC/bedrock-protocol`（生成式、按协议 2225 = `protocol-docs r26_u6` 选形）。源码 sculk 引用清零、xmake 不再链接 `Protocol`；`Wire26` 与全部手工编码删除。**ABI 修正**：27 / 32 号槽恢复为保留槽，虚表回到单调布局，ABI stamp 1 → 2。 | — | **必须重新编译** |
 | `26.60.3` | 1.36.0 | 26.60 | **ABI 破坏性变更**：移除方位条 `ILocatorBar` / `ILocatorBarExt`（虚表少 2 个访问器）与 14 个 `locatorBar*` LSE 导出、endstone `locatorbar` 模块；`IViewOverride` 尾部追加 `queryEntity` / `alignEntity`；LSE 新增批量假方块 `blockBatch*`（含靠近切硫磺立方体）、`viewEntityInfo` / `viewAlign`。**调用方必须重新编译**（虚表布局变化）。 | 6 | **必须重新编译**（虚表布局改变，非尾部追加） |
 | `26.60.2` | 1.35.0 | 26.60 | **双平台拆分**：`core/`（协议编码 + C ABI）与 `platform/levilamina`、`platform/endstone` 两个外壳；endstone 端落地 **444 个导出**（404 真实生效 / 40 受限）；`holo_core.dll` 导出 67 个 C 符号供三方共用；`build.cmd` 一次构建两个产物；文档站重构；新增 20 个 **LSE 入口**（接口层未变）。**C++ 行为与 ABI 未变。** | 20 | 无需重新编译（API 1.35.0 未变） |
 | `26.60.1` | 1.35.0 | 26.60 | 死亡动画后的复活 `IPlayerRespawn`（补发 `RespawnPacket`）、容器预览 `containerPreview`、附魔条目 `containerSetItemEnchanted`、表现事件阻断 `actorBlock*`、假实体 runtimeId 查询；**LSE 导出面补全**（particle 查询/可见性 5 个、真实实体交互事件 `actor*` 2 个、`containerUpdate` / `tradeUpdate`）；内部重构（PlayerIndex、统一发包出口、全库注释清零）。 | 27 | **需重新编译**（新增 3 个接口，尾部追加，`HOLOGLIB_ABI_STAMP` 仍为 1） |
@@ -19,6 +20,48 @@
 | `26.40.9` | 1.27.0 | 26.40 | `EntityView::skinId`（同 id 换模型）、真实实体交互事件、ABI 布局戳 | 类方法 | 需重新编译（虚表追加） |
 | `26.40.8` | 1.26.0 | 26.40 | 逐观看者覆盖、四个界面域 | 若干 | 需重新编译 |
 
+
+
+## 26.60.4 — 协议前置迁移（sculk → bedrock-protocol）
+
+这一版**只换协议前置**，公开接口（`include/hologramlib/*.h`）保持不变。
+
+### 变更
+
+- 依赖：`BedrockProtocol`（sculk）→ `EndstoneMC/bedrock-protocol`（CMake + `bpc` 生成，按 2225（protocol-docs `r26_u6` = 1.26.61.1）选形）
+- 源码：`sculk::` 引用 301 处、`#include <sculk/...>` 219 处**全部清除**；`xmake.lua` 不再链接 `Protocol`
+- 删除：`core/Wire26.{h,cpp}`（皮肤/PlayerList/AddPlayer 等手工编码）、`SculkPacketSend.h` → `ProtoPacketSend.h`
+- 新增：`core/proto/Version.h`（`kProtocolVersion = 2225` + 全部包别名）、`platform/levilamina/src/MetaWire.h`（元数据构造）
+- 皮肤：整体切到 `SerializedSkinRef`（`image_data` / `cape_image_data` / `arm_size` / `persona_pieces`）；`SkinBlob` 缓存格式 v4，仍可读 v3
+- `core/` 五个域（block / packet ids / container / actor / shape）编码器全部按新库重写，其中 54 组与旧实现**逐字节一致**
+
+### ABI：恢复保留槽，回到「只追加」
+
+- `HOLOGLIB_API_VERSION`：`0x012A00` → **`0x012B00`（1.37.0）**
+- `HOLOGLIB_ABI_STAMP`：`1` → **`2`**（布局变化的唯一判据；旧二进制会被 AbiGuard 标出来）
+- 27 / 32 号槽恢复为 `reservedSlot27()` / `reservedSlot32()`，类型是空的 `IReservedDomain`
+  （无任何方法）：1.36.0 的中部删除被纠正，虚表回到单调布局，两个槽留给后续新域
+- 删除 `AbiCompat.h` 里「把虚表当数组戳」的 `at<T>(lib, slot)` 与手写槽位表；
+  现在只剩版本检查薄封装，跨版本只认 `version()`，不猜布局
+- **按旧头文件编译的消费方必须重新编译**（stamp 已变）
+
+### 协议级差异（有意为之，不是回归）
+
+| 包 | 26.60.4 行为 |
+|---|---|
+| `BossEvent` | 2193+ 不再写 `player_id` |
+| `SerializedSkin` | 2225 无 `play_fab_id`（挪到 `PlayerList::AddEntry`），`PlayerSkin` 无独立可信标记 |
+| `PlayerList` | variant 列表（每项 tag+action），顶层 action 字段消失 |
+| `AttributeData` | 不再带 per-attribute tick |
+| `AddItemActor` | item 为 int16 定长描述符（1.26.30+） |
+| `MoveActorAbsolute` | 使用 `move_data.header` 位域（OnGround / Teleport / ForceMove） |
+| `ContainerOpen` | 新增 `entity_unique_id`（方块容器 -1，矿车传载体 uid） |
+| `AddActor` / `AddPlayer` | 新增可选 `passenger_block_data` |
+
+### 测试
+
+- 旧 C++ 字节对拍夹具（authinput / container / npc_carrier / npc_player_list / trade_offers / trade_packet）**删除**：它们钉住的是旧线格式，继续保留会误导
+- 纯标准库单测（registry / click_event / shape_id_map / visibility_logic）保留
 
 ## 26.60.3 — API 1.36.0（方位条移除 / ABI 破坏 / 批量假方块）
 

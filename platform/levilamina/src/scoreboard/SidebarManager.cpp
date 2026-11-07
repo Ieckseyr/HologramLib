@@ -16,12 +16,13 @@
 #include <mc/network/packet/SetScorePacketPayload.h>
 #include <mc/world/scores/ScoreboardId.h>
 
-#include <sculk/protocol/codec/packet/RemoveObjectivePacket.hpp>
-#include <sculk/protocol/codec/packet/SetDisplayObjectivePacket.hpp>
+#include "core/proto/Version.h"
 
 #include <format>
 
 namespace debugshape_export {
+
+namespace proto = ::debugshape_export::core::proto;
 
 namespace {
 
@@ -61,13 +62,13 @@ std::int64_t SidebarManager::idBaseOf(std::string const& playerName) {
 }
 
 bool SidebarManager::sendDisplay(::Player& player, std::string const& objective, std::string const& title) {
-    sculk::protocol::SetDisplayObjectivePacket packet;
-    packet.mDisplaySlotName      = kSlot;
-    packet.mObjectiveName        = objective;
-    packet.mObjectiveDisplayName = title;
-    packet.mCriteriaName         = kCriteria;
+    proto::SetDisplayObjectivePacket packet;
+    packet.display_slot_name      = kSlot;
+    packet.objective_name         = objective;
+    packet.objective_display_name = title;
+    packet.criteria_name          = kCriteria;
 
-    packet.mSortOrder = sculk::protocol::SetDisplayObjectivePacket::ObjectiveSortOrder::Ascending;
+    packet.sort_order = proto::ObjectiveSortOrder::Ascending;
 
     auto bytes = wire::encode(packet);
     if (bytes.empty())
@@ -133,8 +134,8 @@ bool SidebarManager::sendRemoveScores(
 }
 
 bool SidebarManager::sendRemoveObjective(::Player& player, std::string const& objective) {
-    sculk::protocol::RemoveObjectivePacket packet;
-    packet.mObjectiveName = objective;
+    proto::RemoveObjectivePacket packet;
+    packet.objective_name = objective;
 
     auto bytes = wire::encode(packet);
     if (bytes.empty())

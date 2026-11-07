@@ -10,6 +10,8 @@
 #include <mc/world/level/Level.h>
 
 namespace debugshape_export {
+
+namespace proto = ::debugshape_export::core::proto;
 using namespace ce_ops;
 
 bool CustomEntityManager::playAnimation(
@@ -267,15 +269,15 @@ void CustomEntityManager::flushAnimsLocked() {
         }
         if (alive) {
             if (auto* player = findPlayerByUuid(e.playerUuid)) {
-                sculk::protocol::AnimateEntityPacket pkt;
-                pkt.mAnimation                   = e.animation;
-                pkt.mNextState                   = "none";
-                pkt.mStopExpression              = e.stopExpression;
-                pkt.mStopExpressionMolangVersion = sculk::protocol::MolangVersion::Initial;
-                pkt.mController                  = e.controller;
-                pkt.mBlendOutTime                = 0;
-                pkt.mRuntimeIds                  = {e.runtimeId};
-                sendSculkPacketToPlayer(*player, pkt);
+                proto::AnimateEntityPacket pkt;
+                pkt.animation               = e.animation;
+                pkt.next_state              = "none";
+                pkt.stop_expression         = e.stopExpression;
+                pkt.stop_expression_version = static_cast<std::int32_t>(proto::MolangVersion::Initial);
+                pkt.controller              = e.controller;
+                pkt.blend_out_time          = 0;
+                pkt.runtime_ids             = {proto::bp::ActorRuntimeID{e.runtimeId}};
+                sendProtoPacketToPlayer(*player, pkt);
             }
         }
         it = mAnimQueue.erase(it);
@@ -348,46 +350,45 @@ void CustomEntityManager::refreshLightLocked(int64_t id) {
         PitchYaw const rot = effectiveRot(rt, uuid, data);
 
         {
-            sculk::protocol::MoveActorAbsolutePacket maap;
-            maap.mActorRuntimeId = rt.runtimeId;
-            maap.mFlags          = sculk::protocol::MoveActorAbsolutePacket::Flags::Teleport;
-            maap.mPosition       = {data.x, data.y, data.z};
-            maap.mRotationX      = rotToByte(rot.pitch);
-            maap.mRotationY      = rotToByte(rot.yaw);
-            maap.mRotationYHead  = rotToByte(rot.yaw);
-            sendSculkPacketToPlayer(*player, maap);
+            proto::MoveActorAbsolutePacket maap;
+            maap.move_data.runtime_id = proto::bp::ActorRuntimeID{rt.runtimeId};
+            maap.move_data.header     = proto::move_flags::kTeleport;
+            maap.move_data.pos        = {data.x, data.y, data.z};
+            maap.move_data.rot_x      = rotToByte(rot.pitch);
+            maap.move_data.rot_y      = rotToByte(rot.yaw);
+            maap.move_data.rot_y_head = rotToByte(rot.yaw);
+            sendProtoPacketToPlayer(*player, maap);
         }
 
         {
-            sculk::protocol::SetActorDataPacket sadp;
-            sadp.mActorRuntimeId     = rt.runtimeId;
-            sadp.mTick               = tick;
+            using ids = proto::ActorDataIDs;
+
+            proto::SetActorDataPacket sadp;
+            sadp.id                  = proto::bp::ActorRuntimeID{rt.runtimeId};
+            sadp.tick                = proto::bp::PlayerInputTick{tick};
             std::int64_t const flags = data.flags | (data.invisible ? (std::int64_t(1) << 5) : 0);
-            sadp.mMetaData.mDataItems.push_back(
-                {sculk::protocol::ActorDataIDs::Reserved0, flags});
+            sadp.packed_items.data.push_back(meta_wire::int64(ids::Reserved0, flags));
             {
                 auto const& name = effectiveNametag(data, rt, uuid);
                 if (!name.empty()) {
-                    sadp.mMetaData.mDataItems.push_back(
-                        {sculk::protocol::ActorDataIDs::Name, name});
+                    sadp.packed_items.data.push_back(meta_wire::string(ids::Name, name));
                 }
             }
-            sadp.mMetaData.mDataItems.push_back(
-                {sculk::protocol::ActorDataIDs::NametagAlwaysShow,
-                 static_cast<std::int32_t>(data.nametagAlwaysShow ? 0 : 1)});
-            sendSculkPacketToPlayer(*player, sadp);
+            sadp.packed_items.data.push_back(
+                meta_wire::int32(ids::NametagAlwaysShow, static_cast<std::int32_t>(data.nametagAlwaysShow ? 0 : 1)));
+            sendProtoPacketToPlayer(*player, sadp);
         }
 
         {
-            float const                             s = std::clamp(effectiveScaleValue(data, rt, uuid), 0.0625f, 10.0f);
-            sculk::protocol::UpdateAttributesPacket uap;
-            uap.mActorRuntimeId = rt.runtimeId;
-            uap.mAttributes     = {
+            float const                  s = std::clamp(effectiveScaleValue(data, rt, uuid), 0.0625f, 10.0f);
+            proto::UpdateAttributesPacket uap;
+            uap.runtime_id     = proto::bp::ActorRuntimeID{rt.runtimeId};
+            uap.attribute_data = {
                 makeAttribute("minecraft:health", 0.0f, 20.0f, 20.0f, 20.0f, tick),
                 makeAttribute("minecraft:scale", 0.0625f, 10.0f, s, 1.0f, tick),
             };
-            uap.mTick = tick;
-            sendSculkPacketToPlayer(*player, uap);
+            uap.tick = proto::bp::PlayerInputTick{tick};
+            sendProtoPacketToPlayer(*player, uap);
         }
     }
 }

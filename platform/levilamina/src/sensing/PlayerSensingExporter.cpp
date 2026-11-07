@@ -10,6 +10,18 @@ namespace debugshape_export {
 static constexpr const char* NAMESPACE = "HologramLib";
 
 void PlayerSensingExporter::exportAll() {
+    hologramlib::lse::exportAs(NAMESPACE, "swingCount", [](std::string const& playerName) -> int64_t {
+        return static_cast<int64_t>(swingCount(playerName));
+    });
+
+    hologramlib::lse::exportAs(NAMESPACE, "swingTotal", []() -> int64_t {
+        return static_cast<int64_t>(swingTotal());
+    });
+
+    hologramlib::lse::exportAs(NAMESPACE, "swingReset", []() -> void {
+        swingReset();
+    });
+
     auto& mgr = PlayerSensingManager::getInstance();
 
     hologramlib::lse::exportAs(NAMESPACE, "sensingDeviceOf", [&mgr](std::string const& playerName) -> std::string {

@@ -1,4 +1,5 @@
 #include "FloatingTextManager.h"
+#include "FloatingTextInternal.h"
 #include "PacketDebugRenderer.h"
 #include "kernel/EventIds.h"
 
@@ -18,11 +19,6 @@
 namespace debugshape_export {
 
 namespace {
-
-std::uint64_t steadyMs() {
-    using namespace std::chrono;
-    return static_cast<std::uint64_t>(duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count());
-}
 
 ll::event::ListenerPtr sDynamicTickListener;
 ll::event::ListenerPtr sJoinListener;
@@ -559,68 +555,6 @@ void FloatingTextManager::shutdownDynamicDriver() {
 
 void FloatingTextManager::registerVariable(const std::string& name, VariableProvider provider) {
     mVariables[name] = provider;
-}
-
-void FloatingTextManager::registerBuiltinVariables() {
-
-    registerVariable("time", [](const std::string&) -> std::string {
-        auto    now  = std::chrono::system_clock::now();
-        auto    time = std::chrono::system_clock::to_time_t(now);
-        std::tm tm;
-#ifdef _WIN32
-        localtime_s(&tm, &time);
-#else
-        localtime_r(&time, &tm);
-#endif
-        std::ostringstream oss;
-        oss << std::put_time(&tm, "%H:%M:%S");
-        return oss.str();
-    });
-
-    registerVariable("online", [](const std::string&) -> std::string {
-        auto level = ll::service::getLevel();
-        if (level.has_value()) {
-            return std::to_string(level->getActivePlayerCount());
-        }
-        return "0";
-    });
-
-    registerVariable("player", [](const std::string& playerName) -> std::string {
-        return playerName.empty() ? "Unknown" : playerName;
-    });
-
-    registerVariable("tps", [this](const std::string&) -> std::string {
-        std::ostringstream oss;
-        oss << std::fixed << std::setprecision(1) << mTps.load(std::memory_order_relaxed);
-        return oss.str();
-    });
-
-    registerVariable("dimension", [](const std::string& playerName) -> std::string {
-        if (playerName.empty())
-            return "?";
-        auto level = ll::service::getLevel();
-        if (!level.has_value())
-            return "?";
-        auto* p = level->getPlayer(playerName);
-        return p ? std::to_string(static_cast<int>(p->getDimensionId())) : "?";
-    });
-    for (auto const& axis : {"x", "y", "z"}) {
-        std::string const name(axis);
-        registerVariable(name, [name](const std::string& playerName) -> std::string {
-            if (playerName.empty())
-                return "?";
-            auto level = ll::service::getLevel();
-            if (!level.has_value())
-                return "?";
-            auto* p = level->getPlayer(playerName);
-            if (!p)
-                return "?";
-            auto const   pos = p->getPosition();
-            double const v   = name == "x" ? pos.x : name == "y" ? pos.y
-                                                                 : pos.z;
-            return std::to_string(static_cast<int>(std::floor(v)));
-        });
-    }
 }
 
 bool FloatingTextManager::textHasVariables(FloatingText const& ft) {

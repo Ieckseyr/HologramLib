@@ -62,7 +62,7 @@
 
 | 目录 | 内容 | 依赖 |
 |---|---|---|
-| `core/` | 报文编码（`PacketCodec` / `Wire26` / `ShapeWire`）、形状与协议数据模型、`Registry` / `ServiceHost` / `TickDriver` 接口、C ABI | 标准库 + BedrockProtocol（sculk），**不含任何引擎头** |
+| `core/` | 报文编码（`PacketCodec` / `ShapeWire` / `proto/Version.h`）、形状与协议数据模型、`Registry` / `ServiceHost` / `TickDriver` 接口、C ABI | 标准库 + EndstoneMC/bedrock-protocol，**不含任何引擎头** |
 | `platform/levilamina/` | `ModEntry`、出站/入站钩子、`PacketSink`（唯一发包出口）、各域 Manager、导出层、`lse/` 兼容层 | LeviLamina + BDS |
 | `platform/endstone/` | Python 插件（`hologramlib_endstone`），玩家/维度/生命周期走 endstone API，字节走 `holo_core.dll` | endstone 0.11 |
 

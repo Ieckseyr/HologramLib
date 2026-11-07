@@ -277,13 +277,7 @@ typedef struct holo_waypoint {
     int64_t       actor_uid;
 } holo_waypoint;
 
-HOLO_CORE_EXPORT uint32_t holo_core_packet_id_locator_bar(void);
 
-HOLO_CORE_EXPORT int32_t holo_core_encode_locator_bar(
-    const holo_waypoint* waypoints,
-    size_t               count,
-    uint8_t**            out_body,
-    size_t*              out_len);
 
 // ── 复活（Respawn） ─────────────────────────────────────────────────────
 HOLO_CORE_EXPORT uint32_t holo_core_packet_id_respawn(void);

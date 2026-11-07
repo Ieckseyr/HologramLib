@@ -2,34 +2,26 @@
 
 #include "hologramlib/HologramLib.h"
 
+#include "core/proto/Version.h"
 #include "trade/TradeOfferNbt.h"
 
 #include <cstdint>
 #include <string>
 #include <vector>
 
-#include <sculk/protocol/codec/inventory/container/ContainerID.hpp>
-#include <sculk/protocol/codec/inventory/container/ContainerType.hpp>
-#include <sculk/protocol/codec/level/block/BlockPos.hpp>
-#include <sculk/protocol/codec/nbt/CompoundTag.hpp>
-#include <sculk/protocol/codec/nbt/ListTag.hpp>
-#include <sculk/protocol/codec/nbt/TagType.hpp>
-#include <sculk/protocol/codec/nbt/TagVariant.hpp>
-#include <sculk/protocol/codec/packet/BlockActorDataPacket.hpp>
-#include <sculk/protocol/codec/packet/ContainerClosePacket.hpp>
-#include <sculk/protocol/codec/packet/ContainerOpenPacket.hpp>
-#include <sculk/protocol/codec/packet/UpdateBlockPacket.hpp>
-
-#include <string>
 #include <unordered_map>
 #include <utility>
-#include <vector>
 
 namespace debugshape_export::container {
 
-using sculk::protocol::ByteTag;
-using sculk::protocol::IntTag;
-using sculk::protocol::StringTag;
+namespace proto = ::debugshape_export::core::proto;
+
+using trade::ByteTag;
+using trade::CompoundTag;
+using trade::IntTag;
+using trade::ListTag;
+using trade::StringTag;
+using trade::TagType;
 
 inline bool isBigChest(int rows) {
     return rows >= 6;
@@ -40,7 +32,7 @@ inline int slotCountForRows(int rows) {
 
 using EnchantMap = std::unordered_map<int, std::vector<std::pair<int, int>>>;
 
-inline sculk::protocol::CompoundTag buildChestNbt(
+inline CompoundTag buildChestNbt(
     int                                                x,
     int                                                y,
     int                                                z,
@@ -49,24 +41,23 @@ inline sculk::protocol::CompoundTag buildChestNbt(
     int                                                rows,
     std::vector<hologramlib::ContainerMenuItem> const& items,
     EnchantMap const&                                  enchMap = {}) {
-    sculk::protocol::CompoundTag out;
-    out.mValue["CustomName"] = trade::makeTag(StringTag{title});
-    out.mValue["Findable"]   = trade::makeTag(ByteTag{0});
-    out.mValue["id"]         = trade::makeTag(StringTag{"Chest"});
-    out.mValue["isMovable"]  = trade::makeTag(ByteTag{1});
-    out.mValue["x"]          = trade::makeTag(IntTag{x});
-    out.mValue["y"]          = trade::makeTag(IntTag{y});
-    out.mValue["z"]          = trade::makeTag(IntTag{z});
+    CompoundTag out;
+    out["CustomName"] = trade::makeTag(StringTag{title});
+    out["Findable"]   = trade::makeTag(ByteTag{0});
+    out["id"]         = trade::makeTag(StringTag{"Chest"});
+    out["isMovable"]  = trade::makeTag(ByteTag{1});
+    out["x"]          = trade::makeTag(IntTag{x});
+    out["y"]          = trade::makeTag(IntTag{y});
+    out["z"]          = trade::makeTag(IntTag{z});
 
     bool const big = isBigChest(rows);
     if (big) {
-        out.mValue["pairx"]    = trade::makeTag(IntTag{secondHalf ? x - 1 : x + 1});
-        out.mValue["pairz"]    = trade::makeTag(IntTag{z});
-        out.mValue["pairlead"] = trade::makeTag(ByteTag{static_cast<std::int8_t>(secondHalf ? 0 : 1)});
+        out["pairx"]    = trade::makeTag(IntTag{secondHalf ? x - 1 : x + 1});
+        out["pairz"]    = trade::makeTag(IntTag{z});
+        out["pairlead"] = trade::makeTag(ByteTag{static_cast<std::int8_t>(secondHalf ? 0 : 1)});
     }
 
-    sculk::protocol::ListTag list;
-    list.mType = sculk::protocol::TagType::Compound;
+    ListTag list(TagType::Compound);
 
     int const firstSlot = secondHalf ? 27 : 0;
     int const lastSlot  = secondHalf ? 54 : (big ? 27 : 27);
@@ -87,52 +78,52 @@ inline sculk::protocol::CompoundTag buildChestNbt(
         if (enchIt != enchMap.end())
             item.enchants = enchIt->second;
 
-        auto itemNbt           = trade::detail::itemToNbt(item);
-        itemNbt.mValue["Slot"] = trade::makeTag(ByteTag{static_cast<std::int8_t>(slot - firstSlot)});
-        list.mValue.push_back(trade::makeTag(std::move(itemNbt)));
+        auto itemNbt       = trade::detail::itemToNbt(item);
+        itemNbt["Slot"]    = trade::makeTag(ByteTag{static_cast<std::int8_t>(slot - firstSlot)});
+        list.push_back(trade::Tag{std::move(itemNbt)});
     }
-    out.mValue["Items"] = trade::makeTag(std::move(list));
+    out["Items"] = trade::makeTag(std::move(list));
     return out;
 }
 
-inline sculk::protocol::UpdateBlockPacket makeUpdateBlock(
+inline proto::UpdateBlockPacket makeUpdateBlock(
     int           x,
     int           y,
     int           z,
     std::uint32_t runtimeId) {
-    sculk::protocol::UpdateBlockPacket packet;
-    packet.mBlockPosition = sculk::protocol::BlockPos{x, y, z};
-    packet.mRuntimeId     = runtimeId;
-    packet.mFlag          = 3;
-    packet.mLayer         = 0;
+    proto::UpdateBlockPacket packet;
+    packet.pos          = proto::BlockPos{x, y, z};
+    packet.runtime_id   = proto::BlockRuntimeId{runtimeId};
+    packet.update_flags = 3;
+    packet.layer        = 0;
     return packet;
 }
 
-inline sculk::protocol::BlockActorDataPacket makeBlockActorData(
-    int                          x,
-    int                          y,
-    int                          z,
-    sculk::protocol::CompoundTag nbt) {
-    sculk::protocol::BlockActorDataPacket packet;
-    packet.mBlockPosition = sculk::protocol::BlockPos{x, y, z};
-    packet.mActorDataTags = std::move(nbt);
+inline proto::BlockActorDataPacket makeBlockActorData(
+    int        x,
+    int        y,
+    int        z,
+    CompoundTag nbt) {
+    proto::BlockActorDataPacket packet;
+    packet.pos  = proto::BlockPos{x, y, z};
+    packet.data = std::move(nbt);
     return packet;
 }
 
-inline sculk::protocol::ContainerOpenPacket makeContainerOpen(int containerId, int x, int y, int z) {
-    sculk::protocol::ContainerOpenPacket packet;
-    packet.mContainerId   = static_cast<sculk::protocol::ContainerID>(containerId);
-    packet.mContainerType = sculk::protocol::ContainerType::Container;
-    packet.mPosition      = sculk::protocol::BlockPos{x, y, z};
-    packet.mTargetActorId = -1;
+inline proto::ContainerOpenPacket makeContainerOpen(int containerId, int x, int y, int z) {
+    proto::ContainerOpenPacket packet;
+    packet.container_id = static_cast<proto::ContainerIDType>(containerId);
+    packet.type         = proto::bp::ContainerType::Container;
+    packet.pos          = proto::BlockPos{x, y, z};
+    packet.entity_unique_id = proto::ActorUniqueID{-1};
     return packet;
 }
 
-inline sculk::protocol::ContainerClosePacket makeContainerClose(int containerId) {
-    sculk::protocol::ContainerClosePacket packet;
-    packet.mContainerId          = static_cast<sculk::protocol::ContainerID>(containerId);
-    packet.mContainerType        = sculk::protocol::ContainerType::Container;
-    packet.mServerInitiatedClose = true;
+inline proto::ContainerClosePacket makeContainerClose(int containerId) {
+    proto::ContainerClosePacket packet;
+    packet.container_id          = static_cast<proto::ContainerIDType>(containerId);
+    packet.container_type        = proto::bp::ContainerType::Container;
+    packet.server_initiated_close = true;
     return packet;
 }
 

@@ -12,10 +12,8 @@
 #include <mc/network/MinecraftPackets.h>
 #include <mc/network/Packet.h>
 
-#include <sculk/protocol/codec/packet/IPacket.hpp>
-#include <sculk/protocol/utility/BinaryStream.hpp>
 
-#include "core/Wire26.h"
+#include "core/PacketCodec.h"
 #include "core/PacketTrace.h"
 
 class Player;
@@ -68,29 +66,55 @@ bool sendRawToAll(std::string const& bytes, Reliability r = Reliability::Reliabl
 
 bool sendRawToDimension(int dimId, std::string const& bytes, Reliability r = Reliability::Reliable);
 
-// sculk 协议包走 body26，引擎 Packet 走 BDS 自己的 write；两条都在这里加包头
+// 引擎 Packet 走 BDS 自己的 write，bedrock::protocol 生成包走 codec；两条都在这里加包头。
+namespace detail {
+
+template <class PacketT>
+struct PacketTraits {
+    // 引擎包：派生自 ::Packet，实例方法 getId()/getName()
+    static constexpr bool isEngine = std::is_base_of_v<::Packet, PacketT>;
+};
+
+template <class PacketT>
+std::string_view packetName(PacketT const& packet) {
+    if constexpr (PacketTraits<PacketT>::isEngine) {
+        return packet.getName();
+    } else {
+        return ::bedrock::protocol::detail::struct_name_v<PacketT>;
+    }
+}
+
+template <class PacketT>
+std::uint32_t packetId(PacketT const& packet) {
+    if constexpr (PacketTraits<PacketT>::isEngine) {
+        return static_cast<std::uint32_t>(packet.getId());
+    } else {
+        return static_cast<std::uint32_t>(PacketT::Id);
+    }
+}
+
+} // namespace detail
+
 template <class PacketT>
 std::string encode(PacketT const& packet, bool validate = true) {
-    constexpr bool isEngine = std::is_base_of_v<::Packet, PacketT>;
+    using Traits = detail::PacketTraits<PacketT>;
 
-    auto const  id = static_cast<std::uint32_t>(packet.getId());
+    auto const  id   = detail::packetId(packet);
     std::string body;
-    if constexpr (isEngine) {
+    if constexpr (Traits::isEngine) {
         ::BinaryStream stream;
         packet.write(stream);
         body = std::string{stream.mBuffer};
     } else {
-        body = wire26::body26(packet);
+        body = codec::body(packet);
     }
     if (body.empty()) {
         return {};
     }
 
-    if constexpr (!isEngine) {
-        if (validate && shouldValidate(id) && !validateBody(id, body)) {
-            noteValidationFailure(packet.getName());
-            return {};
-        }
+    if (validate && shouldValidate(id) && !validateBody(id, body)) {
+        noteValidationFailure(detail::packetName(packet));
+        return {};
     }
 
     counters().encoded.fetch_add(1, std::memory_order_relaxed);
@@ -103,7 +127,17 @@ bool send(::Player& player, PacketT const& packet, Reliability r = Reliability::
     if (bytes.empty()) {
         return false;
     }
-    return sendRaw(player, bytes, r, packet.getName(), static_cast<std::uint32_t>(packet.getId()));
+    return sendRaw(player, bytes, r, detail::packetName(packet), detail::packetId(packet));
+}
+
+// 不做 BDS 读端校验的直发（个别包 BDS 的 read 会因可选字段拒绝）
+template <class PacketT>
+bool sendUnchecked(::Player& player, PacketT const& packet, Reliability r = Reliability::Reliable) {
+    auto bytes = encode(packet, /*validate=*/false);
+    if (bytes.empty()) {
+        return false;
+    }
+    return sendRaw(player, bytes, r, detail::packetName(packet), detail::packetId(packet));
 }
 
 bool sendBody(

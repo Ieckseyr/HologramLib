@@ -36,15 +36,6 @@
 #include <mc/world/item/trading/MerchantRecipeList.h>
 #include <mc/world/level/Level.h>
 
-#include <sculk/protocol/codec/actor/ActorDataIDs.hpp>
-#include <sculk/protocol/codec/inventory/container/ContainerEnumName.hpp>
-#include <sculk/protocol/codec/inventory/container/ContainerType.hpp>
-#include <sculk/protocol/codec/inventory/item/ItemStackResponse.hpp>
-#include <sculk/protocol/codec/packet/ContainerClosePacket.hpp>
-#include <sculk/protocol/codec/packet/ItemStackResponsePacket.hpp>
-#include <sculk/protocol/codec/packet/SetActorDataPacket.hpp>
-#include <sculk/protocol/codec/packet/UpdateTradePacket.hpp>
-#include <sculk/protocol/utility/BinaryStream.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -72,14 +63,7 @@ inline Player* findPlayerByName(std::string const& name) {
 
 template <typename PacketT>
 inline bool sendTradePacket(Player& player, PacketT const& packet) {
-
-    return wire::sendBody(
-        player,
-        static_cast<std::uint32_t>(packet.getId()),
-        wire26::body26(packet),
-        wire::Reliability::Reliable,
-        packet.getName(),
-        false);
+    return wire::sendUnchecked(player, packet);
 }
 
 inline int clampTier(int tier) {
