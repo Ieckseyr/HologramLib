@@ -43,7 +43,9 @@ bp::v1001::ScriptPrimitiveShapeType toProtoType(DebugShapeType type) {
 bp::v2193::PrimitiveShapeDataPayload toPayload(DebugShape const& shape) {
     bp::v2193::PrimitiveShapeDataPayload out;
     out.network_id = shape.mNetworkId;
-    out.shape_type = toProtoType(shape.mType);
+    if (shape.mType) {
+        out.shape_type = toProtoType(*shape.mType);
+    }
     if (shape.mLocation) {
         out.location = toVec3(*shape.mLocation);
     }

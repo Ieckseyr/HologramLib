@@ -151,7 +151,7 @@ using DebugShapePayload = std::variant<
 
 struct DebugShape {
     std::uint64_t              mNetworkId{};
-    DebugShapeType             mType{DebugShapeType::Box};
+    std::optional<DebugShapeType> mType{}; // 空 = 删除包（不带 shape_type）
     std::optional<Vec3>        mLocation{};
     std::optional<float>       mScale{};
     std::optional<Vec3>        mRotation{};
