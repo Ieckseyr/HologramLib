@@ -1,10 +1,10 @@
 {
     "name": "HologramLib",
     "entry": "HologramLib.dll",
-    "version": "26.51.8",
+    "version": "26.51.9",
     "type": "native",
     "platform": "server",
-    "description": "前置库（不提供任何玩法功能）: 统一协议层接口库 (LeviLamina 26.51 / BDS 1.26.51，同源码可编 26.60 线, 协议 2225): 形状渲染/悬浮字/物品悬浮/自定义实体/粒子/假玩家NPC/交易菜单/虚拟容器/NPC对话/感知域(含攻击挥动监听)/客户端视图覆盖(含掉落物 AddItemActor 换类型/隐藏 + 姿态/缩放/变种/颜色), 原生C++接口导出, LSE兼容层运行时可选(无LegacyRemoteCall前置)",
+    "description": "前置库（不提供任何玩法功能）: 统一协议层接口库 (LeviLamina 26.51 / BDS 1.26.51，同源码可编 26.60 线, 协议 2225): 形状渲染/悬浮字/物品悬浮/自定义实体/粒子/假玩家NPC/交易菜单/虚拟容器/NPC对话/感知域(空手挥动计数)/客户端视图覆盖(含掉落物 AddItemActor 换类型/隐藏 + 姿态/缩放/变种/颜色), 原生C++接口导出, LSE兼容层运行时可选(无LegacyRemoteCall前置)",
     "author": "伊希娅 EPSILON killcerr",
     "extraInfo": {
         "apiVersion": "0x012B00",

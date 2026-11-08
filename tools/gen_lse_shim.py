@@ -47,7 +47,6 @@ GROUPS = [
     ("container", "Container"),
     ("npcDialog", "NpcDialog"),
     ("sensing", "Sensing"),
-    ("swing", "Sensing"),
     ("fakeInv", "FakeInventory"),
     ("sulfur", "Sulfur"),
     ("view", "View"),

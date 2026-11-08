@@ -29,7 +29,7 @@ This site documents the LeviLamina build; see [Endstone edition](endstone/index.
 | New to the library | [Getting started](getting-started.md) — build, deploy, first feature | Pick a domain in the [domain guides](domains/README.md) |
 | Writing LSE scripts | [LSE scripting API](lse/index.md) — how to import, call and troubleshoot | [Look up functions by domain](lse/index.md) |
 | Writing a C++ plugin | [C++ API reference](reference/cpp-api.md) — full signatures for every method | [Domain guides](domains/README.md) |
-| Running Endstone | [Endstone edition](endstone/index.md) — install, Python calls, coverage | [Name mapping](endstone/index.md#3-name-mapping) |
+| Running Endstone | [Endstone edition](endstone/index.md) — install, Python calls, coverage | [Name mapping](endstone/index.md#命名规则) |
 | Wondering what a domain can and cannot do | [Domain guides](domains/README.md) | The C++ / LSE pages for that domain |
 | Looking for what changed in a release | [Changelog](versions/changelog.md) | — |
 
@@ -48,7 +48,7 @@ This site documents the LeviLamina build; see [Endstone edition](endstone/index.
 | Faking your own inventory, sulfur-cube display | [Inventory & sulfur cube `fakeInv*` `sulfur*`](lse/inventory.md) |
 | Reskinning / hiding mobs, reading the client device | [View override & sensing `view*` `sensing*`](lse/view.md) |
 
-All **448 script functions** are listed in the [LSE scripting API](lse/index.md); the matching C++ interfaces (`IShapeDrawer`, `IHologramText`, `ICustomEntity`, `IViewOverride` …) are in the [C++ API reference](reference/cpp-api.md).
+All **442 script functions** are listed in the [LSE scripting API](lse/index.md); the matching C++ interfaces (`IShapeDrawer`, `IHologramText`, `ICustomEntity`, `IViewOverride` …) are in the [C++ API reference](reference/cpp-api.md).
 
 ---
 

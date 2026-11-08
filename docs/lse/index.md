@@ -155,14 +155,14 @@ setInterval(() => {
 | 硫磺立方体展示 | `sulfur*` | [硫磺立方体](sulfur.md) |
 | 客户端视图覆盖（换模型 / 隐藏 / 换皮） | `view*` | [视图覆盖](view.md) |
 | 设备感知 | `sensing*` | [客户端感知](sensing.md) |
-| 攻击 / 挥动监听（打空气 / 打方块 / 打实体） | `swing*` | [客户端感知](sensing.md#攻击--挥动监听swing) |
+| 空手挥动计数 | `swing*` | [客户端感知](sensing.md#空手挥动--攻击空气swing1370) |
 | 掉落物生成 | `itemActor*` | [掉落物生成](item-actor.md) |
 | 表单控制 | `form*` | [表单控制](form.md) |
 | 方位条 | `locatorBar*` | [方位条](locator-bar.md) |
 | 隐身 | `playerHide*` | [隐身](visibility.md) |
 | 死亡动画后的复活 | `playerRespawn*` | [死亡后的复活](respawn.md) |
 
-函数总数 448，全部在运行期注册，`ll.import` 都能拿到。
+函数总数 442，全部在运行期注册，`ll.import` 都能拿到。
 
 ---
 

@@ -112,7 +112,7 @@ else:
 | [硫磺方块](sulfur.md) | 10 |
 | [玩家 NPC](player-npc.md) | 55 |
 | [视角覆盖](view.md) | 21 |
-| [客户端感知](sensing.md) | 12 |
+| [客户端感知](sensing.md) | 6 |
 | [可见性](visibility.md) | 5 |
 | [幽灵交互](ghost.md) | 2 |
 | [线路诊断](wire.md) | 9 |

@@ -29,7 +29,7 @@ HologramLib 是基岩版服务端的**协议层显示库**：用一套 API 把�
 | 第一次用这个库 | [快速开始](getting-started.md)：编译、部署、第一个功能 | [能力域指南](domains/README.md) 挑一个域 |
 | 写 LSE 脚本 | [脚本导入](lse/importing.md)：lrca 直连 / 统一导入两种方式 | [怎么用](lse/index.md) · [按域查函数](lse/index.md#7-按域查函数) |
 | 写 C++ 插件 | [C++ 接口参考](reference/cpp-api.md)：每个方法的完整签名 | [能力域指南](domains/README.md) |
-| 用 Endstone 开服 | [Endstone 版](endstone/index.md)：安装、Python 调用、覆盖率 | [函数名对照](endstone/index.md#3-函数名对照) |
+| 用 Endstone 开服 | [Endstone 版](endstone/index.md)：安装、Python 调用、覆盖率 | [函数名对照](endstone/index.md#命名规则) |
 | 想知道「这个域能做到什么、有哪些坑」 | [能力域指南](domains/README.md) | 对应域的 C++ / LSE 接口页 |
 | 看某个版本改了什么 | [更新日志](versions/changelog.md) | — |
 
@@ -52,7 +52,7 @@ HologramLib 是基岩版服务端的**协议层显示库**：用一套 API 把�
 | 在方位条上给玩家指路 | [方位条 `locatorBar*`](lse/locator-bar.md) |
 | 让某个玩家在别人客户端上消失 / 只屏蔽某几类包 | [隐身 `playerHide*`](lse/visibility.md) |
 
-全部 **448 个脚本函数**见 [LSE 脚本接口](lse/index.md)；C++ 侧对应的接口（`IShapeDrawer` / `IHologramText` / `ICustomEntity` / `IViewOverride` …）见 [C++ 接口参考](reference/cpp-api.md)。
+全部 **442 个脚本函数**见 [LSE 脚本接口](lse/index.md)；C++ 侧对应的接口（`IShapeDrawer` / `IHologramText` / `ICustomEntity` / `IViewOverride` …）见 [C++ 接口参考](reference/cpp-api.md)。
 
 ---
 

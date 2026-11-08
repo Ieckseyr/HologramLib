@@ -1,7 +1,7 @@
 {
   "namespace": "HologramLib",
   "apiVersion": "1.37.0",
-  "count": 448,
+  "count": 442,
   "exports": [
     {
       "name": "actorBlockClear",
@@ -7744,14 +7744,6 @@
       "method": "setScale"
     },
     {
-      "name": "swingClearEvents",
-      "params": [],
-      "returns": "any",
-      "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
-      "group": "Sensing",
-      "method": "clearEvents"
-    },
-    {
       "name": "swingCount",
       "params": [
         [
@@ -7761,79 +7753,24 @@
       ],
       "returns": "number",
       "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
-      "group": "Sensing",
-      "method": "count"
-    },
-    {
-      "name": "swingDropped",
-      "params": [],
-      "returns": "number",
-      "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
-      "group": "Sensing",
-      "method": "dropped"
-    },
-    {
-      "name": "swingLastBlock",
-      "params": [
-        [
-          "playerName",
-          "string"
-        ]
-      ],
-      "returns": "string",
-      "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
-      "group": "Sensing",
-      "method": "lastBlock"
-    },
-    {
-      "name": "swingLastEvent",
-      "params": [
-        [
-          "playerName",
-          "string"
-        ]
-      ],
-      "returns": "string",
-      "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
-      "group": "Sensing",
-      "method": "lastEvent"
-    },
-    {
-      "name": "swingLastTarget",
-      "params": [
-        [
-          "playerName",
-          "string"
-        ]
-      ],
-      "returns": "string",
-      "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
-      "group": "Sensing",
-      "method": "lastTarget"
-    },
-    {
-      "name": "swingPollEvents",
-      "params": [],
-      "returns": "string[]",
-      "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
-      "group": "Sensing",
-      "method": "pollEvents"
+      "group": "Misc",
+      "method": "swingCount"
     },
     {
       "name": "swingReset",
       "params": [],
       "returns": "any",
       "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
-      "group": "Sensing",
-      "method": "reset"
+      "group": "Misc",
+      "method": "swingReset"
     },
     {
       "name": "swingTotal",
       "params": [],
       "returns": "number",
       "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
-      "group": "Sensing",
-      "method": "total"
+      "group": "Misc",
+      "method": "swingTotal"
     },
     {
       "name": "tradeAddOffer",

@@ -311,24 +311,15 @@ lib.view.view_clear_all("Steve")
     (
         "Sensing", "sensing", "客户端感知",
         "sensing", "SensingApi", "sensing",
-        "两块内容：\n\n"
-        "**攻击 / 挥动**（`swing*`，真正可用）：玩家每次挥手（空手挥、挥剑、打空气、点方块、打实体）"
-        "都走入站 `AnimatePacket`（包 id 44，`Action = Swing`），库按玩家记成事件行；"
-        "目标用 endstone 的 `PlayerInteractEvent` 补齐 —— 它把左键分成 `LEFT_CLICK_BLOCK` / "
-        "`LEFT_CLICK_AIR`，所以能区分「对着方块挥」和「对着空气挥」，方块还带坐标与命中面。\n\n"
-        "**输入设备**（`device_*` / `is_touch`）：endstone 的 Python 面没有 AuthInput 入口，"
-        "当前返回空值，接口保留。\n\n"
+        "**空手挥动计数**（`count` / `total` / `reset`）：玩家每次挥手（空手挥、挥剑、打空气、点方块、打实体）"
+        "都走入站 `AnimatePacket`（包 id 44，`Action = Swing`），库按玩家记数。\n\n"
+        "协议里只有 `Swing` 一个动作，客户端不会告诉服务端「对着什么挥」，所以**不区分目标**。\n\n"
+        "**输入设备**（`device_*` / `is_touch`）：endstone 的 Python 面没有 AuthInput 入口，当前返回空值。\n\n"
         "!!! 注意\n\n"
-        "    `swing*` 第一次被调用时才注册包监听（每个入站包进一次 Python）；不用这套接口就没有开销。",
+        "    计数第一次被调用时才注册包监听（每个入站包进一次 Python）；不用这套接口就没有开销。",
         """```python
-for line in lib.sensing.poll_events():
-    fields = dict(kv.split("=", 1) for kv in line.split(" "))
-    if fields["target"] == "air":
-        self.logger.info(f"{fields['player']} 空挥了一下")
-    elif fields["target"] == "block":
-        self.logger.info(f"{fields['player']} 对着方块 {fields['pos']} 挥动")
-
-hit = lib.sensing.last_target("Steve")      # air / block / entity / none
+logger.info(f"Steve 挥了 {lib.sensing.count('Steve')} 次，全服 {lib.sensing.total()} 次")
+lib.sensing.reset()
 ```""",
     ),
     (
@@ -398,6 +389,7 @@ def effective_group(export: dict) -> str:
         ("blockFake", "FakeBlock"),
         ("easterEgg", "ActorEffect"),
         ("wire", "Wire"),
+        ("swing", "Sensing"),
         ("anchor", "Misc"),
     ):
         if name.startswith(prefix):
@@ -558,6 +550,9 @@ def load_classes():
 
 
 MISC_MAP = {
+    "swingCount": ("sensing", "count"),
+    "swingTotal": ("sensing", "total"),
+    "swingReset": ("sensing", "reset"),
     "holoRemove": ("holograms", "destroy"),
     "anchorAcquire": ("anchor", "acquire"),
     "anchorRelease": ("anchor", "release"),

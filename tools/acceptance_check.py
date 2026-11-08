@@ -140,8 +140,8 @@ def main() -> int:
 
     c.add(
         "AC-PK04",
-        "包内版本 26.51.8 / api 0x012b00",
-        str(manifest.get("version")) == "26.51.8" and manifest_api == "0x012b00",
+        "包内版本 26.51.9 / api 0x012b00",
+        str(manifest.get("version")) == "26.51.9" and manifest_api == "0x012b00",
         f"version={manifest.get('version')} api={manifest_api}",
     )
     dest = tooth.get("variants", [{}])[0].get("assets", [{}])[0].get("placements", [{}])[0].get("dest", "")

@@ -809,19 +809,7 @@ declare namespace HologramLib {
     /** 实现见 platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp */
     sulfurSetScale(id: number, scale: number): boolean;
     /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
-    swingClearEvents(): any;
-    /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
     swingCount(playerName: string): number;
-    /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
-    swingDropped(): number;
-    /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
-    swingLastBlock(playerName: string): string;
-    /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
-    swingLastEvent(playerName: string): string;
-    /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
-    swingLastTarget(playerName: string): string;
-    /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
-    swingPollEvents(): string[];
     /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
     swingReset(): any;
     /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
@@ -1185,6 +1173,9 @@ declare namespace HologramLib {
     sidebarSet(playerName: string, title: string, lines: string[]): boolean;
     sidebarSetLine(playerName: string, index: number, text: string): boolean;
     sidebarSetTitle(playerName: string, title: string): boolean;
+    swingCount(playerName: string): number;
+    swingReset(): any;
+    swingTotal(): number;
     wireResetStats(): any;
     wireStats(): string;
     wireTraceActive(): boolean;
@@ -1304,18 +1295,9 @@ declare namespace HologramLib {
   }
 
   interface Sensing {
-    clearEvents(): any;
-    count(playerName: string): number;
     deviceCode(playerName: string): number;
     deviceOf(playerName: string): string;
-    dropped(): number;
     isTouch(playerName: string): boolean;
-    lastBlock(playerName: string): string;
-    lastEvent(playerName: string): string;
-    lastTarget(playerName: string): string;
-    pollEvents(): string[];
-    reset(): any;
-    total(): number;
   }
 
   interface Shape {

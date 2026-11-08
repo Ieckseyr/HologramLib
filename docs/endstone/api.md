@@ -1,6 +1,6 @@
 # Endstone API 索引
 
-全部 **448** 个导出，按域列出；点方法名进到对应域页的那一节，
+全部 **442** 个导出，按域列出；点方法名进到对应域页的那一节，
 每个方法都有签名、参数、返回类型与对应的 LSE 导出名。
 
 命名规则：方法名 = LSE 导出名去掉域前缀后转 `snake_case`，域前缀对应插件属性（`lib.holograms`、`lib.entities` …）。
@@ -531,20 +531,14 @@
 - [`view_target_type`](view.md#view_target_type) — `lib.view.view_target_type(...)` ← `viewTargetType`
 - [`view_unique_id_of`](view.md#view_unique_id_of) — `lib.view.view_unique_id_of(...)` ← `viewUniqueIdOf`
 
-## 客户端感知（12）
+## 客户端感知（6）
 
 页面：[客户端感知](sensing.md)
 
 - [`device_code`](sensing.md#device_code) — `lib.sensing.device_code(...)` ← `sensingDeviceCode`
 - [`device_of`](sensing.md#device_of) — `lib.sensing.device_of(...)` ← `sensingDeviceOf`
 - [`is_touch`](sensing.md#is_touch) — `lib.sensing.is_touch(...)` ← `sensingIsTouch`
-- [`clear_events`](sensing.md#clear_events) — `lib.sensing.clear_events(...)` ← `swingClearEvents`
 - [`count`](sensing.md#count) — `lib.sensing.count(...)` ← `swingCount`
-- [`dropped`](sensing.md#dropped) — `lib.sensing.dropped(...)` ← `swingDropped`
-- [`last_block`](sensing.md#last_block) — `lib.sensing.last_block(...)` ← `swingLastBlock`
-- [`last_event`](sensing.md#last_event) — `lib.sensing.last_event(...)` ← `swingLastEvent`
-- [`last_target`](sensing.md#last_target) — `lib.sensing.last_target(...)` ← `swingLastTarget`
-- [`poll_events`](sensing.md#poll_events) — `lib.sensing.poll_events(...)` ← `swingPollEvents`
 - [`reset`](sensing.md#reset) — `lib.sensing.reset(...)` ← `swingReset`
 - [`total`](sensing.md#total) — `lib.sensing.total(...)` ← `swingTotal`
 
