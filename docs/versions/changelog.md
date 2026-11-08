@@ -7,6 +7,7 @@
 
 | 发布版本 | API | 协议线 | 主要内容 | 新增导出 | C++ 消费方 |
 |---|---|---|---|---|---|
+| `26.51.8` / `26.60.5` | 1.37.0 | 26.51 · 26.60 | **26.51 向下兼容线**：`xmake f --bds=26.51` 按协议 2193 选形，一个源码两套产物；**攻击/挥动监听** LSE 面 +6 导出（`swingPollEvents` 等，区分打空气 / 打方块 / 打实体）。ABI 不变。 | 6 | 无需重新编译 |
 | `26.60.4` | 1.37.0 | 26.60 | **协议前置迁移**：`sculk`（BedrockProtocol）→ `EndstoneMC/bedrock-protocol`（生成式、按协议 2225 = `protocol-docs r26_u6` 选形）。源码 sculk 引用清零、xmake 不再链接 `Protocol`；`Wire26` 与全部手工编码删除。**ABI 修正**：27 / 32 号槽恢复为保留槽，虚表回到单调布局，ABI stamp 1 → 2。 | — | **必须重新编译** |
 | `26.60.3` | 1.36.0 | 26.60 | **ABI 破坏性变更**：移除方位条 `ILocatorBar` / `ILocatorBarExt`（虚表少 2 个访问器）与 14 个 `locatorBar*` LSE 导出、endstone `locatorbar` 模块；`IViewOverride` 尾部追加 `queryEntity` / `alignEntity`；LSE 新增批量假方块 `blockBatch*`（含靠近切硫磺立方体）、`viewEntityInfo` / `viewAlign`。**调用方必须重新编译**（虚表布局变化）。 | 6 | **必须重新编译**（虚表布局改变，非尾部追加） |
 | `26.60.2` | 1.35.0 | 26.60 | **双平台拆分**：`core/`（协议编码 + C ABI）与 `platform/levilamina`、`platform/endstone` 两个外壳；endstone 端落地 **444 个导出**（404 真实生效 / 40 受限）；`holo_core.dll` 导出 67 个 C 符号供三方共用；`build.cmd` 一次构建两个产物；文档站重构；新增 20 个 **LSE 入口**（接口层未变）。**C++ 行为与 ABI 未变。** | 20 | 无需重新编译（API 1.35.0 未变） |
@@ -21,6 +22,85 @@
 | `26.40.8` | 1.26.0 | 26.40 | 逐观看者覆盖、四个界面域 | 若干 | 需重新编译 |
 
 
+
+## 26.51.8 / 26.60.5 — 26.51 向下兼容 + 攻击 / 挥动监听（API 1.37.0，ABI 不变）
+
+同一条源码现在支持两条 BDS 版本线，构建期用 `xmake f --bds=` 选：
+
+| 线 | BDS | LeviLamina 包 | 协议 | 用途 |
+|---|---|---|---|---|
+| `26.60`（默认） | 1.26.60+ | `26.60.0` | 2225（protocol-docs `r26_u6`） | 主线 |
+| `26.51` | 1.26.51 / 1.26.52 | `26.51.0` | 2193（protocol-docs `r26_u5`） | 向下兼容线 |
+
+```bat
+xmake f --bds=26.51 -m release -y && xmake build   :: 26.51 线 DLL（协议 2193）
+xmake f --bds=26.60 -m release -y && xmake build   :: 26.60 线 DLL（协议 2225）
+
+python build.py --bds=26.51                          :: 同上，顺带打 endstone 产物
+```
+
+**一个 DLL 不能同时跑两条线**：LeviLamina 的 bedrockdata（引擎符号地址）按 BDS 版本锁定，
+26.51 服务端必须用 `--bds=26.51` 的产物，反之亦然。
+
+### 协议层：2193 / 2225 双形
+
+- `core/proto/Version.h` 增加构建期宏 `HOLO_PROTOCOL_VERSION`（26.51 → 2193，26.60 → 2225），
+  全部包别名改走 `bp::Xxx_<kProtocolVersion>`；包体差异由生成库的版本命名空间承载，
+  业务代码不写版本分支。
+- 2225 专有字段：`PlayerListPacket.AddEntry.play_fab_id`（2193 无此成员），统一走
+  `proto::clearPlayFabId()`，别在各构造点写 `#if`。
+- 按线选形的别名：`ItemStackResponseInfo`、`ItemStackResponsePacket`、`PlayerList*Entry`、
+  `AddPlayerPacket`、`AddActorPacket`、`ActorEvent(Packet)`、`DataItemEntry`、`ActorDataIDs`、
+  `PrimitiveShapesPacket`、`MobEquipmentPacket`、`MobEffectPacket`、`MolangVersion`。
+- 发包仍走 `bedrock-protocol` 的 `Serializer<v2193::…>` / `Serializer<v2225::…>`，类型即版本，编码自带对版。
+
+### LSE：攻击 / 挥动监听（导出面 442 → 448，endstone 同步）
+
+| 导出 | 说明 |
+|---|---|
+| `swingPollEvents()` | 取走自上次轮询以来的挥动事件（`Array<String>`，每行一个事件；取走即清空） |
+| `swingClearEvents()` | 只清事件队列（计数不动） |
+| `swingLastEvent(playerName)` | 该玩家最近一次事件行（没挥过返回空串） |
+| `swingLastTarget(playerName)` | `air` / `block` / `entity` / `none` |
+| `swingLastBlock(playerName)` | 最近一次对着方块挥的 `x,y,z`（不是方块时返回空串） |
+| `swingDropped()` | 事件队列满被丢弃的条数（诊断用） |
+
+数据源是客户端每次挥动都会发的 `AnimatePacket(action = Swing)`（空手挥、挥剑、打空气、点方块、打实体都算），
+在 `ServerNetworkHandler` 入口只读记录，不拦包、不改服务端行为。
+
+事件行：
+
+```text
+player=Steve source=mine target=block pos=12,64,-3 face=1 item=minecraft:iron_sword count=1 runtimeId=0 uniqueId=0 tick=123456
+```
+
+`target` 三档：`air`（对着空气挥）/ `block`（视线 5 格射线命中方块，带坐标与命中面）/
+`entity`（客户端来源是 `attack`，或包里带 Target Actor Runtime ID）。
+判定细节见 [感知域](../domains/sensing.md) 与 [LSE · 客户端感知](../lse/sensing.md)。
+
+顺带修正：`lib/exports.json` 等脚本导入层此前落后源码 12 条（`blockBatch*` 7 条未进 shim），本次一并重新生成。
+
+### endstone 侧：同样的调用也能用
+
+`lib.sensing` 新增同名九个方法（`poll_events()` / `clear_events()` / `last_event()` /
+`last_target()` / `last_block()` / `count()` / `total()` / `dropped()` / `reset()`），事件行格式与 LSE 一致。
+
+实现方式与 LeviLamina 侧不同：endstone 只有原始包事件，没有解析后的 `AnimatePacket`。
+
+- 挥动本身：`PacketReceiveEvent` 抓包 id 44，手解 `Action(u8) · RuntimeId(uvarint64) · Data(f32) · [Swing Source]`；
+- 目标判定：用 endstone 自己的 `PlayerInteractEvent`（`LEFT_CLICK_BLOCK` / `LEFT_CLICK_AIR`）补齐，
+  两个包到达顺序不定，所以先记 `air`、点击事件到了再回溯改成 `block`；
+- 实体分支：`Swing Source = attack` 或包里的 Target Actor Runtime ID 非 0，按 runtimeId 在 `level.actors` 反查 uniqueId。
+
+`swing*` 第一次被调用时才注册监听，不用这套接口没有包开销。
+
+### ABI / 兼容
+
+- `HOLOGLIB_API_VERSION` 未变（1.37.0），`HOLOGLIB_ABI_STAMP` 仍为 2 —— **C++ 消费方无需重新编译**。
+- 新增的监听只在 LSE 面，`IPlayerSensing` 虚表未动。
+- `manifest.json` 的 `extraInfo` 补正到 `0x012B00 / 1.37.0 / ABI 2`（26.60.4 发布时漏更）。
+
+---
 
 ## 26.60.4 — 协议前置迁移（sculk → bedrock-protocol）
 

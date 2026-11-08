@@ -54,3 +54,5 @@ platform/endstone/**/__pycache__/
 platform/endstone/build/
 platform/endstone/src/hologramlib_endstone/_native/
 dist/
+
+release/

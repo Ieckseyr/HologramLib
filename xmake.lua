@@ -101,6 +101,25 @@ if is_mode("release") then
     add_ldflags("/DEBUG:FULL", {force = true})
 end
 
+-- ── 目标 BDS / LeviLamina 版本线 ─────────────────────────────────────────
+-- 同一条源码支持两条版本线。LeviLamina 的 bedrockdata（引擎符号地址）是按 BDS
+-- 版本锁定的，所以一个 DLL 不可能同时跑 26.51 与 26.60 —— 产物必须各自匹配：
+--   26.60（默认） = BDS 1.26.60+   / 协议 2225（protocol-docs r26_u6）
+--   26.51         = BDS 1.26.51-52 / 协议 2193（protocol-docs r26_u5）← 向下兼容线
+-- 差异面不只是协议号：包体字段（如 PlayerListPacket.AddEntry 2225 多 play_fab_id）也要分线，
+-- 统一收在 core/proto/Version.h 的版本别名里，业务代码不写版本分支。
+option("bds")
+    set_default("26.60")
+    set_showmenu(true)
+    set_values("26.51", "26.60")
+    set_description("目标 BDS 版本线: 26.60(协议2225) / 26.51(协议2193, 向下兼容)")
+option_end()
+
+local bds_line      = get_config("bds") or "26.60"
+local ll_version    = (bds_line == "26.51") and "26.51.0" or "26.60.0"
+local proto_version = (bds_line == "26.51") and "2193" or "2225"
+local ll_ver_file   = "packages/l/levilamina/versions/" .. ll_version:gsub("%.", "_") .. ".lua"
+
 -- 本地 liteldev-repo 缓存
 local function find_local_repo()
     local candidates = {}
@@ -109,16 +128,16 @@ local function find_local_repo()
     if env_repo and env_repo ~= "" then
         table.insert(candidates, env_repo)
     end
-    -- 服务器根目录的离线仓库（26.60 SDK，预构建 levilamina 26.60.0）
+    -- 服务器根目录的离线仓库（SDK 随包, 含 26.51 与 26.60 登记）
     table.insert(candidates, path.join(os.projectdir(), "..", "..", ".llsdk", "liteldev-repo"))
     -- 本机缓存, 再退到兄弟工程
     table.insert(candidates, path.join(os.projectdir(), ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"))
     for _, sibling in ipairs({ "MeowMenu", "MeowKb", "MeowPAPI", "MeowSidebar", "ItemPhys-main" }) do
         table.insert(candidates, path.join(os.projectdir(), "..", sibling, ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"))
     end
-    -- 只认带 26.60.0 登记的那份, 别捡到旧缓存
+    -- 只认带目标版本登记的那份, 别捡到没有该版本的旧缓存
     for _, p in ipairs(candidates) do
-        if os.exists(path.join(p, "packages", "l", "levilamina", "versions", "26_60_0.lua")) then
+        if os.exists(path.join(p, ll_ver_file)) then
             return p
         end
     end
@@ -136,26 +155,21 @@ if is_plat("windows") then
     set_toolchains("clang-cl")
 end
 
--- BedrockProtocol 静态库（两个产物共用同一份 install）
--- 26.51 补丁: TextDataPayload.LineGapHeight 插在 BackgroundColor 与 DepthTest 之间,
--- ItemStackResponseInfo.Containers 改 optional 编码
--- 目录可用 HOLO_PROTOCOL_DIR 覆盖
-local function protocol_install_dir()
-    local dir = os.getenv("HOLO_PROTOCOL_DIR")
-    if not dir or dir == "" then
-        dir = path.join(os.projectdir(), "..", "BedrockProtocol-main", "install")
+-- 协议库（EndstoneMC/bedrock-protocol 生成式 codec，唯一协议依赖）的 install 目录。
+-- 默认用随包的离线 SDK；CI 里用 HOLO_PROTOCOL_DIR 指过去。
+local function bedrock_install_dir()
+    local env = os.getenv("HOLO_PROTOCOL_DIR")
+    if env and env ~= "" and os.isdir(path.join(env, "include")) then
+        return env
     end
-    if not os.isdir(path.join(dir, "include")) then
-        raise(format("找不到 BedrockProtocol: %s\n用 HOLO_PROTOCOL_DIR 指向 install/ 目录", dir))
-    end
-    return dir
+    return path.join(os.projectdir(), "..", "..", ".llsdk", "endstone-proto", "install")
 end
 
--- 与服务端(26.60 / BDS 1.26.60.6)匹配的 levilamina 版本（bedrockdata v26.60.6-server.1）
+-- 与目标 BDS 版本线匹配的 levilamina（bedrockdata 版本必须与运行的服务端一致）
 if is_config("target_type", "server") then
-    add_requires("levilamina 26.60.0", {configs = {target_type = "server"}})
+    add_requires("levilamina " .. ll_version, {configs = {target_type = "server"}})
 else
-    add_requires("levilamina 26.60.0", {configs = {target_type = "client"}})
+    add_requires("levilamina " .. ll_version, {configs = {target_type = "client"}})
 end
 
 add_requires("levibuildscript")
@@ -212,6 +226,8 @@ target("HologramLib")
         add_ldflags("/fsanitize=address")
     end
     add_defines("NOMINMAX", "UNICODE", "HOLOGLIB_EXPORTS")
+    -- 协议线：core/proto/Version.h 的全部包别名按这个号选形（2193 = 26.51 / 2225 = 26.60）
+    add_defines("HOLO_PROTOCOL_VERSION=" .. proto_version)
     -- getenv 这类告警项目级关掉
     add_defines("_CRT_SECURE_NO_WARNINGS")
     if has_config("holo_diag") then
@@ -226,7 +242,7 @@ target("HologramLib")
     set_languages("c++23")
 
     -- 协议前置（EndstoneMC/bedrock-protocol，生成式 codec，唯一协议依赖）
-    local bp_install = path.join(os.projectdir(), "..", "..", ".llsdk", "endstone-proto", "install")
+    local bp_install = bedrock_install_dir()
     add_sysincludedirs(path.join(bp_install, "include"))
     add_linkdirs(path.join(bp_install, "lib"))
     add_links("bedrock_protocol")
@@ -300,10 +316,12 @@ target("holo_core")
     add_rules("holo_core_deploy")
     add_cxflags("/utf-8", "/W4")
     add_defines("NOMINMAX", "UNICODE", "_CRT_SECURE_NO_WARNINGS")
+    -- 和 HologramLib 同一条协议线：endstone 侧发包也要按 2193 / 2225 选形
+    add_defines("HOLO_PROTOCOL_VERSION=" .. proto_version)
     add_headerfiles("core/**.h")
 
     -- 协议前置（EndstoneMC/bedrock-protocol，生成式 codec，唯一协议依赖）
-    local bp_install = path.join(os.projectdir(), "..", "..", ".llsdk", "endstone-proto", "install")
+    local bp_install = bedrock_install_dir()
     add_sysincludedirs(path.join(bp_install, "include"))
     add_linkdirs(path.join(bp_install, "lib"))
     add_links("bedrock_protocol")

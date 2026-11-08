@@ -9,7 +9,16 @@ namespace debugshape_export::core::proto {
 
 namespace bp = ::bedrock::protocol;
 
-inline constexpr int kProtocolVersion = 2225; // protocol-docs r26_u6 = 1.26.61.1
+// 协议线由构建期选择（xmake f --bds=26.51 / 26.60 → HOLO_PROTOCOL_VERSION）：
+//   2225 = protocol-docs r26_u6 = BDS 1.26.60/1.26.61（默认，26.60 线）
+//   2193 = protocol-docs r26_u5 = BDS 1.26.51/1.26.52（向下兼容线）
+// 两个号都必须存在于当前 bedrock-protocol schema 里（详见 docs/internal/协议升级流程.md）。
+// 不带 -D 直接编（IDE/clangd）时退回 26.60 线。
+#ifndef HOLO_PROTOCOL_VERSION
+#    define HOLO_PROTOCOL_VERSION 2225
+#endif
+
+inline constexpr int kProtocolVersion = HOLO_PROTOCOL_VERSION;
 
 // ── 基础类型 ─────────────────────────────────────────────────────────────
 using BlockPos       = bp::BlockPos;
@@ -40,10 +49,10 @@ using UUID = bp::UUID;
 using Color = bp::Color;
 
 // ── 元数据（AddActor / SetActorData 的 DataItem 列表）────────────────────
-using ActorDataIDs  = bp::ActorDataIDs;
-using DataItemEntry = bp::DataItemEntry;
+using ActorDataIDs  = bp::ActorDataIDs_<kProtocolVersion>;
+using DataItemEntry = bp::DataItemEntry_<kProtocolVersion>;
 // CopyableDataList 是带 .data 的包装结构；业务里真正要 push 的是它内部的 vector
-using ActorDataList = std::vector<bp::DataItemEntry>;
+using ActorDataList = std::vector<DataItemEntry>;
 
 // ── 属性 ─────────────────────────────────────────────────────────────────
 using AttributeData          = bp::AttributeData;
@@ -53,8 +62,16 @@ using UpdateAttributesPacket = bp::UpdateAttributesPacket;
 using GameType             = bp::GameType;
 using PlayerListPacketType = bp::PlayerListPacketType;
 using BuildPlatform        = bp::BuildPlatform;
-using PlayerListAddEntry   = bp::PlayerListPacket::AddEntry;
-using PlayerListRemoveEntry = bp::PlayerListPacket::RemoveEntry;
+using PlayerListAddEntry   = bp::PlayerListPacket_<kProtocolVersion>::AddEntry;
+using PlayerListRemoveEntry = bp::PlayerListPacket_<kProtocolVersion>::RemoveEntry;
+
+// PlayerListPacket.AddEntry 的跨线差异：2225（26.60 线）在 platform_online_id 前新增
+// play_fab_id；2193（26.51 线）没有该成员。填默认值统一走这里，别在各构造点写 #if。
+inline void clearPlayFabId([[maybe_unused]] PlayerListAddEntry& entry) {
+#if HOLO_PROTOCOL_VERSION >= 2225
+    entry.play_fab_id = {};
+#endif
+}
 using SerializedSkinRef      = bp::SerializedSkinRef_<kProtocolVersion>;
 using PlayerSkinPacket       = bp::PlayerSkinPacket_<kProtocolVersion>;
 using PieceType               = bp::PieceType_<kProtocolVersion>;
@@ -69,7 +86,7 @@ using TrustedSkinFlag         = bp::TrustedSkinFlag;
 // ── actor 杂项 ───────────────────────────────────────────────────────────
 using ActorLink              = bp::ActorLink;
 using ActorLinkType          = bp::ActorLinkType;
-using ActorEvent             = bp::ActorEvent;
+using ActorEvent             = bp::ActorEvent_<kProtocolVersion>;
 using BossEventPacket        = bp::BossEventPacket_<kProtocolVersion>;
 using ChangeMobPropertyPacket = bp::ChangeMobPropertyPacket;
 using MoveActorAbsoluteData  = bp::MoveActorAbsoluteData;
@@ -86,7 +103,7 @@ inline constexpr std::uint8_t kForceCompletion = 1u << 3;
 // ── 其它包 ───────────────────────────────────────────────────────────────
 using BlockActorDataPacket      = bp::BlockActorDataPacket_<kProtocolVersion>;
 using ItemStackResponsePacket   = bp::ItemStackResponsePacket_<kProtocolVersion>;
-using ItemStackResponseInfo     = bp::ItemStackResponseInfo;
+using ItemStackResponseInfo     = bp::ItemStackResponseInfo_<kProtocolVersion>;
 using ItemStackNetResult        = bp::ItemStackNetResult;
 using SetHudPacket              = bp::SetHudPacket_<kProtocolVersion>;
 using HudElement               = bp::HudElement;
@@ -96,24 +113,24 @@ using ObjectiveSortOrder        = bp::ObjectiveSortOrder;
 using RemoveObjectivePacket     = bp::RemoveObjectivePacket;
 using SetScorePacket            = bp::SetScorePacket_<kProtocolVersion>;
 using SpawnParticleEffectPacket = bp::SpawnParticleEffectPacket;
-using MolangVersion             = bp::MolangVersion;
+using MolangVersion             = bp::MolangVersion_<kProtocolVersion>;
 
 // ── 物品栈 ───────────────────────────────────────────────────────────────
-using AddPlayerPacket        = bp::AddPlayerPacket;
-using AddActorPacket         = bp::AddActorPacket;
+using AddPlayerPacket        = bp::AddPlayerPacket_<kProtocolVersion>;
+using AddActorPacket         = bp::AddActorPacket_<kProtocolVersion>;
 using SetActorDataPacket     = bp::SetActorDataPacket_<kProtocolVersion>;
-using PrimitiveShapesPacket = bp::PrimitiveShapesPacket;
-using PlayerListPacket      = bp::PlayerListPacket;
-using ArmSizeType           = std::remove_cvref_t<decltype(bp::PlayerListPacket::AddEntry{}.skin.arm_size)>;
-using TrustedSkinFlag       = std::remove_cvref_t<decltype(bp::PlayerListPacket::AddEntry{}.skin.trusted_skin_flag)>;
-using SkinColorType         = std::remove_cvref_t<decltype(bp::PlayerListPacket::AddEntry{}.skin.skin_color)>;
-using MobEquipmentPacket    = bp::MobEquipmentPacket;
+using PrimitiveShapesPacket = bp::PrimitiveShapesPacket_<kProtocolVersion>;
+using PlayerListPacket      = bp::PlayerListPacket_<kProtocolVersion>;
+using ArmSizeType           = std::remove_cvref_t<decltype(PlayerListAddEntry{}.skin.arm_size)>;
+using TrustedSkinFlag       = std::remove_cvref_t<decltype(PlayerListAddEntry{}.skin.trusted_skin_flag)>;
+using SkinColorType         = std::remove_cvref_t<decltype(PlayerListAddEntry{}.skin.skin_color)>;
+using MobEquipmentPacket    = bp::MobEquipmentPacket_<kProtocolVersion>;
 using NpcDialoguePacket     = bp::NpcDialoguePacket;
 using EmotePacket           = bp::EmotePacket;
 using MoveActorAbsolutePacket = bp::MoveActorAbsolutePacket;
 using SetActorLinkPacket      = bp::SetActorLinkPacket;
-using MobEffectPacket       = bp::MobEffectPacket;
-using ActorEventPacket      = bp::ActorEventPacket;
+using MobEffectPacket       = bp::MobEffectPacket_<kProtocolVersion>;
+using ActorEventPacket      = bp::ActorEventPacket_<kProtocolVersion>;
 using AnimateEntityPacket   = bp::AnimateEntityPacket;
 using RespawnPacket         = bp::RespawnPacket;
 using RemoveActorPacket     = bp::RemoveActorPacket;

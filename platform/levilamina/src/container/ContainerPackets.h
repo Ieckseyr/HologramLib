@@ -113,7 +113,9 @@ inline proto::BlockActorDataPacket makeBlockActorData(
 inline proto::ContainerOpenPacket makeContainerOpen(int containerId, int x, int y, int z) {
     proto::ContainerOpenPacket packet;
     packet.container_id = static_cast<proto::ContainerIDType>(containerId);
-    packet.type         = proto::bp::ContainerType::Container;
+    // 枚举常量取自「最新定义」，类型必须落回本协议线的字段类型
+    // （v2193::ContainerType 与 v2225::ContainerType 是两个类型，同名常量数值一致）
+    packet.type         = static_cast<decltype(packet.type)>(proto::bp::ContainerType::Container);
     packet.pos          = proto::BlockPos{x, y, z};
     packet.entity_unique_id = proto::ActorUniqueID{-1};
     return packet;
@@ -122,7 +124,7 @@ inline proto::ContainerOpenPacket makeContainerOpen(int containerId, int x, int 
 inline proto::ContainerClosePacket makeContainerClose(int containerId) {
     proto::ContainerClosePacket packet;
     packet.container_id          = static_cast<proto::ContainerIDType>(containerId);
-    packet.container_type        = proto::bp::ContainerType::Container;
+    packet.container_type        = static_cast<decltype(packet.container_type)>(proto::bp::ContainerType::Container);
     packet.server_initiated_close = true;
     return packet;
 }

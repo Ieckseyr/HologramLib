@@ -2,6 +2,7 @@
 """一条命令出两个平台产物。
 
     python build.py                 # LeviLamina DLL + holo_core.dll + endstone wheel
+    python build.py --bds=26.51     # 编 26.51 线（协议 2193）；不写则沿用上次 configure 的线
     python build.py --deploy C:\\srv\\plugins   # 额外把 wheel 丢进服务端 plugins/
     python build.py --only endstone # 只打 endstone（已编过 holo_core 时）
 
@@ -38,6 +39,12 @@ def main() -> int:
     parser.add_argument("--only", default="all", choices=["all", "levilamina", "endstone"])
     parser.add_argument("--deploy", default=None, help="endstone 服务端的 plugins 目录")
     parser.add_argument("--configure", action="store_true", help="强制重新 configure")
+    parser.add_argument(
+        "--bds",
+        default=None,
+        choices=["26.51", "26.60"],
+        help="目标 BDS 版本线（默认沿用上次 configure 的值；26.51 = 协议 2193 向下兼容线）",
+    )
     args = parser.parse_args()
 
     if args.only in ("all", "levilamina", "endstone") and not have("xmake"):
@@ -49,7 +56,10 @@ def main() -> int:
 
     if build_ll or build_core:
         # 模式只在 configure 阶段设置；`xmake build` 不接受 -m
-        rc = run(["xmake", "f", "-y", "-m", args.mode])
+        cfg = ["xmake", "f", "-y", "-m", args.mode]
+        if args.bds:
+            cfg += [f"--bds={args.bds}"]
+        rc = run(cfg)
         if rc != 0:
             return rc
         targets = []

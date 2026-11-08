@@ -57,7 +57,7 @@ inline proto::PlayerListAddEntry playerListEntry(
     entry.id                 = proto::ActorUniqueID{uniqueId};
     entry.name               = name;
     entry.xuid               = "0";
-    entry.play_fab_id        = {};
+    proto::clearPlayFabId(entry);
     entry.platform_online_id = {};
     entry.build_platform     = static_cast<decltype(entry.build_platform)>(1);
     entry.skin               = skin;

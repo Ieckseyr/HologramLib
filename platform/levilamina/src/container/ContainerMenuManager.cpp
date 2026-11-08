@@ -190,7 +190,7 @@ void ContainerMenuManager::sendMinecartCarrier(Player& player, Menu const& menu)
 
     proto::ContainerOpenPacket open;
     open.container_id      = static_cast<proto::ContainerIDType>(menu.containerId);
-    open.type              = proto::bp::ContainerType::MinecartChest;
+    open.type              = static_cast<decltype(open.type)>(proto::bp::ContainerType::MinecartChest);
     open.pos               = proto::BlockPos{menu.posX, menu.posY, menu.posZ};
     open.entity_unique_id  = proto::ActorUniqueID{static_cast<std::int64_t>(uid)};
     container_util::sendPacket(player, open);

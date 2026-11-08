@@ -342,7 +342,7 @@ int32_t holo_core_encode_player_list_add(
     namespace bp    = debugshape_export::core::proto::bp;
 
     proto::PlayerListPacket packet;
-    bp::PlayerListPacket::AddEntry entry;
+    proto::PlayerListAddEntry entry;
     entry.action = bp::PlayerListPacketType::Add;
     if (uuid16 != nullptr) {
         std::uint64_t msb = 0;
@@ -385,7 +385,7 @@ int32_t holo_core_encode_player_list_remove(
     namespace bp    = debugshape_export::core::proto::bp;
 
     proto::PlayerListPacket packet;
-    bp::PlayerListPacket::RemoveEntry entry;
+    proto::PlayerListRemoveEntry entry;
     entry.action = bp::PlayerListPacketType::Remove;
     if (uuid16 != nullptr) {
         std::uint64_t msb = 0;

@@ -111,9 +111,9 @@ else:
 | [NPC 对话](npc-dialog.md) | 10 |
 | [硫磺方块](sulfur.md) | 10 |
 | [玩家 NPC](player-npc.md) | 55 |
-| [视角覆盖](view.md) | 19 |
-| [客户端感知](sensing.md) | 3 |
+| [视角覆盖](view.md) | 21 |
+| [客户端感知](sensing.md) | 12 |
 | [可见性](visibility.md) | 5 |
 | [幽灵交互](ghost.md) | 2 |
 | [线路诊断](wire.md) | 9 |
-| [杂项](misc.md) | 2 |
+| [杂项](misc.md) | 9 |

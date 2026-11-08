@@ -311,10 +311,24 @@ lib.view.view_clear_all("Steve")
     (
         "Sensing", "sensing", "客户端感知",
         "sensing", "SensingApi", "sensing",
-        "读客户端输入设备（键鼠/触屏/手柄）。endstone 的 Python 面没有 AuthInput 入口，"
-        "当前三个函数返回空值，接口保留以便后续补齐。",
+        "两块内容：\n\n"
+        "**攻击 / 挥动**（`swing*`，真正可用）：玩家每次挥手（空手挥、挥剑、打空气、点方块、打实体）"
+        "都走入站 `AnimatePacket`（包 id 44，`Action = Swing`），库按玩家记成事件行；"
+        "目标用 endstone 的 `PlayerInteractEvent` 补齐 —— 它把左键分成 `LEFT_CLICK_BLOCK` / "
+        "`LEFT_CLICK_AIR`，所以能区分「对着方块挥」和「对着空气挥」，方块还带坐标与命中面。\n\n"
+        "**输入设备**（`device_*` / `is_touch`）：endstone 的 Python 面没有 AuthInput 入口，"
+        "当前返回空值，接口保留。\n\n"
+        "!!! 注意\n\n"
+        "    `swing*` 第一次被调用时才注册包监听（每个入站包进一次 Python）；不用这套接口就没有开销。",
         """```python
-is_touch = lib.sensing.is_touch("Steve")   # 目前恒为 False
+for line in lib.sensing.poll_events():
+    fields = dict(kv.split("=", 1) for kv in line.split(" "))
+    if fields["target"] == "air":
+        self.logger.info(f"{fields['player']} 空挥了一下")
+    elif fields["target"] == "block":
+        self.logger.info(f"{fields['player']} 对着方块 {fields['pos']} 挥动")
+
+hit = lib.sensing.last_target("Steve")      # air / block / entity / none
 ```""",
     ),
     (

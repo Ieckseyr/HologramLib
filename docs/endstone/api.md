@@ -1,6 +1,6 @@
 # Endstone API 索引
 
-全部 **430** 个导出，按域列出；点方法名进到对应域页的那一节，
+全部 **448** 个导出，按域列出；点方法名进到对应域页的那一节，
 每个方法都有签名、参数、返回类型与对应的 LSE 导出名。
 
 命名规则：方法名 = LSE 导出名去掉域前缀后转 `snake_case`，域前缀对应插件属性（`lib.holograms`、`lib.entities` …）。
@@ -505,10 +505,11 @@
 - [`stop_animation_to`](player-npc.md#stop_animation_to) — `lib.playernpc.stop_animation_to(...)` ← `playerNpcStopAnimationTo`
 - [`unregister_skin`](player-npc.md#unregister_skin) — `lib.playernpc.unregister_skin(...)` ← `playerNpcUnregisterSkin`
 
-## 视角覆盖（19）
+## 视角覆盖（21）
 
 页面：[视角覆盖](view.md)
 
+- `view_align` ← `viewAlign`（未映射）
 - [`view_block`](view.md#view_block) — `lib.view.view_block(...)` ← `viewBlock`
 - [`view_clear_all`](view.md#view_clear_all) — `lib.view.view_clear_all(...)` ← `viewClearAll`
 - [`view_clear_block`](view.md#view_clear_block) — `lib.view.view_clear_block(...)` ← `viewClearBlock`
@@ -517,6 +518,7 @@
 - [`view_describe`](view.md#view_describe) — `lib.view.view_describe(...)` ← `viewDescribe`
 - [`view_echo`](view.md#view_echo) — `lib.view.view_echo(...)` ← `viewEcho`
 - [`view_entity`](view.md#view_entity) — `lib.view.view_entity(...)` ← `viewEntity`
+- `view_entity_info` ← `viewEntityInfo`（未映射）
 - [`view_item_spawn_hooked`](view.md#view_item_spawn_hooked) — `lib.view.view_item_spawn_hooked(...)` ← `viewItemSpawnHooked`
 - [`view_meta_probe`](view.md#view_meta_probe) — `lib.view.view_meta_probe(...)` ← `viewMetaProbe`
 - [`view_poll_spawn_events`](view.md#view_poll_spawn_events) — `lib.view.view_poll_spawn_events(...)` ← `viewPollSpawnEvents`
@@ -529,13 +531,22 @@
 - [`view_target_type`](view.md#view_target_type) — `lib.view.view_target_type(...)` ← `viewTargetType`
 - [`view_unique_id_of`](view.md#view_unique_id_of) — `lib.view.view_unique_id_of(...)` ← `viewUniqueIdOf`
 
-## 客户端感知（3）
+## 客户端感知（12）
 
 页面：[客户端感知](sensing.md)
 
 - [`device_code`](sensing.md#device_code) — `lib.sensing.device_code(...)` ← `sensingDeviceCode`
 - [`device_of`](sensing.md#device_of) — `lib.sensing.device_of(...)` ← `sensingDeviceOf`
 - [`is_touch`](sensing.md#is_touch) — `lib.sensing.is_touch(...)` ← `sensingIsTouch`
+- [`clear_events`](sensing.md#clear_events) — `lib.sensing.clear_events(...)` ← `swingClearEvents`
+- [`count`](sensing.md#count) — `lib.sensing.count(...)` ← `swingCount`
+- [`dropped`](sensing.md#dropped) — `lib.sensing.dropped(...)` ← `swingDropped`
+- [`last_block`](sensing.md#last_block) — `lib.sensing.last_block(...)` ← `swingLastBlock`
+- [`last_event`](sensing.md#last_event) — `lib.sensing.last_event(...)` ← `swingLastEvent`
+- [`last_target`](sensing.md#last_target) — `lib.sensing.last_target(...)` ← `swingLastTarget`
+- [`poll_events`](sensing.md#poll_events) — `lib.sensing.poll_events(...)` ← `swingPollEvents`
+- [`reset`](sensing.md#reset) — `lib.sensing.reset(...)` ← `swingReset`
+- [`total`](sensing.md#total) — `lib.sensing.total(...)` ← `swingTotal`
 
 ## 可见性（5）
 
@@ -568,9 +579,16 @@
 - [`start`](wire.md#start) — `lib.wire.start(...)` ← `wireTraceStart`
 - [`stop`](wire.md#stop) — `lib.wire.stop(...)` ← `wireTraceStop`
 
-## 杂项（2）
+## 杂项（9）
 
 页面：[杂项](misc.md)
 
 - [`acquire`](misc.md#acquire) — `lib.anchor.acquire(...)` ← `anchorAcquire`
 - [`release`](misc.md#release) — `lib.anchor.release(...)` ← `anchorRelease`
+- `block_batch_clear` ← `blockBatchClear`（未映射）
+- `block_batch_progress` ← `blockBatchProgress`（未映射）
+- `block_batch_self_test` ← `blockBatchSelfTest`（未映射）
+- `block_batch_set` ← `blockBatchSet`（未映射）
+- `block_batch_set_all` ← `blockBatchSetAll`（未映射）
+- `block_batch_set_near` ← `blockBatchSetNear`（未映射）
+- `block_batch_stats` ← `blockBatchStats`（未映射）

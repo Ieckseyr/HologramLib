@@ -61,7 +61,12 @@ jobs:
         run: python tools/check_tooth.py
 
       - name: 配置
-        run: xmake f -c --holo_werror=y -y
+        shell: pwsh
+        # 版本号前两段就是目标 BDS 线：26.51.8 → --bds=26.51，26.60.5 → --bds=26.60
+        run: |
+          $v = (Get-Content manifest.json -Raw | ConvertFrom-Json).version
+          $bds = (($v -split '\.')[0..1] -join '.')
+          xmake f -c --holo_werror=y --bds=$bds -y
 
       - name: 构建
         run: xmake build -y

@@ -1,4 +1,4 @@
-// HologramLib.d.ts —— 自动生成（tools/gen_lse_shim.py），API 1.35.0
+// HologramLib.d.ts —— 自动生成（tools/gen_lse_shim.py），API 1.37.0
 // 放到脚本旁边, 编辑器就能补全 HL.xxx 的参数名与类型。
 
 declare namespace HologramLib {
@@ -64,6 +64,20 @@ declare namespace HologramLib {
     anchorAcquire(playerName: string): number;
     /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     anchorRelease(uniqueId: number): boolean;
+    /** 实现见 platform/levilamina/src/block/BlockBatchExporter.cpp */
+    blockBatchClear(playerName: string, packedPositions: string): boolean;
+    /** 实现见 platform/levilamina/src/block/BlockBatchExporter.cpp */
+    blockBatchProgress(batchId: number): number;
+    /** 实现见 platform/levilamina/src/block/BlockBatchExporter.cpp */
+    blockBatchSelfTest(packed: string): string;
+    /** 实现见 platform/levilamina/src/block/BlockBatchExporter.cpp */
+    blockBatchSet(playerName: string, packed: string, immediate: boolean): number;
+    /** 实现见 platform/levilamina/src/block/BlockBatchExporter.cpp */
+    blockBatchSetAll(dimId: number, packed: string, immediate: boolean): number;
+    /** 实现见 platform/levilamina/src/block/BlockBatchExporter.cpp */
+    blockBatchSetNear(playerName: string, packed: string, radius: number, invisible: boolean, immediate: boolean): number;
+    /** 实现见 platform/levilamina/src/block/BlockBatchExporter.cpp */
+    blockBatchStats(): string;
     /** 实现见 platform/levilamina/src/block/FakeBlockExporter.cpp */
     blockFakeClear(playerName: string, x: number, y: number, z: number): boolean;
     /** 实现见 platform/levilamina/src/block/FakeBlockExporter.cpp */
@@ -452,34 +466,6 @@ declare namespace HologramLib {
     itemDisplaySetVisiblePlayers(id: number, playerNames: string[]): boolean;
     /** 实现见 platform/levilamina/src/itemdisplay/ItemDisplayExporter.cpp */
     itemDisplayUnfollow(id: number): boolean;
-    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
-    locatorBarAttachEntity(playerName: string, key: string, entityUniqueId: number): boolean;
-    /** 实现见 platform/levilamina/src/ui/ClientUiExporter.cpp */
-    locatorBarClear(playerName: string): number;
-    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
-    locatorBarClearAttach(playerName: string, key: string): boolean;
-    /** 实现见 platform/levilamina/src/ui/ClientUiExporter.cpp */
-    locatorBarCount(playerName: string): number;
-    /** 实现见 platform/levilamina/src/ui/ClientUiExporter.cpp */
-    locatorBarHideFromOthers(playerName: string, hidden: boolean): boolean;
-    /** 实现见 platform/levilamina/src/ui/ClientUiExporter.cpp */
-    locatorBarIsHiddenFromOthers(playerName: string): boolean;
-    /** 实现见 platform/levilamina/src/ui/ClientUiExporter.cpp */
-    locatorBarRemove(playerName: string, key: string): boolean;
-    /** 实现见 platform/levilamina/src/ui/ClientUiExporter.cpp */
-    locatorBarSet(playerName: string, key: string, x: number, y: number, z: number, dim: number, color: number, visible: boolean): boolean;
-    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
-    locatorBarSetClientAuthority(playerName: string, key: string, enabled: boolean): boolean;
-    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
-    locatorBarSetEx(playerName: string, key: string, x: number, y: number, z: number, dim: number, color: number, visible: boolean, texturePath: string, iconWidth: number, iconHeight: number, authority: boolean): boolean;
-    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
-    locatorBarSetGroup(playerName: string, key: string, groupKey: string): boolean;
-    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
-    locatorBarSetIcon(playerName: string, key: string, texturePath: string): boolean;
-    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
-    locatorBarSetIconSize(playerName: string, key: string, width: number, height: number): boolean;
-    /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
-    locatorBarSyncGroup(playerName: string, groupKey: string): number;
     /** 实现见 platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp */
     npcDialogClearClicks(): any;
     /** 实现见 platform/levilamina/src/npcdialog/NpcDialogueExporter.cpp */
@@ -822,6 +808,24 @@ declare namespace HologramLib {
     sulfurSetInvisible(id: number, on: boolean): boolean;
     /** 实现见 platform/levilamina/src/sulfur/SulfurDisplayExporter.cpp */
     sulfurSetScale(id: number, scale: number): boolean;
+    /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
+    swingClearEvents(): any;
+    /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
+    swingCount(playerName: string): number;
+    /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
+    swingDropped(): number;
+    /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
+    swingLastBlock(playerName: string): string;
+    /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
+    swingLastEvent(playerName: string): string;
+    /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
+    swingLastTarget(playerName: string): string;
+    /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
+    swingPollEvents(): string[];
+    /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
+    swingReset(): any;
+    /** 实现见 platform/levilamina/src/sensing/PlayerSensingExporter.cpp */
+    swingTotal(): number;
     /** 实现见 platform/levilamina/src/trade/TradeMenuExporter.cpp */
     tradeAddOffer(id: number, buyAType: string, buyACount: number, buyBType: string, buyBCount: number, sellType: string, sellCount: number, sellName: string, tier: number, locked: boolean): boolean;
     /** 实现见 platform/levilamina/src/trade/TradeMenuExporter.cpp */
@@ -847,6 +851,8 @@ declare namespace HologramLib {
     /** 实现见 platform/levilamina/src/trade/TradeMenuExporter.cpp */
     tradeUpdate(id: number, tradeType: string, tier: number, experience: number): boolean;
     /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
+    viewAlign(playerName: string, uniqueId: number): boolean;
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewBlock(playerName: string, x: number, y: number, z: number, type: string): boolean;
     /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewClearAll(playerName: string): any;
@@ -862,6 +868,8 @@ declare namespace HologramLib {
     viewEcho(text: string): string;
     /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewEntity(playerName: string, uniqueId: number, spec: string): boolean;
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
+    viewEntityInfo(uniqueId: number): string;
     /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewItemSpawnHooked(): boolean;
     /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
@@ -1133,26 +1141,16 @@ declare namespace HologramLib {
     unfollow(id: number): boolean;
   }
 
-  interface LocatorBar {
-    attachEntity(playerName: string, key: string, entityUniqueId: number): boolean;
-    clear(playerName: string): number;
-    clearAttach(playerName: string, key: string): boolean;
-    count(playerName: string): number;
-    hideFromOthers(playerName: string, hidden: boolean): boolean;
-    isHiddenFromOthers(playerName: string): boolean;
-    remove(playerName: string, key: string): boolean;
-    set(playerName: string, key: string, x: number, y: number, z: number, dim: number, color: number, visible: boolean): boolean;
-    setClientAuthority(playerName: string, key: string, enabled: boolean): boolean;
-    setEx(playerName: string, key: string, x: number, y: number, z: number, dim: number, color: number, visible: boolean, texturePath: string, iconWidth: number, iconHeight: number, authority: boolean): boolean;
-    setGroup(playerName: string, key: string, groupKey: string): boolean;
-    setIcon(playerName: string, key: string, texturePath: string): boolean;
-    setIconSize(playerName: string, key: string, width: number, height: number): boolean;
-    syncGroup(playerName: string, groupKey: string): number;
-  }
-
   interface Misc {
     anchorAcquire(playerName: string): number;
     anchorRelease(uniqueId: number): boolean;
+    blockBatchClear(playerName: string, packedPositions: string): boolean;
+    blockBatchProgress(batchId: number): number;
+    blockBatchSelfTest(packed: string): string;
+    blockBatchSet(playerName: string, packed: string, immediate: boolean): number;
+    blockBatchSetAll(dimId: number, packed: string, immediate: boolean): number;
+    blockBatchSetNear(playerName: string, packed: string, radius: number, invisible: boolean, immediate: boolean): number;
+    blockBatchStats(): string;
     blockFakeClear(playerName: string, x: number, y: number, z: number): boolean;
     blockFakeClearAll(x: number, y: number, z: number, dim: number): number;
     blockFakeResolve(state: string): number;
@@ -1306,9 +1304,18 @@ declare namespace HologramLib {
   }
 
   interface Sensing {
+    clearEvents(): any;
+    count(playerName: string): number;
     deviceCode(playerName: string): number;
     deviceOf(playerName: string): string;
+    dropped(): number;
     isTouch(playerName: string): boolean;
+    lastBlock(playerName: string): string;
+    lastEvent(playerName: string): string;
+    lastTarget(playerName: string): string;
+    pollEvents(): string[];
+    reset(): any;
+    total(): number;
   }
 
   interface Shape {
@@ -1389,6 +1396,7 @@ declare namespace HologramLib {
   }
 
   interface View {
+    align(playerName: string, uniqueId: number): boolean;
     block(playerName: string, x: number, y: number, z: number, type: string): boolean;
     clearAll(playerName: string): any;
     clearBlock(playerName: string, x: number, y: number, z: number): boolean;
@@ -1397,6 +1405,7 @@ declare namespace HologramLib {
     describe(playerName: string): string;
     echo(text: string): string;
     entity(playerName: string, uniqueId: number, spec: string): boolean;
+    entityInfo(uniqueId: number): string;
     itemSpawnHooked(): boolean;
     metaProbe(spec: string): string;
     pollSpawnEvents(): string[];
@@ -1430,7 +1439,6 @@ declare namespace HologramLib {
     ItemActor: ItemActor;
     ItemDetail: ItemDetail;
     ItemDisplay: ItemDisplay;
-    LocatorBar: LocatorBar;
     Misc: Misc;
     NpcDialog: NpcDialog;
     Particle: Particle;

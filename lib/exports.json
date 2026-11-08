@@ -1,7 +1,7 @@
 {
   "namespace": "HologramLib",
-  "apiVersion": "1.35.0",
-  "count": 430,
+  "apiVersion": "1.37.0",
+  "count": 448,
   "exports": [
     {
       "name": "actorBlockClear",
@@ -391,6 +391,128 @@
       "file": "platform/levilamina/src/hud/HudExporter.cpp",
       "group": "Misc",
       "method": "anchorRelease"
+    },
+    {
+      "name": "blockBatchClear",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "packedPositions",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/block/BlockBatchExporter.cpp",
+      "group": "Misc",
+      "method": "blockBatchClear"
+    },
+    {
+      "name": "blockBatchProgress",
+      "params": [
+        [
+          "batchId",
+          "number"
+        ]
+      ],
+      "returns": "number",
+      "file": "platform/levilamina/src/block/BlockBatchExporter.cpp",
+      "group": "Misc",
+      "method": "blockBatchProgress"
+    },
+    {
+      "name": "blockBatchSelfTest",
+      "params": [
+        [
+          "packed",
+          "string"
+        ]
+      ],
+      "returns": "string",
+      "file": "platform/levilamina/src/block/BlockBatchExporter.cpp",
+      "group": "Misc",
+      "method": "blockBatchSelfTest"
+    },
+    {
+      "name": "blockBatchSet",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "packed",
+          "string"
+        ],
+        [
+          "immediate",
+          "boolean"
+        ]
+      ],
+      "returns": "number",
+      "file": "platform/levilamina/src/block/BlockBatchExporter.cpp",
+      "group": "Misc",
+      "method": "blockBatchSet"
+    },
+    {
+      "name": "blockBatchSetAll",
+      "params": [
+        [
+          "dimId",
+          "number"
+        ],
+        [
+          "packed",
+          "string"
+        ],
+        [
+          "immediate",
+          "boolean"
+        ]
+      ],
+      "returns": "number",
+      "file": "platform/levilamina/src/block/BlockBatchExporter.cpp",
+      "group": "Misc",
+      "method": "blockBatchSetAll"
+    },
+    {
+      "name": "blockBatchSetNear",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "packed",
+          "string"
+        ],
+        [
+          "radius",
+          "number"
+        ],
+        [
+          "invisible",
+          "boolean"
+        ],
+        [
+          "immediate",
+          "boolean"
+        ]
+      ],
+      "returns": "number",
+      "file": "platform/levilamina/src/block/BlockBatchExporter.cpp",
+      "group": "Misc",
+      "method": "blockBatchSetNear"
+    },
+    {
+      "name": "blockBatchStats",
+      "params": [],
+      "returns": "string",
+      "file": "platform/levilamina/src/block/BlockBatchExporter.cpp",
+      "group": "Misc",
+      "method": "blockBatchStats"
     },
     {
       "name": "blockFakeClear",
@@ -7622,6 +7744,98 @@
       "method": "setScale"
     },
     {
+      "name": "swingClearEvents",
+      "params": [],
+      "returns": "any",
+      "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
+      "group": "Sensing",
+      "method": "clearEvents"
+    },
+    {
+      "name": "swingCount",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
+      "group": "Sensing",
+      "method": "count"
+    },
+    {
+      "name": "swingDropped",
+      "params": [],
+      "returns": "number",
+      "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
+      "group": "Sensing",
+      "method": "dropped"
+    },
+    {
+      "name": "swingLastBlock",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "string",
+      "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
+      "group": "Sensing",
+      "method": "lastBlock"
+    },
+    {
+      "name": "swingLastEvent",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "string",
+      "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
+      "group": "Sensing",
+      "method": "lastEvent"
+    },
+    {
+      "name": "swingLastTarget",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ]
+      ],
+      "returns": "string",
+      "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
+      "group": "Sensing",
+      "method": "lastTarget"
+    },
+    {
+      "name": "swingPollEvents",
+      "params": [],
+      "returns": "string[]",
+      "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
+      "group": "Sensing",
+      "method": "pollEvents"
+    },
+    {
+      "name": "swingReset",
+      "params": [],
+      "returns": "any",
+      "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
+      "group": "Sensing",
+      "method": "reset"
+    },
+    {
+      "name": "swingTotal",
+      "params": [],
+      "returns": "number",
+      "file": "platform/levilamina/src/sensing/PlayerSensingExporter.cpp",
+      "group": "Sensing",
+      "method": "total"
+    },
+    {
       "name": "tradeAddOffer",
       "params": [
         [
@@ -7838,6 +8052,23 @@
       "method": "update"
     },
     {
+      "name": "viewAlign",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "uniqueId",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "align"
+    },
+    {
       "name": "viewBlock",
       "params": [
         [
@@ -7980,6 +8211,19 @@
       "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "entity"
+    },
+    {
+      "name": "viewEntityInfo",
+      "params": [
+        [
+          "uniqueId",
+          "number"
+        ]
+      ],
+      "returns": "string",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "entityInfo"
     },
     {
       "name": "viewItemSpawnHooked",

@@ -107,7 +107,8 @@ def main() -> int:
     api_value = api_macro.group(1).lower() if api_macro else "?"
     manifest_api = str(manifest.get("extraInfo", {}).get("apiVersion", "")).lower()
 
-    c.add("AC-A01", "API 版本 1.35.0(0x012900)", api_value == "0x012900", f"当前 {api_value}")
+    expect_api = "0x012b00"  # 跟着 HOLOGLIB_API_VERSION 走（26.60.4 起 1.37.0）
+    c.add("AC-A01", f"API 版本 1.37.0({expect_api})", api_value == expect_api, f"当前 {api_value}")
     c.add("AC-A02", "manifest 与宏一致", manifest_api == api_value, f"manifest={manifest_api}")
     semver = manifest.get("extraInfo", {}).get("apiVersionSemver", "x")
     abi_file = ROOT / "abi" / f"v{semver}.json"
@@ -139,8 +140,8 @@ def main() -> int:
 
     c.add(
         "AC-PK04",
-        "包内版本 26.60.1 / api 0x012900",
-        str(manifest.get("version")) == "26.60.1" and manifest_api == "0x012900",
+        "包内版本 26.51.8 / api 0x012b00",
+        str(manifest.get("version")) == "26.51.8" and manifest_api == "0x012b00",
         f"version={manifest.get('version')} api={manifest_api}",
     )
     dest = tooth.get("variants", [{}])[0].get("assets", [{}])[0].get("placements", [{}])[0].get("dest", "")
@@ -205,7 +206,18 @@ def main() -> int:
         outdir.mkdir(parents=True, exist_ok=True)
         for cid, name, flags in unit:
             exe = outdir / (name + (".exe" if os.name == "nt" else ""))
-            args = [cpp, "-std=c++20", "-O1", "-I", str(SRC), str(ROOT / "tests" / f"{name}.cpp"), "-o", str(exe)]
+            args = [
+                cpp,
+                "-std=c++20",
+                "-O1",
+                "-I",
+                str(SRC),
+                "-I",
+                str(ROOT),  # core/ 在仓库根；2026-11 重构后单测要能 include "core/..."
+                str(ROOT / "tests" / f"{name}.cpp"),
+                "-o",
+                str(exe),
+            ]
             code, out = run(args + flags)
             if code != 0:
                 last = out.strip().splitlines()[-1][:100] if out.strip() else "编译失败"
