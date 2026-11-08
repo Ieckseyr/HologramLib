@@ -7,6 +7,7 @@
 
 | 发布版本 | API | 协议线 | 主要内容 | 新增导出 | C++ 消费方 |
 |---|---|---|---|---|---|
+| `26.51.10` | 1.37.0 | 26.51 | **修复**：形状删除不生效 —— `ShapeWire` 无条件写 `shape_type`（`mType` 默认 Box），删除包被当成更新。`mType` 改为 optional，删除包只剩 `network_id`。ABI 未变。 | 0 | 无需重新编译 |
 | `26.51.9` | 1.37.0 | 26.51 | **26.51 向下兼容线**：`xmake f --bds=26.51` 按协议 2193 选形，一个源码两套产物；**空手挥动计数** `swingCount` / `swingTotal` / `swingReset`（与 26.60 线同一套接口，不区分目标）。**撤回误发的 26.51.8。** ABI 不变。 | 3 | 无需重新编译 |
 | `26.60.4` | 1.37.0 | 26.60 | **协议前置迁移**：`sculk`（BedrockProtocol）→ `EndstoneMC/bedrock-protocol`（生成式、按协议 2225 = `protocol-docs r26_u6` 选形）。源码 sculk 引用清零、xmake 不再链接 `Protocol`；`Wire26` 与全部手工编码删除。**ABI 修正**：27 / 32 号槽恢复为保留槽，虚表回到单调布局，ABI stamp 1 → 2。 | — | **必须重新编译** |
 | `26.60.3` | 1.36.0 | 26.60 | **ABI 破坏性变更**：移除方位条 `ILocatorBar` / `ILocatorBarExt`（虚表少 2 个访问器）与 14 个 `locatorBar*` LSE 导出、endstone `locatorbar` 模块；`IViewOverride` 尾部追加 `queryEntity` / `alignEntity`；LSE 新增批量假方块 `blockBatch*`（含靠近切硫磺立方体）、`viewEntityInfo` / `viewAlign`。**调用方必须重新编译**（虚表布局变化）。 | 6 | **必须重新编译**（虚表布局改变，非尾部追加） |
