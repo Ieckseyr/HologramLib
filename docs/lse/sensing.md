@@ -58,3 +58,58 @@
     ```
 
 ---
+
+## 空手挥动 / 攻击空气（swing*，1.37.0）
+
+客户端"挥一下"会发 `AnimatePacket(Swing)`——**空手打空气、对着方块挥、打实体都算**，
+服务端在 `ServerNetworkHandler::$handle(AnimatePacket)` 里计数。没有事件回调，查计数即可。
+
+计数按玩家真实名（大小写敏感）记录，玩家退出不清零，直到 `swingReset`。
+
+### 查某个玩家挥了多少次
+
+`swingCount(playerName)`
+
+- 参数：
+  - `playerName` : `String`<br>玩家名（真实名，大小写敏感）
+- 返回值：该玩家自上次重置以来的挥动次数；玩家从没挥过或不在线返回 `0`
+- 返回值类型：`Integer`
+- 示例：
+
+    ```js
+    const swingCount = ll.import("HologramLib", "swingCount");
+    logger.info(`Steve 挥了 ${swingCount("Steve")} 次`);
+    ```
+
+### 查全服总次数
+
+`swingTotal()`
+
+- 参数：无
+- 返回值：所有玩家累计挥动次数（含已退出的玩家，直到重置）
+- 返回值类型：`Integer`
+- 示例：
+
+    ```js
+    const swingTotal = ll.import("HologramLib", "swingTotal");
+    logger.info(`全服累计 ${swingTotal()} 次`);
+    ```
+
+### 清零
+
+`swingReset()`
+
+- 参数：无
+- 返回值：无
+- 返回值类型：`void`
+- 示例：
+
+    ```js
+    const swingReset = ll.import("HologramLib", "swingReset");
+    swingReset();   // 清空全部玩家计数与总数
+    ```
+
+!!! note "能区分挥空气和挥方块吗"
+
+    不能。协议里只有一个 `Swing` 动作，客户端不会告诉服务端"我对着什么挥"。
+    要区分得由脚本自己结合视线/方块交互事件判断；这个接口只回答"挥了没有、挥了几次"。

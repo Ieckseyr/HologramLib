@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "endstone-hologramlib"
-version = "26.60.4"
+version = "26.60.5"
 description = "HologramLib protocol-layer display library for Endstone servers (Minecraft Bedrock 26.60)"
 readme = "README.md"
 requires-python = ">=3.10"

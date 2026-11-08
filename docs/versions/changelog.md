@@ -7,6 +7,7 @@
 
 | 发布版本 | API | 协议线 | 主要内容 | 新增导出 | C++ 消费方 |
 |---|---|---|---|---|---|
+| `26.60.5` | 1.37.0 | 26.60 | **新增** LSE 导出 `swingCount` / `swingTotal` / `swingReset`（空手挥动、攻击空气/方块计数）；新增 `tools/check_duplication.py` 查重门槛（过滤后基线 121）。ABI 未变，**无需重编**。 | 0 | 无需重编 |
 | `26.60.4` | 1.37.0 | 26.60 | **协议前置迁移**：`sculk`（BedrockProtocol）→ `EndstoneMC/bedrock-protocol`（生成式、按协议 2225 = `protocol-docs r26_u6` 选形）。源码 sculk 引用清零、xmake 不再链接 `Protocol`；`Wire26` 与全部手工编码删除。**ABI 修正**：27 / 32 号槽恢复为保留槽，虚表回到单调布局，ABI stamp 1 → 2。 | — | **必须重新编译** |
 | `26.60.3` | 1.36.0 | 26.60 | **ABI 破坏性变更**：移除方位条 `ILocatorBar` / `ILocatorBarExt`（虚表少 2 个访问器）与 14 个 `locatorBar*` LSE 导出、endstone `locatorbar` 模块；`IViewOverride` 尾部追加 `queryEntity` / `alignEntity`；LSE 新增批量假方块 `blockBatch*`（含靠近切硫磺立方体）、`viewEntityInfo` / `viewAlign`。**调用方必须重新编译**（虚表布局变化）。 | 6 | **必须重新编译**（虚表布局改变，非尾部追加） |
 | `26.60.2` | 1.35.0 | 26.60 | **双平台拆分**：`core/`（协议编码 + C ABI）与 `platform/levilamina`、`platform/endstone` 两个外壳；endstone 端落地 **444 个导出**（404 真实生效 / 40 受限）；`holo_core.dll` 导出 67 个 C 符号供三方共用；`build.cmd` 一次构建两个产物；文档站重构；新增 20 个 **LSE 入口**（接口层未变）。**C++ 行为与 ABI 未变。** | 20 | 无需重新编译（API 1.35.0 未变） |
