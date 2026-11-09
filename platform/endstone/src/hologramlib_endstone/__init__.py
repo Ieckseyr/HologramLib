@@ -35,6 +35,11 @@ from .plugin import HologramLibPlugin
 from .shape_api import ShapeApi
 from .shapes import ShapeScene
 
+# 版本号分三类，与 LSE 侧同口径，各自独立变化
+__abi_version__ = "1.37.0"        # C++ 头文件与虚表布局
+__lse_version__ = "1.0.0"         # 脚本侧导出面
+__api_version__ = "1.0.0"         # endstone Python API
+
 __all__ = [
     "HologramLibPlugin",
     "ShapeApi",

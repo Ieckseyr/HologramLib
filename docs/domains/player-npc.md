@@ -63,7 +63,7 @@ lib.playerNpcs().playAnimationTo(id, "Steve", "animation.npc.wave", "", 0);
 
 `setPositionLight` / `setRotationLight` / `playAnimationTo` / 逐玩家朝向在 26.51.6 之前只有 C++ 接口，现已补齐脚本侧（`playerNpcSetPosLight` / `playerNpcSetRotLight` / `playerNpcPlayAnimationTo` / `playerNpcSetPlayerRotation` 等 8 个）。`setEntitySpawnCallback` 是 C++ 回调，脚本侧改用 `playerNpcPollSpawns()` 轮询同一份事件；皮肤一族走 `playerNpcInjectSkin` / `playerNpcInjectSkinAll`。
 
-### 三个实战坑（都是实测踩出来的）
+### 三个实测限制
 
 1. **同一 tick 内多次下发会让客户端断线** —— 客户端会收到密集的「新玩家」通知。所以 NPC 的创建与脏刷新**合并到 tick 末尾统一发包**。
 2. **不要下发 PlayerList 移除条目** —— 客户端在皮肤条目仍活跃时移除该条目会**崩**。实体照常消失，所以库不下发。

@@ -89,7 +89,7 @@ lib.holo_core_encode_set_hud.argtypes = [
 ]
 ```
 
-本仓库的 `platform/endstone/src/hologramlib_endstone/native.py` 就是这层的完整封装（全部 67 个符号）。
+本仓库的 `platform/endstone/src/hologramlib_endstone/native.py` 就是这层的完整封装（全部 68 个符号）。
 
 ## 3. LeviLamina 怎么接
 

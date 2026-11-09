@@ -22,7 +22,7 @@ auto disp = lib.itemDisplays().create(cfg);
 
 其他能力：无感创建（`createSeamless`）、可见玩家白名单、视距、`scaleTo`。
 
-> ⚠ **技术债（已知）**：ItemDisplay 有一份**独立的发送实现副本**，没有走全库共享的 `SculkPacketSend.h`。`SculkPacketSend.h` 头注释里记着「验证稳定后统一迁移」。改动发包逻辑时别忘了这一份。
+> ⚠ **技术债（已知）**：ItemDisplay 有一份**独立的发送实现副本**，没有走全库共享的 `ProtoPacketSend.h`。`ProtoPacketSend.h` 头注释里记着「验证稳定后统一迁移」。修改发包逻辑时需同步处理这一份。
 
 ---
 ## 新 API（1.31.0）

@@ -6,7 +6,7 @@ LeviLamina 侧的 C++ 消费方式，底层就是 **ABI 接口**（`holo_core.dl
 | 想看 | 去哪 |
 |---|---|
 | 这层 ABI 是什么、怎么加载、内存怎么释放 | [ABI 接口总览](../abi/index.md) |
-| 67 个导出符号的完整清单 | [ABI 符号清单](../abi/symbols.md) |
+| 68 个导出符号的完整清单 | [ABI 符号清单](../abi/symbols.md) |
 | 每个纯虚接口的完整签名（`IShapeDrawer`、`IHologramText`…） | [LeviLamina 的 C++ 包装](../abi/levilamina/index.md) |
 
 ## 和 LSE 的关系

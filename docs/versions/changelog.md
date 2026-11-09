@@ -7,6 +7,7 @@
 
 | 发布版本 | API | 协议线 | 主要内容 | 新增导出 | C++ 消费方 |
 |---|---|---|---|---|---|
+| `26.51.11` | 1.37.0 | 26.51 | **新增**：LSE 导出 `viewBlockById`（按 network id 覆盖方块）、`viewBlockEntity`（hex/base64 NBT 发 `BlockActorData`）、`blockFakeResolveNbt` / `blockFakeSetNbt` / `blockFakeSetBlockEntity`（SNBT 直接铺假方块与方块实体），以及版本查询 `holoAbiVersion` / `holoLseVersion` / `holoEndstoneVersion`；C ABI 新增 `holo_core_encode_block_actor_data`（符号 67 → 68）；endstone 新增 `view_block_by_id` / `view_block_entity` 与 `__abi_version__` 等模块常量。导出 442 → 450。**API 未变**（1.37.0 / 0x012B00 / stamp 2），C++ 消费方无需重新编译。 | 8 | 无需重新编译 |
 | `26.51.10` | 1.37.0 | 26.51 | **修复**：形状删除不生效 —— `ShapeWire` 无条件写 `shape_type`（`mType` 默认 Box），删除包被当成更新。`mType` 改为 optional，删除包只剩 `network_id`。ABI 未变。 | 0 | 无需重新编译 |
 | `26.51.9` | 1.37.0 | 26.51 | **26.51 向下兼容线**：`xmake f --bds=26.51` 按协议 2193 选形，一个源码两套产物；**空手挥动计数** `swingCount` / `swingTotal` / `swingReset`（与 26.60 线同一套接口，不区分目标）。**撤回误发的 26.51.8。** ABI 不变。 | 3 | 无需重新编译 |
 | `26.60.4` | 1.37.0 | 26.60 | **协议前置迁移**：`sculk`（BedrockProtocol）→ `EndstoneMC/bedrock-protocol`（生成式、按协议 2225 = `protocol-docs r26_u6` 选形）。源码 sculk 引用清零、xmake 不再链接 `Protocol`；`Wire26` 与全部手工编码删除。**ABI 修正**：27 / 32 号槽恢复为保留槽，虚表回到单调布局，ABI stamp 1 → 2。 | — | **必须重新编译** |

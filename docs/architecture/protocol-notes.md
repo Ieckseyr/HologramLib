@@ -1,6 +1,6 @@
 # 协议层实现笔记
 
-> 历史说明：本文记录的是 **sculk（BedrockProtocol）时代**的协议坑。
+> 历史说明：本文记录的是 **sculk（BedrockProtocol）时代**的协议问题。
 > 26.60.4 起协议前置已换成 **EndstoneMC/bedrock-protocol**（生成式 codec，按协议版本选形），
 > 文中提到的 `Wire26` / 手工编码 / `sculkSendFailureCount` 均已移除或改名，保留仅作背景。
 
@@ -33,7 +33,7 @@ NetworkPeer::sendPacket 原始字节发送
 
 ## 线格式陷阱
 
-这几条都踩过、都有抓包或崩溃作为证据。**改任何手写包体之前先读这一节。**
+以下各条均有抓包或崩溃记录作为依据。**改任何手写包体之前先读这一节。**
 
 > **26.51 线（协议 2193）与 26.40（2168）的全部差异**（2026-10-16 逐文件核对两条线的协议库 `include/`）：
 > ① `PrimitiveShapes.hpp`：`TextDataPayload` 在 `BackgroundColor` 与 `DepthTest` 之间多一个 `LineGapHeight`(float)
@@ -86,7 +86,7 @@ int32 颜色在 **v2168 是 ARGB** 打包。库早年沿用 v944 的字节序 �
 
 ### 7. 客户端的要求未必等于协议库的写法
 
-交易菜单的「交易槽槽位更正」段：**协议库 `sculk` 的线格式与客户端要求不一致**（协议库多写一个字符串字段、`DurabilityCorrection` 按 varint 写，而客户端要定长 `short`）—— **照着协议库手写会直接把客户端打崩**（已踩过）。
+交易菜单的「交易槽槽位更正」段：**协议库 `sculk` 的线格式与客户端要求不一致**（协议库多写一个字符串字段、`DurabilityCorrection` 按 varint 写，而客户端要定长 `short`）—— **照着协议库手写会直接把客户端打崩**（已由实测确认）。
 
 这条不是「写错了」，而是「库和客户端对同一段的看法不同」。遇到这种情况**不要硬凑**，换一条能走通的路径（交易菜单就是这么做的：改用真实交易表或容器 UI）。
 
@@ -170,5 +170,5 @@ int32 颜色在 **v2168 是 ARGB** 打包。库早年沿用 v944 的字节序 �
 ## 相关
 
 - 分层与重发策略：[架构总览](overview.md)
-- 各域的具体用法与坑：[能力域指南](../domains/README.md)
+- 各域的具体用法与限制：[能力域指南](../domains/README.md)
 - 判定逻辑为什么能离线测：[README · 设计说明](https://github.com/Ieckseyr/HologramLib/blob/main/README.md#设计说明)

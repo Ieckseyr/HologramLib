@@ -1,7 +1,7 @@
 {
   "namespace": "HologramLib",
   "apiVersion": "1.37.0",
-  "count": 442,
+  "count": 450,
   "exports": [
     {
       "name": "actorBlockClear",
@@ -578,6 +578,19 @@
       "method": "blockFakeResolve"
     },
     {
+      "name": "blockFakeResolveNbt",
+      "params": [
+        [
+          "snbt",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "platform/levilamina/src/block/FakeBlockExporter.cpp",
+      "group": "Misc",
+      "method": "blockFakeResolveNbt"
+    },
+    {
       "name": "blockFakeSet",
       "params": [
         [
@@ -634,6 +647,64 @@
       "file": "platform/levilamina/src/block/FakeBlockExporter.cpp",
       "group": "Misc",
       "method": "blockFakeSetAll"
+    },
+    {
+      "name": "blockFakeSetBlockEntity",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "snbt",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/block/FakeBlockExporter.cpp",
+      "group": "Misc",
+      "method": "blockFakeSetBlockEntity"
+    },
+    {
+      "name": "blockFakeSetNbt",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "snbt",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/block/FakeBlockExporter.cpp",
+      "group": "Misc",
+      "method": "blockFakeSetNbt"
     },
     {
       "name": "bossBarAdd",
@@ -2445,6 +2516,14 @@
       "method": "tick"
     },
     {
+      "name": "holoAbiVersion",
+      "params": [],
+      "returns": "string",
+      "file": "platform/levilamina/src/InfoExporter.cpp",
+      "group": "Hologram",
+      "method": "abiVersion"
+    },
+    {
       "name": "holoAddLine",
       "params": [
         [
@@ -2611,6 +2690,14 @@
       "method": "drawToPlayer"
     },
     {
+      "name": "holoEndstoneVersion",
+      "params": [],
+      "returns": "string",
+      "file": "platform/levilamina/src/InfoExporter.cpp",
+      "group": "Hologram",
+      "method": "endstoneVersion"
+    },
+    {
       "name": "holoGetLineCount",
       "params": [
         [
@@ -2630,6 +2717,14 @@
       "file": "platform/levilamina/src/InfoExporter.cpp",
       "group": "Hologram",
       "method": "info"
+    },
+    {
+      "name": "holoLseVersion",
+      "params": [],
+      "returns": "string",
+      "file": "platform/levilamina/src/InfoExporter.cpp",
+      "group": "Hologram",
+      "method": "lseVersion"
     },
     {
       "name": "holoRefresh",
@@ -8033,6 +8128,68 @@
       "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "block"
+    },
+    {
+      "name": "viewBlockById",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "networkId",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "blockById"
+    },
+    {
+      "name": "viewBlockEntity",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "type",
+          "string"
+        ],
+        [
+          "nbt",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "blockEntity"
     },
     {
       "name": "viewClearAll",

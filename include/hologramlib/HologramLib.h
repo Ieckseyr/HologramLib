@@ -11,6 +11,14 @@
 
 inline constexpr std::uint32_t HOLOGLIB_ABI_STAMP = 2;
 
+// 版本号分三类，各自独立变化：
+//   ABI       C++ 头文件与虚表布局，改了就要重新编译
+//   LSE       脚本能 import 到的导出面
+//   Endstone  Python 侧的方法
+inline constexpr char const* HOLOGLIB_ABI_VERSION      = "1.37.0";
+inline constexpr char const* HOLOGLIB_LSE_API_VERSION  = "1.0.0";
+inline constexpr char const* HOLOGLIB_ENDSTONE_VERSION = "1.0.0";
+
 inline constexpr char const* HOLOGLIB_ABI_STAMP_SYMBOL = "hologramlib_abiStamp";
 
 #ifdef HOLOGLIB_EXPORTS

@@ -43,6 +43,7 @@
 #include <cmath>
 #include <format>
 #include <optional>
+#include <string_view>
 #include <utility>
 
 namespace debugshape_export::view {
@@ -57,6 +58,17 @@ PayloadT const& payloadOf(::Packet const& packet) {
 }
 
 inline std::optional<std::uint32_t> networkIdOfBlockType(std::string const& type) {
+    // "#123" = 调用方直接给 network id（状态由调用方自己算）
+    if (type.size() > 1 && type.front() == '#') {
+        auto const digits = std::string_view{type}.substr(1);
+        if (digits.find_first_not_of("0123456789") != std::string_view::npos)
+            return std::nullopt;
+        try {
+            return static_cast<std::uint32_t>(std::stoul(std::string{digits}));
+        } catch (...) {
+            return std::nullopt;
+        }
+    }
     auto block = ::Block::tryGetFromRegistry(::HashedString{type});
     if (!block)
         return std::nullopt;

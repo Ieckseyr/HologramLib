@@ -96,6 +96,59 @@ viewClearAll("");   // 收工：清掉所有玩家的覆盖
     viewBlock("Steve", 100, 64, 100, "");   // 撤销这一格
     ```
 
+### 用 network id 覆盖方块（状态由调用方给）
+
+`viewBlockById(playerName, x, y, z, networkId)`
+
+- 参数：
+  - `playerName` : `String`<br>玩家名；空串 = 对所有玩家生效
+  - `x` / `y` / `z` : `Integer`<br>方块坐标
+  - `networkId` : `Integer`<br>方块运行时网络 id（含完整状态：朝向、水位、变种等）
+- 返回值：`true` = 已登记并下发；`false` = `networkId <= 0`（0 是空气）或玩家不在线
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    const viewBlockById = ll.import("HologramLib", "viewBlockById");
+    // networkId 由调用方自行计算（例如从抓包、或其它工具查到的状态 id）
+    viewBlockById("Steve", 100, 64, 100, 12345);
+    ```
+
+!!! note "viewBlock 与 viewBlockById 的区别"
+
+    `viewBlock` 只按方块名查**基态**，不接受 `["state"=value]` 这类状态串；
+    需要楼梯朝向、水位、朝向位这些状态时，用 `viewBlockById` 传完整 network id。
+
+### 方块实体预览（旗帜 / 告示牌 / 箱子等）
+
+`viewBlockEntity(playerName, x, y, z, type, nbt)`
+
+- 参数：
+  - `playerName` : `String`<br>玩家名；空串 = 对所有玩家生效
+  - `x` / `y` / `z` : `Integer`<br>方块坐标
+  - `type` : `String`<br>方块实体 id，如 `"Banner"` / `"Sign"` / `"Chest"`
+  - `nbt` : `String`<br>**由调用方把 SNBT 转好的 NBT 字节**，`hex` 或 `base64` 两种写法都认；`id` / `x` / `y` / `z` 由库补写，不用带
+- 返回值：`true` = 至少发给了一个玩家；`false` = 字节解不开、不是合法的 NBT 复合标签、或没有目标玩家
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    const viewBlockEntity = ll.import("HologramLib", "viewBlockEntity");
+
+    // 调用方自己把 SNBT 转成 NBT 字节（示例用 hex）
+    const bannerNbt = "0a0000...";   // { Patterns:[{Pattern:"cre",Color:1}] }
+    viewBlockEntity("Steve", 100, 64, 100, "Banner", bannerNbt);
+    ```
+
+!!! note "库不做 SNBT 解析"
+
+    `nbt` 必须是**已序列化的 NBT 字节**（network 小端、根标签名可为空）。
+    SNBT 文本怎么转字节由调用方决定；库只负责传输解码 + 补 `id/坐标` + 发 `BlockActorData`。
+
+!!! warning "一次性预览"
+
+    方块实体不会像 `viewBlock` 那样随区块重发持久化；玩家重进/换维度后需要重新调用。
+
 ### 撤销单只实体的覆盖
 
 `viewClearEntity(playerName, entityUniqueId)`

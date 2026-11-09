@@ -74,7 +74,7 @@ lib.containerMenus().addClickListener([](hologramlib::ContainerClickEvent const&
 > **实测（26.40 本机客户端）：`openDelayTicks = 7` 能正常开界面，`6` 打不开。**
 > 下限与客户端 / 机器 / 负载有关，换环境可能要回调大，所以保留为可调项（`ContainerMenuSpec::openDelayTicks`，默认 `7`）。
 
-### 三个可调处（含一个「不要用 open 翻页」的坑）
+### 三个可调处（含一条「不要用 open 翻页」的限制）
 
 | 你想做 | 用这个 | 代价 |
 |---|---|---|
@@ -124,7 +124,7 @@ for (const line of containerPollClicks()) { /* 自行切分 */ }
 
 队列与 C++ 监听器收到的是**同一份事件**。
 
-> `useMinecart = true` 保留的是旧路径（只发一只合成箱子矿车）。**实测客户端不弹界面**，仅供对比排查 —— 别用。
+> `useMinecart = true` 保留的是旧路径（只发一只合成箱子矿车）。**实测客户端不弹界面**，仅供对比排查，不建议使用。
 
 ---
 

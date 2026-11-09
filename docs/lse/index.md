@@ -176,25 +176,28 @@ setInterval(() => {
 
 ---
 
-## 9. 查 API 版本 / 按版本开关功能
+## 9. 查版本 / 按版本降级
 
-`holoApiVersion()` 返回库的 API 版本（整数），用来判断某个接口在当前这份 DLL 里到底有没有。
+库对外有几个版本号，各自独立变化：ABI 版本（`holoAbiVersion()`，C++ 头文件与虚表布局，改了就要重新编译）、
+LSE 版本（`holoLseVersion()`，脚本能 import 到的导出面）和 endstone 版本（`holoEndstoneVersion()`，Python 侧的方法）。
+完整的版本对照见 [API 版本对照](../versions/api-version-matrix.md)。
 
 ```js
-const holoApiVersion = ll.import("HologramLib", "holoApiVersion");
-const api = holoApiVersion();          // 例：0x012900 = 1.35.0
+const lseVersion = ll.import("HologramLib", "holoLseVersion")();   // 例："1.0.0"
 
-if (api >= 0x012A00) {                 // 1.36.0 起才有的接口
-    const setNear = ll.import("HologramLib", "blockBatchSetNear");
-    setNear("Steve", packed, 4, false);
+function hasExport(name) {
+    try { return typeof ll.import("HologramLib", name) === "function"; }
+    catch (e) { return false; }
+}
+
+// 先判导出存在，再决定降级
+if (hasExport("blockFakeSetNbt")) {
+    ll.import("HologramLib", "blockFakeSetNbt")("Steve", 100, 64, 100, snbt);
 } else {
-    // 降级：用已有的单方块接口，或者直接跳过这部分功能
+    ll.import("HologramLib", "blockFakeSet")("Steve", 100, 64, 100, "minecraft:stone");
 }
 ```
 
-- 编码规则：`0x01` + 次版本（十六进制）+ 补丁位 —— `1.35.0 → 0x012900`、`1.36.0 → 0x012A00`
-  （同一套编号见 [版本与 ABI 对照](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.md)）。
-- **只比数值大小**，不要拿字符串去解析。
-- 判定放在模块加载时取一次，不要每次调用都判断。
-
-endstone 侧对应的是 `lib.holo_api_version`（字符串，如 `"1.35.0"`），比较时先拆成三段整数。
+`holoApiVersion()` 仍然返回 API 版本整数（`HOLOGLIB_API_VERSION`），用来判断某个能力域有没有发布；
+只比数值大小，不要拿字符串去解析。endstone 侧的 `lib.holo_api_version` 是同一个 API 版本的字符串，
+模块常量 `__abi_version__` / `__lse_version__` / `__api_version__` 则分别对应上面的三个版本号。

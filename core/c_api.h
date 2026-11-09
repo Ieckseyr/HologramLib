@@ -208,6 +208,19 @@ HOLO_CORE_EXPORT int32_t holo_core_encode_update_block(
     uint8_t** out_body,
     size_t*   out_len);
 
+// 方块实体（BlockActorData，id 56）。nbt 是已序列化的 network NBT（小端，带根 tag），
+// 由调用方用 SNBT→NBT 之类的工具生成；成功时按入参重写 x/y/z。
+// 方块实体的类型（NBT 里的 id 字段，如 "Banner"）由调用方写进 NBT —— 本函数不收类型串。
+// 解析失败返回负值（当前 -4），成功返回 0；out_body 由本库分配，调用方用 holo_free 释放。
+HOLO_CORE_EXPORT int32_t holo_core_encode_block_actor_data(
+    int32_t        x,
+    int32_t        y,
+    int32_t        z,
+    const uint8_t* nbt,
+    size_t         nbt_len,
+    uint8_t**      out_body,
+    size_t*        out_len);
+
 // ── 方块批量（一条 UpdateSubChunkBlocks 承载一个子区块的多个改动） ──────
 typedef struct holo_block_change {
     int32_t  x;

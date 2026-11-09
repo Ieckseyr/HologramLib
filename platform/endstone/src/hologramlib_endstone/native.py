@@ -368,6 +368,12 @@ class NativeCore:
             ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32,
             ctypes.POINTER(ctypes.POINTER(ctypes.c_uint8)), ctypes.POINTER(ctypes.c_size_t),
         ]
+        self._lib.holo_core_encode_block_actor_data.restype = ctypes.c_int32
+        self._lib.holo_core_encode_block_actor_data.argtypes = [
+            ctypes.c_int32, ctypes.c_int32, ctypes.c_int32,
+            ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t,
+            ctypes.POINTER(ctypes.POINTER(ctypes.c_uint8)), ctypes.POINTER(ctypes.c_size_t),
+        ]
         self._lib.holo_core_encode_mob_effect.restype = ctypes.c_int32
         self._lib.holo_core_encode_mob_effect.argtypes = [
             ctypes.c_uint64, ctypes.c_uint8, ctypes.c_int32, ctypes.c_int32, ctypes.c_uint8,
@@ -401,6 +407,9 @@ class NativeCore:
         self.actor_event_packet_id = int(self._lib.holo_core_packet_id_actor_event())
         self.animate_entity_packet_id = int(self._lib.holo_core_packet_id_animate_entity())
         self.update_block_packet_id = int(self._lib.holo_core_packet_id_update_block())
+        # 方块实体（BlockActorData）：C ABI 这边只追加了编码器，没有 packet-id getter，
+        # 这里直接与 core/BlockPackets.h 的 BlockActorDataPacket::Id 对齐（抓包确认 = 56）。
+        self.block_actor_data_packet_id = 56
         self.set_actor_data_packet_id = int(self._lib.holo_core_packet_id_set_actor_data())
         self.respawn_packet_id = int(self._lib.holo_core_packet_id_respawn())
         self.add_item_actor_packet_id = int(self._lib.holo_core_packet_id_add_item_actor())

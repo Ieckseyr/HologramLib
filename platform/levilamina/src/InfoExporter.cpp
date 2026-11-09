@@ -44,6 +44,18 @@ void InfoExporter::exportAll() {
             static_cast<std::uint32_t>(HOLOGLIB_ABI_STAMP));
     });
 
+    hologramlib::lse::exportAs(NAMESPACE, "holoAbiVersion", []() -> std::string {
+        return HOLOGLIB_ABI_VERSION;
+    });
+
+    hologramlib::lse::exportAs(NAMESPACE, "holoLseVersion", []() -> std::string {
+        return HOLOGLIB_LSE_API_VERSION;
+    });
+
+    hologramlib::lse::exportAs(NAMESPACE, "holoEndstoneVersion", []() -> std::string {
+        return HOLOGLIB_ENDSTONE_VERSION;
+    });
+
     hologramlib::lse::exportAs(NAMESPACE, "holoApiVersion", []() -> int64_t {
         return static_cast<int64_t>(HOLOGLIB_API_VERSION);
     });
