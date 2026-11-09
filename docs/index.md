@@ -30,7 +30,7 @@ HologramLib 是基岩版服务端的**协议层显示库**：用一套 API 把�
 | 写 LSE 脚本 | [脚本导入](lse/importing.md)：lrca 直连 / 统一导入两种方式 | [怎么用](lse/index.md) · [按域查函数](lse/index.md#7-按域查函数) |
 | 写 C++ 插件 | [C++ 接口参考](reference/cpp-api.md)：每个方法的完整签名 | [能力域指南](domains/README.md) |
 | 用 Endstone 开服 | [Endstone 版](endstone/index.md)：安装、Python 调用、覆盖率 | [函数名对照](endstone/index.md#3-函数名对照) |
-| 想知道「这个域能做到什么、有哪些坑」 | [能力域指南](domains/README.md) | 对应域的 C++ / LSE 接口页 |
+| 想知道「这个域能做到什么、有哪些限制」 | [能力域指南](domains/README.md) | 对应域的 C++ / LSE 接口页 |
 | 看某个版本改了什么 | [更新日志](versions/changelog.md) | — |
 
 ---

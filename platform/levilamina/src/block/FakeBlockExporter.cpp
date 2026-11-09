@@ -16,6 +16,8 @@
 
 #include "core/proto/Version.h"
 
+#include <mc/deps/nbt/CompoundTag.h>
+
 #include <cctype>
 #include <cstdlib>
 #include <string>
@@ -29,6 +31,7 @@ static constexpr const char* NAMESPACE = "HologramLib";
 
 using blockstate::parseBlockState;
 using blockstate::resolveNetworkId;
+using blockstate::resolveNetworkIdFromSnbt;
 
 namespace {
 
@@ -48,6 +51,31 @@ bool sendUpdateBlock(::Player& player, int x, int y, int z, std::uint32_t runtim
 ::Player* findPlayer(std::string const& name) {
     auto level = ::ll::service::getLevel();
     return level ? level->getPlayer(name) : nullptr;
+}
+
+
+// mc NBT → 协议层 bp NBT（走网络 NBT 二进制）
+bool sendBlockActorData(::Player& player, int x, int y, int z, ::CompoundTag const& tag) {
+    auto binary = tag.toNetworkNbt();
+    if (binary.empty())
+        return false;
+    std::string_view raw{binary};
+    proto::bp::BinaryReader reader{raw};
+    auto named = proto::bp::nbt::readNamedTag(reader);
+    if (!named)
+        return false;
+    auto* compound = named->second.template get_if<proto::bp::CompoundTag>();
+    if (compound == nullptr)
+        return false;
+
+    proto::BlockActorDataPacket packet;
+    packet.pos  = proto::BlockPos{x, y, z};
+    packet.data = std::move(*compound);
+
+    auto bytes = wire::encode(packet);
+    if (bytes.empty())
+        return false;
+    return wire::sendRaw(player, bytes);
 }
 
 } // namespace
@@ -83,6 +111,57 @@ void FakeBlockExporter::exportAll() {
                 return false;
             auto const& block = player->getDimensionBlockSource().getBlock(::BlockPos{x, y, z});
             return sendUpdateBlock(*player, x, y, z, static_cast<std::uint32_t>(block.mNetworkId));
+        });
+
+
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "blockFakeResolveNbt",
+        [](std::string const& snbt) -> int64_t {
+            std::uint32_t id = 0;
+            return resolveNetworkIdFromSnbt(snbt, id) ? static_cast<int64_t>(id) : -1;
+        });
+
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "blockFakeSetNbt",
+        [](std::string const& playerName, int x, int y, int z, std::string const& snbt) -> bool {
+            auto* player = findPlayer(playerName);
+            if (player == nullptr)
+                return false;
+            auto parsed = ::CompoundTag::fromSnbt(snbt);
+            if (!parsed)
+                return false;
+            std::uint32_t id = 0;
+            if (!resolveNetworkIdFromSnbt(snbt, id))
+                return false;
+            if (!sendUpdateBlock(*player, x, y, z, id))
+                return false;
+            // 带 "id" 的是方块实体（Banner / Sign / Chest ...），补一个 BlockActorData
+            if (parsed->contains("id"))
+                sendBlockActorData(*player, x, y, z, *parsed);
+            return true;
+        });
+
+
+    // 方块实体数据（告示牌文字 / 旗帜图案 / 箱子内容）：snbt 是 BlockEntity.getNbt().toSNBT()
+    hologramlib::lse::exportAs(
+        NAMESPACE,
+        "blockFakeSetBlockEntity",
+        [](std::string const& playerName, int x, int y, int z, std::string const& snbt) -> bool {
+            auto* player = findPlayer(playerName);
+            if (player == nullptr)
+                return false;
+            auto parsed = ::CompoundTag::fromSnbt(snbt);
+            if (!parsed)
+                return false;
+            if (!parsed->contains("id"))
+                return false;
+            // 坐标以参数为准，覆盖 NBT 里的 x/y/z
+            (*parsed)["x"] = ::IntTag{x};
+            (*parsed)["y"] = ::IntTag{y};
+            (*parsed)["z"] = ::IntTag{z};
+            return sendBlockActorData(*player, x, y, z, *parsed);
         });
 
     hologramlib::lse::exportAs(

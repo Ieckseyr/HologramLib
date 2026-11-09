@@ -368,6 +368,12 @@ class NativeCore:
             ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32,
             ctypes.POINTER(ctypes.POINTER(ctypes.c_uint8)), ctypes.POINTER(ctypes.c_size_t),
         ]
+        self._lib.holo_core_encode_block_actor_data.restype = ctypes.c_int32
+        self._lib.holo_core_encode_block_actor_data.argtypes = [
+            ctypes.c_int32, ctypes.c_int32, ctypes.c_int32,
+            ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t,
+            ctypes.POINTER(ctypes.POINTER(ctypes.c_uint8)), ctypes.POINTER(ctypes.c_size_t),
+        ]
         self._lib.holo_core_encode_mob_effect.restype = ctypes.c_int32
         self._lib.holo_core_encode_mob_effect.argtypes = [
             ctypes.c_uint64, ctypes.c_uint8, ctypes.c_int32, ctypes.c_int32, ctypes.c_uint8,
@@ -401,6 +407,9 @@ class NativeCore:
         self.actor_event_packet_id = int(self._lib.holo_core_packet_id_actor_event())
         self.animate_entity_packet_id = int(self._lib.holo_core_packet_id_animate_entity())
         self.update_block_packet_id = int(self._lib.holo_core_packet_id_update_block())
+        # 方块实体（BlockActorData）：C ABI 这边只追加了编码器，没有 packet-id getter，
+        # 这里直接与 core/BlockPackets.h 的 BlockActorDataPacket::Id 对齐（抓包确认 = 56）。
+        self.block_actor_data_packet_id = 56
         self.set_actor_data_packet_id = int(self._lib.holo_core_packet_id_set_actor_data())
         self.respawn_packet_id = int(self._lib.holo_core_packet_id_respawn())
         self.add_item_actor_packet_id = int(self._lib.holo_core_packet_id_add_item_actor())
@@ -831,6 +840,24 @@ class NativeCore:
             ctypes.byref(out_ptr), ctypes.byref(out_len),
         )
         return self._take(rc, out_ptr, out_len, "holo_core_encode_update_block")
+
+    def encode_block_actor_data(self, x: int, y: int, z: int, nbt: bytes) -> bytes:
+        """BlockActorData（id 56）的 body：坐标 + 已序列化的 network NBT。
+
+        解析失败（不是合法 NBT / 根不是 compound）时 C ABI 返回负值，这里抛 NativeCoreError；
+        方块实体的类型（NBT 的 id 字段）由调用方写进 nbt。
+        """
+        if not nbt:
+            return b""
+        buffer = (ctypes.c_uint8 * len(nbt)).from_buffer_copy(bytes(nbt))
+        out_ptr = ctypes.POINTER(ctypes.c_uint8)()
+        out_len = ctypes.c_size_t(0)
+        rc = self._lib.holo_core_encode_block_actor_data(
+            ctypes.c_int32(x), ctypes.c_int32(y), ctypes.c_int32(z),
+            ctypes.cast(buffer, ctypes.POINTER(ctypes.c_uint8)), ctypes.c_size_t(len(nbt)),
+            ctypes.byref(out_ptr), ctypes.byref(out_len),
+        )
+        return self._take(rc, out_ptr, out_len, "holo_core_encode_block_actor_data")
 
     # ── 玩家表现 ──────────────────────────────────────────────────────────
     def encode_mob_effect(

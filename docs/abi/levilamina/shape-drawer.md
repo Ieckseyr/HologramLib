@@ -446,7 +446,7 @@
 !!! warning "update 按全体重发"
 
     `update` 不按之前的显示目标过滤：就算一开始是 `drawToPlayer(id, "Steve")`，
-    调 `update(id)` 也会**发给所有在线玩家**。要维持单人显示，别用 `update`，
+    调 `update(id)` 也会**发给所有在线玩家**。要维持单人显示，不要调用 `update`，
     改为重新 `drawToPlayer(id, "Steve")`（它同样会重发当前数据）。
 
 ## 销毁与查询

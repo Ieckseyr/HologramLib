@@ -1,6 +1,7 @@
 #include "BlockState.h"
 
 #include <mc/deps/core/string/HashedString.h>
+#include <mc/deps/nbt/CompoundTag.h>
 
 #include <cctype>
 #include <string>
@@ -114,6 +115,17 @@ bool resolveNetworkId(std::string const& stateText, std::uint32_t& outId) {
     if (!block) {
         return false;
     }
+    outId = static_cast<std::uint32_t>(block->mNetworkId);
+    return true;
+}
+
+bool resolveNetworkIdFromSnbt(std::string const& snbt, std::uint32_t& outId) {
+    auto parsed = ::CompoundTag::fromSnbt(snbt);
+    if (!parsed)
+        return false;
+    auto block = ::Block::tryGetFromRegistry(*parsed);
+    if (!block)
+        return false;
     outId = static_cast<std::uint32_t>(block->mNetworkId);
     return true;
 }

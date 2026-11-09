@@ -147,27 +147,24 @@ setInterval(() => {
 
 ---
 
-## 9. Checking the API version / gating features
+## 9. Version checks and graceful degradation
 
-`holoApiVersion()` returns the library's API version as an integer, so a script can tell whether a given export exists
-in the DLL it is running against.
+The version number has three parts: ABI (C++ headers and vtable), LSE (script exports) and
+endstone (Python methods). They change independently. See the
+[API version matrix](../versions/api-version-matrix.md) for the full history.
 
 ```js
-const holoApiVersion = ll.import("HologramLib", "holoApiVersion");
-const api = holoApiVersion();          // e.g. 0x012900 = 1.35.0
+const lseVersion = ll.import("HologramLib", "holoLseVersion")();   // e.g. "1.0.0"
 
-if (api >= 0x012A00) {                 // only available from 1.36.0
-    const setNear = ll.import("HologramLib", "blockBatchSetNear");
-    setNear("Steve", packed, 4, false);
+function hasExport(name) {
+    try { return typeof ll.import("HologramLib", name) === "function"; }
+    catch (e) { return false; }
+}
+
+if (hasExport("blockFakeSetNbt")) {
+    ll.import("HologramLib", "blockFakeSetNbt")("Steve", 100, 64, 100, snbt);
 } else {
-    // fall back to the single-block API, or skip the feature
+    ll.import("HologramLib", "blockFakeSet")("Steve", 100, 64, 100, "minecraft:stone");
 }
 ```
 
-- Encoding: `0x01` + minor (hex) + patch — `1.35.0 → 0x012900`, `1.36.0 → 0x012A00`
-  (same numbering as the [version & ABI matrix](https://github.com/Ieckseyr/HologramLib/blob/main/docs/versions/api-version-matrix.md)).
-- **Compare numeric values only**; do not parse strings.
-- Read it once at module load, not on every call.
-
-On endstone the equivalent is `lib.holo_api_version` (a string such as `"1.35.0"`); split it into three integers before
-comparing.

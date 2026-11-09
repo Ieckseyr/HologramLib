@@ -1,12 +1,12 @@
 # ABI 符号清单
 
-`holo_core.dll` 导出 **67** 个 C 符号（全部 `extern "C"`、`__declspec(dllexport)`），
+`holo_core.dll` 导出 **68** 个 C 符号（全部 `extern "C"`、`__declspec(dllexport)`），
 声明在仓库 `core/c_api.h`。本页由 `tools/gen_abi_docs.py` 从该头文件生成，不手抄。
 
 | 组 | 数量 | 用途 |
 |---|---|---|
 | 包 id | 30 | 把包 id 从 core 取出来，避免在消费方硬编码 |
-| 编码 / 构造 | 34 | 把参数编成包体（body，不含包头） |
+| 编码 / 构造 | 35 | 把参数编成包体（body，不含包头） |
 | 生命周期与版本 | 3 | 版本号、ABI 版本、释放 core 分配的内存 |
 
 ## 包 id（30）
@@ -24,8 +24,8 @@
 | `holo_core_packet_id_actor_event` | `uint32_t` | `void` |
 | `holo_core_packet_id_animate_entity` | `uint32_t` | `void` |
 | `holo_core_packet_id_update_block` | `uint32_t` | `void` |
+| `holo_core_packet_id_update_subchunk_blocks` | `uint32_t` | `void` |
 | `holo_core_packet_id_set_actor_data` | `uint32_t` | `void` |
-| `holo_core_packet_id_locator_bar` | `uint32_t` | `void` |
 | `holo_core_packet_id_respawn` | `uint32_t` | `void` |
 | `holo_core_packet_id_add_item_actor` | `uint32_t` | `void` |
 | `holo_core_packet_id_remove_actor` | `uint32_t` | `void` |
@@ -44,7 +44,7 @@
 | `holo_core_packet_id_emote` | `uint32_t` | `void` |
 | `holo_core_packet_id_set_actor_link` | `uint32_t` | `void` |
 
-## 编码 / 构造（34）
+## 编码 / 构造（35）
 
 | 符号 | 返回 | 参数 |
 |---|---|---|
@@ -60,8 +60,9 @@
 | `holo_core_encode_actor_event` | `int32_t` | `uint64_t runtime_id, int32_t event_id, int32_t data, uint8_t** out_body, size_t* out_len` |
 | `holo_core_encode_animate_entity` | `int32_t` | `const char* animation, const char* next_state, const char* stop_expression, int32_t molang_version, const char* controller, float blend_out_time, const uint64_t* runtime_ids, size_t count, uint8_t** out_body, size_t* out_len` |
 | `holo_core_encode_update_block` | `int32_t` | `int32_t x, int32_t y, int32_t z, uint32_t runtime_id, uint32_t flag, uint32_t layer, uint8_t** out_body, size_t* out_len` |
+| `holo_core_encode_block_actor_data` | `int32_t` | `int32_t x, int32_t y, int32_t z, const uint8_t* nbt, size_t nbt_len, uint8_t** out_body, size_t* out_len` |
+| `holo_core_encode_update_subchunk_blocks` | `int32_t` | `int32_t sub_x, int32_t sub_y, int32_t sub_z, const holo_block_change* blocks, size_t count, uint8_t** out_body, size_t* out_len` |
 | `holo_core_encode_set_actor_data` | `int32_t` | `uint64_t runtime_id, uint64_t tick, const holo_meta_entry* entries, size_t count, uint8_t** out_body, size_t* out_len` |
-| `holo_core_encode_locator_bar` | `int32_t` | `const holo_waypoint* waypoints, size_t count, uint8_t** out_body, size_t* out_len` |
 | `holo_core_encode_respawn` | `int32_t` | `float x, float y, float z, uint8_t state, uint64_t runtime_id, uint8_t** out_body, size_t* out_len` |
 | `holo_core_encode_add_item_actor` | `int32_t` | `uint64_t runtime_id, int64_t unique_id, int16_t item_id, uint16_t stack_size, uint32_t aux, float x, float y, float z, float vx, float vy, float vz, uint8_t** out_body, size_t* out_len` |
 | `holo_core_encode_remove_actor` | `int32_t` | `int64_t unique_id, uint8_t** out_body, size_t* out_len` |

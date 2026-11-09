@@ -1,6 +1,16 @@
 #include "ViewOverrideExporter.h"
 
 #include "ViewOverrideManager.h"
+
+#include "container/ContainerPackets.h"
+#include "core/ItemNbt.h"
+#include "playernpc/NpcProtocol.h"
+#include "view/ViewPackets.h"
+
+#include <mc/deps/nbt/CompoundTag.h>
+
+#include <cctype>
+#include <vector>
 #include "ViewPackets.h"
 
 #include "lse/LseBridge.h"
@@ -15,6 +25,56 @@
 #include <cctype>
 #include <format>
 #include <string>
+
+
+namespace {
+
+// 调用方自己把 SNBT 转成 NBT 字节再传进来；这里只做传输解码（hex 或 base64），不解析 SNBT。
+std::optional<std::vector<std::uint8_t>> decodeNbtPayload(std::string const& text) {
+    auto const isHex = [&] {
+        if (text.size() < 2 || text.size() % 2 != 0)
+            return false;
+        for (char c : text) {
+            if (!std::isxdigit(static_cast<unsigned char>(c)))
+                return false;
+        }
+        return true;
+    }();
+
+    std::vector<std::uint8_t> out;
+    if (isHex) {
+        auto nibble = [](char c) -> int {
+            if (c >= '0' && c <= '9') return c - '0';
+            if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+            return c - 'A' + 10;
+        };
+        out.reserve(text.size() / 2);
+        for (std::size_t i = 0; i + 1 < text.size(); i += 2)
+            out.push_back(static_cast<std::uint8_t>((nibble(text[i]) << 4) | nibble(text[i + 1])));
+        return out;
+    }
+
+    static constexpr char kAlphabet[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    int    bits = 0;
+    int    acc  = 0;
+    for (char c : text) {
+        if (c == '=' || std::isspace(static_cast<unsigned char>(c)))
+            continue;
+        auto const pos = std::string_view{kAlphabet}.find(c);
+        if (pos == std::string_view::npos)
+            return std::nullopt;
+        acc  = (acc << 6) | static_cast<int>(pos);
+        bits += 6;
+        if (bits >= 8) {
+            bits -= 8;
+            out.push_back(static_cast<std::uint8_t>((acc >> bits) & 0xFF));
+        }
+    }
+    return out;
+}
+
+} // namespace
 
 namespace debugshape_export {
 
@@ -174,11 +234,53 @@ void ViewOverrideExporter::exportAll() {
                                    int                y,
                                    int                z,
                                    int64_t            networkId) -> bool {
-                                   if (networkId < 0)
+                                   if (networkId <= 0)
                                        return false;
                                    hologramlib::BlockView view;
                                    view.type = "#" + std::to_string(networkId);
                                    return manager.overrideBlock(playerName, x, y, z, view);
+                               });
+
+    // C：方块实体预览。nbT 由调用方用 SNBT 转好（hex 或 base64），这里只解码 + 补 id/坐标。
+    hologramlib::lse::exportAs(NAMESPACE, "viewBlockEntity",
+                               [](std::string const& playerName,
+                                  int                x,
+                                  int                y,
+                                  int                z,
+                                  std::string const& type,
+                                  std::string const& nbt) -> bool {
+                                   auto bytes = decodeNbtPayload(nbt);
+                                   if (!bytes || bytes->empty())
+                                       return false;
+
+                                   std::string_view raw{reinterpret_cast<char const*>(bytes->data()), bytes->size()};
+                                   core::proto::bp::BinaryReader reader{raw};
+                                   auto named = core::proto::bp::nbt::readNamedTag(reader);
+                                   if (!named)
+                                       return false;
+                                   auto* compound = named->second.template get_if<core::proto::bp::CompoundTag>();
+                                   if (compound == nullptr)
+                                       return false;
+
+                                   core::proto::bp::CompoundTag tag = std::move(*compound);
+                                   tag["id"] = trade::makeTag(core::proto::bp::StringTag{type});
+                                   tag["x"]  = trade::makeTag(core::proto::bp::IntTag{x});
+                                   tag["y"]  = trade::makeTag(core::proto::bp::IntTag{y});
+                                   tag["z"]  = trade::makeTag(core::proto::bp::IntTag{z});
+
+                                   auto packet = container::makeBlockActorData(x, y, z, std::move(tag));
+                                   auto level  = ::ll::service::getLevel();
+                                   if (!level)
+                                       return false;
+
+                                   bool any = false;
+                                   level->forEachPlayer([&](::Player& player) -> bool {
+                                       if (!playerName.empty() && player.getRealName() != playerName)
+                                           return true;
+                                       any |= npc_protocol::sendToPlayer(player, packet, wire::Reliability::Reliable);
+                                       return true;
+                                   });
+                                   return any;
                                });
 
     hologramlib::lse::exportAs(NAMESPACE, "viewClearEntity",

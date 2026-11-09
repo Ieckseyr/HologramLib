@@ -203,6 +203,28 @@ if (ext == nullptr) {
 }
 ```
 
+## ABI 版本
+
+C++ 接口用 `HOLOGLIB_API_VERSION` 标识，当前 `0x012B00`（1.37.0），配套 `HOLOGLIB_ABI_STAMP = 2`。
+只要 `include/hologramlib/*.h` 的虚表布局变化（增删虚函数、调整槽位），这两个数就一起变，
+按旧头文件编译的插件必须重新编译。
+
+读取与校验：
+
+```cpp
+static_assert(HOLOGLIB_API_VERSION >= 0x012B00, "需要 HologramLib 1.37.0 或更高");
+
+auto& lib = hologramlib::IHologramLib::getInstance();
+if (!hologramlib::abiCompatible(lib.version())) {
+    // 运行中的库比插件旧，虚表槽位可能不存在：降级或拒绝加载
+    return false;
+}
+```
+
+脚本侧和 Python 侧各有自己的版本号，与 ABI 版本分开变化：LSE 用 `holoLseVersion()`，
+endstone 用 `hologramlib_endstone.__lse_version__`。全部历史对照见
+[API 版本对照](../versions/api-version-matrix.md)。
+
 ## 完整示例
 
 下面这段把入口、版本校验和三个域串起来，可以直接放进插件的 `enable()`。

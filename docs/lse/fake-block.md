@@ -95,6 +95,66 @@ blockBatchSetNear("Steve", packed, 5, false, false);
 blockBatchSetNear("Steve", packed, 5, true, false);
 ```
 
+## 用方块 NBT / SNBT 直接铺方块（1.37.0）
+
+有时候调用方手里已经有方块 NBT（`bl.getNbt().toSNBT()`），不想自己拼状态串。这三个导出直接吃 SNBT：
+
+### 解析 SNBT 得到 network id
+
+`blockFakeResolveNbt(snbt)`
+
+- 参数：
+  - `snbt` : `String`<br>形如 `{"name":"minecraft:stone_stairs","states":{"weirdo_direction":2},"version":18168865}`
+- 返回值：对应的 network id；解析失败 `-1`
+- 返回值类型：`Integer`
+- 示例：
+
+    ```js
+    const resolve = ll.import("HologramLib", "blockFakeResolveNbt");
+    const id = resolve('{"name":"minecraft:stone_stairs","states":{"weirdo_direction":2},"version":18168865}');
+    ```
+
+### 按 NBT 放一个假方块
+
+`blockFakeSetNbt(playerName, x, y, z, snbt)`
+
+- 参数：
+  - `playerName` : `String`<br>玩家名
+  - `x` / `y` / `z` : `Integer`<br>方块坐标
+  - `snbt` : `String`<br>方块 NBT（含 `states`）
+- 返回值：`true` 已下发；NBT 解析失败或玩家不在线 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    const setNbt = ll.import("HologramLib", "blockFakeSetNbt");
+    setNbt("Steve", 100, 64, 100, block.getNbt().toSNBT());
+    ```
+
+### 发方块实体内容（告示牌文字 / 旗帜图案 / 箱子）
+
+`blockFakeSetBlockEntity(playerName, x, y, z, snbt)`
+
+- 参数：
+  - `playerName` : `String`<br>玩家名
+  - `x` / `y` / `z` : `Integer`<br>方块坐标（会覆盖 NBT 里的 x/y/z）
+  - `snbt` : `String`<br>`BlockEntity.getNbt().toSNBT()`，必须含 `id`（如 `"Sign"` / `"Banner"` / `"Chest"`）
+- 返回值：`true` 已下发 `BlockActorData`（包 56）；无 `id` 或解析失败 `false`
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    const setBe = ll.import("HologramLib", "blockFakeSetBlockEntity");
+    if (block.hasBlockEntity()) {
+        setBe("Steve", 100, 64, 100, block.getBlockEntity().getNbt().toSNBT());
+    }
+    ```
+
+!!! note "方块本体要先有"
+
+    `BlockActorData` 只给已存在的方块挂数据。旗帜/告示牌要先 `blockFakeSetNbt`（或 `blockBatchSet`）把方块本体放上去，
+    再发方块实体，否则客户端直接忽略。
+
 ## 注意
 
 - 假方块是**客户端本地**的：服务端世界、碰撞、掉落都不变，别的没收到这条包的玩家看到的还是真方块。

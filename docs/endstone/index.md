@@ -4,7 +4,7 @@ HologramLib 的 endstone 版本：与 LeviLamina 版**共用同一份协议编�
 区别只在外壳 —— LL 版是 C++ 插件，endstone 版是 Python 插件 + `holo_core.dll`。
 
 本节按域讲解 endstone 的用法，写作标准与 [LSE 脚本接口](../lse/index.md) 一致：
-先说这个域能做什么、有哪些坑，再给能直接跑的示例，最后每个方法一节。
+先说这个域能做什么、有哪些限制，再给能直接跑的示例，最后每个方法一节。
 
 ## 安装
 
@@ -78,7 +78,7 @@ class MyPlugin(Plugin):
 api = lib.holo_api_version          # "1.35.0"
 major, minor, patch = (int(x) for x in api.split("."))
 if (major, minor) >= (1, 36):
-    lib.fakeblock.set_many_near(...)  # 1.36.0 起才有的接口
+    lib.fakeblock.set_many_near(...)  # 按 hasattr 判断是否可用
 else:
     lib.logger.info(f"版本 {api} 不支持批量靠近切换，跳过")
 ```

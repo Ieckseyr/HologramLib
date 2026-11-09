@@ -1,7 +1,7 @@
 {
   "namespace": "HologramLib",
   "apiVersion": "1.37.0",
-  "count": 443,
+  "count": 447,
   "exports": [
     {
       "name": "actorBlockClear",
@@ -578,6 +578,19 @@
       "method": "blockFakeResolve"
     },
     {
+      "name": "blockFakeResolveNbt",
+      "params": [
+        [
+          "snbt",
+          "string"
+        ]
+      ],
+      "returns": "number",
+      "file": "platform/levilamina/src/block/FakeBlockExporter.cpp",
+      "group": "Misc",
+      "method": "blockFakeResolveNbt"
+    },
+    {
       "name": "blockFakeSet",
       "params": [
         [
@@ -634,6 +647,64 @@
       "file": "platform/levilamina/src/block/FakeBlockExporter.cpp",
       "group": "Misc",
       "method": "blockFakeSetAll"
+    },
+    {
+      "name": "blockFakeSetBlockEntity",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "snbt",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/block/FakeBlockExporter.cpp",
+      "group": "Misc",
+      "method": "blockFakeSetBlockEntity"
+    },
+    {
+      "name": "blockFakeSetNbt",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "snbt",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/block/FakeBlockExporter.cpp",
+      "group": "Misc",
+      "method": "blockFakeSetNbt"
     },
     {
       "name": "bossBarAdd",
@@ -8062,6 +8133,39 @@
       "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "blockById"
+    },
+    {
+      "name": "viewBlockEntity",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "type",
+          "string"
+        ],
+        [
+          "nbt",
+          "string"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "blockEntity"
     },
     {
       "name": "viewClearAll",

@@ -85,9 +85,15 @@ declare namespace HologramLib {
     /** 实现见 platform/levilamina/src/block/FakeBlockExporter.cpp */
     blockFakeResolve(state: string): number;
     /** 实现见 platform/levilamina/src/block/FakeBlockExporter.cpp */
+    blockFakeResolveNbt(snbt: string): number;
+    /** 实现见 platform/levilamina/src/block/FakeBlockExporter.cpp */
     blockFakeSet(playerName: string, x: number, y: number, z: number, state: string): boolean;
     /** 实现见 platform/levilamina/src/block/FakeBlockExporter.cpp */
     blockFakeSetAll(x: number, y: number, z: number, dim: number, state: string): number;
+    /** 实现见 platform/levilamina/src/block/FakeBlockExporter.cpp */
+    blockFakeSetBlockEntity(playerName: string, x: number, y: number, z: number, snbt: string): boolean;
+    /** 实现见 platform/levilamina/src/block/FakeBlockExporter.cpp */
+    blockFakeSetNbt(playerName: string, x: number, y: number, z: number, snbt: string): boolean;
     /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
     bossBarAdd(playerName: string, title: string, healthPercent: number, color: number, overlay: number): number;
     /** 实现见 platform/levilamina/src/hud/HudExporter.cpp */
@@ -845,6 +851,8 @@ declare namespace HologramLib {
     /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewBlockById(playerName: string, x: number, y: number, z: number, networkId: number): boolean;
     /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
+    viewBlockEntity(playerName: string, x: number, y: number, z: number, type: string, nbt: string): boolean;
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewClearAll(playerName: string): any;
     /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewClearBlock(playerName: string, x: number, y: number, z: number): boolean;
@@ -1144,8 +1152,11 @@ declare namespace HologramLib {
     blockFakeClear(playerName: string, x: number, y: number, z: number): boolean;
     blockFakeClearAll(x: number, y: number, z: number, dim: number): number;
     blockFakeResolve(state: string): number;
+    blockFakeResolveNbt(snbt: string): number;
     blockFakeSet(playerName: string, x: number, y: number, z: number, state: string): boolean;
     blockFakeSetAll(x: number, y: number, z: number, dim: number, state: string): number;
+    blockFakeSetBlockEntity(playerName: string, x: number, y: number, z: number, snbt: string): boolean;
+    blockFakeSetNbt(playerName: string, x: number, y: number, z: number, snbt: string): boolean;
     bossBarAdd(playerName: string, title: string, healthPercent: number, color: number, overlay: number): number;
     bossBarAddOn(playerName: string, targetId: number, title: string, percent: number, color: number, overlay: number): number;
     bossBarCount(playerName: string): number;
@@ -1383,6 +1394,7 @@ declare namespace HologramLib {
     align(playerName: string, uniqueId: number): boolean;
     block(playerName: string, x: number, y: number, z: number, type: string): boolean;
     blockById(playerName: string, x: number, y: number, z: number, networkId: number): boolean;
+    blockEntity(playerName: string, x: number, y: number, z: number, type: string, nbt: string): boolean;
     clearAll(playerName: string): any;
     clearBlock(playerName: string, x: number, y: number, z: number): boolean;
     clearEntity(playerName: string, uniqueId: number): boolean;
