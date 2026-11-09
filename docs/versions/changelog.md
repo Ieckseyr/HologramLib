@@ -7,6 +7,7 @@
 
 | 发布版本 | API | 协议线 | 主要内容 | 新增导出 | C++ 消费方 |
 |---|---|---|---|---|---|
+| `26.60.8` | 1.37.0 | 26.60 | **热修**：`viewBlockById` 在 26.60.7 不可用（`normaliseType` 给 `#id` 补了 `minecraft:` 前缀，导致回退到注册表查询失败）；endstone 包 `__init__.py` 的版本常量写在 `from __future__` 之前导致 `SyntaxError`（wheel 装不上）；补齐 `lib/exports.json` 的 3 条版本导出（450 条）。ABI 未变，无需重编。 | 0 | 无需重编 |
 | `26.60.7` | 1.37.0 | 26.60 | **库内新增**：LSE 导出 `viewBlockById`（按 network id 覆盖方块）、`viewBlockEntity`（hex/base64 NBT 发 `BlockActorData`）、`blockFakeResolveNbt` / `blockFakeSetNbt` / `blockFakeSetBlockEntity`（SNBT 直接铺假方块与方块实体）；C ABI 新增 `holo_core_encode_block_actor_data`（符号 67 → 68）；endstone 新增 `view_block_by_id` / `view_block_entity`。导出 442 → 447。**ABI 未变**（头文件未动，1.37.0 / 0x012B00 / stamp 2）。 | 5 | 无需重编 |
 | `26.60.6` | 1.37.0 | 26.60 | **修复**：形状删除不生效 —— `ShapeWire` 无条件写 `shape_type`（`mType` 默认 Box），删除包被客户端当成更新。`mType` 改为 optional，删除包只剩 `network_id`。ABI 未变，**无需重编**。 | 0 | 无需重编 |
 | `26.60.5` | 1.37.0 | 26.60 | **新增** LSE 导出 `swingCount` / `swingTotal` / `swingReset`（空手挥动、攻击空气/方块计数）；新增 `tools/check_duplication.py` 查重门槛（过滤后基线 121）。ABI 未变，**无需重编**。 | 0 | 无需重编 |

@@ -294,6 +294,8 @@ declare namespace HologramLib {
     gradientSetRainbow(id: number, speed: number): boolean;
     /** 实现见 platform/levilamina/src/GradientLineExporter.cpp */
     gradientTick(deltaTime: number): any;
+    /** 实现见 platform/levilamina/src/InfoExporter.cpp */
+    holoAbiVersion(): string;
     /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoAddLine(id: number, text: string): boolean;
     /** 实现见 platform/levilamina/src/InfoExporter.cpp */
@@ -318,10 +320,14 @@ declare namespace HologramLib {
     holoDrawToDimension(id: number, dimId: number): boolean;
     /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoDrawToPlayer(id: number, playerName: string): boolean;
+    /** 实现见 platform/levilamina/src/InfoExporter.cpp */
+    holoEndstoneVersion(): string;
     /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoGetLineCount(id: number): number;
     /** 实现见 platform/levilamina/src/InfoExporter.cpp */
     holoInfo(): string;
+    /** 实现见 platform/levilamina/src/InfoExporter.cpp */
+    holoLseVersion(): string;
     /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
     holoRefresh(id: number): boolean;
     /** 实现见 platform/levilamina/src/FloatingTextExporter.cpp */
@@ -1044,6 +1050,7 @@ declare namespace HologramLib {
   }
 
   interface Hologram {
+    abiVersion(): string;
     addLine(id: number, text: string): boolean;
     apiVersion(): number;
     clearBackgroundColor(id: number): boolean;
@@ -1056,8 +1063,10 @@ declare namespace HologramLib {
     draw(id: number): boolean;
     drawToDimension(id: number, dimId: number): boolean;
     drawToPlayer(id: number, playerName: string): boolean;
+    endstoneVersion(): string;
     getLineCount(id: number): number;
     info(): string;
+    lseVersion(): string;
     refresh(id: number): boolean;
     remove(id: number): boolean;
     removeLine(id: number, lineIndex: number): boolean;

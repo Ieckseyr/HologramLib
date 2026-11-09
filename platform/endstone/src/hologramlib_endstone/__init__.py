@@ -1,11 +1,11 @@
 """HologramLib —— endstone 版。"""
 
-# 三条版本轴（与 LSE 侧同口径）
-__abi_version__ = "1.37.0"        # C++ 虚表/头文件布局
-__lse_version__ = "1.0.0"         # 脚本侧导出面
-__api_version__ = "1.0.0"         # endstone Python API
-
 from __future__ import annotations
+
+# 版本号分三类，互相独立
+__abi_version__ = "1.37.0"        # C++ 头文件 / 虚表
+__lse_version__ = "1.0.0"         # 脚本导出
+__api_version__ = "1.0.0"         # endstone Python 方法
 
 from .actoreffect import ActorEffectApi
 from .container import ContainerApi

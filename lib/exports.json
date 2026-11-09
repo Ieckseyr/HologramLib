@@ -1,7 +1,7 @@
 {
   "namespace": "HologramLib",
   "apiVersion": "1.37.0",
-  "count": 447,
+  "count": 450,
   "exports": [
     {
       "name": "actorBlockClear",
@@ -2516,6 +2516,14 @@
       "method": "tick"
     },
     {
+      "name": "holoAbiVersion",
+      "params": [],
+      "returns": "string",
+      "file": "platform/levilamina/src/InfoExporter.cpp",
+      "group": "Hologram",
+      "method": "abiVersion"
+    },
+    {
       "name": "holoAddLine",
       "params": [
         [
@@ -2682,6 +2690,14 @@
       "method": "drawToPlayer"
     },
     {
+      "name": "holoEndstoneVersion",
+      "params": [],
+      "returns": "string",
+      "file": "platform/levilamina/src/InfoExporter.cpp",
+      "group": "Hologram",
+      "method": "endstoneVersion"
+    },
+    {
       "name": "holoGetLineCount",
       "params": [
         [
@@ -2701,6 +2717,14 @@
       "file": "platform/levilamina/src/InfoExporter.cpp",
       "group": "Hologram",
       "method": "info"
+    },
+    {
+      "name": "holoLseVersion",
+      "params": [],
+      "returns": "string",
+      "file": "platform/levilamina/src/InfoExporter.cpp",
+      "group": "Hologram",
+      "method": "lseVersion"
     },
     {
       "name": "holoRefresh",

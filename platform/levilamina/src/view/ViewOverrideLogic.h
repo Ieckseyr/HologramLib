@@ -208,6 +208,8 @@ inline std::string normaliseType(std::string_view raw) {
     if (begin == end)
         return {};
     std::string_view trimmed = raw.substr(begin, end - begin);
+    if (!trimmed.empty() && trimmed.front() == '#')
+        return std::string{trimmed};
     if (trimmed.find(':') != std::string_view::npos)
         return std::string{trimmed};
     return "minecraft:" + std::string{trimmed};
