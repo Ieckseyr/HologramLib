@@ -57,6 +57,14 @@ PayloadT const& payloadOf(::Packet const& packet) {
 }
 
 inline std::optional<std::uint32_t> networkIdOfBlockType(std::string const& type) {
+    // "#123" = 调用方直接给 network id（状态由调用方自己算）
+    if (type.size() > 1 && type.front() == '#') {
+        try {
+            return static_cast<std::uint32_t>(std::stoul(type.substr(1)));
+        } catch (...) {
+            return std::nullopt;
+        }
+    }
     auto block = ::Block::tryGetFromRegistry(::HashedString{type});
     if (!block)
         return std::nullopt;

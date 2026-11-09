@@ -166,6 +166,21 @@ void ViewOverrideExporter::exportAll() {
                                    return manager.overrideBlock(playerName, x, y, z, view);
                                });
 
+    // A：调用方自己算 network id（状态由调用方负责）
+    hologramlib::lse::exportAs(NAMESPACE, "viewBlockById",
+                               [&manager](
+                                   std::string const& playerName,
+                                   int                x,
+                                   int                y,
+                                   int                z,
+                                   int64_t            networkId) -> bool {
+                                   if (networkId < 0)
+                                       return false;
+                                   hologramlib::BlockView view;
+                                   view.type = "#" + std::to_string(networkId);
+                                   return manager.overrideBlock(playerName, x, y, z, view);
+                               });
+
     hologramlib::lse::exportAs(NAMESPACE, "viewClearEntity",
                                [&manager](std::string const& playerName, int64_t uniqueId) -> bool {
                                    return manager.clearEntity(playerName, uniqueId);

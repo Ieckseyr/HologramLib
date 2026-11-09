@@ -843,6 +843,8 @@ declare namespace HologramLib {
     /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewBlock(playerName: string, x: number, y: number, z: number, type: string): boolean;
     /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
+    viewBlockById(playerName: string, x: number, y: number, z: number, networkId: number): boolean;
+    /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewClearAll(playerName: string): any;
     /** 实现见 platform/levilamina/src/view/ViewOverrideExporter.cpp */
     viewClearBlock(playerName: string, x: number, y: number, z: number): boolean;
@@ -1380,6 +1382,7 @@ declare namespace HologramLib {
   interface View {
     align(playerName: string, uniqueId: number): boolean;
     block(playerName: string, x: number, y: number, z: number, type: string): boolean;
+    blockById(playerName: string, x: number, y: number, z: number, networkId: number): boolean;
     clearAll(playerName: string): any;
     clearBlock(playerName: string, x: number, y: number, z: number): boolean;
     clearEntity(playerName: string, uniqueId: number): boolean;

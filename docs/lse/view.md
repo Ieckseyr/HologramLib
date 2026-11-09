@@ -96,6 +96,29 @@ viewClearAll("");   // 收工：清掉所有玩家的覆盖
     viewBlock("Steve", 100, 64, 100, "");   // 撤销这一格
     ```
 
+### 用 network id 覆盖方块（自己算状态）
+
+`viewBlockById(playerName, x, y, z, networkId)`
+
+- 参数：
+  - `playerName` : `String`<br>玩家名；空串 = 对所有玩家生效
+  - `x` / `y` / `z` : `Integer`<br>方块坐标
+  - `networkId` : `Integer`<br>方块运行时网络 id（含完整状态：朝向、水位、变种等）
+- 返回值：`true` = 已登记并下发；`false` = `networkId < 0` 或玩家不在线
+- 返回值类型：`Boolean`
+- 示例：
+
+    ```js
+    const viewBlockById = ll.import("HologramLib", "viewBlockById");
+    // networkId 由调用方自行计算（例如从抓包、或其它工具查到的状态 id）
+    viewBlockById("Steve", 100, 64, 100, 12345);
+    ```
+
+!!! note "viewBlock 与 viewBlockById 的区别"
+
+    `viewBlock` 只按方块名查**基态**，不接受 `["state"=value]` 这类状态串；
+    需要楼梯朝向、水位、朝向位这些状态时，用 `viewBlockById` 传完整 network id。
+
 ### 撤销单只实体的覆盖
 
 `viewClearEntity(playerName, entityUniqueId)`

@@ -1,7 +1,7 @@
 {
   "namespace": "HologramLib",
   "apiVersion": "1.37.0",
-  "count": 442,
+  "count": 443,
   "exports": [
     {
       "name": "actorBlockClear",
@@ -8033,6 +8033,35 @@
       "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
       "group": "View",
       "method": "block"
+    },
+    {
+      "name": "viewBlockById",
+      "params": [
+        [
+          "playerName",
+          "string"
+        ],
+        [
+          "x",
+          "number"
+        ],
+        [
+          "y",
+          "number"
+        ],
+        [
+          "z",
+          "number"
+        ],
+        [
+          "networkId",
+          "number"
+        ]
+      ],
+      "returns": "boolean",
+      "file": "platform/levilamina/src/view/ViewOverrideExporter.cpp",
+      "group": "View",
+      "method": "blockById"
     },
     {
       "name": "viewClearAll",
