@@ -128,7 +128,7 @@ if (sensingIsTouch("Steve")) {
 ## Installation
 
 1. Stop the server.
-2. Extract the release archive `HologramLib.zip` and drop the resulting `HologramLib` folder into the server's `mods/`, giving `mods/HologramLib/` (containing `HologramLib.dll` and `manifest.json`).
+2. Extract the release archive `HologramLib.zip` and drop the resulting `HologramLib` folder into the server's `plugins/`, giving `plugins/HologramLib/` (containing `HologramLib.dll` and `manifest.json`).
 3. Start the server. Load order does not matter: the library checks for the LSE compatibility layer during `enable()` and retries on `ServerStarted`.
 
 Consumers only need `getInstance()` in `enable()`; there is no declared dependency to add.

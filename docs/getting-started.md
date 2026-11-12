@@ -58,7 +58,7 @@ lip install github.com/Ieckseyr/HologramLib
 手动部署：
 
 1. 关服；
-2. 解压发布包 `HologramLib.zip`，把得到的 `HologramLib` 文件夹整个放进服务端 `mods/`，最终为 `mods/HologramLib/`（内含 `HologramLib.dll`、`manifest.json`、`tooth.json` 与脚本导入层 `lib/`）；
+2. 解压发布包 `HologramLib.zip`，把得到的 `HologramLib` 文件夹整个放进服务端 `plugins/`，最终为 `plugins/HologramLib/`（内含 `HologramLib.dll`、`manifest.json`、`tooth.json` 与脚本导入层 `lib/`）；
 3. 开服。
 
 启动顺序没有任何要求。库在 `enable()` 期检测 LSE 兼容层，没检测到就在 `ServerStartedEvent` 兜底重试，双保险意味着它和 LegacyRemoteCall（`lrca`）谁先加载都可以。

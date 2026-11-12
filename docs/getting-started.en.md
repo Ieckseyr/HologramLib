@@ -51,7 +51,7 @@ Release builds also emit PDBs. They are required for symbolicating crash stacks,
 ## 3. Deployment
 
 1. Stop the server.
-2. Extract the release archive `HologramLib.zip` and drop the resulting `HologramLib` folder into the server's `mods/`, giving `mods/HologramLib/` (containing `HologramLib.dll` and `manifest.json`).
+2. Extract the release archive `HologramLib.zip` and drop the resulting `HologramLib` folder into the server's `plugins/`, giving `plugins/HologramLib/` (containing `HologramLib.dll` and `manifest.json`).
 3. Start the server.
 
 Load order does not matter at all. The library checks for the LSE compatibility layer during `enable()` and, if it is not there yet, retries on the `ServerStartedEvent`. That double safety net means it does not matter whether HologramLib or LegacyRemoteCall (`lrca`) loads first.
