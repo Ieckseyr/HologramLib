@@ -3,6 +3,15 @@
 </div>
 
 <!-- 文档站: https://ieckseyr.github.io/HologramLib/ —— 由 .github/workflows/docs.yml 从本仓库 docs/ 构建并发布 -->
+<div align="center">
+
+[![Release](https://img.shields.io/github/v/release/Ieckseyr/HologramLib)](https://github.com/Ieckseyr/HologramLib/releases)
+[![Total downloads](https://img.shields.io/github/downloads/Ieckseyr/HologramLib/total)](https://github.com/Ieckseyr/HologramLib/releases)
+[![Latest release downloads](https://img.shields.io/github/downloads/Ieckseyr/HologramLib/latest/total)](https://github.com/Ieckseyr/HologramLib/releases/latest)
+[![Docs](https://img.shields.io/badge/docs-online-blue)](https://ieckseyr.github.io/HologramLib/)
+
+</div>
+
 [中文](README.md) · [English](README.en.md) · [文档](https://ieckseyr.github.io/HologramLib/)
 
 HologramLib 是基岩版服务端（LeviLamina / BDS）的**协议层显示库**：用一套 API 把形状、悬浮字、物品、实体、菜单这些内容直接「塞」给客户端 —— 不生成真实实体、不写存档、不改服务端世界状态。
