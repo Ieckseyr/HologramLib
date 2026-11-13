@@ -3,6 +3,15 @@
 </div>
 
 <!-- Docs site: https://ieckseyr.github.io/HologramLib/ — built and published from this repo's docs/ by .github/workflows/docs.yml -->
+<div align="center">
+
+[![Release](https://img.shields.io/github/v/release/Ieckseyr/HologramLib)](https://github.com/Ieckseyr/HologramLib/releases)
+[![Total downloads](https://img.shields.io/github/downloads/Ieckseyr/HologramLib/total)](https://github.com/Ieckseyr/HologramLib/releases)
+[![Latest release downloads](https://img.shields.io/github/downloads/Ieckseyr/HologramLib/latest/total)](https://github.com/Ieckseyr/HologramLib/releases/latest)
+[![Docs](https://img.shields.io/badge/docs-online-blue)](https://ieckseyr.github.io/HologramLib/en/)
+
+</div>
+
 [中文](README.md) · [English](README.en.md) · [Docs](https://ieckseyr.github.io/HologramLib/en/)
 
 HologramLib is a **protocol-layer display library** for Bedrock servers (LeviLamina / BDS): one API that pushes shapes, holograms, items, entities and menus straight to the client — no real entities spawned, nothing written to the save, no server-side world state touched.
@@ -11,7 +20,7 @@ The same capabilities are reachable two ways: **C++ plugins** (frozen pure-virtu
 
 | | |
 |---|---|
-| Plugin release | `26.60.1` |
+| Plugin release | `26.60.8` |
 | API version | `1.35.0` (`HOLOGLIB_API_VERSION 0x012900`) |
 | Platform | LeviLamina 26.60 · BDS 1.26.60 (protocol 2225) / Endstone 0.11 (same BDS process) |
 | Public surface | One public header, `include/hologramlib/HologramLib.h` (28 interfaces / 405 slots), plus the LSE namespace `HologramLib` (444 exports) |
