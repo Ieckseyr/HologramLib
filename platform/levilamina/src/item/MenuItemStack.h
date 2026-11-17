@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include <mc/deps/nbt/CompoundTag.h>
+#include <mc/nbt/CompoundTag.h>
 #include <mc/world/item/ItemInstance.h>
 #include <mc/world/item/ItemStack.h>
 

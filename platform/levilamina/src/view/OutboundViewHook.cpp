@@ -1,3 +1,4 @@
+#include "compat/McCompat.h"
 #include "../effect/ActorEventFilter.h"
 #include "../visibility/PlayerVisibilityManager.h"
 #include "ViewOverrideManager.h"
@@ -20,8 +21,8 @@
 #include <mc/network/NetworkSystem.h>
 #include <mc/network/Packet.h>
 #include <mc/network/ServerNetworkHandler.h>
-#include <mc/network/packet/ActorEventPacketPayload.h>
-#include <mc/network/packet/AnimatePacketPayload.h>
+#include <mc/network/packet/ActorEventPacket.h>
+#include <mc/network/packet/AnimatePacket.h>
 #include <mc/network/packet/ContainerClosePacket.h>
 #include <mc/network/packet/InteractPacket.h>
 #include <mc/network/packet/InventoryTransactionPacket.h>
@@ -29,7 +30,7 @@
 #include <mc/network/packet/MobEquipmentPacket.h>
 #include <mc/network/packet/PlayerActionPacket.h>
 #include <mc/network/packet/PlayerAuthInputPacket.h>
-#include <mc/network/packet/PlayerAuthInputPacketPayload.h>
+#include <mc/network/packet/PlayerAuthInputPacket.h>
 #include <mc/network/packet/TextPacket.h>
 #include <mc/world/actor/Actor.h>
 #include <mc/world/actor/player/Player.h>
@@ -246,7 +247,7 @@ LL_TYPE_INSTANCE_HOOK(
         if (player == nullptr)
             return;
 
-        auto const& payload = static_cast<::PlayerAuthInputPacketPayload const&>(packet);
+        auto const& payload = holo_compat::asPacket<::PlayerAuthInputPacket>(packet);
         auto const& rawPos  = unwrap(payload.mPos);
         auto const& rawRot  = unwrap(payload.mRot);
 
@@ -254,7 +255,7 @@ LL_TYPE_INSTANCE_HOOK(
         {
             auto const& bs = unwrap(payload.mInputData);
             for (int i = 0; i < 64; ++i) {
-                if (bs.contains(static_cast<::PlayerAuthInputPacketPayload::InputData>(i))) {
+                if (bs.test(static_cast<std::size_t>(i))) {
                     bits |= (std::uint64_t(1) << i);
                 }
             }

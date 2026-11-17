@@ -49,7 +49,7 @@ inline std::string buildUpdateBlockBody(
     std::uint32_t layer
 ) {
     proto::UpdateBlockPacket packet;
-    packet.pos          = proto::BlockPos{x, y, z};
+    packet.pos          = proto::toNetworkPos(proto::BlockPos{x, y, z});
     packet.runtime_id   = proto::BlockRuntimeId{runtimeId};
     packet.update_flags = static_cast<std::uint8_t>(flag);
     packet.layer        = layer;
@@ -67,12 +67,12 @@ inline std::string buildUpdateSubChunkBlocksBody(
     std::vector<ChangeEntry> const& changes
 ) {
     proto::UpdateSubChunkBlocksPacket packet;
-    packet.sub_chunk_block_position = proto::BlockPos{subX, subY, subZ};
+    packet.sub_chunk_block_position = proto::toNetworkPos(proto::BlockPos{subX, subY, subZ});
 
     packet.blocks_changed.standards.reserve(changes.size());
     for (auto const& change : changes) {
         proto::UpdateSubChunkNetworkBlockInfo info;
-        info.pos          = proto::BlockPos{change.x, change.y, change.z};
+        info.pos          = proto::toNetworkPos(proto::BlockPos{change.x, change.y, change.z});
         info.runtime_id   = proto::BlockRuntimeId{change.runtimeId};
         info.update_flags = static_cast<std::uint8_t>(change.flags);
         info.entity_unique_id = proto::ActorUniqueID{static_cast<std::int64_t>(change.syncEntity)};

@@ -1,7 +1,7 @@
 #include "BlockState.h"
 
 #include <mc/deps/core/string/HashedString.h>
-#include <mc/deps/nbt/CompoundTag.h>
+#include <mc/nbt/CompoundTag.h>
 
 #include <cctype>
 #include <string>

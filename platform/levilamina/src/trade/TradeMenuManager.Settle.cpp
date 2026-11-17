@@ -448,12 +448,11 @@ bool TradeMenuManager::sendTradeSlotUpdate(
     Menu const&        menu,
     int                tradeSlot,
     ::ItemStack const& item) {
-    ::InventorySlotPacket packet{::InventorySlotPacketPayload(
+    // 1.9.7：mItem/mStorageItem 是 NetworkItemStackDescriptor，只能用构造函数写。
+    ::InventorySlotPacket packet{
         static_cast<::ContainerID>(menu.containerId),
         static_cast<uint>(tradeSlot),
-        item,
-        ::FullContainerName{},
-        ::ItemStack{})};
+        item};
     (void)wire::send(player, packet);
     HLIB_LOG_INFO(
         "[TradeMenu] 交易槽内容已推送: containerId={} slot={} 物品={}x{}",

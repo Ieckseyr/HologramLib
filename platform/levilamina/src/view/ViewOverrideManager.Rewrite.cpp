@@ -1,3 +1,4 @@
+#include "compat/McCompat.h"
 #include "ViewOverrideManager.h"
 #include "DiagLog.h"
 #include "ViewOverrideRuntimeOps.h"
@@ -19,7 +20,7 @@ bool ViewOverrideManager::applyToOutbound(::Player& target, ::Packet const& pack
     std::int64_t addPlayerUniqueId = 0;
     if (packet.getId() == ::MinecraftPacketIds::AddPlayer) {
         auto const runtimeId =
-            static_cast<std::uint64_t>(unwrap(payloadOf<::AddPlayerPacketPayload>(packet).mRuntimeId).rawID);
+            static_cast<std::uint64_t>(unwrap(holo_compat::asPacket<::AddPlayerPacket>(packet).mRuntimeId).rawID);
         auto* actor = actorByRuntimeId(runtimeId);
         if (actor == nullptr)
             return false;
@@ -44,12 +45,12 @@ bool ViewOverrideManager::applyToOutbound(::Player& target, ::Packet const& pack
     switch (static_cast<int>(packet.getId())) {
     case logic::kAddActor: {
         mSpawnSeen.fetch_add(1, std::memory_order_relaxed);
-        auto& payload  = payloadOf<::AddActorPacketPayload>(packet);
+        auto& payload  = holo_compat::asPacket<::AddActorPacket>(packet);
         auto  uniqueId = unwrap(payload.mEntityId).rawID;
         if (markSpawnSeen(uniqueId)) {
             auto const& sp = unwrap(payload.mPos);
             pushSpawnEvent(
-                "actor|" + std::to_string(uniqueId) + "|" + std::to_string(targetDim) + "|" + std::to_string(sp.x) + "|" + std::to_string(sp.y) + "|" + std::to_string(sp.z) + "|" + unwrap(payload.mActorType));
+                "actor|" + std::to_string(uniqueId) + "|" + std::to_string(targetDim) + "|" + std::to_string(sp.x) + "|" + std::to_string(sp.y) + "|" + std::to_string(sp.z) + "|" + unwrap(unwrap(payload.mType).mFullName));
         }
         auto* record = findEntityLocked(playerName, uniqueId);
         if (record == nullptr)
@@ -111,7 +112,7 @@ bool ViewOverrideManager::applyToOutbound(::Player& target, ::Packet const& pack
     case logic::kAddItemActor: {
 
         mSpawnSeen.fetch_add(1, std::memory_order_relaxed);
-        auto& payload  = payloadOf<::AddItemActorPacketPayload>(packet);
+        auto& payload  = holo_compat::asPacket<::AddItemActorPacket>(packet);
         auto  uniqueId = unwrap(payload.mId).rawID;
         if (markSpawnSeen(uniqueId)) {
             auto const& sp = unwrap(payload.mPos);
@@ -168,7 +169,7 @@ bool ViewOverrideManager::applyToOutbound(::Player& target, ::Packet const& pack
                 unwrap(unwrap(payloadOf<::MoveActorAbsolutePacketPayload>(packet).mMoveData).mRuntimeId).rawID);
         } else {
             runtimeId =
-                static_cast<std::uint64_t>(unwrap(unwrap(payloadOf<::MoveActorDeltaPacketPayload>(packet).mMoveData).mRuntimeId).rawID);
+                static_cast<std::uint64_t>(unwrap(unwrap(holo_compat::asPacket<::MoveActorDeltaPacket>(packet).mMoveData).mRuntimeId).rawID);
         }
         auto* record = findEntityByRuntimeLocked(playerName, runtimeId);
         if (record == nullptr)
@@ -184,7 +185,7 @@ bool ViewOverrideManager::applyToOutbound(::Player& target, ::Packet const& pack
     }
     case logic::kAddPlayer: {
         mSpawnSeen.fetch_add(1, std::memory_order_relaxed);
-        auto& payload   = payloadOf<::AddPlayerPacketPayload>(packet);
+        auto& payload   = holo_compat::asPacket<::AddPlayerPacket>(packet);
         auto  runtimeId = static_cast<std::uint64_t>(unwrap(payload.mRuntimeId).rawID);
         auto* record    = findEntityLocked(playerName, addPlayerUniqueId);
         if (record == nullptr)
@@ -232,7 +233,7 @@ bool ViewOverrideManager::applyToOutbound(::Player& target, ::Packet const& pack
     }
     case logic::kSetActorData: {
         mMetaSeen.fetch_add(1, std::memory_order_relaxed);
-        auto& payload   = payloadOf<::SetActorDataPacketPayload>(packet);
+        auto& payload   = holo_compat::asPacket<::SetActorDataPacket>(packet);
         auto  runtimeId = static_cast<std::uint64_t>(unwrap(payload.mId).rawID);
         auto* record    = findEntityByRuntimeLocked(playerName, runtimeId);
         if (record == nullptr)
@@ -284,7 +285,7 @@ bool ViewOverrideManager::applyToOutbound(::Player& target, ::Packet const& pack
         return true;
     }
     case logic::kMovePlayer: {
-        auto& payload   = payloadOf<::MovePlayerPacketPayload>(packet);
+        auto& payload   = holo_compat::asPacket<::MovePlayerPacket>(packet);
         auto  runtimeId = static_cast<std::uint64_t>(unwrap(payload.mPlayerID).rawID);
         auto* record    = findEntityByRuntimeLocked(playerName, runtimeId);
         if (record == nullptr)
@@ -305,7 +306,7 @@ bool ViewOverrideManager::applyToOutbound(::Player& target, ::Packet const& pack
     }
     case logic::kLevelChunk: {
         mChunkSeen.fetch_add(1, std::memory_order_relaxed);
-        auto&      payload = payloadOf<::LevelChunkPacketPayload>(packet);
+        auto&      payload = holo_compat::asPacket<::LevelChunkPacket>(packet);
         auto const pos     = unwrap(payload.mPos);
         auto const dim     = static_cast<int>(unwrap(payload.mDimensionId));
         auto       collect = [&](Table const& table) {

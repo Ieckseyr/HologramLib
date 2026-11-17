@@ -3,6 +3,8 @@
 #include "kernel/EventIds.h"
 #include "trade/TradeMenuManager.h"
 
+#include <mc/nbt/CompoundTag.h>
+
 #include "DiagLog.h"
 #include "kernel/PacketSink.h"
 

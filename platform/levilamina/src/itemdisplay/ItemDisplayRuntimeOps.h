@@ -23,8 +23,8 @@
 #include <mc/deps/core/string/HashedString.h>
 #include <mc/deps/core/utility/BinaryStream.h>
 #include <mc/deps/core/utility/ReadOnlyBinaryStream.h>
-#include <mc/deps/nbt/CompoundTag.h>
-#include <mc/deps/nbt/ShortTag.h>
+#include <mc/nbt/CompoundTag.h>
+#include <mc/nbt/ShortTag.h>
 #include <mc/legacy/ActorRuntimeID.h>
 #include <mc/network/MinecraftPackets.h>
 #include <mc/network/NetworkSystem.h>
@@ -220,9 +220,8 @@ inline std::optional<::ItemStack> buildItemStack(std::string const& rawName, int
         inst.mEnchantType = ::Enchant::Type::Sharpness;
         inst.mLevel       = 1;
 
-        auto instances = ench.getEnchantInstances();
-        instances[0].push_back(inst);
-        ench.setEnchantInstances(std::move(instances));
+        // 1.9.7 没有 get/setEnchantInstances
+        ench.addEnchant(inst, true);
         stack->saveEnchantsToUserData(ench);
         HLIB_LOG_WARN(
             "[ItemDisplay] 光效自写未生效(isEnchanted=false), 已走原生兜底。自写: [{}] 原生格式: [{}]",

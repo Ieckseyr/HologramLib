@@ -24,7 +24,7 @@
 #include <mc/network/NetworkPeer.h>
 #include <mc/network/NetworkSystem.h>
 #include <mc/network/packet/InventorySlotPacket.h>
-#include <mc/network/packet/InventorySlotPacketPayload.h>
+#include <mc/network/packet/InventorySlotPacket.h>
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/item/ItemStack.h>
 #include <mc/world/level/BlockPos.h>
@@ -83,10 +83,10 @@ bool ContainerMenuManager::setItemEnchanted(
         return true;
 
     auto                  stack = item::makeMenuItemStack(item, enchants);
-    ::InventorySlotPacket packet{::InventorySlotPacketPayload(
+    ::InventorySlotPacket packet{
         static_cast<::ContainerID>(copy.containerId),
         static_cast<uint>(slot),
-        stack)};
+        stack};
     (void)wire::send(*player, packet);
     HLIB_LOG_INFO("[ContainerMenu] 按槽刷新(UI开着): player={} menuId={} slot={} 物品={}", copy.playerName, menuId, slot, item.type);
     return true;

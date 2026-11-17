@@ -9,7 +9,7 @@
 #include <ll/api/service/Bedrock.h>
 #include <exception>
 
-#include <mc/deps/nbt/CompoundTag.h>
+#include <mc/nbt/CompoundTag.h>
 #include <mc/legacy/ActorRuntimeID.h>
 #include <mc/network/packet/MobArmorEquipmentPacket.h>
 #include <mc/network/packet/MobEquipmentPacket.h>

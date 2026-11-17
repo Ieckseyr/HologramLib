@@ -13,7 +13,6 @@
 #include <mc/world/level/block/actor/ChestBlockActor.h>
 #include <mc/world/level/chunk/ChunkSource.h>
 #include <mc/world/level/dimension/Dimension.h>
-#include <mc/world/level/dimension/DimensionType.h>
 
 #include <algorithm>
 #include <cmath>

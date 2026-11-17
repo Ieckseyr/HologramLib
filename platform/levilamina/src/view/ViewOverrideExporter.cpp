@@ -7,7 +7,7 @@
 #include "playernpc/NpcProtocol.h"
 #include "view/ViewPackets.h"
 
-#include <mc/deps/nbt/CompoundTag.h>
+#include <mc/nbt/CompoundTag.h>
 
 #include <cctype>
 #include <vector>

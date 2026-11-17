@@ -7,6 +7,7 @@
 
 | 发布版本 | API | 协议线 | 主要内容 | 新增导出 | C++ 消费方 |
 |---|---|---|---|---|---|
+| `21.132.1` | 1.37.0 | **1.21.132（898）** | **协议线回移**：26.60（协议 2225）→ BDS 1.21.132.3 / 协议 898（`protocol-docs r21_u13`）。协议 schema 全部改为按 `kProtocolVersion` 选形（含 898 的 legacy 皮肤、`NetworkBlockPosition`、`type + ScorePacketInfo` 计分板、`CopyableDataList` 元数据）；引擎侧差异收敛到 `platform/levilamina/src/compat/`（包形态、`distanceTo`、TypedStorage 标量、未导出构造、物品栈请求多态 action）；构建改为离线（LL 1.9.7 SDK + prelink v0.7.1 + bedrockdata v1.21.132-server.8），`levibuildscript` 规则内联到 `tools/`。插件版本号改为 `21.132.1`。导出面与 ABI 未变。 | 0 | 无需重编（API/ABI 未变） |
 | `26.60.8` | 1.37.0 | 26.60 | **热修**：`viewBlockById` 在 26.60.7 不可用（`normaliseType` 给 `#id` 补了 `minecraft:` 前缀，导致回退到注册表查询失败）；endstone 包 `__init__.py` 的版本常量写在 `from __future__` 之前导致 `SyntaxError`（wheel 装不上）；补齐 `lib/exports.json` 的 3 条版本导出（450 条）。ABI 未变，无需重编。 | 0 | 无需重编 |
 | `26.60.7` | 1.37.0 | 26.60 | **库内新增**：LSE 导出 `viewBlockById`（按 network id 覆盖方块）、`viewBlockEntity`（hex/base64 NBT 发 `BlockActorData`）、`blockFakeResolveNbt` / `blockFakeSetNbt` / `blockFakeSetBlockEntity`（SNBT 直接铺假方块与方块实体）；C ABI 新增 `holo_core_encode_block_actor_data`（符号 67 → 68）；endstone 新增 `view_block_by_id` / `view_block_entity`。导出 442 → 447。**ABI 未变**（头文件未动，1.37.0 / 0x012B00 / stamp 2）。 | 5 | 无需重编 |
 | `26.60.6` | 1.37.0 | 26.60 | **修复**：形状删除不生效 —— `ShapeWire` 无条件写 `shape_type`（`mType` 默认 Box），删除包被客户端当成更新。`mType` 改为 optional，删除包只剩 `network_id`。ABI 未变，**无需重编**。 | 0 | 无需重编 |

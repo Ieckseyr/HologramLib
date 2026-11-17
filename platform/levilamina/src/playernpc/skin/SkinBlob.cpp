@@ -111,56 +111,53 @@ inline std::string serializeSkinImpl(std::string const& skinId, SerializedSkinRe
     w.str(skin.resource_patch);
     w.str(skin.full_id);
 
-    w.u32(skin.image_data.width);
-    w.u32(skin.image_data.height);
-    w.str(skin.image_data.image_bytes);
+
+    std::uint32_t imgW = 0;
+    std::uint32_t imgH = 0;
+    std::string   imgBytes;
+
+    proto::getSkinImage(skin, imgW, imgH, imgBytes);
+    w.u32(imgW);
+    w.u32(imgH);
+    w.str(imgBytes);
 
     w.u32(static_cast<std::uint32_t>(skin.animated_image_data.size()));
     for (auto const& a : skin.animated_image_data) {
-        w.u32(a.image.width);
-        w.u32(a.image.height);
-        w.str(a.image.image_bytes);
+        std::uint32_t aw = 0;
+        std::uint32_t ah = 0;
+        std::string   ab;
+        proto::getAnimImage(a, aw, ah, ab);
+        w.u32(aw);
+        w.u32(ah);
+        w.str(ab);
         w.u32(static_cast<std::uint32_t>(a.type));
         w.f32(a.frames);
         w.u32(static_cast<std::uint32_t>(a.animation_expression));
     }
 
-    w.u32(skin.cape_image_data.width);
-    w.u32(skin.cape_image_data.height);
-    w.str(skin.cape_image_data.image_bytes);
+    proto::getSkinCapeImage(skin, imgW, imgH, imgBytes);
+    w.u32(imgW);
+    w.u32(imgH);
+    w.str(imgBytes);
 
     w.str(skin.geometry_data);
     w.str(skin.geometry_data_min_engine_version);
     w.str(skin.animation_data);
     w.str(skin.cape_id);
     w.str(armSizeName(skin.arm_size));
-    w.i32(static_cast<std::int32_t>(skin.skin_color));
+    w.i32(static_cast<std::int32_t>(proto::getSkinColor(skin)));
 
-    w.u32(static_cast<std::uint32_t>(skin.persona_pieces.size()));
-    for (auto const& p : skin.persona_pieces) {
-        w.str(p.piece_id);
-        w.i32(static_cast<std::int32_t>(p.piece_type));
-        w.uuid(p.pack_id);
-        w.u8(p.is_default_piece ? 1 : 0);
-        w.str(p.product_id);
-    }
-
-    w.u32(static_cast<std::uint32_t>(skin.piece_tint_colors.size()));
-    for (auto const& [pieceType, tints] : skin.piece_tint_colors) {
-        w.i32(static_cast<std::int32_t>(pieceType));
-        w.u32(static_cast<std::uint32_t>(tints.colors.size()));
-        for (auto const& color : tints.colors) {
-            w.i32(static_cast<std::int32_t>(color));
-        }
-    }
+    // persona/tint 两代结构不同，NPC 皮肤用不到：固定写 0，读取侧遇非 0 判为不兼容缓存。
+    w.u32(0);
+    w.u32(0);
 
     w.u8(skin.is_premium ? 1 : 0);
     w.u8(skin.is_persona ? 1 : 0);
     w.u8(skin.is_persona_cape_on_classic_skin ? 1 : 0);
     w.u8(skin.is_primary_user ? 1 : 0);
     w.u8(skin.overrides_player_appearance ? 1 : 0);
-    w.u8(static_cast<std::uint8_t>(skin.trusted_skin_flag));
-    w.str(skin.profile_hash);
+    w.u8(static_cast<std::uint8_t>(proto::getSkinTrusted(skin)));
+    w.str({}); // profile_hash 占位
     return w.out;
 }
 
@@ -169,41 +166,38 @@ bool readLegacyV3(BlobReader& r, std::string& skinId, SerializedSkinRef& skin) {
     if (!r.ok)
         return false;
 
-    skin.id            = r.str();
-    (void)r.str(); // legacy mPlayFabId：2225 的 SerializedSkinRef 不再带这个字段
+    skin.id             = r.str();
+    (void)r.str(); // legacy mPlayFabId：新版本线不再带这个字段
     skin.resource_patch = r.str();
     skin.full_id        = r.str();
 
-    skin.image_data.width       = r.u32();
-    skin.image_data.height      = r.u32();
-    skin.image_data.image_bytes = r.str();
+    proto::setSkinImage(skin, r.u32(), r.u32(), r.str());
 
     auto animCount = r.u32();
     for (std::uint32_t i = 0; i < animCount && r.ok; ++i) {
         proto::AnimatedImageData a{};
-        a.image.width       = r.u32();
-        a.image.height      = r.u32();
-        a.image.image_bytes = r.str();
-        a.type              = static_cast<decltype(a.type)>(r.u32());
-        a.frames            = r.f32();
+        proto::setAnimImage(a, r.u32(), r.u32(), r.str());
+        a.type                 = static_cast<decltype(a.type)>(r.u32());
+        a.frames               = r.f32();
         a.animation_expression = static_cast<decltype(a.animation_expression)>(r.u32());
         skin.animated_image_data.push_back(std::move(a));
     }
 
-    skin.cape_image_data.width       = r.u32();
-    skin.cape_image_data.height      = r.u32();
-    skin.cape_image_data.image_bytes = r.str();
+    proto::setSkinCapeImage(skin, r.u32(), r.u32(), r.str());
 
     skin.geometry_data                    = r.str();
     skin.geometry_data_min_engine_version = r.str();
     skin.animation_data                   = r.str();
     skin.cape_id                          = r.str();
     skin.arm_size                         = armSizeOf(r.str());
-    (void)r.str(); // legacy hex skin color：2225 用 int32 Color，v3 值丢弃后走默认
+    (void)r.str(); // legacy hex skin color：v3 值丢弃，走默认色
 
-    // v3 的 persona piece / tint color 用字符串表达（pieceType 名字、hex 颜色、uuid 字符串），
-    // 与 2225 的强类型字段不是同一套编码，直接跳过；NPC 皮肤本来就不依赖它们。
     auto pieceCount = r.u32();
+    if (pieceCount != 0)
+        return false; // 结构不兼容的缓存，直接丢弃让上层重新生成
+    auto tintCount = r.u32();
+    if (tintCount != 0)
+        return false;
     for (std::uint32_t i = 0; i < pieceCount && r.ok; ++i) {
         (void)r.str();
         (void)r.str();
@@ -211,7 +205,6 @@ bool readLegacyV3(BlobReader& r, std::string& skinId, SerializedSkinRef& skin) {
         (void)r.u8();
         (void)r.str();
     }
-    auto tintCount = r.u32();
     for (std::uint32_t i = 0; i < tintCount && r.ok; ++i) {
         (void)r.str();
         auto colorCount = r.u32();
@@ -220,11 +213,11 @@ bool readLegacyV3(BlobReader& r, std::string& skinId, SerializedSkinRef& skin) {
         }
     }
 
-    skin.is_premium                    = r.u8() != 0;
-    skin.is_persona                    = r.u8() != 0;
+    skin.is_premium                      = r.u8() != 0;
+    skin.is_persona                      = r.u8() != 0;
     skin.is_persona_cape_on_classic_skin = r.u8() != 0;
-    skin.is_primary_user               = r.u8() != 0;
-    skin.overrides_player_appearance   = r.u8() != 0;
+    skin.is_primary_user                 = r.u8() != 0;
+    skin.overrides_player_appearance     = r.u8() != 0;
     return r.ok;
 }
 
@@ -237,62 +230,41 @@ bool readV4(BlobReader& r, std::string& skinId, SerializedSkinRef& skin) {
     skin.resource_patch = r.str();
     skin.full_id        = r.str();
 
-    skin.image_data.width       = r.u32();
-    skin.image_data.height      = r.u32();
-    skin.image_data.image_bytes = r.str();
+    proto::setSkinImage(skin, r.u32(), r.u32(), r.str());
 
     auto animCount = r.u32();
     for (std::uint32_t i = 0; i < animCount && r.ok; ++i) {
         proto::AnimatedImageData a{};
-        a.image.width          = r.u32();
-        a.image.height         = r.u32();
-        a.image.image_bytes    = r.str();
+        proto::setAnimImage(a, r.u32(), r.u32(), r.str());
         a.type                 = static_cast<decltype(a.type)>(r.u32());
         a.frames               = r.f32();
         a.animation_expression = static_cast<decltype(a.animation_expression)>(r.u32());
         skin.animated_image_data.push_back(std::move(a));
     }
 
-    skin.cape_image_data.width       = r.u32();
-    skin.cape_image_data.height      = r.u32();
-    skin.cape_image_data.image_bytes = r.str();
+    proto::setSkinCapeImage(skin, r.u32(), r.u32(), r.str());
 
     skin.geometry_data                    = r.str();
     skin.geometry_data_min_engine_version = r.str();
     skin.animation_data                   = r.str();
     skin.cape_id                          = r.str();
     skin.arm_size                         = armSizeOf(r.str());
-    skin.skin_color                       = proto::Color{r.i32()};
+    proto::setSkinColor(skin, static_cast<std::uint32_t>(r.i32()));
 
     auto pieceCount = r.u32();
-    for (std::uint32_t i = 0; i < pieceCount && r.ok; ++i) {
-        proto::SerializedPersonaPiece p{};
-        p.piece_id        = r.str();
-        p.piece_type      = static_cast<decltype(p.piece_type)>(r.i32());
-        p.pack_id         = r.uuid();
-        p.is_default_piece = r.u8() != 0;
-        p.product_id      = r.str();
-        skin.persona_pieces.push_back(std::move(p));
-    }
-
+    if (pieceCount != 0)
+        return false; // 同上：结构不兼容
     auto tintCount = r.u32();
-    for (std::uint32_t i = 0; i < tintCount && r.ok; ++i) {
-        auto const type   = static_cast<proto::PieceType>(r.i32());
-        auto       colors = r.u32();
-        proto::TintMapColor tints{};
-        for (std::uint32_t j = 0; j < colors && j < tints.colors.size() && r.ok; ++j) {
-            tints.colors[j] = proto::Color{r.i32()};
-        }
-        skin.piece_tint_colors.emplace(type, tints);
-    }
+    if (tintCount != 0)
+        return false;
 
     skin.is_premium                      = r.u8() != 0;
     skin.is_persona                      = r.u8() != 0;
     skin.is_persona_cape_on_classic_skin = r.u8() != 0;
     skin.is_primary_user                 = r.u8() != 0;
     skin.overrides_player_appearance     = r.u8() != 0;
-    skin.trusted_skin_flag               = static_cast<decltype(skin.trusted_skin_flag)>(r.u8());
-    skin.profile_hash                    = r.str();
+    proto::setSkinTrusted(skin, static_cast<proto::TrustedSkinFlag>(r.u8()));
+    (void)r.str(); // profile_hash 占位
     return r.ok;
 }
 

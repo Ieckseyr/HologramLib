@@ -18,22 +18,22 @@ PlayerIndex& PlayerIndex::getInstance() {
 }
 
 void PlayerIndex::track(::Player& player) {
-    std::string      name = player.getRealName();
-    auto             id   = player.getNetworkIdentifier();
+    std::string name = player.getRealName();
+    // NetworkIdentifier 拷贝构造没导出，用 getHash() 当键
     std::unique_lock lock(mMutex);
-    mByNetId.insert_or_assign(id, &player);
+    mByNetId.insert_or_assign(player.getNetworkIdentifier().getHash(), &player);
     mNames.insert_or_assign(&player, std::move(name));
 }
 
 void PlayerIndex::forget(::Player& player) {
     std::unique_lock lock(mMutex);
-    mByNetId.erase(player.getNetworkIdentifier());
+    mByNetId.erase(player.getNetworkIdentifier().getHash());
     mNames.erase(&player);
 }
 
 ::Player* PlayerIndex::byNetworkId(::NetworkIdentifier const& id) const {
     std::shared_lock lock(mMutex);
-    auto const       it = mByNetId.find(id);
+    auto const       it = mByNetId.find(id.getHash());
     return it == mByNetId.end() ? nullptr : it->second;
 }
 

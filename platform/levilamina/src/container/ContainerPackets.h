@@ -92,7 +92,7 @@ inline proto::UpdateBlockPacket makeUpdateBlock(
     int           z,
     std::uint32_t runtimeId) {
     proto::UpdateBlockPacket packet;
-    packet.pos          = proto::BlockPos{x, y, z};
+    packet.pos          = proto::toNetworkPos(proto::BlockPos{x, y, z});
     packet.runtime_id   = proto::BlockRuntimeId{runtimeId};
     packet.update_flags = 3;
     packet.layer        = 0;
@@ -105,7 +105,7 @@ inline proto::BlockActorDataPacket makeBlockActorData(
     int        z,
     CompoundTag nbt) {
     proto::BlockActorDataPacket packet;
-    packet.pos  = proto::BlockPos{x, y, z};
+    packet.pos  = proto::toNetworkPos(proto::BlockPos{x, y, z});
     packet.data = std::move(nbt);
     return packet;
 }
@@ -113,8 +113,8 @@ inline proto::BlockActorDataPacket makeBlockActorData(
 inline proto::ContainerOpenPacket makeContainerOpen(int containerId, int x, int y, int z) {
     proto::ContainerOpenPacket packet;
     packet.container_id = static_cast<proto::ContainerIDType>(containerId);
-    packet.type         = proto::bp::ContainerType::Container;
-    packet.pos          = proto::BlockPos{x, y, z};
+    packet.type         = static_cast<proto::ContainerTypeType>(proto::bp::ContainerType::Container);
+    packet.pos          = proto::toNetworkPos(proto::BlockPos{x, y, z});
     packet.entity_unique_id = proto::ActorUniqueID{-1};
     return packet;
 }
@@ -122,7 +122,7 @@ inline proto::ContainerOpenPacket makeContainerOpen(int containerId, int x, int 
 inline proto::ContainerClosePacket makeContainerClose(int containerId) {
     proto::ContainerClosePacket packet;
     packet.container_id          = static_cast<proto::ContainerIDType>(containerId);
-    packet.container_type        = proto::bp::ContainerType::Container;
+    packet.container_type        = static_cast<decltype(packet.container_type)>(proto::bp::ContainerType::Container);
     packet.server_initiated_close = true;
     return packet;
 }

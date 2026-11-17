@@ -4,7 +4,7 @@
 #include "ll/api/base/TypeTraits.h"
 #include "ll/api/utils/SystemUtils.h"
 #include "mc/deps/core/math/Vec3.h"
-#include "mc/deps/nbt/CompoundTag.h"
+#include "mc/nbt/CompoundTag.h"
 #include "mc/world/Container.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"

@@ -342,8 +342,8 @@ int32_t holo_core_encode_player_list_add(
     namespace bp    = debugshape_export::core::proto::bp;
 
     proto::PlayerListPacket packet;
-    bp::PlayerListPacket::AddEntry entry;
-    entry.action = bp::PlayerListPacketType::Add;
+    proto::PlayerListAddEntry entry{};
+    proto::setPlayerListAction(entry, proto::PlayerListPacketType::Add);
     if (uuid16 != nullptr) {
         std::uint64_t msb = 0;
         std::uint64_t lsb = 0;
@@ -360,19 +360,20 @@ int32_t holo_core_encode_player_list_add(
         out.id             = skin->id != nullptr ? skin->id : "";
         out.full_id        = out.id;
         out.geometry_data  = skin->geometry != nullptr ? skin->geometry : "";
-        out.image_data.width  = skin->width;
-        out.image_data.height = skin->height;
+        std::string rgba;
         if (skin->rgba != nullptr && skin->rgba_len > 0) {
-            out.image_data.image_bytes.assign(skin->rgba, skin->rgba_len);
+            rgba.assign(skin->rgba, skin->rgba_len);
         }
+        proto::setSkinImage(out, skin->width, skin->height, std::move(rgba));
         out.arm_size = (skin->arm_size != nullptr && std::string_view{skin->arm_size} == "slim")
                            ? proto::ArmSizeType::Slim
                            : proto::ArmSizeType::Wide;
-        out.skin_color       = proto::SkinColorType{0};
+        proto::setSkinColor(out, 0);
         out.is_primary_user  = true;
-        out.trusted_skin_flag = proto::TrustedSkinFlag::False;
+        proto::setSkinTrusted(out, proto::TrustedSkinFlag::False);
     }
 
+    proto::setPlayerListAction(packet, proto::PlayerListPacketType::Add);
     packet.entries.push_back(entry);
     return debugshape_export::copyOut(proto::encode(packet), out_body, out_len);
 }
@@ -385,8 +386,8 @@ int32_t holo_core_encode_player_list_remove(
     namespace bp    = debugshape_export::core::proto::bp;
 
     proto::PlayerListPacket packet;
-    bp::PlayerListPacket::RemoveEntry entry;
-    entry.action = bp::PlayerListPacketType::Remove;
+    proto::PlayerListRemoveEntry entry{};
+    proto::setPlayerListAction(entry, proto::PlayerListPacketType::Remove);
     if (uuid16 != nullptr) {
         std::uint64_t msb = 0;
         std::uint64_t lsb = 0;
@@ -394,7 +395,8 @@ int32_t holo_core_encode_player_list_remove(
         std::memcpy(&lsb, uuid16 + 8, 8);
         entry.uuid = bp::UUID{__builtin_bswap64(msb), __builtin_bswap64(lsb)};
     }
-    packet.entries.push_back(entry);
+    proto::setPlayerListAction(packet, proto::PlayerListPacketType::Remove);
+    proto::pushPlayerListRemove(packet, entry.uuid);
 
     return debugshape_export::copyOut(proto::encode(packet), out_body, out_len);
 }

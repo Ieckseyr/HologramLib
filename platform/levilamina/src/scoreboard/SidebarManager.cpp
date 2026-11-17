@@ -10,10 +10,10 @@
 
 #include <mc/deps/core/utility/BinaryStream.h>
 #include <mc/network/MinecraftPacketIds.h>
-#include <mc/network/packet/ChangeFakePlayerScore.h>
-#include <mc/network/packet/RemoveScore.h>
 #include <mc/network/packet/SetScorePacket.h>
-#include <mc/network/packet/SetScorePacketPayload.h>
+#include <mc/world/scores/IdentityDefinition.h>
+#include <mc/network/packet/ScorePacketInfo.h>
+#include <mc/network/packet/SetScorePacket.h>
 #include <mc/world/scores/ScoreboardId.h>
 
 #include "core/proto/Version.h"
@@ -83,19 +83,24 @@ bool SidebarManager::sendScores(
     std::vector<std::string> const& lines,
     std::int64_t                    idBase) {
 
-    ::SetScorePacketPayload payload;
-    payload.mScoreInfo->reserve(lines.size());
+    // 898 的 SetScore 是 type + 平铺 ScorePacketInfo；引擎默认构造没导出，
+    // 用 static change() 造包。编码交给 BDS。
+    ::SetScorePacket packet = ::SetScorePacket::change({});
+    packet.mType            = ::ScorePacketType::Change;
+    auto& infos             = packet.mScoreInfo.get();
+    infos.clear();
+    infos.reserve(lines.size());
     for (std::size_t i = 0; i < lines.size(); ++i) {
-        ::ChangeFakePlayerScore entry;
-        entry.mScoreboardId->mRawID = idBase + static_cast<std::int64_t>(i);
-        entry.mObjectiveName        = objective;
-        entry.mScoreValue           = static_cast<int>(i + 1);
-        entry.mFakePlayerName       = lines[i];
-        payload.mScoreInfo->emplace_back(entry);
+        ::ScorePacketInfo entry;
+        (*entry.mScoreboardId).mRawID = idBase + static_cast<std::int64_t>(i);
+        *entry.mObjectiveName         = objective;
+        entry.mScoreValue             = static_cast<int>(i + 1);
+        entry.mIdentityType           = ::IdentityDefinition::Type::FakePlayer;
+        *entry.mFakePlayerName        = lines[i];
+        infos.emplace_back(std::move(entry));
     }
 
-    ::SetScorePacket packet{payload};
-    ::BinaryStream   stream;
+    ::BinaryStream stream;
     packet.write(stream);
     return wire::sendBody(
         player,
@@ -113,17 +118,20 @@ bool SidebarManager::sendRemoveScores(
     if (count <= 0)
         return true;
 
-    ::SetScorePacketPayload payload;
-    payload.mScoreInfo->reserve(static_cast<std::size_t>(count));
+    ::SetScorePacket packet = ::SetScorePacket::change({});
+    packet.mType            = ::ScorePacketType::Remove;
+    auto& infos             = packet.mScoreInfo.get();
+    infos.clear();
+    infos.reserve(static_cast<std::size_t>(count));
     for (int i = 0; i < count; ++i) {
-        ::RemoveScore entry;
-        entry.mScoreboardId->mRawID = idBase + static_cast<std::int64_t>(i);
-        entry.mObjectiveName        = objective;
-        payload.mScoreInfo->emplace_back(entry);
+        ::ScorePacketInfo entry;
+        (*entry.mScoreboardId).mRawID = idBase + static_cast<std::int64_t>(i);
+        *entry.mObjectiveName         = objective;
+        entry.mIdentityType           = ::IdentityDefinition::Type::FakePlayer;
+        infos.emplace_back(std::move(entry));
     }
 
-    ::SetScorePacket packet{payload};
-    ::BinaryStream   stream;
+    ::BinaryStream stream;
     packet.write(stream);
     return wire::sendBody(
         player,

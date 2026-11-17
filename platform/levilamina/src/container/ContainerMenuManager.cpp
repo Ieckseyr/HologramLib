@@ -24,7 +24,7 @@
 #include <mc/network/NetworkPeer.h>
 #include <mc/network/NetworkSystem.h>
 #include <mc/network/packet/InventorySlotPacket.h>
-#include <mc/network/packet/InventorySlotPacketPayload.h>
+#include <mc/network/packet/InventorySlotPacket.h>
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/item/ItemStack.h>
 #include <mc/world/level/BlockPos.h>
@@ -51,11 +51,17 @@ namespace proto = ::debugshape_export::core::proto;
 namespace {
 
 std::uint32_t chestBlockNetworkId() {
-    static std::uint32_t const cached = [] {
-        auto&          registry = BlockTypeRegistry::mBlockTypeRegistry().mValue;
-        ::Block const& chest    = registry.getDefaultBlockState(VanillaBlockTypeIds::Chest(), true);
-        return static_cast<std::uint32_t>(chest.mNetworkId);
-    }();
+    // 1.9.7 的 BlockTypeRegistry::mBlockTypeRegistry() 是空壳（Bedrock::Owner 没有成员），
+    // 改从 Level 上拿注册表；第一次命中后缓存。
+    static std::uint32_t cached = 0;
+    if (cached != 0)
+        return cached;
+    auto level = ::ll::service::getLevel();
+    if (!level)
+        return 0;
+    auto registry = level->getBlockTypeRegistry();
+    ::Block const& chest = registry->getDefaultBlockState(VanillaBlockTypeIds::Chest(), true);
+    cached = static_cast<std::uint32_t>(chest.mNetworkId);
     return cached;
 }
 
@@ -190,8 +196,8 @@ void ContainerMenuManager::sendMinecartCarrier(Player& player, Menu const& menu)
 
     proto::ContainerOpenPacket open;
     open.container_id      = static_cast<proto::ContainerIDType>(menu.containerId);
-    open.type              = proto::bp::ContainerType::MinecartChest;
-    open.pos               = proto::BlockPos{menu.posX, menu.posY, menu.posZ};
+    open.type              = static_cast<decltype(open.type)>(proto::bp::ContainerType::MinecartChest);
+    open.pos               = proto::toNetworkPos(proto::BlockPos{menu.posX, menu.posY, menu.posZ});
     open.entity_unique_id  = proto::ActorUniqueID{static_cast<std::int64_t>(uid)};
     container_util::sendPacket(player, open);
 }
@@ -382,10 +388,11 @@ bool ContainerMenuManager::update(int64_t menuId, hologramlib::ContainerMenuSpec
     int const slots = std::min<int>(copy.slotCount(), static_cast<int>(copy.spec.items.size()));
     for (int slot = 0; slot < slots; ++slot) {
         auto                  stack = item::makeMenuItemStack(copy.spec.items[slot]);
-        ::InventorySlotPacket packet{::InventorySlotPacketPayload(
+        // 1.9.7：没有 Payload 包装，直接用 (容器, 槽, 物品) 构造
+        ::InventorySlotPacket packet{
             static_cast<::ContainerID>(copy.containerId),
             static_cast<uint>(slot),
-            stack)};
+            stack};
         (void)wire::send(*player, packet);
     }
     HLIB_LOG_INFO(
@@ -487,7 +494,10 @@ bool ContainerMenuManager::blockEvent(int64_t menuId, int b0, int b1) {
         return false;
 
     ::BlockEventPacket packet;
-    packet.mPos = ::BlockPos{copy.posX, copy.posY, copy.posZ};
+    // BlockEventPacket.mPos 是引擎侧的 NetworkBlockPosition（TypedStorage 包装），逐字段赋值
+    packet.mPos->x = copy.posX;
+    packet.mPos->y = copy.posY;
+    packet.mPos->z = copy.posZ;
     packet.mB0  = b0;
     packet.mB1  = b1;
     (void)wire::send(*player, packet);

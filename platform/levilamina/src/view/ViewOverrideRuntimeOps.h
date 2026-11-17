@@ -1,5 +1,6 @@
 #pragma once
 
+#include "compat/McCompat.h"
 #include "core/DiagFlags.h"
 
 #include "ViewOverrideManager.h"
@@ -13,21 +14,21 @@
 #include <ll/api/service/Bedrock.h>
 
 #include <mc/deps/core/string/HashedString.h>
-#include <mc/deps/nbt/CompoundTag.h>
+#include <mc/nbt/CompoundTag.h>
 #include <mc/legacy/ActorUniqueID.h>
 #include <mc/network/MinecraftPacketIds.h>
 #include <mc/network/Packet.h>
-#include <mc/network/packet/AddActorPacketPayload.h>
-#include <mc/network/packet/AddItemActorPacketPayload.h>
-#include <mc/network/packet/AddPlayerPacketPayload.h>
-#include <mc/network/packet/LevelChunkPacketPayload.h>
+#include <mc/network/packet/AddActorPacket.h>
+#include <mc/network/packet/AddItemActorPacket.h>
+#include <mc/network/packet/AddPlayerPacket.h>
+#include <mc/network/packet/LevelChunkPacket.h>
 #include <mc/network/packet/MoveActorAbsoluteData.h>
-#include <mc/network/packet/MoveActorAbsolutePacketPayload.h>
+#include <mc/network/packet/MoveActorAbsolutePacket.h>
 #include <mc/network/packet/MoveActorDeltaData.h>
-#include <mc/network/packet/MoveActorDeltaPacketPayload.h>
-#include <mc/network/packet/MovePlayerPacketPayload.h>
-#include <mc/network/packet/SetActorDataPacketPayload.h>
-#include <mc/network/packet/SetActorMotionPacketPayload.h>
+#include <mc/network/packet/MoveActorDeltaPacket.h>
+#include <mc/network/packet/MovePlayerPacket.h>
+#include <mc/network/packet/SetActorDataPacket.h>
+#include <mc/network/packet/SetActorMotionPacket.h>
 #include <mc/network/packet/UpdateBlockPacketPayload.h>
 #include <mc/network/packet/UpdateBlockSyncedPacketPayload.h>
 #include <mc/world/actor/Actor.h>
@@ -163,7 +164,7 @@ inline ::Actor* liveActorNear(::Player& player, std::int64_t uniqueId, float max
     auto* actor = level->fetchEntity(::ActorUniqueID{uniqueId}, false);
     if (actor == nullptr)
         return nullptr;
-    return player.distanceTo(*actor) <= maxDistance ? actor : nullptr;
+    return holo_compat::distance(player, *actor) <= maxDistance ? actor : nullptr;
 }
 
 using view::planOf;

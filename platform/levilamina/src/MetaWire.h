@@ -29,31 +29,31 @@ inline Entry make(proto::ActorDataIDs id, ValueT&& value) {
 } // namespace detail
 
 inline Entry byte(proto::ActorDataIDs id, std::uint8_t v) {
-    return detail::make<proto::bp::DataItemBytePayload>(id, static_cast<std::int8_t>(v));
+    return detail::make<proto::DataItemBytePayload>(id, static_cast<std::int8_t>(v));
 }
 
 inline Entry byte(proto::ActorDataIDs id, std::int8_t v) {
-    return detail::make<proto::bp::DataItemBytePayload>(id, v);
+    return detail::make<proto::DataItemBytePayload>(id, v);
 }
 
 inline Entry int16(proto::ActorDataIDs id, std::int16_t v) {
-    return detail::make<proto::bp::DataItemShortPayload>(id, v);
+    return detail::make<proto::DataItemShortPayload>(id, v);
 }
 
 inline Entry int32(proto::ActorDataIDs id, std::int32_t v) {
-    return detail::make<proto::bp::DataItemIntPayload>(id, v);
+    return detail::make<proto::DataItemIntPayload>(id, v);
 }
 
 inline Entry int64(proto::ActorDataIDs id, std::int64_t v) {
-    return detail::make<proto::bp::DataItemInt64Payload>(id, v);
+    return detail::make<proto::DataItemInt64Payload>(id, v);
 }
 
 inline Entry float32(proto::ActorDataIDs id, float v) {
-    return detail::make<proto::bp::DataItemFloatPayload>(id, v);
+    return detail::make<proto::DataItemFloatPayload>(id, v);
 }
 
 inline Entry string(proto::ActorDataIDs id, std::string v) {
-    return detail::make<proto::bp::DataItemStringPayload>(id, std::move(v));
+    return detail::make<proto::DataItemStringPayload>(id, std::move(v));
 }
 
 inline Entry string(proto::ActorDataIDs id, std::string_view v) {
@@ -61,7 +61,7 @@ inline Entry string(proto::ActorDataIDs id, std::string_view v) {
 }
 
 inline Entry vec3(proto::ActorDataIDs id, proto::Vec3 v) {
-    return detail::make<proto::bp::DataItemVec3Payload>(id, v);
+    return detail::make<proto::DataItemVec3Payload>(id, v);
 }
 
 } // namespace debugshape_export::meta_wire

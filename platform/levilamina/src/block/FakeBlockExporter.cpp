@@ -16,7 +16,7 @@
 
 #include "core/proto/Version.h"
 
-#include <mc/deps/nbt/CompoundTag.h>
+#include <mc/nbt/CompoundTag.h>
 
 #include <cctype>
 #include <cstdlib>
@@ -37,7 +37,7 @@ namespace {
 
 bool sendUpdateBlock(::Player& player, int x, int y, int z, std::uint32_t runtimeId) {
     proto::UpdateBlockPacket packet;
-    packet.pos          = proto::BlockPos{x, y, z};
+    packet.pos          = proto::toNetworkPos(proto::BlockPos{x, y, z});
     packet.runtime_id   = proto::BlockRuntimeId{runtimeId};
     packet.update_flags = 3;
     packet.layer        = 0;
@@ -69,7 +69,7 @@ bool sendBlockActorData(::Player& player, int x, int y, int z, ::CompoundTag con
         return false;
 
     proto::BlockActorDataPacket packet;
-    packet.pos  = proto::BlockPos{x, y, z};
+    packet.pos  = proto::toNetworkPos(proto::BlockPos{x, y, z});
     packet.data = std::move(*compound);
 
     auto bytes = wire::encode(packet);

@@ -11,7 +11,7 @@
 
 #include <mc/deps/core/math/Vec2.h>
 #include <mc/deps/core/string/HashedString.h>
-#include <mc/deps/nbt/CompoundTag.h>
+#include <mc/nbt/CompoundTag.h>
 #include <mc/network/packet/MobArmorEquipmentPacket.h>
 #include <mc/network/packet/MobEquipmentPacket.h>
 #include <mc/world/ContainerID.h>

@@ -65,7 +65,7 @@ inline std::uint64_t& viewTickRef() {
     return viewTickRef();
 }
 
-inline void pushMetaItems(proto::ActorDataList& data, logic::MetaPlan const& plan) {
+inline void pushMetaItems(std::vector<proto::DataItemEntry>& data, logic::MetaPlan const& plan) {
     using ids = proto::ActorDataIDs;
     if (plan.setName) {
         data.push_back(meta_wire::string(ids::Name, plan.name));
@@ -207,8 +207,8 @@ inline void sendActorSpawn(
     auto const& rot     = actor.getRotation();
     packet.rot.x        = rot.x;
     packet.rot.y        = rot.y;
-    packet.y_head_rotation = actor.getYHeadRot();
-    packet.y_body_rotation = actor.getYHeadRot();
+    packet.y_head_rotation = rot.y;
+    packet.y_body_rotation = rot.y;
     packet.links           = {};
 
     packet.data.data.push_back(meta_wire::int64(proto::ActorDataIDs::Reserved0, visualFlagsOf(actor)));
@@ -337,7 +337,7 @@ inline void sendItemActorAsOther(
 
 inline void sendBlockUpdate(::Player& player, int x, int y, int z, std::uint32_t runtimeId) {
     proto::UpdateBlockPacket packet;
-    packet.pos          = proto::BlockPos{x, y, z};
+    packet.pos          = proto::toNetworkPos(proto::BlockPos{x, y, z});
     packet.runtime_id   = proto::BlockRuntimeId{runtimeId};
     packet.update_flags = 3;
     packet.layer        = 0;
@@ -416,7 +416,7 @@ inline bool sendRealPlayerBody(
     body.pos                                   = {pos.x, pos.y, pos.z};
     body.velocity                              = {velocity.x, velocity.y, velocity.z};
     body.rot                                   = {rot.x, rot.y};
-    body.y_head_rot                            = target.getYHeadRot();
+    body.y_head_rot                            = rot.y;
     body.player_game_type                      = gameTypeOfPlayMode(playMode);
     body.abilities_data.target_player          = proto::ActorUniqueID{uniqueId};
     body.abilities_data.player_permissions     = static_cast<decltype(body.abilities_data.player_permissions)>(1);
@@ -472,11 +472,11 @@ inline bool sendSkinnedSpawn(
         skin.full_id                = skin.id;
     }
 
-    if (skin.image_data.image_bytes.empty() || skin.geometry_data.empty()) {
+    if (proto::skinImageByteCount(skin) == 0 || skin.geometry_data.empty()) {
         HLIB_LOG_WARN(
             "[视图] 皮肤数据不完整: 皮肤={} 贴图={} 字节 几何={} 字节 资源补丁={} 字节 id='{}' —— 客户端会显示默认模型",
             skinId,
-            skin.image_data.image_bytes.size(),
+            proto::skinImageByteCount(skin),
             skin.geometry_data.size(),
             skin.resource_patch.size(),
             skin.id);
@@ -507,7 +507,7 @@ inline bool sendSkinnedSpawn(
         skinId,
         s,
         bodyOk,
-        skin.image_data.image_bytes.size(),
+        proto::skinImageByteCount(skin),
         skin.geometry_data.size(),
         skin.id);
     ++mSkinnedSpawnCounter;

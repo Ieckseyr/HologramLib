@@ -1,3 +1,4 @@
+#include "compat/McCompat.h"
 #include "PlayerVisibilityManager.h"
 
 #include "kernel/EventIds.h"
@@ -6,16 +7,16 @@
 #include <ll/api/service/Bedrock.h>
 
 #include <mc/network/Packet.h>
-#include <mc/network/packet/ActorEventPacketPayload.h>
-#include <mc/network/packet/AddPlayerPacketPayload.h>
-#include <mc/network/packet/AnimatePacketPayload.h>
-#include <mc/network/packet/MobEffectPacketPayload.h>
-#include <mc/network/packet/MoveActorAbsolutePacketPayload.h>
-#include <mc/network/packet/MovePlayerPacketPayload.h>
-#include <mc/network/packet/PlayerListPacketPayload.h>
-#include <mc/network/packet/PlayerSkinPacketPayload.h>
-#include <mc/network/packet/SetActorDataPacketPayload.h>
-#include <mc/network/packet/SetActorMotionPacketPayload.h>
+#include <mc/network/packet/ActorEventPacket.h>
+#include <mc/network/packet/AddPlayerPacket.h>
+#include <mc/network/packet/AnimatePacket.h>
+#include <mc/network/packet/MobEffectPacket.h>
+#include <mc/network/packet/MoveActorAbsolutePacket.h>
+#include <mc/network/packet/MovePlayerPacket.h>
+#include <mc/network/packet/PlayerListPacket.h>
+#include <mc/network/packet/PlayerSkinPacket.h>
+#include <mc/network/packet/SetActorDataPacket.h>
+#include <mc/network/packet/SetActorMotionPacket.h>
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/level/Level.h>
 
@@ -48,12 +49,15 @@ enum class Category { Unknown,
 
 std::uint64_t runtimeIdOf(::Packet const& packet, Category& category) {
     switch (packet.getId()) {
+    // 1.9.7：这几个包字段直存，其余仍是 PayloadPacket。
     case ::MinecraftPacketIds::AddPlayer:
         category = Category::Spawn;
-        return static_cast<std::uint64_t>(unwrap(payloadOf<::AddPlayerPacketPayload>(packet).mRuntimeId).rawID);
+        return static_cast<std::uint64_t>(
+            unwrap(static_cast<::AddPlayerPacket const&>(packet).mRuntimeId).rawID);
     case ::MinecraftPacketIds::MovePlayer:
         category = Category::Motion;
-        return static_cast<std::uint64_t>(unwrap(payloadOf<::MovePlayerPacketPayload>(packet).mPlayerID).rawID);
+        return static_cast<std::uint64_t>(
+            unwrap(static_cast<::MovePlayerPacket const&>(packet).mPlayerID).rawID);
     case ::MinecraftPacketIds::MoveAbsoluteActor:
         category = Category::Motion;
         return static_cast<std::uint64_t>(
@@ -63,7 +67,8 @@ std::uint64_t runtimeIdOf(::Packet const& packet, Category& category) {
         return static_cast<std::uint64_t>(unwrap(payloadOf<::SetActorMotionPacketPayload>(packet).mRuntimeId).rawID);
     case ::MinecraftPacketIds::SetActorData:
         category = Category::State;
-        return static_cast<std::uint64_t>(unwrap(payloadOf<::SetActorDataPacketPayload>(packet).mId).rawID);
+        return static_cast<std::uint64_t>(
+            unwrap(static_cast<::SetActorDataPacket const&>(packet).mId).rawID);
     case ::MinecraftPacketIds::Animate:
         category = Category::State;
         return static_cast<std::uint64_t>(unwrap(payloadOf<::AnimatePacketPayload>(packet).mRuntimeId).rawID);
@@ -229,7 +234,8 @@ bool PlayerVisibilityManager::shouldDrop(::Player& recipient, ::Packet const& pa
     } else {
         switch (packet.getId()) {
         case ::MinecraftPacketIds::PlayerList: {
-            auto const& entries = unwrap(payloadOf<::PlayerListPacketPayload>(packet).mEntries);
+#if HOLO_HAS_PLAYERLIST_ENTRY_FIELDS
+            auto const& entries = unwrap(holo_compat::asPacket<::PlayerListPacket>(packet).mEntries);
             if (entries.empty())
                 return false;
 
@@ -257,10 +263,14 @@ bool PlayerVisibilityManager::shouldDrop(::Player& recipient, ::Packet const& pa
             }
             subject  = onlyName;
             category = allAdd ? Category::Spawn : Category::Tab;
+#else
+            // 898 读不到条目 UUID：不转发，直接放过。
+            return false;
+#endif
             break;
         }
         case ::MinecraftPacketIds::PlayerSkin: {
-            auto const& payload     = payloadOf<::PlayerSkinPacketPayload>(packet);
+            auto const& payload     = static_cast<::PlayerSkinPacket const&>(packet);
             auto*       subjectByUu = playerByUuid(unwrap(payload.mUUID));
             if (subjectByUu == nullptr)
                 return false;

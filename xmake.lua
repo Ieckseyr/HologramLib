@@ -101,6 +101,12 @@ if is_mode("release") then
     add_ldflags("/DEBUG:FULL", {force = true})
 end
 
+-- 默认 1.9.7（BDS 1.21.132.3 / 协议 898）；HOLO_LL_VERSION=26.60.0 切回 26.60 线。
+local LL_VERSION = os.getenv("HOLO_LL_VERSION")
+if not LL_VERSION or LL_VERSION == "" then
+    LL_VERSION = "1.9.7"
+end
+
 -- 本地 liteldev-repo 缓存
 local function find_local_repo()
     local candidates = {}
@@ -116,9 +122,10 @@ local function find_local_repo()
     for _, sibling in ipairs({ "MeowMenu", "MeowKb", "MeowPAPI", "MeowSidebar", "ItemPhys-main" }) do
         table.insert(candidates, path.join(os.projectdir(), "..", sibling, ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"))
     end
-    -- 只认带 26.60.0 登记的那份, 别捡到旧缓存
+    -- 只认登记了目标 levilamina 版本的那份, 别捡到旧缓存
+    local wanted = "versions/" .. string.gsub(LL_VERSION, "%.", "_") .. ".lua"
     for _, p in ipairs(candidates) do
-        if os.exists(path.join(p, "packages", "l", "levilamina", "versions", "26_60_0.lua")) then
+        if os.exists(path.join(p, "packages", "l", "levilamina", wanted)) then
             return p
         end
     end
@@ -151,14 +158,17 @@ local function protocol_install_dir()
     return dir
 end
 
--- 与服务端(26.60 / BDS 1.26.60.6)匹配的 levilamina 版本（bedrockdata v26.60.6-server.1）
+-- 与服务端匹配的 levilamina 版本。
+-- 1.9.7  = BDS 1.21.132.3（协议 898，bedrockdata v1.21.132-server.8）
+-- 26.60.0 = BDS 1.26.60.6（协议 2225，bedrockdata v26.60.6-server.1）
 if is_config("target_type", "server") then
-    add_requires("levilamina 26.60.0", {configs = {target_type = "server"}})
+    add_requires("levilamina " .. LL_VERSION, {configs = {target_type = "server"}})
 else
-    add_requires("levilamina 26.60.0", {configs = {target_type = "client"}})
+    add_requires("levilamina " .. LL_VERSION, {configs = {target_type = "client"}})
 end
 
-add_requires("levibuildscript")
+-- levibuildscript 改为项目内联（离线构建）：见 tools/levibuildscript/xmake.lua
+includes("tools/levibuildscript")
 add_requires("magic_enum v0.9.7")
 
 if not has_config("vs_runtime") then
@@ -194,11 +204,11 @@ option("holo_asan")
 option_end()
 
 target("HologramLib")
-    add_rules("@levibuildscript/linkrule")
+    add_rules("linkrule")
     if os.isfile("symbol_missing.lua") then
         add_rules("symbol_missing")
     end
-    add_rules("@levibuildscript/modpacker")
+    add_rules("modpacker")
     add_rules("holo_deploy")
     -- 不加 /EHa, 与 set_exceptions 冲突
     add_cxflags("/utf-8", "/W4")
@@ -227,6 +237,15 @@ target("HologramLib")
 
     -- 协议前置（EndstoneMC/bedrock-protocol，生成式 codec，唯一协议依赖）
     local bp_install = path.join(os.projectdir(), "..", "..", ".llsdk", "endstone-proto", "install")
+    -- 1.9.7 依赖的是 rapidjson v1.1.0，clang 22 编不过 document.h，用新版头覆盖。
+    local rj_new = path.join(os.getenv("LOCALAPPDATA") or "", ".xmake", "packages", "r", "rapidjson", "2025.02.05")
+    for _, dir in ipairs(os.dirs(path.join(rj_new, "*"))) do
+        if os.isfile(path.join(dir, "include", "rapidjson", "document.h")) then
+            add_includedirs(path.join(dir, "include"), {public = true})
+            break
+        end
+    end
+
     add_sysincludedirs(path.join(bp_install, "include"))
     add_linkdirs(path.join(bp_install, "lib"))
     add_links("bedrock_protocol")
@@ -252,6 +271,8 @@ target("HologramLib")
     -- C ABI 只由 holo_core 导出（endstone 用），LL 版不需要第二份
     remove_files("core/c_api.cpp")
 
+    -- 垫片目录必须排在 LeviLamina 头之前
+    add_includedirs("platform/levilamina/src/compat", {public = true})
     add_includedirs("platform/levilamina/src", ".", "include")
     set_symbols("debug") -- 崩溃栈符号化（部署链已含 PDB; 原值 hidden）
     add_ldflags("/OPT:REF", "/OPT:ICF")

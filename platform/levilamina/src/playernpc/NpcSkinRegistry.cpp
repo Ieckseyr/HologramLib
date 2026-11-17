@@ -58,7 +58,7 @@ std::int32_t toPackedColor(mce::Color const& color) {
         (toByte(color.a) << 24) | (toByte(color.r) << 16) | (toByte(color.g) << 8) | toByte(color.b));
 }
 
-proto::PieceType toProtoPieceType(::SharedTypes::persona::PieceType type) {
+proto::PieceType toProtoPieceType(::persona::PieceType type) {
     auto const raw = static_cast<std::uint32_t>(type);
     if (raw > static_cast<std::uint32_t>(proto::PieceType::Unsupported)) {
         return proto::PieceType::Unsupported;
@@ -110,10 +110,8 @@ bool NpcSkinRegistry::registerSkinFromPng(
         return false;
 
     proto::SerializedSkinRef protoSkin;
-    protoSkin.id                 = "HoloLibNpcSkin_" + skinId;
-    protoSkin.image_data.width   = image.width;
-    protoSkin.image_data.height  = image.height;
-    protoSkin.image_data.image_bytes = std::move(image.rgba);
+    protoSkin.id = "HoloLibNpcSkin_" + skinId;
+    proto::setSkinImage(protoSkin, image.width, image.height, std::move(image.rgba));
 
     if (!skin.geometryData.empty()) {
         auto const identifier = skin::parseGeometryIdentifier(skin.geometryData);
@@ -238,15 +236,19 @@ bool NpcSkinRegistry::captureSkin(std::string const& skinId, std::string const& 
     protoSkin.id             = impl.mId;
     protoSkin.resource_patch = impl.mResourcePatch;
 
-    protoSkin.image_data.width       = impl.mSkinImage.get().mWidth;
-    protoSkin.image_data.height      = impl.mSkinImage.get().mHeight;
-    protoSkin.image_data.image_bytes = blobToString(impl.mSkinImage.get().mImageBytes);
+    proto::setSkinImage(
+        protoSkin,
+        impl.mSkinImage.get().mWidth,
+        impl.mSkinImage.get().mHeight,
+        blobToString(impl.mSkinImage.get().mImageBytes));
 
     for (auto const& anim : impl.mSkinAnimatedImages.get()) {
         proto::AnimatedImageData out{};
-        out.image.width          = anim.mImage.get().mWidth;
-        out.image.height         = anim.mImage.get().mHeight;
-        out.image.image_bytes    = blobToString(anim.mImage.get().mImageBytes);
+        proto::setAnimImage(
+            out,
+            anim.mImage.get().mWidth,
+            anim.mImage.get().mHeight,
+            blobToString(anim.mImage.get().mImageBytes));
         out.type                 = static_cast<decltype(out.type)>(static_cast<std::uint32_t>(anim.mType));
         out.frames               = anim.mFrames;
         out.animation_expression = static_cast<decltype(out.animation_expression)>(
@@ -254,9 +256,11 @@ bool NpcSkinRegistry::captureSkin(std::string const& skinId, std::string const& 
         protoSkin.animated_image_data.push_back(std::move(out));
     }
 
-    protoSkin.cape_image_data.width       = impl.mCapeImage.get().mWidth;
-    protoSkin.cape_image_data.height      = impl.mCapeImage.get().mHeight;
-    protoSkin.cape_image_data.image_bytes = blobToString(impl.mCapeImage.get().mImageBytes);
+    proto::setSkinCapeImage(
+        protoSkin,
+        impl.mCapeImage.get().mWidth,
+        impl.mCapeImage.get().mHeight,
+        blobToString(impl.mCapeImage.get().mImageBytes));
 
     auto const& geoMutable    = impl.mGeometryDataMutable.get();
     auto const& geoRaw        = impl.mGeometryData.get();
@@ -266,29 +270,25 @@ bool NpcSkinRegistry::captureSkin(std::string const& skinId, std::string const& 
 
     protoSkin.animation_data = impl.mAnimationData;
     protoSkin.cape_id        = impl.mCapeId;
-    protoSkin.arm_size       = (impl.mArmSizeType == ::SharedTypes::persona::ArmSizeType::Slim)
+    protoSkin.arm_size       = (impl.mArmSizeType == ::persona::ArmSize::Type::Slim)
                                    ? proto::bp::ArmSizeType::Slim
                                    : proto::bp::ArmSizeType::Wide;
-    protoSkin.skin_color     = proto::Color{toPackedColor(impl.mSkinColor.get())};
+    proto::setSkinColor(protoSkin, toPackedColor(impl.mSkinColor.get()));
 
-    for (auto const& piece : impl.mPersonaPieces.get()) {
-        proto::SerializedPersonaPiece out{};
-        out.piece_id        = piece.mPieceId;
-        out.piece_type      = toProtoPieceType(piece.mPieceType);
-        out.pack_id         = proto::UUID{piece.mPackId.get().a, piece.mPackId.get().b};
-        out.is_default_piece = piece.mIsDefaultPiece;
-        out.product_id      = piece.mProductId;
-        protoSkin.persona_pieces.push_back(std::move(out));
-    }
-
-    for (auto const& [pieceType, tints] : impl.mPieceTintColors.get()) {
-        proto::TintMapColor out{};
-        auto const&         src = tints.colors.get();
-        for (std::size_t i = 0; i < out.colors.size() && i < src.size(); ++i) {
-            out.colors[i] = proto::Color{toPackedColor(src[i])};
+    // persona/tint 结构两代不同，NPC 外观不依赖；898 线编译掉。
+#if HOLO_PROTOCOL_HAS_RICH_SKIN
+    {
+        for (auto const& piece : impl.mPersonaPieces.get()) {
+            proto::SerializedPersonaPiece out{};
+            out.piece_id         = piece.mPieceId;
+            out.piece_type       = toProtoPieceType(piece.mPieceType);
+            out.pack_id          = proto::UUID{piece.mPackId.get().a, piece.mPackId.get().b};
+            out.is_default_piece = piece.mIsDefaultPiece;
+            out.product_id       = piece.mProductId;
+            protoSkin.persona_pieces.push_back(std::move(out));
         }
-        protoSkin.piece_tint_colors.emplace(toProtoPieceType(pieceType), out);
     }
+#endif
 
     protoSkin.is_premium                      = impl.mIsPremium;
     protoSkin.is_persona                      = impl.mIsPersona;
@@ -315,8 +315,10 @@ bool NpcSkinRegistry::captureSkin(std::string const& skinId, std::string const& 
         replaceAll(protoSkin.cape_id, playerTag, generic);
 
         protoSkin.id = "hl_npc_" + generic;
+#if HOLO_PROTOCOL_HAS_RICH_SKIN
         protoSkin.persona_pieces.clear();
         protoSkin.piece_tint_colors.clear();
+#endif
         protoSkin.is_persona     = false;
         protoSkin.is_primary_user = true;
     }

@@ -45,24 +45,23 @@ inline proto::UUID npcUuid(std::int64_t id) {
     return {0xF0B3'4E50'4300'0000ULL, static_cast<std::uint64_t>(id)};
 }
 
-// PlayerList 的 AddEntry。skin 的 trusted_skin_flag 就是线上信任三态，调用方传入的值会被覆盖成 True。
-inline proto::PlayerListAddEntry playerListEntry(
+// 898 的条目没有 action 字段（动作挂在包上），2225 的 AddEntry 自带。
+inline proto::PlayerListEntry playerListEntry(
     proto::UUID const&              uuid,
     std::int64_t                    uniqueId,
     std::string const&              name,
     proto::SerializedSkinRef const& skin) {
-    proto::PlayerListAddEntry entry;
-    entry.action             = proto::PlayerListPacketType::Add;
+    proto::PlayerListEntry entry{};
+    proto::setPlayerListAction(entry, proto::PlayerListPacketType::Add);
     entry.uuid               = uuid;
     entry.id                 = proto::ActorUniqueID{uniqueId};
     entry.name               = name;
     entry.xuid               = "0";
-    entry.play_fab_id        = {};
+    proto::clearPlayFabId(entry);
     entry.platform_online_id = {};
     entry.build_platform     = static_cast<decltype(entry.build_platform)>(1);
     entry.skin               = skin;
-    entry.skin.trusted_skin_flag =
-        static_cast<decltype(entry.skin.trusted_skin_flag)>(kSkinTrustedTrue);
+    proto::setSkinTrusted(entry.skin, proto::TrustedSkinFlag::True);
     entry.is_teacher     = false;
     entry.is_host        = false;
     entry.is_sub_client  = false;

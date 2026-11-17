@@ -44,7 +44,7 @@ int32_t holo_core_encode_block_actor_data(
     }
 
     proto::BlockActorDataPacket packet;
-    packet.pos   = proto::BlockPos{x, y, z};
+    packet.pos   = proto::toNetworkPos(proto::BlockPos{x, y, z});
     packet.data  = std::move(*compound);
     packet.data["x"] = trade::makeTag(bp::IntTag{x});
     packet.data["y"] = trade::makeTag(bp::IntTag{y});

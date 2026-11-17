@@ -45,7 +45,7 @@ inline std::uint8_t rotationByte(float degrees) {
 
 inline bool removePlayerList(Player& player, std::int64_t id) {
     proto::PlayerListPacket packet;
-    packet.entries.push_back(playerListRemoveEntry(npcUuid(id)));
+    proto::pushPlayerListRemove(packet, npcUuid(id));
     return sendToPlayer(player, packet, wire::Reliability::Reliable);
 }
 
@@ -56,6 +56,7 @@ inline bool spawnPlayerList(
     std::string const&              name,
     proto::SerializedSkinRef const& skin) {
     proto::PlayerListPacket packet;
+    proto::setPlayerListAction(packet, proto::PlayerListPacketType::Add);
     packet.entries.push_back(
         playerListEntry(npcUuid(id), static_cast<std::int64_t>(uniqueId), name, skin));
     return sendToPlayer(player, packet, wire::Reliability::Reliable);
@@ -68,6 +69,7 @@ inline std::string buildPlayerListBody(
     std::string const&              name,
     proto::SerializedSkinRef const& skin) {
     proto::PlayerListPacket packet;
+    proto::setPlayerListAction(packet, proto::PlayerListPacketType::Add);
     packet.entries.push_back(
         playerListEntry(npcUuid(id), static_cast<std::int64_t>(uniqueId), name, skin));
     return codec::body(packet);
@@ -76,8 +78,7 @@ inline std::string buildPlayerListBody(
 inline std::string buildPlayerSkinBody(std::int64_t id, proto::SerializedSkinRef const& skin) {
     proto::PlayerSkinPacket packet;
     packet.uuid                     = npcUuid(id);
-    packet.skin                     = skin;
-    packet.skin.trusted_skin_flag   = static_cast<decltype(packet.skin.trusted_skin_flag)>(2);
+    proto::copySkin(packet.skin, skin);
     packet.localized_new_skin_name  = skin.id.empty() ? skin.full_id : skin.id;
     packet.localized_old_skin_name  = packet.localized_new_skin_name;
     return codec::body(packet);
@@ -98,15 +99,14 @@ inline proto::PlayerListAddEntry playerListEntryForPlayer(
     proto::PlayerListAddEntry entry;
     entry.uuid               = proto::UUID{uuid.a, uuid.b};
     entry.id                 = proto::ActorUniqueID{static_cast<std::int64_t>(player.getOrCreateUniqueID().rawID)};
-    entry.action             = proto::PlayerListPacketType::Add;
+    proto::setPlayerListAction(entry, proto::PlayerListPacketType::Add);
     entry.name               = player.getRealName();
     entry.xuid               = std::move(xuid);
-    entry.play_fab_id        = {};
+    proto::clearPlayFabId(entry);
     entry.platform_online_id = {};
     entry.build_platform     = static_cast<decltype(entry.build_platform)>(1);
     entry.skin               = skin;
-    entry.skin.trusted_skin_flag =
-        static_cast<decltype(entry.skin.trusted_skin_flag)>(kSkinTrustedTrue);
+    proto::setSkinTrusted(entry.skin, proto::TrustedSkinFlag::True);
     entry.is_teacher    = false;
     entry.is_host       = false;
     entry.is_sub_client = false;
@@ -117,8 +117,7 @@ inline proto::PlayerListAddEntry playerListEntryForPlayer(
 inline bool sendPlayerSkin(Player& player, std::int64_t id, proto::SerializedSkinRef const& skin) {
     proto::PlayerSkinPacket packet;
     packet.uuid                    = npcUuid(id);
-    packet.skin                    = skin;
-    packet.skin.trusted_skin_flag  = static_cast<decltype(packet.skin.trusted_skin_flag)>(2);
+    proto::copySkin(packet.skin, skin);
     packet.localized_new_skin_name = skin.id.empty() ? skin.full_id : skin.id;
     packet.localized_old_skin_name = packet.localized_new_skin_name;
     return sendToPlayer(player, packet, wire::Reliability::Reliable);
