@@ -1,6 +1,5 @@
 #include "kernel/TickSource.h"
 
-#include "DiagLog.h"
 #include "core/HookRegistry.h"
 
 #include <ll/api/memory/Hook.h>

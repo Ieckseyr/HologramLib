@@ -534,11 +534,6 @@ void BlockBatchManager::onPlayerLeave(std::string const& playerName) {
 void BlockBatchManager::tick() {
     if (mImpl == nullptr)
         return;
-#if HOLOGLIB_DIAG_LOG
-    static int probeTicks = 0;
-    if (++probeTicks % 20 == 0)
-        diagLogger().info("[probe] tick {}", probeTicks);
-#endif
     std::lock_guard lock(mImpl->mutex);
     flushLocked(kPacketsPerTick);
 
