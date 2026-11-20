@@ -13,6 +13,8 @@
 #include "ProtocolPackets.h"
 #include "core/ProtocolShape.h"
 
+#include "kernel/TickSource.h"
+
 #include <ll/api/event/Listener.h>
 
 namespace debugshape_export {
@@ -116,7 +118,7 @@ private:
     std::atomic<uint64_t> mNextNetworkId{0x00FFFFFF};
 
     ll::event::ListenerPtr mJoinListener{nullptr};
-    ll::event::ListenerPtr mTickListener{nullptr};
+    core::TickToken        mTickListener{0};
     float                  mResendTimer{0};
 };
 

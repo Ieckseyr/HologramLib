@@ -3,13 +3,14 @@
 
 #include "FakeInventoryManager.h"
 
+#include "kernel/TickSource.h"
+
 #include "DiagLog.h"
 #include "kernel/PacketSink.h"
 #include "fakeinv/FakeInventoryPackets.h"
 
 #include <ll/api/event/EventBus.h>
 #include <ll/api/event/player/PlayerDisconnectEvent.h>
-#include <ll/api/event/world/ServerLevelTickEvent.h>
 #include <ll/api/service/Bedrock.h>
 
 #include <mc/world/actor/player/Player.h>
@@ -309,12 +310,9 @@ void FakeInventoryManager::tick() {
 namespace {
 
 struct FakeInventoryTickDriver {
-    ll::event::ListenerPtr listener;
+    debugshape_export::core::TickToken token;
     FakeInventoryTickDriver() {
-        listener = debugshape_export::core::listen<ll::event::ServerLevelTickEvent>(core::kServerLevelTickId, [](ll::event::ServerLevelTickEvent const&) {
-            FakeInventoryManager::getInstance().tick();
-        },
-                                                                                    debugshape_export::core::ListenerScope::Process);
+        token = debugshape_export::core::addTick([] { FakeInventoryManager::getInstance().tick(); });
     }
 };
 

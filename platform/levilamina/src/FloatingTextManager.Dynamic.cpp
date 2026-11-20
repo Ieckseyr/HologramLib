@@ -6,7 +6,6 @@
 #include <ll/api/event/EventBus.h>
 #include <ll/api/event/Listener.h>
 #include <ll/api/event/player/PlayerJoinEvent.h>
-#include <ll/api/event/world/ServerLevelTickEvent.h>
 #include <ll/api/service/Bedrock.h>
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/level/Level.h>

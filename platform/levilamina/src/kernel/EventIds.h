@@ -4,6 +4,8 @@
 #include <ll/api/event/EventId.h>
 #include <ll/api/event/Listener.h>
 #include <ll/api/event/player/PlayerDisconnectEvent.h>
+#include <ll/api/event/player/PlayerJoinEvent.h>
+#include <ll/api/event/server/ServerStartedEvent.h>
 
 #include <functional>
 #include <memory>
@@ -11,11 +13,10 @@
 
 namespace debugshape_export::core {
 
-// 事件 ID
-inline constexpr ll::event::EventIdView kPlayerJoinId{"ll::event::PlayerJoinEvent"};
-inline constexpr ll::event::EventIdView kPlayerDisconnectId{"ll::event::PlayerDisconnectEvent"};
-inline constexpr ll::event::EventIdView kServerStartedId{"ll::event::ServerStartedEvent"};
-inline constexpr ll::event::EventIdView kServerLevelTickId{"ll::event::ServerLevelTickEvent"};
+// 事件 ID 一律从事件类型派生：类名一改，硬编码字符串会静默失配（监听器注册上了却不触发）
+inline constexpr ll::event::EventIdView kPlayerJoinId = ll::event::getEventId<ll::event::PlayerJoinEvent>;
+inline constexpr ll::event::EventIdView kPlayerDisconnectId = ll::event::getEventId<ll::event::PlayerDisconnectEvent>;
+inline constexpr ll::event::EventIdView kServerStartedId = ll::event::getEventId<ll::event::ServerStartedEvent>;
 
 // 库是否启用
 bool live();

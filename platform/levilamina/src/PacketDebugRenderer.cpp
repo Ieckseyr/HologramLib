@@ -10,7 +10,6 @@
 #include <cmath>
 #include <ll/api/event/EventBus.h>
 #include <ll/api/event/player/PlayerJoinEvent.h>
-#include <ll/api/event/world/ServerLevelTickEvent.h>
 #include <ll/api/io/Logger.h>
 #include <ll/api/io/LoggerRegistry.h>
 #include <ll/api/service/Bedrock.h>
@@ -589,10 +588,7 @@ void PacketDebugRenderer::init() {
                                                                                     executor.executeAfter(resend, std::chrono::milliseconds(5000));
                                                                                 });
 
-    mTickListener = debugshape_export::core::listen<ll::event::ServerLevelTickEvent>(core::kServerLevelTickId,
-                                                                                     [this](ll::event::ServerLevelTickEvent const&) {
-                                                                                         tickResend(0.05f);
-                                                                                     });
+    mTickListener = debugshape_export::core::addTick([this] { tickResend(0.05f); });
 }
 
 void PacketDebugRenderer::shutdown() {
@@ -600,10 +596,8 @@ void PacketDebugRenderer::shutdown() {
         ll::event::EventBus::getInstance().removeListener(mJoinListener);
         mJoinListener = nullptr;
     }
-    if (mTickListener) {
-        ll::event::EventBus::getInstance().removeListener(mTickListener);
-        mTickListener = nullptr;
-    }
+    debugshape_export::core::removeTick(mTickListener);
+    mTickListener = 0;
 }
 
 void PacketDebugRenderer::tickResend(float deltaTime) {

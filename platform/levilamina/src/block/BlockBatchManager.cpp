@@ -2,7 +2,11 @@
 
 #include "BlockState.h"
 
+#include "DiagLog.h"
 #include "kernel/EventIds.h"
+
+#include <mc/network/packet/UpdateSubChunkBlocksPacket.h>
+#include <mc/world/level/SubChunkPos.h>
 
 #include "sulfur/SulfurDisplayManager.h"
 
@@ -13,7 +17,7 @@
 
 #include <ll/api/event/EventBus.h>
 #include <exception>
-#include <ll/api/event/world/ServerLevelTickEvent.h>
+#include "kernel/TickSource.h"
 #include <ll/api/service/Bedrock.h>
 
 #include <mc/world/actor/player/Player.h>
@@ -174,7 +178,7 @@ struct BlockBatchManager::Impl {
     std::vector<NearSet> nearSets;
     int                  nearTickCounter{};
 
-    ll::event::ListenerPtr tickListener;
+    core::TickToken         tickListener{};
 
     bool flushOne(Pending& pending) {
         auto* player = findPlayer(pending.playerName);
@@ -230,20 +234,15 @@ void BlockBatchManager::init() {
     if (mImpl != nullptr)
         return;
     mImpl = std::make_unique<Impl>();
-    mImpl->tickListener = core::listen<::ll::event::ServerLevelTickEvent>(
-        core::kServerLevelTickId,
-        [](::ll::event::ServerLevelTickEvent const&) { BlockBatchManager::getInstance().tick(); },
-        core::ListenerScope::Process
-    );
+    mImpl->tickListener = core::addTick([] { BlockBatchManager::getInstance().tick(); });
+
 }
 
 void BlockBatchManager::shutdown() {
     if (mImpl == nullptr)
         return;
-    if (mImpl->tickListener) {
-        ::ll::event::EventBus::getInstance().removeListener(mImpl->tickListener);
-        mImpl->tickListener = nullptr;
-    }
+    core::removeTick(mImpl->tickListener);
+    mImpl->tickListener = 0;
     mImpl.reset();
 }
 
@@ -271,7 +270,7 @@ int64_t BlockBatchManager::submit(std::string const& packed, std::vector<std::st
         entry.y         = change.y;
         entry.z         = change.z;
         entry.runtimeId = runtimeId;
-        entry.flags     = 0;
+        entry.flags     = 3; // 与单格通道一致（Neighbors|Network）
         groups[key].push_back(entry);
     }
     if (groups.empty())
@@ -535,6 +534,11 @@ void BlockBatchManager::onPlayerLeave(std::string const& playerName) {
 void BlockBatchManager::tick() {
     if (mImpl == nullptr)
         return;
+#if HOLOGLIB_DIAG_LOG
+    static int probeTicks = 0;
+    if (++probeTicks % 20 == 0)
+        diagLogger().info("[probe] tick {}", probeTicks);
+#endif
     std::lock_guard lock(mImpl->mutex);
     flushLocked(kPacketsPerTick);
 

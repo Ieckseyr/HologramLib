@@ -1,4 +1,6 @@
 #include "FloatingTextManager.h"
+
+#include "kernel/TickSource.h"
 #include "FloatingTextInternal.h"
 #include "PacketDebugRenderer.h"
 #include "kernel/EventIds.h"
@@ -6,7 +8,6 @@
 #include <ll/api/event/EventBus.h>
 #include <ll/api/event/Listener.h>
 #include <ll/api/event/player/PlayerJoinEvent.h>
-#include <ll/api/event/world/ServerLevelTickEvent.h>
 #include <ll/api/service/Bedrock.h>
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/level/Level.h>
@@ -20,7 +21,7 @@ namespace debugshape_export {
 
 namespace {
 
-ll::event::ListenerPtr sDynamicTickListener;
+debugshape_export::core::TickToken sDynamicTickListener{};
 ll::event::ListenerPtr sJoinListener;
 } // namespace
 
@@ -536,10 +537,7 @@ void FloatingTextManager::initDynamicDriver() {
     }
     if (sDynamicTickListener)
         return;
-    sDynamicTickListener = debugshape_export::core::listen<ll::event::ServerLevelTickEvent>(core::kServerLevelTickId,
-                                                                                            [](ll::event::ServerLevelTickEvent const&) {
-                                                                                                FloatingTextManager::getInstance().tickDynamic();
-                                                                                            });
+    sDynamicTickListener = debugshape_export::core::addTick([] { FloatingTextManager::getInstance().tickDynamic(); });
 }
 
 void FloatingTextManager::shutdownDynamicDriver() {
@@ -549,8 +547,8 @@ void FloatingTextManager::shutdownDynamicDriver() {
     }
     if (!sDynamicTickListener)
         return;
-    ll::event::EventBus::getInstance().removeListener(sDynamicTickListener);
-    sDynamicTickListener = nullptr;
+    debugshape_export::core::removeTick(sDynamicTickListener);
+    sDynamicTickListener = 0;
 }
 
 void FloatingTextManager::registerVariable(const std::string& name, VariableProvider provider) {

@@ -8,7 +8,7 @@
 
 #include "DiagLog.h"
 
-#include <ll/api/event/world/ServerLevelTickEvent.h>
+#include "kernel/TickSource.h"
 
 #include <cstring>
 
@@ -80,12 +80,7 @@ void installDriver() {
         return;
     }
     installed = true;
-    core::listen<ll::event::ServerLevelTickEvent>(
-        core::kServerLevelTickId,
-        [](ll::event::ServerLevelTickEvent const&) {
-            TickDriver::getInstance().run();
-        },
-        core::ListenerScope::Process);
+    core::addTick([] { TickDriver::getInstance().run(); });
 }
 
 } // namespace debugshape_export::tick
