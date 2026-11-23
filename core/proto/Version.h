@@ -121,7 +121,20 @@ using SetActorDataPacket     = bp::SetActorDataPacket_<kProtocolVersion>;
 // packed_items 是 CopyableDataList 包装（内含 .data 向量），业务要 push 的是里面的 vector
 using ActorDataList          = std::remove_cvref_t<decltype(SetActorDataPacket{}.packed_items)>;
 using DataItemEntry          = std::remove_cvref_t<decltype(ActorDataList{}.data)>::value_type;
-using PrimitiveShapesPacket = bp::PrimitiveShapesPacket;
+// 形状包（id 328）：898 时代叫 DebugDrawerPacket，975 起才改名 PrimitiveShapesPacket
+template <int V>
+struct ShapePacketOf {
+    using type = bp::DebugDrawerPacket_<V>;
+};
+template <int V> requires (V >= 975)
+struct ShapePacketOf<V> {
+    using type = bp::PrimitiveShapesPacket_<V>;
+};
+
+using PrimitiveShapesPacket = typename ShapePacketOf<kProtocolVersion>::type;
+using ShapeDataPayload      = bp::PrimitiveShapeDataPayload_<kProtocolVersion>;
+using ShapeKind             = bp::ScriptPrimitiveShapeType_<kProtocolVersion>;
+using ShapeTextPayload      = bp::TextDataPayload_<kProtocolVersion>;
 using ArmSizeType           = std::remove_cvref_t<decltype(PlayerListAddEntry{}.skin.arm_size)>;
 using SkinColorType         = std::remove_cvref_t<decltype(PlayerListAddEntry{}.skin.skin_color)>;
 using MobEquipmentPacket    = bp::MobEquipmentPacket;
