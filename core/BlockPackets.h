@@ -72,7 +72,7 @@ inline std::string buildUpdateSubChunkBlocksBody(
     packet.blocks_changed.standards.reserve(changes.size());
     for (auto const& change : changes) {
         proto::UpdateSubChunkNetworkBlockInfo info;
-        info.pos          = proto::toNetworkPos(proto::BlockPos{change.x, change.y, change.z});
+        info.pos              = proto::toNetworkPos(proto::BlockPos{change.x, change.y, change.z});
         info.runtime_id   = proto::BlockRuntimeId{change.runtimeId};
         info.update_flags = static_cast<std::uint8_t>(change.flags);
         info.entity_unique_id = proto::ActorUniqueID{static_cast<std::int64_t>(change.syncEntity)};

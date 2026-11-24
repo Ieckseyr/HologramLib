@@ -140,10 +140,10 @@ PayloadOf<V> toPayload(DebugShape const& shape) {
             } else if constexpr (std::is_same_v<T, DebugCylinder>) {
                 if constexpr (V >= 1001) {
                     bp::v1001::CylinderDataPayload payload;
-                    payload.radius_x     = bp::Vec2{value.mRadiusX.x, value.mRadiusX.y};
-                    payload.radius_z     = bp::Vec2{value.mRadiusZ.x, value.mRadiusZ.y};
-                    payload.height       = value.mHeight;
-                    payload.num_segments = value.mNumSegments;
+                    payload.radius_x       = bp::Vec2{value.mRadiusX.x, value.mRadiusX.y};
+                    payload.radius_z       = bp::Vec2{value.mRadiusZ.x, value.mRadiusZ.y};
+                    payload.height         = value.mHeight;
+                    payload.num_segments   = value.mNumSegments;
                     out.extra_data_payload = payload;
                 } else {
                     bp::BoxDataPayload payload;

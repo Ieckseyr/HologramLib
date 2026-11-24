@@ -24,7 +24,6 @@
 #include <mc/network/NetworkPeer.h>
 #include <mc/network/NetworkSystem.h>
 #include <mc/network/packet/InventorySlotPacket.h>
-#include <mc/network/packet/InventorySlotPacket.h>
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/item/ItemStack.h>
 #include <mc/world/level/BlockPos.h>
@@ -59,9 +58,9 @@ std::uint32_t chestBlockNetworkId() {
     auto level = ::ll::service::getLevel();
     if (!level)
         return 0;
-    auto registry = level->getBlockTypeRegistry();
-    ::Block const& chest = registry->getDefaultBlockState(VanillaBlockTypeIds::Chest(), true);
-    cached = static_cast<std::uint32_t>(chest.mNetworkId);
+    auto           registry = level->getBlockTypeRegistry();
+    ::Block const& chest    = registry->getDefaultBlockState(VanillaBlockTypeIds::Chest(), true);
+    cached                  = static_cast<std::uint32_t>(chest.mNetworkId);
     return cached;
 }
 

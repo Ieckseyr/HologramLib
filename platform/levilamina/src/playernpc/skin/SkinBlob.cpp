@@ -111,7 +111,6 @@ inline std::string serializeSkinImpl(std::string const& skinId, SerializedSkinRe
     w.str(skin.resource_patch);
     w.str(skin.full_id);
 
-
     std::uint32_t imgW = 0;
     std::uint32_t imgH = 0;
     std::string   imgBytes;
@@ -166,7 +165,7 @@ bool readLegacyV3(BlobReader& r, std::string& skinId, SerializedSkinRef& skin) {
     if (!r.ok)
         return false;
 
-    skin.id             = r.str();
+    skin.id = r.str();
     (void)r.str(); // legacy mPlayFabId：新版本线不再带这个字段
     skin.resource_patch = r.str();
     skin.full_id        = r.str();

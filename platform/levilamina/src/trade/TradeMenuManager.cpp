@@ -197,7 +197,7 @@ void TradeMenuManager::sendUpdateTrade(Player& player, Menu const& menu) {
 void TradeMenuManager::sendContainerClose(Player& player, Menu const& menu) {
     proto::ContainerClosePacket packet;
     packet.container_id          = static_cast<proto::ContainerIDType>(menu.containerId);
-    packet.container_type        = static_cast<decltype(packet.container_type)>(proto::bp::ContainerType::Trade);
+    packet.container_type         = static_cast<decltype(packet.container_type)>(proto::bp::ContainerType::Trade);
     packet.server_initiated_close = true;
     sendTradePacket(player, packet);
 }

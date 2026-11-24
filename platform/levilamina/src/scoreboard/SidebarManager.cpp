@@ -10,10 +10,9 @@
 
 #include <mc/deps/core/utility/BinaryStream.h>
 #include <mc/network/MinecraftPacketIds.h>
-#include <mc/network/packet/SetScorePacket.h>
-#include <mc/world/scores/IdentityDefinition.h>
 #include <mc/network/packet/ScorePacketInfo.h>
 #include <mc/network/packet/SetScorePacket.h>
+#include <mc/world/scores/IdentityDefinition.h>
 #include <mc/world/scores/ScoreboardId.h>
 
 #include "core/proto/Version.h"

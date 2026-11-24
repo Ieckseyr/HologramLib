@@ -1,9 +1,9 @@
-#include "compat/McCompat.h"
 #include "../effect/ActorEventFilter.h"
 #include "../visibility/PlayerVisibilityManager.h"
 #include "ViewOverrideManager.h"
-#include "kernel/EventIds.h"
+#include "compat/McCompat.h"
 #include "core/HookRegistry.h"
+#include "kernel/EventIds.h"
 #include "kernel/PlayerIndex.h"
 
 #include "DiagLog.h"
@@ -29,7 +29,6 @@
 #include <mc/network/packet/ItemStackRequestPacket.h>
 #include <mc/network/packet/MobEquipmentPacket.h>
 #include <mc/network/packet/PlayerActionPacket.h>
-#include <mc/network/packet/PlayerAuthInputPacket.h>
 #include <mc/network/packet/PlayerAuthInputPacket.h>
 #include <mc/network/packet/TextPacket.h>
 #include <mc/world/actor/Actor.h>

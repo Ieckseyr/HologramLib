@@ -312,7 +312,9 @@ namespace {
 struct FakeInventoryTickDriver {
     debugshape_export::core::TickToken token;
     FakeInventoryTickDriver() {
-        token = debugshape_export::core::addTick([] { FakeInventoryManager::getInstance().tick(); });
+        token = debugshape_export::core::addTick([] {
+            FakeInventoryManager::getInstance().tick();
+        });
     }
 };
 

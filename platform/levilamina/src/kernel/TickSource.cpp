@@ -54,7 +54,9 @@ void removeTick(TickToken token) {
         return;
     }
     std::lock_guard lock(gMutex);
-    std::erase_if(gCallbacks, [token](auto const& entry) { return entry.first == token; });
+    std::erase_if(gCallbacks, [token](auto const& entry) {
+        return entry.first == token;
+    });
 }
 
 namespace {
@@ -80,8 +82,12 @@ LL_TYPE_INSTANCE_HOOK(
 ll::memory::HookRegistrar<LevelTickSourceHook> gLevelTickSourceHook;
 HookRegistrar                                  gHookReg_levelTick{
     "kernel-leveltick",
-    [] { decltype(gLevelTickSourceHook)::hook(); },
-    [] { decltype(gLevelTickSourceHook)::unhook(); },
+    [] {
+        decltype(gLevelTickSourceHook)::hook();
+    },
+    [] {
+        decltype(gLevelTickSourceHook)::unhook();
+    },
 };
 
 } // namespace

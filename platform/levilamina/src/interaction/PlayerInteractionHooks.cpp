@@ -40,15 +40,15 @@
 // 1.9.7（BDS 1.21.132）的 ItemStackRequest action 类型名与 26.60 不同（没有 Cereal 命名空间），
 // 这里做一层别名，下面 26.60 风格的代码不用逐行改。
 namespace debugshape_export::interaction_compat {
-using TakeActionData            = ::ItemStackRequestActionTake;
-using PlaceActionData           = ::ItemStackRequestActionPlace;
-using SwapActionData            = ::ItemStackRequestActionSwap;
-using DropActionData            = ::ItemStackRequestActionDrop;
-using DestroyActionData         = ::ItemStackRequestActionDestroy;
-using ConsumeActionData         = ::ItemStackRequestActionConsume;
-using CreateActionData          = ::ItemStackRequestActionCreate;
-using BeaconPaymentActionData   = ::ItemStackRequestActionBeaconPayment;
-using MineBlockActionData       = ::ItemStackRequestActionMineBlock;
+using TakeActionData          = ::ItemStackRequestActionTake;
+using PlaceActionData         = ::ItemStackRequestActionPlace;
+using SwapActionData          = ::ItemStackRequestActionSwap;
+using DropActionData          = ::ItemStackRequestActionDrop;
+using DestroyActionData       = ::ItemStackRequestActionDestroy;
+using ConsumeActionData       = ::ItemStackRequestActionConsume;
+using CreateActionData        = ::ItemStackRequestActionCreate;
+using BeaconPaymentActionData = ::ItemStackRequestActionBeaconPayment;
+using MineBlockActionData     = ::ItemStackRequestActionMineBlock;
 } // namespace debugshape_export::interaction_compat
 
 namespace debugshape_export {
@@ -209,21 +209,47 @@ struct TradeActionCollector {
     }
 };
 
-
 // 1.9.7 的 action 是 ItemStackRequestAction 的多态基类（不是 variant），
 // 所以按具体类型 dynamic_cast 分发；成功返回 true。
 template <class Fn>
 bool visitAction(::ItemStackRequestAction const& action, Fn&& fn) {
     using namespace ::debugshape_export::interaction_compat;
-    if (auto const* p = dynamic_cast<TakeActionData const*>(&action)) { fn(*p); return true; }
-    if (auto const* p = dynamic_cast<PlaceActionData const*>(&action)) { fn(*p); return true; }
-    if (auto const* p = dynamic_cast<SwapActionData const*>(&action)) { fn(*p); return true; }
-    if (auto const* p = dynamic_cast<DropActionData const*>(&action)) { fn(*p); return true; }
-    if (auto const* p = dynamic_cast<DestroyActionData const*>(&action)) { fn(*p); return true; }
-    if (auto const* p = dynamic_cast<ConsumeActionData const*>(&action)) { fn(*p); return true; }
-    if (auto const* p = dynamic_cast<CreateActionData const*>(&action)) { fn(*p); return true; }
-    if (auto const* p = dynamic_cast<BeaconPaymentActionData const*>(&action)) { fn(*p); return true; }
-    if (auto const* p = dynamic_cast<MineBlockActionData const*>(&action)) { fn(*p); return true; }
+    if (auto const* p = dynamic_cast<TakeActionData const*>(&action)) {
+        fn(*p);
+        return true;
+    }
+    if (auto const* p = dynamic_cast<PlaceActionData const*>(&action)) {
+        fn(*p);
+        return true;
+    }
+    if (auto const* p = dynamic_cast<SwapActionData const*>(&action)) {
+        fn(*p);
+        return true;
+    }
+    if (auto const* p = dynamic_cast<DropActionData const*>(&action)) {
+        fn(*p);
+        return true;
+    }
+    if (auto const* p = dynamic_cast<DestroyActionData const*>(&action)) {
+        fn(*p);
+        return true;
+    }
+    if (auto const* p = dynamic_cast<ConsumeActionData const*>(&action)) {
+        fn(*p);
+        return true;
+    }
+    if (auto const* p = dynamic_cast<CreateActionData const*>(&action)) {
+        fn(*p);
+        return true;
+    }
+    if (auto const* p = dynamic_cast<BeaconPaymentActionData const*>(&action)) {
+        fn(*p);
+        return true;
+    }
+    if (auto const* p = dynamic_cast<MineBlockActionData const*>(&action)) {
+        fn(*p);
+        return true;
+    }
     return false;
 }
 
@@ -284,7 +310,9 @@ LL_TYPE_INSTANCE_HOOK(
         for (auto const& action : request->mActions.get()) {
             if (action == nullptr)
                 continue;
-            visitAction(*action, [&](auto const& data) { dispatchAction(*player, data); });
+            visitAction(*action, [&](auto const& data) {
+                dispatchAction(*player, data);
+            });
         }
     }
     if (!claimed.empty()) {
@@ -354,7 +382,9 @@ LL_TYPE_INSTANCE_HOOK(
     }
     for (auto const& actionPtr : packet.mItemStackRequest->mActions.get()) {
         if (actionPtr != nullptr) {
-            visitAction(*actionPtr, [&](auto const& data) { dispatchAction(*player, data); });
+            visitAction(*actionPtr, [&](auto const& data) {
+                dispatchAction(*player, data);
+            });
         }
     }
 }

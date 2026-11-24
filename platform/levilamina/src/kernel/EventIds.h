@@ -14,9 +14,9 @@
 namespace debugshape_export::core {
 
 // 事件 ID 一律从事件类型派生：类名一改，硬编码字符串会静默失配（监听器注册上了却不触发）
-inline constexpr ll::event::EventIdView kPlayerJoinId = ll::event::getEventId<ll::event::PlayerJoinEvent>;
+inline constexpr ll::event::EventIdView kPlayerJoinId       = ll::event::getEventId<ll::event::PlayerJoinEvent>;
 inline constexpr ll::event::EventIdView kPlayerDisconnectId = ll::event::getEventId<ll::event::PlayerDisconnectEvent>;
-inline constexpr ll::event::EventIdView kServerStartedId = ll::event::getEventId<ll::event::ServerStartedEvent>;
+inline constexpr ll::event::EventIdView kServerStartedId    = ll::event::getEventId<ll::event::ServerStartedEvent>;
 
 // 库是否启用
 bool live();

@@ -111,13 +111,13 @@ class _PlayerListener:
         self._plugin.sidebar.forget(event.player.name)
 
 
-HOLO_API_VERSION = "1.35.0"  # 库自身 API 版本，与 LL 版 HOLOGLIB_API_VERSION 对齐
+HOLO_API_VERSION = "1.37.0"  # 库自身 API 版本，与 LL 版 HOLOGLIB_API_VERSION 对齐
 
 
 class HologramLibPlugin(Plugin):
     api_version = "0.11"
     name = "HologramLib"
-    version = "26.60.2"
+    version = "21.132.0"
     description = "协议层显示库（形状/协议域）—— endstone 版"
     authors = ["伊希娅 EPSILON killcerr"]
     load = "POSTWORLD"

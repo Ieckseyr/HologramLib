@@ -58,6 +58,7 @@ std::int32_t toPackedColor(mce::Color const& color) {
         (toByte(color.a) << 24) | (toByte(color.r) << 16) | (toByte(color.g) << 8) | toByte(color.b));
 }
 
+#if HOLO_PROTOCOL_HAS_RICH_SKIN
 proto::PieceType toProtoPieceType(::persona::PieceType type) {
     auto const raw = static_cast<std::uint32_t>(type);
     if (raw > static_cast<std::uint32_t>(proto::PieceType::Unsupported)) {
@@ -65,6 +66,7 @@ proto::PieceType toProtoPieceType(::persona::PieceType type) {
     }
     return static_cast<proto::PieceType>(raw);
 }
+#endif
 
 } // namespace
 

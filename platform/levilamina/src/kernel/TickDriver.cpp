@@ -80,7 +80,9 @@ void installDriver() {
         return;
     }
     installed = true;
-    core::addTick([] { TickDriver::getInstance().run(); });
+    core::addTick([] {
+        TickDriver::getInstance().run();
+    });
 }
 
 } // namespace debugshape_export::tick

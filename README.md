@@ -20,7 +20,7 @@ HologramLib 是基岩版服务端（LeviLamina / BDS）的**协议层显示库**
 
 | | |
 |---|---|
-| 插件版本 | `21.132.1`（1.21.132 / 协议 898 线；26.60 线见 `main` 的历史 tag） |
+| 插件版本 | `21.132.0`（1.21.132 / 协议 898 线；26.60 线见 `main` 的历史 tag） |
 | API 版本 | `1.36.0`（`HOLOGLIB_API_VERSION 0x012A00`） |
 | 运行平台 | LeviLamina 1.9.x · BDS 1.21.132.3（协议 898，`protocol-docs r21_u13`） / Endstone 0.11（同一 BDS 进程） |
 | 对外接口 | 唯一公开头 `include/hologramlib/HologramLib.h`（28 个接口 / 405 槽）+ LSE 命名空间 `HologramLib`（450 个导出）。26.60.1 新增：死亡动画后的复活 `IPlayerRespawn`（补发 `RespawnPacket`，解决客户端卡死亡界面）、容器预览、表现事件阻断，以及 LSE 导出面补全（粒子查询/可见性、真实实体交互事件 `actor*`、`containerUpdate` / `tradeUpdate`）；26.60.0 新增：26.60 平台适配（字段级编码重写、发包审计 `wireTrace*`）+ 假实体 runtimeId 查询 |

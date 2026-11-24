@@ -34,7 +34,7 @@ private:
 
     mutable std::shared_mutex                                  mMutex;
     // NetworkIdentifier 拷贝构造未导出，用 getHash() 当键
-    mutable std::unordered_map<std::uint64_t, ::Player*> mByNetId;
+    mutable std::unordered_map<std::uint64_t, ::Player*>       mByNetId;
     mutable std::unordered_map<::Player const*, std::string>   mNames;
     ll::event::ListenerPtr                                     mJoinListener;
     ll::event::ListenerPtr                                     mLeaveListener;

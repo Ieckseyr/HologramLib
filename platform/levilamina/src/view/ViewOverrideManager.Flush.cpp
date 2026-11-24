@@ -1,5 +1,5 @@
-#include "compat/McCompat.h"
 #include "ViewOverrideRuntimeOps.h"
+#include "compat/McCompat.h"
 #include "core/DiagFlags.h"
 
 #include "ViewOverrideManager.h"
@@ -13,8 +13,8 @@
 #include <ll/api/service/Bedrock.h>
 
 #include <mc/deps/core/string/HashedString.h>
-#include <mc/nbt/CompoundTag.h>
 #include <mc/legacy/ActorUniqueID.h>
+#include <mc/nbt/CompoundTag.h>
 #include <mc/network/MinecraftPacketIds.h>
 #include <mc/network/Packet.h>
 #include <mc/network/packet/AddActorPacket.h>

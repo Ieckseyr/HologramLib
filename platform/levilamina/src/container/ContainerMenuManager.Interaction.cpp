@@ -24,7 +24,6 @@
 #include <mc/network/NetworkPeer.h>
 #include <mc/network/NetworkSystem.h>
 #include <mc/network/packet/InventorySlotPacket.h>
-#include <mc/network/packet/InventorySlotPacket.h>
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/item/ItemStack.h>
 #include <mc/world/level/BlockPos.h>

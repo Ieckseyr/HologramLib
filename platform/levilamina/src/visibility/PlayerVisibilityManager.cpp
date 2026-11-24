@@ -1,5 +1,5 @@
-#include "compat/McCompat.h"
 #include "PlayerVisibilityManager.h"
+#include "compat/McCompat.h"
 
 #include "kernel/EventIds.h"
 #include "view/ViewOverrideManager.h"

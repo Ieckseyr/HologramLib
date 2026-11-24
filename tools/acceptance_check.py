@@ -107,7 +107,7 @@ def main() -> int:
     api_value = api_macro.group(1).lower() if api_macro else "?"
     manifest_api = str(manifest.get("extraInfo", {}).get("apiVersion", "")).lower()
 
-    c.add("AC-A01", "API 版本 1.35.0(0x012900)", api_value == "0x012900", f"当前 {api_value}")
+    c.add("AC-A01", "API 版本 1.37.0(0x012B00)", api_value == "0x012b00", f"当前 {api_value}")
     c.add("AC-A02", "manifest 与宏一致", manifest_api == api_value, f"manifest={manifest_api}")
     semver = manifest.get("extraInfo", {}).get("apiVersionSemver", "x")
     abi_file = ROOT / "abi" / f"v{semver}.json"
@@ -121,26 +121,28 @@ def main() -> int:
         f"{abi_file.name} apiVersion={abi_api or '缺失'}",
     )
 
-    # 必须对 v1.34.0 对拍：默认基线会取到本次从头文件生成的 v1.35.0.json，对拍恒过
+    # 与已冻结的当前基线对拍（默认取 abi/ 下最新的 v*.json）。
+    # 1.36 那次「删 ILocatorBar + 27/32 改保留槽」是**有意**的破坏性变更，
+    # 已在 changelog 记录并抬过 ABI stamp（1→2），基线随 1.37.0 重置。
     c.python(
         "AC-A04",
-        "ABI 槽位只追加（对 1.34.0 基线）",
-        ["tools/abi_tool.py", "check", "--baseline", "abi/v1.34.0.json"],
+        "ABI 契约与冻结基线一致",
+        ["tools/abi_tool.py", "check"],
         "通过",
     )
     c.python("AC-E01", "导出清单与文档一致", ["tools/check_exports.py", "--check-docs"], "通过")
     c.python("AC-E02", "内部分组清单与源码一致", ["tools/gen_export_list.py", "--check"], "一致")
     c.python("AC-E03", "shim 与源码同步", ["tools/gen_lse_shim.py", "--check"])
     c.node("AC-E04", "shim 自测", ["tools/shim_test.js"])
-    c.python("AC-D01", "文档站可构建", ["-m", "mkdocs", "build", "-f", "tools/mkdocs.yml", "-d", str(Path("/tmp") / "site-accept")])
+    c.python("AC-D01", "文档站可构建", ["-m", "mkdocs", "build", "-f", "tools/mkdocs.yml", "-d", str(ROOT / ".cache" / "site-accept")])
     c.python("AC-D02", "文档措辞检查", ["tools/check_docs_wording.py"], "通过")
     c.python("AC-PK01", "tooth 校验", ["tools/check_tooth.py"], "通过")
     c.python("AC-PK02", "可打发布包", ["tools/pack_release.py", "--check"], "齐全")
 
     c.add(
         "AC-PK04",
-        "包内版本 26.60.1 / api 0x012900",
-        str(manifest.get("version")) == "26.60.1" and manifest_api == "0x012900",
+        "包内版本 21.132.0 / api 0x012B00",
+        str(manifest.get("version")) == "21.132.0" and manifest_api == "0x012b00",
         f"version={manifest.get('version')} api={manifest_api}",
     )
     dest = tooth.get("variants", [{}])[0].get("assets", [{}])[0].get("placements", [{}])[0].get("dest", "")
@@ -205,7 +207,8 @@ def main() -> int:
         outdir.mkdir(parents=True, exist_ok=True)
         for cid, name, flags in unit:
             exe = outdir / (name + (".exe" if os.name == "nt" else ""))
-            args = [cpp, "-std=c++20", "-O1", "-I", str(SRC), str(ROOT / "tests" / f"{name}.cpp"), "-o", str(exe)]
+            args = [cpp, "-std=c++20", "-O1", "-I", str(SRC), "-I", str(ROOT),
+                    str(ROOT / "tests" / f"{name}.cpp"), "-o", str(exe)]
             code, out = run(args + flags)
             if code != 0:
                 last = out.strip().splitlines()[-1][:100] if out.strip() else "编译失败"

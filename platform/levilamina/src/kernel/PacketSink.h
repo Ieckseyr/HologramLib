@@ -75,12 +75,13 @@ struct PacketTraits {
     static constexpr bool isEngine = std::is_base_of_v<::Packet, PacketT>;
 };
 
+// 引擎包的 getName() 返回 std::string（临时量），不能直接当 string_view 返回
 template <class PacketT>
-std::string_view packetName(PacketT const& packet) {
+std::string packetName(PacketT const& packet) {
     if constexpr (PacketTraits<PacketT>::isEngine) {
         return packet.getName();
     } else {
-        return ::bedrock::protocol::detail::struct_name_v<PacketT>;
+        return std::string{::bedrock::protocol::detail::struct_name_v<PacketT>};
     }
 }
 

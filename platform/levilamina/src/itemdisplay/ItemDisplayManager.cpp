@@ -22,9 +22,9 @@
 #include <mc/deps/core/string/HashedString.h>
 #include <mc/deps/core/utility/BinaryStream.h>
 #include <mc/deps/core/utility/ReadOnlyBinaryStream.h>
+#include <mc/legacy/ActorRuntimeID.h>
 #include <mc/nbt/CompoundTag.h>
 #include <mc/nbt/ShortTag.h>
-#include <mc/legacy/ActorRuntimeID.h>
 #include <mc/network/MinecraftPackets.h>
 #include <mc/network/NetworkSystem.h>
 #include <mc/network/packet/MobEquipmentPacket.h>
@@ -36,7 +36,6 @@
 #include <mc/world/item/registry/ItemRegistryRef.h>
 #include <mc/world/level/Level.h>
 #include <mc/world/level/Tick.h>
-
 
 #include <algorithm>
 #include <charconv>

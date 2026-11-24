@@ -9,6 +9,8 @@
 #include <ll/api/service/Bedrock.h>
 #include <exception>
 
+#include "MetaWire.h"
+#include "core/proto/Version.h"
 #include <mc/deps/core/math/Vec2.h>
 #include <mc/deps/core/string/HashedString.h>
 #include <mc/nbt/CompoundTag.h>
@@ -18,8 +20,6 @@
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/item/ItemStack.h>
 #include <mc/world/level/Level.h>
-#include "core/proto/Version.h"
-#include "MetaWire.h"
 
 namespace debugshape_export {
 

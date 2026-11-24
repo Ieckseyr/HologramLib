@@ -1,8 +1,8 @@
-#include "compat/McCompat.h"
 #include "ViewOverrideManager.h"
 #include "DiagLog.h"
 #include "ViewOverrideRuntimeOps.h"
 #include "ViewPackets.h"
+#include "compat/McCompat.h"
 
 #include <mc/world/actor/player/Player.h>
 

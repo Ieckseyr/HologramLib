@@ -11,6 +11,11 @@
       "rule": "AC-E05",
       "clause": "AC-E05-EX1",
       "reason": "导出按「能力归属」分组，不按名字前缀猜：actorBlockEvent/actorBlockClear 归 ActorEffect（改的是实体表现事件），playerRespawn 归 PlayerRespawn（独立域）。verify_static.py 的期望表按前缀推断，因此恒报 FAIL；裁决见 docs/internal/验收证据-1.35.0/_findings/33-修复派工单.md"
+    },
+    {
+      "rule": "AC-A04",
+      "clause": "AC-A04-EX1",
+      "reason": "26.60.3 有意删除 ILocatorBar/ILocatorBarExt，26.60.4 又把 27/32 槽改为保留槽并抬 ABI stamp 1→2（changelog 已记明，消费方需重编）。对 1.34/1.35 基线必然报「槽位变了」，属已登记的破坏性变更；1.37.0 基线见 abi/v1.37.0.json"
     }
   ]
 }

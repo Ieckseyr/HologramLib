@@ -15,9 +15,9 @@
 
 #include "core/BlockPackets.h"
 
-#include <ll/api/event/EventBus.h>
-#include <exception>
 #include "kernel/TickSource.h"
+#include <exception>
+#include <ll/api/event/EventBus.h>
 #include <ll/api/service/Bedrock.h>
 
 #include <mc/world/actor/player/Player.h>
@@ -178,7 +178,7 @@ struct BlockBatchManager::Impl {
     std::vector<NearSet> nearSets;
     int                  nearTickCounter{};
 
-    core::TickToken         tickListener{};
+    core::TickToken tickListener{};
 
     bool flushOne(Pending& pending) {
         auto* player = findPlayer(pending.playerName);
@@ -234,8 +234,9 @@ void BlockBatchManager::init() {
     if (mImpl != nullptr)
         return;
     mImpl = std::make_unique<Impl>();
-    mImpl->tickListener = core::addTick([] { BlockBatchManager::getInstance().tick(); });
-
+    mImpl->tickListener = core::addTick([] {
+        BlockBatchManager::getInstance().tick();
+    });
 }
 
 void BlockBatchManager::shutdown() {

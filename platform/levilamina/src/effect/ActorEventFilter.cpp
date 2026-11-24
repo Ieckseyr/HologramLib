@@ -2,7 +2,6 @@
 
 #include <mc/network/Packet.h>
 #include <mc/network/packet/ActorEventPacket.h>
-#include <mc/network/packet/ActorEventPacket.h>
 #include <mc/world/actor/player/Player.h>
 
 #include <format>

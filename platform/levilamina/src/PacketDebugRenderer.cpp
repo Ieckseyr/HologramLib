@@ -588,7 +588,9 @@ void PacketDebugRenderer::init() {
                                                                                     executor.executeAfter(resend, std::chrono::milliseconds(5000));
                                                                                 });
 
-    mTickListener = debugshape_export::core::addTick([this] { tickResend(0.05f); });
+    mTickListener = debugshape_export::core::addTick([this] {
+        tickResend(0.05f);
+    });
 }
 
 void PacketDebugRenderer::shutdown() {

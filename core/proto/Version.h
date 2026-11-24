@@ -41,15 +41,15 @@ using Color = bp::Color;
 
 // ── 元数据（AddActor / SetActorData 的 DataItem 列表）────────────────────
 using ActorDataIDs  = bp::ActorDataIDs;
-using DataItemBytePayload   = bp::DataItemBytePayload_<kProtocolVersion>;
-using DataItemShortPayload  = bp::DataItemShortPayload_<kProtocolVersion>;
-using DataItemIntPayload    = bp::DataItemIntPayload_<kProtocolVersion>;
-using DataItemInt64Payload  = bp::DataItemInt64Payload_<kProtocolVersion>;
-using DataItemFloatPayload  = bp::DataItemFloatPayload_<kProtocolVersion>;
-using DataItemStringPayload = bp::DataItemStringPayload_<kProtocolVersion>;
-using DataItemVec3Payload   = bp::DataItemVec3Payload_<kProtocolVersion>;
+using DataItemBytePayload        = bp::DataItemBytePayload_<kProtocolVersion>;
+using DataItemShortPayload       = bp::DataItemShortPayload_<kProtocolVersion>;
+using DataItemIntPayload         = bp::DataItemIntPayload_<kProtocolVersion>;
+using DataItemInt64Payload       = bp::DataItemInt64Payload_<kProtocolVersion>;
+using DataItemFloatPayload       = bp::DataItemFloatPayload_<kProtocolVersion>;
+using DataItemStringPayload      = bp::DataItemStringPayload_<kProtocolVersion>;
+using DataItemVec3Payload        = bp::DataItemVec3Payload_<kProtocolVersion>;
 using DataItemCompoundTagPayload = bp::DataItemCompoundTagPayload_<kProtocolVersion>;
-using DataItemPosPayload    = bp::DataItemPosPayload_<kProtocolVersion>;
+using DataItemPosPayload         = bp::DataItemPosPayload_<kProtocolVersion>;
 // CopyableDataList 是带 .data 的包装结构；DataItemEntry / ActorDataList 在
 // SetActorDataPacket 之后定义（类型要从包字段反推，早写会用到未声明的包类型）。
 
@@ -62,13 +62,13 @@ using GameType             = bp::GameType;
 using PlayerListPacketType = bp::PlayerListPacketType;
 using BuildPlatform        = bp::BuildPlatform;
 // 898 的 PlayerList / PlayerSkin 皮肤结构不同，别名分开。
-using PlayerListPacket       = bp::PlayerListPacket_<kProtocolVersion>;
-using PlayerListEntry        = std::remove_cvref_t<decltype(PlayerListPacket{}.entries)>::value_type;
-using PlayerListAddEntry     = PlayerListEntry;
-using PlayerListRemoveEntry  = PlayerListPacket::RemoveEntry;
+using PlayerListPacket        = bp::PlayerListPacket_<kProtocolVersion>;
+using PlayerListEntry         = std::remove_cvref_t<decltype(PlayerListPacket{}.entries)>::value_type;
+using PlayerListAddEntry      = PlayerListEntry;
+using PlayerListRemoveEntry   = PlayerListPacket::RemoveEntry;
 using PlayerSkinPacket       = bp::PlayerSkinPacket_<kProtocolVersion>;
-using SerializedSkinRef      = std::remove_cvref_t<decltype(PlayerListEntry{}.skin)>;
-using PlayerSkinRef          = std::remove_cvref_t<decltype(PlayerSkinPacket{}.skin)>;
+using SerializedSkinRef       = std::remove_cvref_t<decltype(PlayerListEntry{}.skin)>;
+using PlayerSkinRef           = std::remove_cvref_t<decltype(PlayerSkinPacket{}.skin)>;
 using PieceType               = bp::PieceType_<kProtocolVersion>;
 using SerializedPersonaPiece  = bp::SerializedPersonaPieceHandle_<kProtocolVersion>;
 using SkinImage               = bp::SkinImage;
@@ -119,24 +119,25 @@ using AddPlayerPacket        = bp::AddPlayerPacket_<kProtocolVersion>;
 using AddActorPacket         = bp::AddActorPacket_<kProtocolVersion>;
 using SetActorDataPacket     = bp::SetActorDataPacket_<kProtocolVersion>;
 // packed_items 是 CopyableDataList 包装（内含 .data 向量），业务要 push 的是里面的 vector
-using ActorDataList          = std::remove_cvref_t<decltype(SetActorDataPacket{}.packed_items)>;
-using DataItemEntry          = std::remove_cvref_t<decltype(ActorDataList{}.data)>::value_type;
+using ActorDataList = std::remove_cvref_t<decltype(SetActorDataPacket{}.packed_items)>;
+using DataItemEntry = std::remove_cvref_t<decltype(ActorDataList{}.data)>::value_type;
 // 形状包（id 328）：898 时代叫 DebugDrawerPacket，975 起才改名 PrimitiveShapesPacket
 template <int V>
 struct ShapePacketOf {
     using type = bp::DebugDrawerPacket_<V>;
 };
-template <int V> requires (V >= 975)
+template <int V>
+    requires(V >= 975)
 struct ShapePacketOf<V> {
     using type = bp::PrimitiveShapesPacket_<V>;
 };
 
-using PrimitiveShapesPacket = typename ShapePacketOf<kProtocolVersion>::type;
-using ShapeDataPayload      = bp::PrimitiveShapeDataPayload_<kProtocolVersion>;
-using ShapeKind             = bp::ScriptPrimitiveShapeType_<kProtocolVersion>;
-using ShapeTextPayload      = bp::TextDataPayload_<kProtocolVersion>;
-using ArmSizeType           = std::remove_cvref_t<decltype(PlayerListAddEntry{}.skin.arm_size)>;
-using SkinColorType         = std::remove_cvref_t<decltype(PlayerListAddEntry{}.skin.skin_color)>;
+using PrimitiveShapesPacket   = typename ShapePacketOf<kProtocolVersion>::type;
+using ShapeDataPayload        = bp::PrimitiveShapeDataPayload_<kProtocolVersion>;
+using ShapeKind               = bp::ScriptPrimitiveShapeType_<kProtocolVersion>;
+using ShapeTextPayload        = bp::TextDataPayload_<kProtocolVersion>;
+using ArmSizeType             = std::remove_cvref_t<decltype(PlayerListAddEntry{}.skin.arm_size)>;
+using SkinColorType           = std::remove_cvref_t<decltype(PlayerListAddEntry{}.skin.skin_color)>;
 using MobEquipmentPacket    = bp::MobEquipmentPacket;
 using NpcDialoguePacket     = bp::NpcDialoguePacket;
 using EmotePacket           = bp::EmotePacket;
@@ -269,7 +270,6 @@ inline NetworkBlockPosition toNetworkPos(BlockPos const& p) {
     return NetworkBlockPosition{p.x, p.y, p.z};
 }
 
-
 // 皮肤信任标记读取
 template <class Skin>
 inline TrustedSkinFlag getSkinTrusted(Skin const& s) {
@@ -283,20 +283,20 @@ inline TrustedSkinFlag getSkinTrusted(Skin const& s) {
 // persona / tint 只在两边容器类型一致时搬，避免为单条版本线写死结构转换。
 template <class Dst, class Src>
 inline void copySkin(Dst& dst, Src const& src) {
-    dst.id                                = src.id;
-    dst.resource_patch                    = src.resource_patch;
-    dst.animated_image_data               = src.animated_image_data;
-    dst.geometry_data                     = src.geometry_data;
-    dst.geometry_data_min_engine_version  = src.geometry_data_min_engine_version;
-    dst.animation_data                    = src.animation_data;
-    dst.cape_id                           = src.cape_id;
-    dst.full_id                           = src.full_id;
-    dst.arm_size                          = src.arm_size;
-    dst.is_premium                        = src.is_premium;
-    dst.is_persona                        = src.is_persona;
-    dst.is_persona_cape_on_classic_skin   = src.is_persona_cape_on_classic_skin;
-    dst.is_primary_user                   = src.is_primary_user;
-    dst.overrides_player_appearance       = src.overrides_player_appearance;
+    dst.id                               = src.id;
+    dst.resource_patch                   = src.resource_patch;
+    dst.animated_image_data              = src.animated_image_data;
+    dst.geometry_data                    = src.geometry_data;
+    dst.geometry_data_min_engine_version = src.geometry_data_min_engine_version;
+    dst.animation_data                   = src.animation_data;
+    dst.cape_id                          = src.cape_id;
+    dst.full_id                          = src.full_id;
+    dst.arm_size                         = src.arm_size;
+    dst.is_premium                       = src.is_premium;
+    dst.is_persona                       = src.is_persona;
+    dst.is_persona_cape_on_classic_skin  = src.is_persona_cape_on_classic_skin;
+    dst.is_primary_user                  = src.is_primary_user;
+    dst.overrides_player_appearance      = src.overrides_player_appearance;
 
     std::uint32_t w = 0;
     std::uint32_t h = 0;
@@ -333,9 +333,8 @@ inline void copySkin(Dst& dst, Src const& src) {
     }
 }
 
-
 // PlayerList 条目上「有没有 action / play_fab_id」的差别，必须放在模板里判断
-//（非模板上下文里 requires 遇到不存在的成员是硬错误，不是 false）。
+// （非模板上下文里 requires 遇到不存在的成员是硬错误，不是 false）。
 template <class Entry>
 inline void setPlayerListAction(Entry& e, PlayerListPacketType action) {
     if constexpr (requires(Entry& x) { x.action; }) {

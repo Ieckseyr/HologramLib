@@ -1,9 +1,9 @@
 #include "FloatingTextManager.h"
 
-#include "kernel/TickSource.h"
 #include "FloatingTextInternal.h"
 #include "PacketDebugRenderer.h"
 #include "kernel/EventIds.h"
+#include "kernel/TickSource.h"
 
 #include <ll/api/event/EventBus.h>
 #include <ll/api/event/Listener.h>
@@ -537,7 +537,9 @@ void FloatingTextManager::initDynamicDriver() {
     }
     if (sDynamicTickListener)
         return;
-    sDynamicTickListener = debugshape_export::core::addTick([] { FloatingTextManager::getInstance().tickDynamic(); });
+    sDynamicTickListener = debugshape_export::core::addTick([] {
+        FloatingTextManager::getInstance().tickDynamic();
+    });
 }
 
 void FloatingTextManager::shutdownDynamicDriver() {

@@ -7,8 +7,6 @@
 #include <vector>
 
 #include <mc/network/packet/InventoryContentPacket.h>
-#include <mc/network/packet/InventoryContentPacket.h>
-#include <mc/network/packet/InventorySlotPacket.h>
 #include <mc/network/packet/InventorySlotPacket.h>
 #include <mc/world/ContainerID.h>
 #include <mc/world/containers/FullContainerName.h>

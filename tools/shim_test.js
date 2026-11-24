@@ -101,7 +101,7 @@ console.log("[6] 元信息：has / list / apiVersion");
   assert.strictEqual(HL.has("itemActorSpawn"), true);
   assert.strictEqual(HL.has("noSuchThing"), false);
   assert.ok(/^\d+\.\d+\.\d+$/.test(HL.apiVersion), "apiVersion 应该是 x.y.z");
-  assert.ok(HL.list().includes("locatorBarSet"));
+  assert.ok(HL.list().includes("shapeCreateBox"));
   ok(`apiVersion=${HL.apiVersion}, list=${HL.list().length}`, () => {});
 }
 
@@ -137,11 +137,11 @@ console.log("[9] 没有 lrca 时整套导入层仍然可用（全是空操作）
 console.log("[10] 按类分组（GMLIB 风格）：类.方法 可用");
 {
   global.ll = { import: fakeImport }; // [9] 把 global.ll 删了, 这里恢复
-  const { ItemActor, Visibility, LocatorBar } = HL;
-  assert.ok(ItemActor && Visibility && LocatorBar, "三个分组应该都能解构出来");
+  const { ItemActor, Visibility, Shape } = HL;
+  assert.ok(ItemActor && Visibility && Shape, "三个分组应该都能解构出来");
   assert.strictEqual(typeof ItemActor.spawn, "function");
   assert.strictEqual(typeof Visibility.setHidden, "function");
-  assert.strictEqual(typeof LocatorBar.set, "function");
+  assert.strictEqual(typeof Shape.createBox, "function");
   assert.strictEqual(ItemActor.spawn("minecraft:diamond"), 7, "分组方法要转到真导出");
   assert.strictEqual(Visibility.setHidden("Steve", true), true);
   assert.ok(Object.keys(HL.groups).length >= 19, `分组数 ${Object.keys(HL.groups).length}`);
