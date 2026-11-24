@@ -18,6 +18,20 @@ xmake f -c --holo_werror=y -y
 xmake build -y
 ```
 
+## CI 变量
+
+`build` / `release` 两个 job 都靠仓库 Variables 提供外部依赖（设置 → Actions → Variables）：
+
+| 变量 | 内容 |
+|---|---|
+| `HOLO_PROTOCOL_URL` | BedrockProtocol `install/` 的 zip 直链 |
+| `HOLO_LL_SDK_URL` | 离线 LL SDK 包的 zip 直链，由 `python tools/pack_llsdk.py` 产出 |
+
+`pack_llsdk.py` 从本机 xmake 缓存里抓 `levilamina 1.9.7` 的头/库，连同 `prelink.exe`、
+`bedrock_runtime_data` 合并成一份 `include/ lib/ tools/`，CI 解包后设 `HOLO_LL_SDK_DIR`，
+`xmake.lua` 见到它就跳过 `add_requires("levilamina")`（不再联网现编 LL 和 bedrockdata）。
+两个变量缺任一，编译/发布整关跳过。
+
 ## 提交前
 
 ```powershell

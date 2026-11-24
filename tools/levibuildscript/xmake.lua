@@ -49,6 +49,15 @@ rule("linkrule")
             end
         end
         if not data then
+            local sdk = os.getenv("HOLO_LL_SDK_DIR")
+            if sdk and sdk ~= "" then
+                local candidate = path.join(sdk, "tools", "bedrock_runtime_data")
+                if os.isfile(candidate) then
+                    data = candidate
+                end
+            end
+        end
+        if not data then
             local fallback = path.join(os.projectdir(), "..", "..", "bedrock_runtime_data")
             if os.isfile(fallback) then
                 data = path.absolute(fallback)
@@ -62,6 +71,15 @@ rule("linkrule")
         end
         if not link then
             link = find_file("prelink.exe", searchpaths)
+        end
+        if not link then
+            local sdk = os.getenv("HOLO_LL_SDK_DIR")
+            if sdk and sdk ~= "" then
+                local candidate = path.join(sdk, "tools", "prelink.exe")
+                if os.isfile(candidate) then
+                    link = candidate
+                end
+            end
         end
         if not link then
             local guess = path.join(pkgroot, "p", "prelink", "v0.7.1")

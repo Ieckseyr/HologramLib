@@ -4,7 +4,12 @@
 # Lip 只把 v<semver> 形式的 tag 当作版本，所以 tag 必须带 v；
 # tooth.json 的资产地址相应是 releases/download/v{{version}}/HologramLib.zip。
 #
-# 需要仓库变量 HOLO_PROTOCOL_URL（BedrockProtocol install 包直链）；没配就跳过。
+# 需要仓库变量：
+#   HOLO_PROTOCOL_URL —— BedrockProtocol install 包直链
+#   HOLO_LL_SDK_URL   —— 离线 LL SDK 包直链（tools/pack_llsdk.py 产出；
+#                        含 levilamina 1.9.7 头/库 + prelink + bedrock_runtime_data，
+#                        不再联网现编 LL）
+# 两个变量缺任一就跳过。
 
 name: release
 
@@ -20,7 +25,7 @@ jobs:
   package:
     name: 构建并发布
     runs-on: windows-latest
-    if: ${{ vars.HOLO_PROTOCOL_URL != '' }}
+    if: ${{ vars.HOLO_PROTOCOL_URL != '' && vars.HOLO_LL_SDK_URL != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -59,6 +64,18 @@ jobs:
 
       - name: 包清单检查
         run: python tools/check_tooth.py
+
+      - name: 取离线 SDK（levilamina 1.9.7 + prelink + bedrockdata）
+        shell: pwsh
+        env:
+          URL: ${{ vars.HOLO_LL_SDK_URL }}
+        run: |
+          Invoke-WebRequest -Uri $env:URL -OutFile "$env:RUNNER_TEMP\llsdk.zip"
+          Expand-Archive "$env:RUNNER_TEMP\llsdk.zip" -DestinationPath "$env:RUNNER_TEMP\llsdk"
+          $root = Get-ChildItem "$env:RUNNER_TEMP\llsdk" -Directory | Where-Object { Test-Path "$($_.FullName)\include" } | Select-Object -First 1
+          if (!$root) { throw "SDK 包里没有 include/ 目录（见 tools/pack_llsdk.py）" }
+          "HOLO_LL_SDK_DIR=$($root.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "$($root.FullName)" | Out-File -FilePath "$env:GITHUB_STEP_SUMMARY" -Append -Encoding utf8
 
       - name: 配置
         run: xmake f -c --holo_werror=y -y
