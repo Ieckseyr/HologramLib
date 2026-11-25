@@ -101,7 +101,7 @@ inline proto::PlayerListAddEntry playerListEntryForPlayer(
     entry.action             = proto::PlayerListPacketType::Add;
     entry.name               = player.getRealName();
     entry.xuid               = std::move(xuid);
-    entry.play_fab_id        = {};
+    proto::clearPlayFabId(entry);
     entry.platform_online_id = {};
     entry.build_platform     = static_cast<decltype(entry.build_platform)>(1);
     entry.skin               = skin;

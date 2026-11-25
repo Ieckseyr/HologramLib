@@ -43,6 +43,19 @@ namespace debugshape_export::view {
 
 namespace {
 
+// mInputData 在 26.40 是 std::bitset<66>，26.51 起换成 Bedrock::EnumSet<InputData,66>：
+// 前者用 test()，后者用 contains()。探测后各走各的，两个版本同一份代码。
+template <class Set>
+inline bool inputBitSet(Set const& set, int index) {
+    if constexpr (requires {
+                      set.contains(static_cast<::PlayerAuthInputPacketPayload::InputData>(index));
+                  }) {
+        return set.contains(static_cast<::PlayerAuthInputPacketPayload::InputData>(index));
+    } else {
+        return set.test(static_cast<std::size_t>(index));
+    }
+}
+
 using Manager = ViewOverrideManager;
 
 Manager& manager() {
@@ -254,7 +267,7 @@ LL_TYPE_INSTANCE_HOOK(
         {
             auto const& bs = unwrap(payload.mInputData);
             for (int i = 0; i < 64; ++i) {
-                if (bs.contains(static_cast<::PlayerAuthInputPacketPayload::InputData>(i))) {
+                if (inputBitSet(bs, i)) {
                     bits |= (std::uint64_t(1) << i);
                 }
             }

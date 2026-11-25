@@ -139,6 +139,12 @@ void noteValidationFailure(std::string_view packetName) {
     HLIB_LOG_WARN("[wire] packet validation failed for {}", packetName);
 }
 
+// 26.40 的 ReadOnlyBinaryStream 还没有 ensureReadCompleted()（26.51 才有）；
+// 语义照 26.60 的实现写：溢出过、或没读满缓冲区，都算没读完。
+bool readCompleted(ReadOnlyBinaryStream const& stream) {
+    return !stream.mHasOverflowed && stream.mReadPointer == stream.mView.size();
+}
+
 bool validateBody(std::uint32_t packetId, std::string const& body) {
 
     ReadOnlyBinaryStream stream(body, false);
@@ -146,7 +152,7 @@ bool validateBody(std::uint32_t packetId, std::string const& body) {
     if (!packet || !packet->read(stream)) {
         return false;
     }
-    if (stream.ensureReadCompleted().has_value()) {
+    if (readCompleted(stream)) {
         return true;
     }
 

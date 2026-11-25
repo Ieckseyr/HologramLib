@@ -15,10 +15,10 @@ C++ fixture 构造包，Python 逐字段和 BDS 抓包比对。
 四个纯标准库的单测，CI 里用 `g++` 直接跑（Windows 本地用 clang++ 或 g++ 都行）：
 
 ```powershell
-g++ -std=c++20 -pthread -O1 -I src tests/registry_test.cpp        -o registry_test        && ./registry_test
-g++ -std=c++20 -O1          -I src tests/click_event_test.cpp     -o click_event_test     && ./click_event_test
-g++ -std=c++20 -O1          -I src tests/shape_id_map_test.cpp    -o shape_id_map_test    && ./shape_id_map_test
-g++ -std=c++20 -O1          -I src tests/visibility_logic_test.cpp -o visibility_logic_test && ./visibility_logic_test
+g++ -std=c++20 -pthread -O1 -I . -I platform/levilamina/src tests/registry_test.cpp         -o registry_test         && ./registry_test
+g++ -std=c++20 -O1          -I . -I platform/levilamina/src tests/click_event_test.cpp      -o click_event_test      && ./click_event_test
+g++ -std=c++20 -O1          -I . -I platform/levilamina/src tests/shape_id_map_test.cpp     -o shape_id_map_test     && ./shape_id_map_test
+g++ -std=c++20 -O1          -I . -I platform/levilamina/src tests/visibility_logic_test.cpp -o visibility_logic_test && ./visibility_logic_test
 ```
 
 | 测试 | 钉住什么 |
@@ -28,6 +28,27 @@ g++ -std=c++20 -O1          -I src tests/visibility_logic_test.cpp -o visibility
 | `shape_id_map_test.cpp` | 脚本形状编号 0..10 与协议编号的双向映射（6 是历史空洞），两套编号不许混 |
 | `visibility_logic_test.cpp` | `core::decideVisibility` 的语义：`R` 内生成、`R..R+4` 迟滞带保持、`R+4` 外移除；禁用/换维度/白名单外立刻移除不受迟滞；`hysteresis==0` 无迟滞带；`viewDistance<=0` 同维度全可见；生成预算不透支 |
 
+
+## 形状编码的选形自测（需要 bedrock-protocol 的 install）
+
+`tests/shape_wire_version_test.cpp` 把形状 body 编出来，再**用当前 `kProtocolVersion` 的读端**解回来，
+钉住的是「选形」：`TextDataPayload.line_gap_height` 只在 2193+ 的线里存在，编码侧一旦误用新版本的
+结构体，每个文本形状就多写 4 个字节、后面字段整体错位（客户端上是悬浮字错位/花屏）。
+断言：读端正好吃掉整个 body、文本样式字段（rotation/depth/backface/背景色）往返一致、删除包不带 `shape_type`。
+
+`bedrock_protocol.lib` 是 MSVC ABI，这条只能用 clang-cl 编（g++ 链不上）：
+
+```bat
+set INC=<服务器根>\.llsdk\endstone-proto\install\include
+set LIB=<服务器根>\.llsdk\endstone-proto\install\lib
+clang-cl /nologo /EHsc /MD /std:c++latest /I. /I"%INC%" ^
+    tests\shape_wire_version_test.cpp core\ShapeWire.cpp core\PacketCodec.cpp ^
+    /link /LIBPATH:"%LIB%" bedrock_protocol.lib
+shape_wire_version_test.exe
+```
+
+换协议版本（`core/proto/Version.h` 的 `kProtocolVersion`）后这条必须重跑：它同时静态断言
+`HasLineGapHeight<TextDataPayload> == (kProtocolVersion >= 2193)`。
 
 ## 需要
 

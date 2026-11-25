@@ -26,6 +26,12 @@ namespace proto = ::debugshape_export::core::proto;
 
 namespace {
 
+// 26.40 的 SetScorePacket 没有 26.60 才加的转发构造函数，
+// 只能默认构造之后把 payload 赋给基类子对象（PayloadPacket<SetScorePacketPayload> 的公有基类）。
+void attachPayload(::SetScorePacket& packet, ::SetScorePacketPayload payload) {
+    static_cast<::SetScorePacketPayload&>(packet) = std::move(payload);
+}
+
 ::Player* findPlayer(std::string const& name) {
     auto level = ::ll::service::getLevel();
     return level ? level->getPlayer(name) : nullptr;
@@ -94,7 +100,8 @@ bool SidebarManager::sendScores(
         payload.mScoreInfo->emplace_back(entry);
     }
 
-    ::SetScorePacket packet{payload};
+    ::SetScorePacket packet;
+    attachPayload(packet, std::move(payload));
     ::BinaryStream   stream;
     packet.write(stream);
     return wire::sendBody(
@@ -122,7 +129,8 @@ bool SidebarManager::sendRemoveScores(
         payload.mScoreInfo->emplace_back(entry);
     }
 
-    ::SetScorePacket packet{payload};
+    ::SetScorePacket packet;
+    attachPayload(packet, std::move(payload));
     ::BinaryStream   stream;
     packet.write(stream);
     return wire::sendBody(

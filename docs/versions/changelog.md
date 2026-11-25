@@ -7,6 +7,7 @@
 
 | 发布版本 | API | 协议线 | 主要内容 | 新增导出 | C++ 消费方 |
 |---|---|---|---|---|---|
+| `26.40.14` | 1.37.0 | 26.40 | **新架构回移**：把 26.60.2 起的 `core/` + `platform/levilamina` 双平台架构移植回 BDS 1.26.40（协议 2168）：`kProtocolVersion` 改 2168、LeviLamina 依赖降回 26.40.0、`Version.h` 里所有随版本换形的包/枚举改成按 `kProtocolVersion` 选形、四处 26.40 与 26.60 的 BDS/协议差异做版本垫片；顺带修掉形状编码里烧死 2193 结构体（每个文本形状多写 4 字节）与文本样式字段没进载荷两个问题；36 个用到的包 id 与 `protocol-docs r26_u4` 全等。接口层未变，ABI stamp 仍为 2。 | 0 | 需核对（虚表与 1.31.0 消费方前缀兼容；严格等值检查 stamp 的插件需按新头重编） |
 | `26.60.8` | 1.37.0 | 26.60 | **热修**：`viewBlockById` 在 26.60.7 不可用（`normaliseType` 给 `#id` 补了 `minecraft:` 前缀，导致回退到注册表查询失败）；endstone 包 `__init__.py` 的版本常量写在 `from __future__` 之前导致 `SyntaxError`（wheel 装不上）；补齐 `lib/exports.json` 的 3 条版本导出（450 条）。ABI 未变，无需重编。 | 0 | 无需重编 |
 | `26.60.7` | 1.37.0 | 26.60 | **库内新增**：LSE 导出 `viewBlockById`（按 network id 覆盖方块）、`viewBlockEntity`（hex/base64 NBT 发 `BlockActorData`）、`blockFakeResolveNbt` / `blockFakeSetNbt` / `blockFakeSetBlockEntity`（SNBT 直接铺假方块与方块实体）；C ABI 新增 `holo_core_encode_block_actor_data`（符号 67 → 68）；endstone 新增 `view_block_by_id` / `view_block_entity`。导出 442 → 447。**ABI 未变**（头文件未动，1.37.0 / 0x012B00 / stamp 2）。 | 5 | 无需重编 |
 | `26.60.6` | 1.37.0 | 26.60 | **修复**：形状删除不生效 —— `ShapeWire` 无条件写 `shape_type`（`mType` 默认 Box），删除包被客户端当成更新。`mType` 改为 optional，删除包只剩 `network_id`。ABI 未变，**无需重编**。 | 0 | 无需重编 |
@@ -25,6 +26,71 @@
 | `26.40.8` | 1.26.0 | 26.40 | 逐观看者覆盖、四个界面域 | 若干 | 需重新编译 |
 
 
+
+## 26.40.14 — 新架构回移到 26.40（协议 2168）
+
+26.40 线此前停在旧架构（`src/` 单平台、`sculk` 协议库、26.40.13）。这一版把 26.60.2 起的新架构
+（`core/` 平台无关编码 + `platform/levilamina` 外壳 + 生成式 `EndstoneMC/bedrock-protocol` 前置）
+整体搬到 **BDS 1.26.40.8 / 协议 2168 / LeviLamina 26.40.6**，源码只有版本相关的改动，接口与导出面不变。
+
+### 改动
+
+- `core/proto/Version.h`：`kProtocolVersion` `2225` → **`2168`**
+- `Version.h` 里原来直接吃「最新版」别名的包/枚举全部改成按 `kProtocolVersion` 选形：
+  `PlayerListPacket` / `AddActorPacket` / `AddPlayerPacket` / `ActorEvent(Packet)` / `MobEquipmentPacket` /
+  `MobEffectPacket` / `PrimitiveShapesPacket` / `ActorDataIDs` / `DataItemEntry` / `ItemStackResponseInfo` /
+  `MolangVersion`；`ItemStackResponseInfo` 从包字段反推（`responses::value_type`），不再写死别名
+- `xmake.lua`：`levilamina 26.60.0` → **`26.40.0`**（对应 bedrockdata v26.40.8-server.2），离线仓库探测改成认 `26_40_0.lua`
+- 版本垫片（26.40 与 26.60 的真实差异，四条都有出处）：
+  1. `ReadOnlyBinaryStream::ensureReadCompleted()` 26.51 才有 → 按它的实现（`mHasOverflowed || 读指针 != 缓冲区长度`）本地判断
+  2. `SetScorePacket` 26.40 没有转发构造函数 → 默认构造后把 payload 赋给基类子对象
+  3. `PlayerAuthInputPacketPayload::mInputData` 2168 是 `std::bitset<66>`（`test()`），2193+ 是 `Bedrock::EnumSet`（`contains()`）→ 成员探测择一
+  4. `PlayerListPacket::AddEntry::play_fab_id` 2193+ 才有 → `clearPlayFabId()` 探测后赋值
+- 枚举命名空间差异：2168 的包字段用 `base::ContainerType`，别名 `bp::ContainerType` 是 2225 的
+  `v2225::ContainerType`，直接赋值编不过 → `proto::ctype::{Container,MinecartChest,Trade}` 按字段类型产出常量
+
+### 协议级差异（2168 相对 2225，生成器已按版本裁掉，不是回归）
+
+| 位置 | 2168 行为 |
+|---|---|
+| `TextDataPayload` | 无 `line_gap_height`（2193+ 才插在 `BackgroundColor` 与 `DepthTest` 之间） |
+| `ItemStackResponseInfo` | cereal 形态带 presence 字节（`_true` 前缀），`containers` 为可选列表 |
+| `PlayerAuthInput.mInputData` | `std::bitset<66>` |
+| `PlayerList::AddEntry` | 无 `play_fab_id`；`entries` 是 variant 列表 |
+| `SerializedSkinRef` | 2168 仍有 `play_fab_id`（2225 挪进 `PlayerList::AddEntry`） |
+
+### 一并修掉的两个形状编码问题
+
+这两条都不是 26.40 特有的，26.60 线同样有（属于 26.60.4 协议迁移时丢的），因为直接影响形状/悬浮字才在这一版修：
+
+1. **`ShapeWire.cpp` 烧死了 2193 的结构体**：原代码直接写 `bp::v2193::PrimitiveShapesPacket` /
+   `v2193::TextDataPayload`，而 `TextDataPayload.line_gap_height` 是 `field(since=2193)` —— 2168 的线里没有，
+   每个文本形状会多写 4 个字节，之后所有字段错位。现在走 `proto::PrimitiveShapesPacket` /
+   `PrimitiveShapeDataPayload` / `TextDataPayload`（都按 `kProtocolVersion` 选形），
+   `line_gap_height` 用 `HasLineGapHeight` 探测后赋值。
+2. **文本样式字段没进载荷**：`use_rotation` / `depth_test` / `show_backface` / `show_text_backface` /
+   `background_color` 只存在 `DebugText` 里，`toPayload()` 只抄了 `text`。旧实现是把 sculk 的协议结构体
+   直接当 `DebugShape` 用，所以这些字段天然在线；迁移后 `setDepthTest` / `setRotation` / `setBackgroundColor`
+   全部静默失效。现在按字段补进载荷。
+3. 新增 `tests/shape_wire_version_test.cpp`：编码 → 用**当前 `kProtocolVersion` 的读端**解回来，
+   断言读端正好吃掉整个 body、文本样式字段往返一致、删除包不带 `shape_type`，
+   并把 `HasLineGapHeight<TextDataPayload> == (kProtocolVersion >= 2193)` 写成 `static_assert`。
+
+### 验证
+
+- `xmake build HologramLib` / `holo_core` 全绿（clang-cl 22.1.8 + LeviLamina 26.40.0 头文件）
+- `python tools/protocol_audit.py ids --docs <protocol-docs-r26_u4>`：36 个包 id 全等
+- `tests/shape_wire_version_test.cpp`：16 项断言全过（`SHAPE-WIRE: PASS`，读端零尾巴）
+- 服务端冒烟（BDS 1.26.40.8 + LeviLamina 26.40.6）：插件加载/启用、10 个 detour 挂载、
+  LSE 层被 MeowMenu / FishDropEntity 正常接入（`ABI 0x012B00`），`viewClearId` 等新导出不再报缺，停服 `Quit correctly`
+- 静态检查与 `main` 基线一致（`abi_tool` / `gen_export_list` 的失败是 26.60 线既有的，不是本次引入）
+
+### 已知限制
+
+- 旧头（1.31.0）编的消费方与新版虚表**前缀兼容**，但 `HOLOGLIB_ABI_STAMP` 是 2：
+  严格等值比较 stamp 的插件（如 MeowRaid）会拒绝启用，需按新头重编
+- endstone 侧未在 26.40 上验证（`holo_core` 按 2168 编出来，但 endstone 0.11 自身对应 1.26.32）
+- 未做进游戏客户端实测；首轮实机建议 `xmake f --holo_diag=y` 打开发包回读校验日志
 
 ## 26.60.4 — 协议前置迁移（sculk → bedrock-protocol）
 

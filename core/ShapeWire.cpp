@@ -10,38 +10,47 @@ namespace bp = ::bedrock::protocol;
 
 namespace {
 
+// line_gap_height 是 TextDataPayload 在 2193+ 才有的字段；2168 的结构体没有它。
+// 放在函数模板里判断，条件才随 Payload 变成依赖式（否则 if constexpr 的丢弃分支仍会被检查）。
+template <class Payload, class Text>
+inline void copyLineGapHeight(Payload& payload, Text const& value) {
+    if constexpr (proto::HasLineGapHeight<Payload>) {
+        payload.line_gap_height = value.mLineGapHeight;
+    }
+}
+
 bp::Vec3 toVec3(Vec3 const& v) {
     return bp::Vec3{v.x, v.y, v.z};
 }
 
-bp::v1001::ScriptPrimitiveShapeType toProtoType(DebugShapeType type) {
+proto::ScriptPrimitiveShapeType toProtoType(DebugShapeType type) {
     switch (type) {
     case DebugShapeType::Text:
-        return bp::v1001::ScriptPrimitiveShapeType::Text;
+        return proto::ScriptPrimitiveShapeType::Text;
     case DebugShapeType::Line:
-        return bp::v1001::ScriptPrimitiveShapeType::Line;
+        return proto::ScriptPrimitiveShapeType::Line;
     case DebugShapeType::Box:
-        return bp::v1001::ScriptPrimitiveShapeType::Box;
+        return proto::ScriptPrimitiveShapeType::Box;
     case DebugShapeType::Circle:
-        return bp::v1001::ScriptPrimitiveShapeType::Circle;
+        return proto::ScriptPrimitiveShapeType::Circle;
     case DebugShapeType::Sphere:
-        return bp::v1001::ScriptPrimitiveShapeType::Sphere;
+        return proto::ScriptPrimitiveShapeType::Sphere;
     case DebugShapeType::Arrow:
-        return bp::v1001::ScriptPrimitiveShapeType::Arrow;
+        return proto::ScriptPrimitiveShapeType::Arrow;
     case DebugShapeType::Cylinder:
-        return bp::v1001::ScriptPrimitiveShapeType::Cylinder;
+        return proto::ScriptPrimitiveShapeType::Cylinder;
     case DebugShapeType::Pyramid:
-        return bp::v1001::ScriptPrimitiveShapeType::Pyramid;
+        return proto::ScriptPrimitiveShapeType::Pyramid;
     case DebugShapeType::Ellipsoid:
-        return bp::v1001::ScriptPrimitiveShapeType::Ellipsoid;
+        return proto::ScriptPrimitiveShapeType::Ellipsoid;
     case DebugShapeType::Cone:
-        return bp::v1001::ScriptPrimitiveShapeType::Cone;
+        return proto::ScriptPrimitiveShapeType::Cone;
     }
-    return bp::v1001::ScriptPrimitiveShapeType::Box;
+    return proto::ScriptPrimitiveShapeType::Box;
 }
 
-bp::v2193::PrimitiveShapeDataPayload toPayload(DebugShape const& shape) {
-    bp::v2193::PrimitiveShapeDataPayload out;
+proto::PrimitiveShapeDataPayload toPayload(DebugShape const& shape) {
+    proto::PrimitiveShapeDataPayload out;
     out.network_id = shape.mNetworkId;
     if (shape.mType) {
         out.shape_type = toProtoType(*shape.mType);
@@ -75,9 +84,16 @@ bp::v2193::PrimitiveShapeDataPayload toPayload(DebugShape const& shape) {
         [&](auto const& value) {
             using T = std::remove_cvref_t<decltype(value)>;
             if constexpr (std::is_same_v<T, DebugText>) {
-                bp::v2193::TextDataPayload payload;
-                payload.text            = value.mText;
-                payload.line_gap_height = value.mLineGapHeight;
+                proto::TextDataPayload payload;
+                payload.text               = value.mText;
+                payload.use_rotation       = value.mUseRotation;
+                payload.depth_test         = value.mDepthTest;
+                payload.show_backface      = value.mShowBackface;
+                payload.show_text_backface = value.mShowTextBackface;
+                if (value.mBackgroundColor) {
+                    payload.background_color = bp::Color{*value.mBackgroundColor};
+                }
+                copyLineGapHeight(payload, value);
                 out.extra_data_payload  = payload;
             } else if constexpr (std::is_same_v<T, DebugLine>) {
                 bp::LineDataPayload payload;
@@ -129,7 +145,7 @@ bp::v2193::PrimitiveShapeDataPayload toPayload(DebugShape const& shape) {
 } // namespace
 
 std::string buildPrimitiveShapesBody(std::vector<DebugShape> const& shapes) {
-    bp::v2193::PrimitiveShapesPacket packet;
+    proto::PrimitiveShapesPacket packet;
     packet.shapes.reserve(shapes.size());
     for (auto const& shape : shapes) {
         packet.shapes.push_back(toPayload(shape));

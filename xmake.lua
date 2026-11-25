@@ -109,16 +109,16 @@ local function find_local_repo()
     if env_repo and env_repo ~= "" then
         table.insert(candidates, env_repo)
     end
-    -- 服务器根目录的离线仓库（26.60 SDK，预构建 levilamina 26.60.0）
+    -- 服务器根目录的离线仓库（26.40 SDK，预构建 levilamina 26.40.0）
     table.insert(candidates, path.join(os.projectdir(), "..", "..", ".llsdk", "liteldev-repo"))
     -- 本机缓存, 再退到兄弟工程
     table.insert(candidates, path.join(os.projectdir(), ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"))
     for _, sibling in ipairs({ "MeowMenu", "MeowKb", "MeowPAPI", "MeowSidebar", "ItemPhys-main" }) do
         table.insert(candidates, path.join(os.projectdir(), "..", sibling, ".xmake", os.host(), os.arch(), "repositories", "liteldev-repo"))
     end
-    -- 只认带 26.60.0 登记的那份, 别捡到旧缓存
+    -- 只认带 26.40.0 登记的那份, 别捡到旧缓存
     for _, p in ipairs(candidates) do
-        if os.exists(path.join(p, "packages", "l", "levilamina", "versions", "26_60_0.lua")) then
+        if os.exists(path.join(p, "packages", "l", "levilamina", "versions", "26_40_0.lua")) then
             return p
         end
     end
@@ -136,14 +136,15 @@ if is_plat("windows") then
     set_toolchains("clang-cl")
 end
 
--- BedrockProtocol 静态库（两个产物共用同一份 install）
--- 26.51 补丁: TextDataPayload.LineGapHeight 插在 BackgroundColor 与 DepthTest 之间,
--- ItemStackResponseInfo.Containers 改 optional 编码
--- 目录可用 HOLO_PROTOCOL_DIR 覆盖
+-- 协议前置 EndstoneMC/bedrock-protocol 的 install（两个产物共用同一份）
+-- 选形由 core/proto/Version.h 的 kProtocolVersion 决定（26.40 = 2168，26.60 = 2225），
+-- 生成头里 26.51 的差异（TextDataPayload.LineGapHeight、ItemStackResponseInfo.Containers）都在
+-- schema 里按 since/until 标着，换版本不用改这份 xmake。
+-- 目录默认 <服务器根>/.llsdk/endstone-proto/install，可用 HOLO_PROTOCOL_DIR 覆盖
 local function protocol_install_dir()
     local dir = os.getenv("HOLO_PROTOCOL_DIR")
     if not dir or dir == "" then
-        dir = path.join(os.projectdir(), "..", "BedrockProtocol-main", "install")
+        dir = path.join(os.projectdir(), "..", "..", ".llsdk", "endstone-proto", "install")
     end
     if not os.isdir(path.join(dir, "include")) then
         raise(format("找不到 BedrockProtocol: %s\n用 HOLO_PROTOCOL_DIR 指向 install/ 目录", dir))
@@ -151,11 +152,11 @@ local function protocol_install_dir()
     return dir
 end
 
--- 与服务端(26.60 / BDS 1.26.60.6)匹配的 levilamina 版本（bedrockdata v26.60.6-server.1）
+-- 与服务端(26.40 / BDS 1.26.40.8)匹配的 levilamina 版本（bedrockdata v26.40.8-server.2）
 if is_config("target_type", "server") then
-    add_requires("levilamina 26.60.0", {configs = {target_type = "server"}})
+    add_requires("levilamina 26.40.0", {configs = {target_type = "server"}})
 else
-    add_requires("levilamina 26.60.0", {configs = {target_type = "client"}})
+    add_requires("levilamina 26.40.0", {configs = {target_type = "client"}})
 end
 
 add_requires("levibuildscript")
@@ -226,7 +227,7 @@ target("HologramLib")
     set_languages("c++23")
 
     -- 协议前置（EndstoneMC/bedrock-protocol，生成式 codec，唯一协议依赖）
-    local bp_install = path.join(os.projectdir(), "..", "..", ".llsdk", "endstone-proto", "install")
+    local bp_install = protocol_install_dir()
     add_sysincludedirs(path.join(bp_install, "include"))
     add_linkdirs(path.join(bp_install, "lib"))
     add_links("bedrock_protocol")
@@ -303,7 +304,7 @@ target("holo_core")
     add_headerfiles("core/**.h")
 
     -- 协议前置（EndstoneMC/bedrock-protocol，生成式 codec，唯一协议依赖）
-    local bp_install = path.join(os.projectdir(), "..", "..", ".llsdk", "endstone-proto", "install")
+    local bp_install = protocol_install_dir()
     add_sysincludedirs(path.join(bp_install, "include"))
     add_linkdirs(path.join(bp_install, "lib"))
     add_links("bedrock_protocol")

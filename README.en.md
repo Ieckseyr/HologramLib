@@ -20,10 +20,10 @@ The same capabilities are reachable two ways: **C++ plugins** (frozen pure-virtu
 
 | | |
 |---|---|
-| Plugin release | `26.60.8` |
-| API version | `1.35.0` (`HOLOGLIB_API_VERSION 0x012900`) |
-| Platform | LeviLamina 26.60 · BDS 1.26.60 (protocol 2225) / Endstone 0.11 (same BDS process) |
-| Public surface | One public header, `include/hologramlib/HologramLib.h` (28 interfaces / 405 slots), plus the LSE namespace `HologramLib` (444 exports) |
+| Plugin release | `26.40.14` |
+| API version | `1.37.0` (`HOLOGLIB_API_VERSION 0x012B00`) |
+| Platform | LeviLamina 26.40 · BDS 1.26.40 (protocol 2168) / Endstone 0.11 (same BDS process, needs the 2168 `holo_core`) |
+| Public surface | One public header, `include/hologramlib/HologramLib.h` (28 interfaces / 405 slots), plus the LSE namespace `HologramLib` (450 exports) |
 | Script prerequisite | `lrca` (LegacyRemoteCall, **optional**); when absent every export call is a safe no-op and the C++ interface is unaffected |
 | License | MIT (the floating-text "dynamic lines" feature is derived from Phantom, LGPL-3.0) |
 

@@ -113,7 +113,7 @@ inline proto::BlockActorDataPacket makeBlockActorData(
 inline proto::ContainerOpenPacket makeContainerOpen(int containerId, int x, int y, int z) {
     proto::ContainerOpenPacket packet;
     packet.container_id = static_cast<proto::ContainerIDType>(containerId);
-    packet.type         = proto::bp::ContainerType::Container;
+    packet.type         = proto::ctype::Container;
     packet.pos          = proto::BlockPos{x, y, z};
     packet.entity_unique_id = proto::ActorUniqueID{-1};
     return packet;
@@ -122,7 +122,7 @@ inline proto::ContainerOpenPacket makeContainerOpen(int containerId, int x, int 
 inline proto::ContainerClosePacket makeContainerClose(int containerId) {
     proto::ContainerClosePacket packet;
     packet.container_id          = static_cast<proto::ContainerIDType>(containerId);
-    packet.container_type        = proto::bp::ContainerType::Container;
+    packet.container_type        = proto::ctype::Container;
     packet.server_initiated_close = true;
     return packet;
 }
